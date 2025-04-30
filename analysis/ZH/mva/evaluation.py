@@ -1,27 +1,12 @@
-import argparse
-import numbers
-from re import I
-import sys, os
-import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import pandas as pd
-import xgboost as xgb
-from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_sample_weight
-from sklearn.metrics import roc_curve, auc
-from sklearn.metrics import accuracy_score
-import uproot
-import ROOT
 import joblib
-import glob
-#import seaborn as sns
 from tqdm import tqdm
 
 from matplotlib import rc
-from userConfig import loc, train_vars, mode_names, latex_mapping, final_states
-import tools.plotting
+from userConfig import loc, train_vars, mode_names, latex_mapping, final_states, plot_file
 import tools.utils as ut
 
 rc('font', **{'family': 'serif', 'serif': ['Roman']})
@@ -66,7 +51,7 @@ def get_performance_metrics(bdt):
     return results, epochs, x_axis, best_iteration
 
 
-def plot_metrics(df,bdt,vars_list,results, epochs, x_axis, best_iteration,mode_names,latex_mappingf,final_states):    
+def plot_metrics(df,bdt,vars_list,results, x_axis, best_iteration, mode_names, final_states):    
     if final_states == "mumu":
       label = r"$Z(\mu^+\mu^-)H$"
     elif final_states == "ee":
@@ -93,11 +78,10 @@ def plot_log_loss(results, x_axis, best_iteration,label):
     ax.legend()
     plt.xlabel("Number of trees")
     plt.ylabel('Log Loss')
-    ax.set_title(r'$\textbf{\textit{FCC-ee}}$ $\textbf{\textit{Simulation}}$', fontsize=16, loc='left')
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    plt.savefig(f"{loc.PLOTS}/log_loss.png")
-    plt.savefig(f"{loc.PLOTS}/log_loss.pdf")
-    plt.savefig(f"{loc.PLOTS}/log_loss.eps")
+    print(f"Saving log loss plot to {loc.PLOTS}/log_loss.{plot_file}")
+    plt.savefig(f"{loc.PLOTS}/log_loss.{plot_file}")
     plt.close()
 
 
@@ -110,11 +94,10 @@ def plot_classification_error(results, x_axis, best_iteration, label):
     ax.legend()
     plt.xlabel('Number of trees')
     plt.ylabel('Classification Error')
-    ax.set_title(r'$\textbf{\textit{FCC-ee}}$ $\textbf{\textit{Simulation}}$', fontsize=16, loc='left')
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    plt.savefig(f"{loc.PLOTS}/classification_error.png")
-    plt.savefig(f"{loc.PLOTS}/classification_error.pdf")
-    plt.savefig(f"{loc.PLOTS}/classification_error.eps")
+    print(f"Saving classification error plot to {loc.PLOTS}/classification_error.{plot_file}")
+    plt.savefig(f"{loc.PLOTS}/classification_error.{plot_file}")
     plt.close()
 
 
@@ -127,11 +110,10 @@ def plot_auc(results, x_axis, best_iteration, label):
     ax.legend()
     plt.xlabel('Number of trees')
     plt.ylabel('AUC')
-    ax.set_title(r'$\textbf{\textit{FCC-ee}}$ $\textbf{\textit{Simulation}}$', fontsize=16, loc='left')
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    plt.savefig(f"{loc.PLOTS}/auc.png")
-    plt.savefig(f"{loc.PLOTS}/auc.pdf")
-    plt.savefig(f"{loc.PLOTS}/auc.eps")
+    print(f"Saving AUC plot to {loc.PLOTS}/auc.{plot_file}")
+    plt.savefig(f"{loc.PLOTS}/auc.{plot_file}")
     plt.close()
 
 
@@ -146,15 +128,14 @@ def plot_roc(df,label):
     ax.set_xlabel("$\epsilon_B$")
     ax.set_ylabel("$\epsilon_S$")
     ut.plot_roc_curve(df[df['valid']==True],  "BDTscore", ax=ax, label="Validation Sample", tpr_threshold=eps)
-    ut.plot_roc_curve(df[df['valid']==False], "BDTscore", ax=ax, color="#ff7f02", tpr_threshold=eps,linestyle='--', label="Training Sample")
+    ut.plot_roc_curve(df[df['valid']==False], "BDTscore", ax=ax, color="#ff7f02", tpr_threshold=eps,linestyle='dotted', label="Training Sample")
     plt.plot([eps, 1], [eps, 1], color='navy', lw=2, linestyle='--')
     ax.legend()
-    ax.set_title(r'$\textbf{\textit{FCC-ee}}$ $\textbf{\textit{Simulation}}$', fontsize=16, loc='left')
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    print(f"Saving ROC plot to {loc.PLOTS}/ROC1.pdf")
-    fig.savefig(f"{loc.PLOTS}/ROC1.pdf")
-    fig.savefig(f"{loc.PLOTS}/ROC1.png")
-    fig.savefig(f"{loc.PLOTS}/ROC1.eps")
+    print(f"Saving ROC plot to {loc.PLOTS}/roc.{plot_file}")
+    fig.savefig(f"{loc.PLOTS}/roc.{plot_file}")
+    plt.close()
 
 
 def plot_bdt_score(df, label):
@@ -167,16 +148,18 @@ def plot_bdt_score(df, label):
     tag = ['Signal Training', 'Signal Validation', 'Background Training', 'Background Validation']
     line = ['solid', 'dashed', 'solid', 'dashed']
     color = ['red', 'red', 'blue', 'blue']
-    cut = ['valid==False & isSignal==1', 'valid==True & isSignal==1', 'valid==False & isSignal!=1', 'valid==True & isSignal!=1']
+    cut = ['valid==False & isSignal==1', 'valid==True & isSignal==1', 
+           'valid==False & isSignal!=1', 'valid==True & isSignal!=1']
     
     for (x, y, z, w) in zip(tag, line, color, cut):
         df_instance = df.query(w)
-        print('--------->', x, len(df_instance), "Ratio: %.2f%%" % ((len(df_instance)/float(len(df))) * 100.0))
-        ax.hist(df_instance['BDTscore'], density=True, bins=Bins, range=[0.0, 1.0], histtype=htype, label=x, linestyle=y, color=z, linewidth=1.5)
+        print(f'---------> {x} {len(df_instance)} "Ratio: {((len(df_instance)/float(len(df))) * 100.0):.2f}')
+        ax.hist(df_instance['BDTscore'], density=True, bins=Bins, range=[0.0, 1.0], histtype=htype, 
+                label=x, linestyle=y, color=z, linewidth=1.5)
     
     plt.yscale('log')
     ax.legend(loc="upper right", fontsize="medium", frameon=False, shadow=False)
-    ax.set_title(r'$\textbf{\textit{FCC-ee}}$ $\textbf{\textit{Simulation}}$', fontsize=16, loc='left')
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=18, loc='right')
 
     ax.set_xlabel("BDT Score", fontsize=14, loc='right', weight='bold')  
@@ -189,14 +172,13 @@ def plot_bdt_score(df, label):
     ax.set_xlim(left=0.0, right=1.0) 
 
     print("------>Plotting BDT score")
-    plt.savefig(f"{loc.PLOTS}/bdt_score.png")
-    plt.savefig(f"{loc.PLOTS}/bdt_score.pdf")
-    plt.savefig(f"{loc.PLOTS}/bdt_score.eps")
+    print(f"Saving BDT score to {loc.PLOTS}/bdt_score.{plot_file}")
+    plt.savefig(f"{loc.PLOTS}/bdt_score.{plot_file}")
     plt.close()
 
 def plot_importance(bdt, vars_list, latex_mapping,label):
     print("------>Plotting feature importance")
-    print("------>Plotting inportance")
+    print("------>Plotting importance")
     fig, ax = plt.subplots(figsize=(12, 6))
 
     # Get feature importances and sort them by importance
@@ -217,24 +199,21 @@ def plot_importance(bdt, vars_list, latex_mapping,label):
     importance_df = pd.DataFrame({'Variable': sorted_vars_latex, 'Importance': sorted_values})
     importance_df.plot(kind='barh', x='Variable', y='Importance', legend=None, ax=ax)
     ax.set_xlabel('F-score')
-    ax.set_title(r'$\textbf{\textit{FCC-ee}}$ $\textbf{\textit{simulation}}$', fontsize=16, loc='left')
+    ax.set_title(r'$\textbf{\textit{FCC-ee simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    print(f"------>Saved {loc.PLOTS}/Importance.pdf")
-    plt.savefig(f"{loc.PLOTS}/importance.png")
-    plt.savefig(f"{loc.PLOTS}/importance.pdf")
-    plt.savefig(f"{loc.PLOTS}/importance.eps")
+    print(f"------>Saved Importance to {loc.PLOTS}/importance.{plot_file}")
+    plt.savefig(f"{loc.PLOTS}/importance.{plot_file}")
     plt.close()
-
-
-
 
 
 def plot_significance_scan(df,label):
     print("------>Plotting Significance scan")
     #compute the significance
-    df_Z = ut.Significance(df[(df['isSignal'] == 1) & (df['valid'] == True)], df[(df['isSignal'] == 0) & (df['valid'] == True)], score_column = 'BDTscore', func=ut.Z, nbins=100)
+    df_Z = ut.Significance(df[(df['isSignal'] == 1) & (df['valid'] == True)], 
+                           df[(df['isSignal'] == 0) & (df['valid'] == True)], 
+                           score_column='BDTscore', func=ut.Z, nbins=100)
     max_index=df_Z["Z"].idxmax()
-    print('max-Z: {:.2f}'.format(df_Z.loc[max_index,"Z"]), 'cut threshold: [', max_index, ']')
+    print(f'max-Z: {df_Z.loc[max_index,"Z"]:.2f} cut threshold: [ max_index]')
     fig, ax = plt.subplots(figsize=(12,8))
     plt.scatter(df_Z.index, df_Z["Z"])
     ax.scatter(x=max_index, y=df_Z.loc[max_index,"Z"], c='r', marker="*")
@@ -242,13 +221,12 @@ def plot_significance_scan(df,label):
     plt.ylabel("Significance")
     txt1 = Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0)
     txt2 = Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0)
-    plt.legend([txt1, txt2], ('max-Z: {:.2f} cut threshold: [{:.2f}]'.format(df_Z.loc[max_index,"Z"],max_index), "$Z = S/\\sqrt{S+B}$"))
-    ax.set_title(r'$\textbf{\textit{FCC-ee}}$ $\textbf{\textit{Simulation}}$', fontsize=16, loc='left')
+    plt.legend([txt1, txt2], (f'max-Z: {df_Z.loc[max_index,"Z"]:.2f} cut threshold: [{max_index:.2f}]', '$Z = S/\\sqrt{S+B}$'))
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
     print("------>Plotting significance scan")
-    plt.savefig(f"{loc.PLOTS}/significance_scan.png")
-    plt.savefig(f"{loc.PLOTS}/significance_scan.pdf")
-    plt.savefig(f"{loc.PLOTS}/significance_scan.eps")
+    print(f"------>Saved Importance to {loc.PLOTS}/significance_scan.{plot_file}")
+    plt.savefig(f"{loc.PLOTS}/significance_scan.{plot_file}")
     plt.close()
 
 
@@ -283,24 +261,22 @@ def plot_efficiency(df,mode_names,label):
     plt.ylim(ymin,1.3)
     plt.legend(fontsize=20, loc="best")
     plt.grid(alpha=0.4,which="both")
-    ax.set_title(r'$\textbf{\textit{FCC-ee}}$ $\textbf{\textit{Simulation}}$', fontsize=16, loc='left')
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
     plt.tight_layout()
     print("------>Plotting efficiency")
-    plt.savefig(f"{loc.PLOTS}/efficiency.png")
-    plt.savefig(f"{loc.PLOTS}/efficiency.pdf")
-    plt.savefig(f"{loc.PLOTS}/efficiency.eps")
+    print(f"------>Saved Efficiency to {loc.PLOTS}/efficiency.{plot_file}")
+    plt.savefig(f"{loc.PLOTS}/efficiency.{plot_file}")
     plt.close()
 
 
 def main():
-    modes = ["mumuH","ZZ","WWmumu","Zll","egamma","gammae","gaga_mumu"]
     df = load_data()
     print_input_summary(df, mode_names)
     bdt = load_trained_model(loc)
     df = evaluate_bdt_model(df, bdt, train_vars)
     results, epochs, x_axis, best_iteration = get_performance_metrics(bdt)
-    plot_metrics(df,bdt,train_vars,results, epochs, x_axis, best_iteration,mode_names,latex_mapping,final_states)
+    plot_metrics(df,bdt,train_vars,results, x_axis, best_iteration, mode_names, final_states)
 
 
 if __name__ == "__main__":

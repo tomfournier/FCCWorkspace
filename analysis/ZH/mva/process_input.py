@@ -5,10 +5,36 @@ import glob
 import uproot
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from userConfig import loc, train_vars, mode_names
+from userConfig import loc, train_vars, mode_names, final_state
 import tools.utils as ut
 import json
-#from config.common_defaults import deffccdicts
+
+def get_procDict(procFile):
+    procDict = None
+    if 'http://' in procFile or 'https://' in procFile:
+        print ('----> getting process dictionary from the web')
+        import urllib.request
+        req = urllib.request.urlopen(procFile).read()
+        procDict = json.loads(req.decode('utf-8'))
+    else:
+        if not ('eos' in procFile):
+            procFile = os.path.join(os.getenv('FCCDICTSDIR').split(':')[0], '') + procFile 
+            print(f"procFile is {procFile}")
+        if not os.path.isfile(procFile):
+            print ('----> No procDict found: ==={}===, exit'.format(procFile))
+            sys.exit(3)
+        with open(procFile, 'r') as f:
+            procDict=json.load(f)
+    return procDict
+
+def update_procDict_keys(procDict, mode_names):
+    # Reverse the mode_names dictionary
+    reversed_mode_names = {v: k for k, v in mode_names.items()}
+    updated_dict = {}
+    for key, value in procDict.items():
+        new_key = reversed_mode_names.get(key, key)
+        updated_dict[new_key] = value
+    return updated_dict
 
 def get_data_paths(cur_mode, data_path):
     path = f"{data_path}/{mode_names[cur_mode]}"
@@ -28,8 +54,8 @@ def update_dataframe_with_additional_info(df, cur_mode, sig):
 def calculate_BDT_input_numbers(mode_names, sig, df, eff, xsec, frac):
     N_BDT_inputs = {}
     print(f"Calculating number of BDT inputs for {mode_names}")
-    print(f"eff = {eff}")
-    print(f"xsec = {xsec}")
+    # print(f"eff = {eff*100:.3f}%")
+    # print(f"xsec = {xsec}")
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in mode_names if mode != sig)
     for cur_mode in mode_names:
         N_BDT_inputs[cur_mode] = (int(frac[cur_mode] * len(df[cur_mode])) if cur_mode == sig else
@@ -50,50 +76,19 @@ def save_data_to_pickle(dfsum, pkl_path):
     print(f"--->Preprocessed saved {pkl_path}/preprocessed.pkl")
     dfsum.to_pickle(f"{pkl_path}/preprocessed.pkl")
 
-def get_procDict(procFile):
-    procDict = None
-    if 'http://' in procFile or 'https://' in procFile:
-        print ('----> getting process dictionary from the web')
-        import urllib.request
-        req = urllib.request.urlopen(procFile).read()
-        procDict = json.loads(req.decode('utf-8'))
-    else:
-        if not ('eos' in procFile):
-            procFile = os.path.join(os.getenv('FCCDICTSDIR').split(':')[0], '') + procFile 
-            #procFile = os.path.join(os.getenv('FCCDICTSDIR', deffccdicts), '') + procFile
-            print(f"procFile is {procFile}")
-        if not os.path.isfile(procFile):
-            print ('----> No procDict found: ==={}===, exit'.format(procFile))
-            sys.exit(3)
-        with open(procFile, 'r') as f:
-            procDict=json.load(f)
-
-    return procDict
-
-def update_procDict_keys(procDict, mode_names):
-    # Reverse the mode_names dictionary
-    reversed_mode_names = {v: k for k, v in mode_names.items()}
-
-    updated_dict = {}
-    for key, value in procDict.items():
-        new_key = reversed_mode_names.get(key, key)
-        updated_dict[new_key] = value
-    return updated_dict
-
     
 def run(modes, n_folds, stage):
 
-    #procFile = "FCCee_procDict_winter2023_training_IDEA.json"
     procFile = "FCCee_procDict_winter2023_IDEA.json"
     proc_dict = get_procDict(procFile)
     procDict = update_procDict_keys(proc_dict, mode_names)
 
     xsec = {key: value["crossSection"] for key, value in procDict.items() if key in mode_names}
 
-    print(f"Cross sections = {xsec}")
+    # print(f"Cross sections = {xsec}")
     
-    sig = "mumuH"
-    data_path = loc.TRAIN if stage == "training" else loc.ANALYSIS
+    sig = f"{final_state}H"
+    data_path = loc.PRESEL if stage == "training" else loc.ANALYSIS
     pkl_path = loc.PKL if stage == "training" else loc.PKL_Val
 
     files = {}
@@ -103,25 +98,25 @@ def run(modes, n_folds, stage):
     vars_list = train_vars.copy()
 
     frac = {
-        "mumuH": 1.0,
-        "WWmumu": 1.0,
+        f"{final_state}H": 1.0,
+        f"WW{final_state}": 1.0,
         "ZZ": 1.0,
         "Zll": 1.0,
         "egamma": 1.0,
         "gammae": 1.0,
-        "gaga_mumu": 1.0
+        f"gaga_{final_state}": 1.0
     }
 
     for cur_mode in mode_names:
         files[cur_mode] = get_data_paths(cur_mode, data_path)
         N_events[cur_mode], df[cur_mode], eff[cur_mode] = calculate_event_counts_and_efficiencies(cur_mode, files[cur_mode], vars_list)
         print(f"Number of events in {cur_mode} = {N_events[cur_mode]}")
-        print(f"Efficiency of {cur_mode} = {eff[cur_mode]}")
+        print(f"Efficiency of {cur_mode} = {eff[cur_mode]*100:.3f}%")
         df[cur_mode] = update_dataframe_with_additional_info(df[cur_mode], cur_mode, sig)
 
     N_BDT_inputs = calculate_BDT_input_numbers(mode_names, sig, df, eff, xsec, frac)
-
     print(f"Number of BDT inputs = {N_BDT_inputs}")
+
     for cur_mode in mode_names:
         df[cur_mode] = split_data_and_update_dataframe(df[cur_mode], N_BDT_inputs, xsec, N_events, cur_mode)
 
@@ -130,8 +125,8 @@ def run(modes, n_folds, stage):
     save_data_to_pickle(dfsum, pkl_path)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process mumuH, WWmumu, ZZ, Zll,eeZ MC to make reduced files for xgboost training')
-    parser.add_argument("--Mode", action="store", dest="modes", default=["mumuH", "ZZ", "WWmumu", "Zll", "egamma", "gammae", "gaga_mumu"], help="Decay mode")
+    parser = argparse.ArgumentParser(description=f'Process {final_state}H, WW{final_state}, ZZ, Zll, eeZ MC to make reduced files for xgboost training')
+    parser.add_argument("--Mode", action="store", dest="modes", default=[f"{final_state}H", "ZZ", f"WW{final_state}", "Zll", "egamma", "gammae", f"gaga_{final_state}"], help="Decay mode")
     parser.add_argument("--Folds", action="store", dest="n_folds", default=2, help="Number of Folds")
     parser.add_argument("--Stage", action="store", dest="stage", default="training", choices=["training", "validation"], help="training or validation")
     args = vars(parser.parse_args())

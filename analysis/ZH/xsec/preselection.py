@@ -1,45 +1,40 @@
 import importlib
 
-# Define final_state and ecm
-final_state = "mumu"
-ecm = "240"
-
-# Load userConfig and replace placeholders
+# Load userConfig 
 userConfig = importlib.import_module("userConfig")
 
-# Now you can use userConfig.loc and userConfig.mode_names with the actual values of final_state and ecm
+# Output directory where the files produced at the pre-selection level will be put
 outputDir = userConfig.loc.PRESEL
 
-#Mandatory: List of processes
-processList = {
-    f'wzp6_ee_{final_state}H_ecm{ecm}':{'chunks':10},
-    f"p8_ee_WW_{final_state}_ecm{ecm}":{'chunks':10},
-    f"p8_ee_ZZ_ecm{ecm}":{'chunks':10},
-    f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}":{'chunks':10},
-    f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}":{'chunks':10},
-    f"wzp6_gaga_{final_state}_60_ecm{ecm}":{'chunks':10},
-}
+# Define final_state and ecm
+final_state = userConfig.final_state
+ecm = userConfig.ecm
 
-#Mandatory: Production tag when running over EDM4Hep centrally produced events, this points to the yaml files for getting sample statistics
-prodTag = "FCCee/winter2023_training/IDEA/"
+# Mandatory: List of processes
+processList = {i:{'chunks':10} for i in userConfig.processList}
 
-#Optional: output directory, default is local dir
+# Mandatory: Production tag when running over EDM4Hep centrally produced events, 
+# this points to the yaml files for getting sample statistics
+prodTag = "FCCee/winter2023/IDEA/"
+
+# Optional: output directory, default is local dir
 eosType = "eosuser"
-#Optional: ncpus, default is 4
+# Optional: ncpus, default is 4
 nCPUS = 4
 
-#Optional running on HTCondor, default is False
-#runBatch = True
+# Optional running on HTCondor, default is False
+# runBatch = True
 runBatch = False
 
-#Optional batch queue name when running on HTCondor, default is workday
+# Optional batch queue name when running on HTCondor, default is workday
 batchQueue = "longlunch"
 
-#Optional computing account when running on HTCondor, default is group_u_FCC.local_gen
+# Optional computing account when running on HTCondor, default is group_u_FCC.local_gen
 compGroup = "group_u_FCC.local_gen"
 
-#userBatchConfig="/afs/cern.ch/work/l/lia/private/FCC/NewWorkFlow/FCCeePhysicsPerformance/case-studies/higgs/mH-recoil/FCCAnalyses-config/Winter2023/userBatch.Config"
-#USER DEFINED CODE
+# userBatchConfig = userConfig.loc.BATCH
+
+# USER DEFINED CODE
 import ROOT
 ROOT.gInterpreter.Declare("""
 bool Selection(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> in){
@@ -64,11 +59,11 @@ bool Selection(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> in){
 }
 """)
 
-#Mandatory: RDFanalysis class where the use defines the operations on the TTree
+# Mandatory: RDFanalysis class where the use defines the operations on the TTree
 class RDFanalysis():
 
     #__________________________________________________________
-    #Mandatory: analysers funtion to define the analysers to process, please make sure you return the last dataframe, in this example it is df2
+    # Mandatory: analysers funtion to define the analysers to process, please make sure you return the last dataframe, in this example it is df2
     def analysers(df):
         df2 = df
 
@@ -125,7 +120,7 @@ class RDFanalysis():
         df2 = df2.Define("leps_all_reso_p", "HiggsTools::leptonResolution_p(leps_all, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
         df2 = df2.Define("leps_reso_p", "HiggsTools::leptonResolution_p(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
         
-        # build the Z resonance and recoil using MC information from the selected muons
+        # build the Z resonance and recoil using MC information from the selected leptons
         df2 = df2.Define("zed_leptonic_MC", "HiggsTools::resonanceZBuilder2(91, true)(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
         df2 = df2.Define("zed_leptonic_m_MC", "FCCAnalyses::ReconstructedParticle::get_mass(zed_leptonic_MC)")
         df2 = df2.Define("zed_leptonic_recoil_MC", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zed_leptonic_MC)")
@@ -162,7 +157,7 @@ class RDFanalysis():
         df2 = df2.Define("sorted_phi", "FCCAnalyses::ReconstructedParticle::get_phi(sorted_leptons)")
         df2 = df2.Define("leading_p", "return sorted_p.at(0)")
         df2 = df2.Define("leading_m", "return sorted_m.at(0)")
-        df2 = df2.Define("leading_theta", "return sorted_zll_theta.at(0)")
+        df2 = df2.Define("leading_theta", "return sorted_theta.at(0)")
         df2 = df2.Define("leading_phi", "return sorted_phi.at(0)")
         df2 = df2.Define("subleading_p", "return sorted_p.at(1)")
         df2 = df2.Define("subleading_m", "return sorted_m.at(1)")
@@ -186,38 +181,28 @@ class RDFanalysis():
         return df2
 
     #__________________________________________________________
-    #Mandatory: output function, please make sure you return the branchlist as a python list
+    # Mandatory: output function, please make sure you return the branchlist as a python list
     def output():
         branchList = [
-            #Reconstructed Particle
-            #leptons
-            "leading_p",  
-            "leading_m",  
-            "leading_theta",                    
-            "leading_phi",
-            "subleading_p",
-            "subleading_m",
-            "subleading_theta",
-            "subleading_phi",
-            "acolinearity",
-            "acoplanarity",
-            #Zed
-            "zll_m",
-            "zll_p",
-            "zll_theta",
-            "zll_phi",
-            #Recoil
+            # Reconstructed Particle
+            # leptons
+            "leading_p", "leading_m",  
+            "leading_theta", "leading_phi",
+            "subleading_p", "subleading_m",
+            "subleading_theta", "subleading_phi",
+            "acolinearity", "acoplanarity",
+            # Zed
+            "zll_m", "zll_p",
+            "zll_theta", "zll_phi",
+            # Recoil
             "zll_recoil_m",
-            #missing Information
+            # missing Information
             "cosTheta_miss",
-            #Higgsstrahlungness
+            # Higgsstrahlungness
             "H",
-            #Cutflow
-            #"cut0",
-            #"cut1",
-            #"cut2",
-            #"cut3",
-            #"cut4",
-            #"cut5"
+            # Cutflow
+            # "cut0", "cut1",
+            # "cut2", "cut3",
+            # "cut4", "cut5"
         ]
         return branchList

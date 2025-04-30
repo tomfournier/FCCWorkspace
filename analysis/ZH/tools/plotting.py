@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import awkward as ak
 import matplotlib as mpl
-from sklearn import metrics
 from sklearn.metrics import roc_curve, auc
 
 def errorbar_hist(P,var,P_name,title,units,low,high,bins):
@@ -68,10 +67,10 @@ def plot_roc_curve(df, score_column, tpr_threshold=0.7, ax=None, color=None, lin
     ax = plt.gca()
   if label is None:
     label = score_column
-  fpr, tpr, thresholds = metrics.roc_curve(df['isSignal'], df[score_column], sample_weight=df['weight_total'])
+  fpr, tpr, thresholds = roc_curve(df['isSignal'], df[score_column], sample_weight=df['weight_total'])
   roc_auc = auc(fpr, tpr)
   mask = tpr >= tpr_threshold
   fpr, tpr = fpr[mask], tpr[mask]
-  ax.plot(fpr, tpr, label=label+', auc={:.2f}'.format(roc_auc), color=color, linestyle=linestyle)
+  ax.plot(fpr, tpr, label=label+', AUC = {:.2f}'.format(roc_auc), color=color, linestyle=linestyle)
   #ax.semilogy(tpr, fpr, label=label, color=color, linestyle=linestyle)
 

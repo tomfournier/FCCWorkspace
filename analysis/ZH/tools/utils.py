@@ -16,16 +16,14 @@ from hyperopt import hp
 from math import sqrt, log, fabs
 
 def get_df(root_file_name, branches):
-  
   file = uproot.open(root_file_name)
   tree = file['events']
 
   #Load event-level vars
-  print("Converting to awkward array")
+  # print("Converting to awkward array")
   if len(file) == 0:
     return pd.DataFrame()
   df = tree.arrays(library="pd", how="zip", filter_name=branches)
-  
   return df
 
 def Z0(S, B):
@@ -43,10 +41,10 @@ def Z(S, B):
     return -100
   return S/sqrt(S+B)
 
-def Significance(df_s,df_b, score_column = 'BDTscore', func=Z0, score_range=(0, 1), nbins=50):
+def Significance(df_s, df_b, score_column='BDTscore', func=Z0, score_range=(0, 1), nbins=50):
   S0 = np.sum(df_s.loc[df_s.index,'norm_weight'])
   B0 = np.sum(df_b.loc[df_b.index,'norm_weight']) 
-  print('initial: S0={:.2f}, B0={:.2f}'.format(S0, B0))
+  print('initial: S0 =m{:.2f}, B0 = {:.2f}'.format(S0, B0))
   print('inclusive Z: {:.2f}'.format(func(S0, B0)))
 
   wid = (score_range[1]-score_range[0])/nbins
