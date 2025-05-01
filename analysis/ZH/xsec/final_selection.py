@@ -60,8 +60,8 @@ cutList = {
 histoList = {
     # plot fundamental varibales:
     "leading_p":{"name":"leading_p","title":"p_{l,leading} [GeV]","bin":100,"xmin":45,"xmax":85},
-    "leading__theta":{"name":"leading_theta","title":"#theta_{l,leading}","bin":100,"xmin":0,"xmax":3.2},
-    "subleading__p":{"name":"subleading_p","title":"p_{l,subleading}  [GeV]","bin":100,"xmin":20,"xmax":60},
+    "leading_theta":{"name":"leading_theta","title":"#theta_{l,leading}","bin":100,"xmin":0,"xmax":3.2},
+    "subleading_p":{"name":"subleading_p","title":"p_{l,subleading}  [GeV]","bin":100,"xmin":20,"xmax":60},
     "subleading_theta":{"name":"subleading_theta","title":"#theta_{l,subleading}","bin":100,"xmin":0,"xmax":3.2},
     
     # Zed
@@ -71,8 +71,8 @@ histoList = {
     "zll_phi":{"name":"zll_phi","title":"#phi_{l^{+}l^{-}}","bin":100,"xmin":-3.2,"xmax":3.2},
     
     # more control variables
-    "acolinearity":{"name":"zll_leptons_acolinearity","title":"#Delta#theta_{l^{+}l^{-}}","bin":100,"xmin":0,"xmax":3.2},
-    "acoplanarity":{"name":"zll_leptons_acoplanarity","title":"#Delta#phi_{l^{+}l^{-}}","bin":100,"xmin":0,"xmax":3.2},
+    "acolinearity":{"name":"acolinearity","title":"#Delta#theta_{l^{+}l^{-}}","bin":100,"xmin":0,"xmax":3.2},
+    "acoplanarity":{"name":"acoplanarity","title":"#Delta#phi_{l^{+}l^{-}}","bin":100,"xmin":0,"xmax":3.2},
     
     # Recoil
     "zll_recoil_m":{"name":"zll_recoil_m","title":"m_{recoil} [GeV]","bin":100,"xmin":120,"xmax":140},

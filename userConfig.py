@@ -40,7 +40,7 @@ loc.BATCH = f"{batch}/userBatch.Config"
 loc.PRESEL = f"{loc.OUT}/preselection/{final_state}"
 
 #Location of final selection
-loc.FINAL = f"{loc.OUT}/final/{final_state}"
+loc.FINAL = f"{loc.OUT}/final/{final_state}/"
 
 #Output BDT model location - used in official sample production to assign MVA weights
 loc.BDT = f"{loc.OUT}/BDT/{final_state}"
