@@ -6,7 +6,7 @@ import joblib
 from tqdm import tqdm
 
 from matplotlib import rc
-from userConfig import loc, train_vars, mode_names, latex_mapping, final_states, plot_file
+from userConfig import loc, train_vars, mode_names, latex_mapping, final_state, plot_file, Label
 import tools.utils as ut
 
 rc('font', **{'family': 'serif', 'serif': ['Roman']})
@@ -51,14 +51,14 @@ def get_performance_metrics(bdt):
     return results, epochs, x_axis, best_iteration
 
 
-def plot_metrics(df,bdt,vars_list,results, x_axis, best_iteration, mode_names, final_states):    
-    if final_states == "mumu":
+def plot_metrics(df,bdt,vars_list,results, x_axis, best_iteration, mode_names, final_state):    
+    if final_state == "mumu":
       label = r"$Z(\mu^+\mu^-)H$"
-    elif final_states == "ee":
+    elif final_state == "ee":
       label = r"$Z(e^+e^-)H$"
     else:
       exit("ERROR: Invalid final state")
-    ut.create_dir(f"{loc.PLOTS}")
+    ut.create_dir(f"{loc.PLOTS_BDT}")
     plot_log_loss(results, x_axis, best_iteration,label)
     plot_classification_error(results, x_axis, best_iteration,label)
     plot_auc(results, x_axis, best_iteration,label)
@@ -66,82 +66,82 @@ def plot_metrics(df,bdt,vars_list,results, x_axis, best_iteration, mode_names, f
     plot_bdt_score(df,label)
     plot_importance(bdt,vars_list,latex_mapping,label)
     plot_significance_scan(df,label)
-    plot_efficiency(df,mode_names,label)
+    # plot_efficiency(df,mode_names,label)
 
 
 def plot_log_loss(results, x_axis, best_iteration,label):
     print("------>Plotting log loss")
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(12,8))
     ax.plot(x_axis, results['validation_0']['logloss'], label='Training')
     ax.plot(x_axis, results['validation_1']['logloss'], label='Validation')
     #plt.axvline(best_iteration, color="gray", label="Optimal tree number")
-    ax.legend()
-    plt.xlabel("Number of trees")
-    plt.ylabel('Log Loss')
+    ax.legend(fontsize=14)
+    plt.xlabel("Number of trees", fontsize=14)
+    plt.ylabel('Log Loss', fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    print(f"Saving log loss plot to {loc.PLOTS}/log_loss.{plot_file}")
-    plt.savefig(f"{loc.PLOTS}/log_loss.{plot_file}")
+    plt.savefig(f"{loc.PLOTS_BDT}/log_loss.{plot_file}", bbox_inches='tight')
+    print(f"Saved log loss plot to {loc.PLOTS_BDT}/log_loss.{plot_file}")
     plt.close()
 
 
 def plot_classification_error(results, x_axis, best_iteration, label):
     print("------>Plotting classification error")
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(12,8))
     ax.plot(x_axis, results['validation_0']['error'], label='Training')
     ax.plot(x_axis, results['validation_1']['error'], label='Validation')
     #plt.axvline(best_iteration, color="gray", label="Optimal tree number")
-    ax.legend()
-    plt.xlabel('Number of trees')
-    plt.ylabel('Classification Error')
+    ax.legend(fontsize=14)
+    plt.xlabel('Number of trees', fontsize=14)
+    plt.ylabel('Classification Error', fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    print(f"Saving classification error plot to {loc.PLOTS}/classification_error.{plot_file}")
-    plt.savefig(f"{loc.PLOTS}/classification_error.{plot_file}")
+    plt.savefig(f"{loc.PLOTS_BDT}/classification_error.{plot_file}", bbox_inches='tight')
+    print(f"Saved classification error plot to {loc.PLOTS_BDT}/classification_error.{plot_file}")
     plt.close()
 
 
 def plot_auc(results, x_axis, best_iteration, label):
     print("------>Plotting AUC")
-    fig, ax = plt.subplots()
-    ax.plot(x_axis, results['validation_0']['auc'], label='Training')
-    ax.plot(x_axis, results['validation_1']['auc'], label='Validation')
+    fig, ax = plt.subplots(figsize=(12,8))
+    ax.plot(x_axis, results['validation_0']['auc'], label='Training', linewidth=2)
+    ax.plot(x_axis, results['validation_1']['auc'], label='Validation', linewidth=2)
     #plt.axvline(best_iteration, color="gray", label="Optimal tree number")
-    ax.legend()
-    plt.xlabel('Number of trees')
-    plt.ylabel('AUC')
+    ax.legend(fontsize=14)
+    plt.xlabel('Number of trees', fontsize=14)
+    plt.ylabel('AUC', fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    print(f"Saving AUC plot to {loc.PLOTS}/auc.{plot_file}")
-    plt.savefig(f"{loc.PLOTS}/auc.{plot_file}")
+    plt.savefig(f"{loc.PLOTS_BDT}/auc.{plot_file}", bbox_inches='tight')
+    print(f"Saved AUC plot to {loc.PLOTS_BDT}/auc.{plot_file}")
     plt.close()
 
 
 def plot_roc(df,label):
     # plot ROC 1
     print("------>Plotting ROC")
-    fig, axes = plt.subplots(1, 1, figsize=(5,5))
+    fig, axes = plt.subplots(1, 1, figsize=(12,8))
     #df_train = df_tot.query('valid==False')
     #df_valid =  df_tot.query("valid==True")
     eps=0.
     ax=axes
-    ax.set_xlabel("$\epsilon_B$")
-    ax.set_ylabel("$\epsilon_S$")
+    ax.set_xlabel("$\epsilon_B$", fontsize=14)
+    ax.set_ylabel("$\epsilon_S$", fontsize=14)
     ut.plot_roc_curve(df[df['valid']==True],  "BDTscore", ax=ax, label="Validation Sample", tpr_threshold=eps)
     ut.plot_roc_curve(df[df['valid']==False], "BDTscore", ax=ax, color="#ff7f02", tpr_threshold=eps,linestyle='dotted', label="Training Sample")
     plt.plot([eps, 1], [eps, 1], color='navy', lw=2, linestyle='--')
-    ax.legend()
+    ax.legend(fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    print(f"Saving ROC plot to {loc.PLOTS}/roc.{plot_file}")
-    fig.savefig(f"{loc.PLOTS}/roc.{plot_file}")
+    fig.savefig(f"{loc.PLOTS_BDT}/roc.{plot_file}", bbox_inches='tight')
+    print(f"Saved ROC plot to {loc.PLOTS_BDT}/roc.{plot_file}")
     plt.close()
 
 
 def plot_bdt_score(df, label):
     print("------>Plotting BDT score (overtraining check)")
     
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(12,8))
     Bins = 20
     htype = "step"
     
@@ -158,7 +158,7 @@ def plot_bdt_score(df, label):
                 label=x, linestyle=y, color=z, linewidth=1.5)
     
     plt.yscale('log')
-    ax.legend(loc="upper right", fontsize="medium", frameon=False, shadow=False)
+    ax.legend(loc="upper right", frameon=False, shadow=False, fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=18, loc='right')
 
@@ -168,18 +168,19 @@ def plot_bdt_score(df, label):
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     
-    ax.set_ylim(top=ax.get_ylim()[1] * 2.0)  # Increase the Y-axis space
+    ax.set_ylim(top=ax.get_ylim()[1] * 3)  # Increase the Y-axis space
     ax.set_xlim(left=0.0, right=1.0) 
 
     print("------>Plotting BDT score")
-    print(f"Saving BDT score to {loc.PLOTS}/bdt_score.{plot_file}")
-    plt.savefig(f"{loc.PLOTS}/bdt_score.{plot_file}")
+    plt.savefig(f"{loc.PLOTS_BDT}/bdt_score.{plot_file}", bbox_inches='tight')
+    print(f"Saved BDT score to {loc.PLOTS_BDT}/bdt_score.{plot_file}")
     plt.close()
 
 def plot_importance(bdt, vars_list, latex_mapping,label):
     print("------>Plotting feature importance")
     print("------>Plotting importance")
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(12,8))
+    plt.rcParams.update({'font.size': 16})
 
     # Get feature importances and sort them by importance
     importance = bdt.get_booster().get_score(importance_type='weight')
@@ -198,11 +199,11 @@ def plot_importance(bdt, vars_list, latex_mapping,label):
     # Create a DataFrame and plot the feature importances
     importance_df = pd.DataFrame({'Variable': sorted_vars_latex, 'Importance': sorted_values})
     importance_df.plot(kind='barh', x='Variable', y='Importance', legend=None, ax=ax)
-    ax.set_xlabel('F-score')
+    ax.set_xlabel('F-score', fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
-    print(f"------>Saved Importance to {loc.PLOTS}/importance.{plot_file}")
-    plt.savefig(f"{loc.PLOTS}/importance.{plot_file}")
+    plt.savefig(f"{loc.PLOTS_BDT}/importance.{plot_file}", bbox_inches='tight')
+    print(f"------>Saved Importance to {loc.PLOTS_BDT}/importance.{plot_file}")
     plt.close()
 
 
@@ -213,20 +214,21 @@ def plot_significance_scan(df,label):
                            df[(df['isSignal'] == 0) & (df['valid'] == True)], 
                            score_column='BDTscore', func=ut.Z, nbins=100)
     max_index=df_Z["Z"].idxmax()
-    print(f'max-Z: {df_Z.loc[max_index,"Z"]:.2f} cut threshold: [ max_index]')
+    print(f'max-Z: {df_Z.loc[max_index,"Z"]:.2f} cut threshold: [{max_index}]')
     fig, ax = plt.subplots(figsize=(12,8))
     plt.scatter(df_Z.index, df_Z["Z"])
     ax.scatter(x=max_index, y=df_Z.loc[max_index,"Z"], c='r', marker="*")
-    plt.xlabel("BDT Score ")
-    plt.ylabel("Significance")
-    txt1 = Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0)
-    txt2 = Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0)
-    plt.legend([txt1, txt2], (f'max-Z: {df_Z.loc[max_index,"Z"]:.2f} cut threshold: [{max_index:.2f}]', '$Z = S/\\sqrt{S+B}$'))
+    plt.xlabel("BDT Score ", fontsize=14)
+    plt.ylabel("Significance", fontsize=14)
+    txt1 = Rectangle((0, 0), .01, .01, fc="w", fill=False, edgecolor='none', linewidth=0)
+    txt2 = Rectangle((0, 0), .01, .01, fc="w", fill=False, edgecolor='none', linewidth=0)
+    plt.legend([txt1, txt2], (f'max-Z: {df_Z.loc[max_index,"Z"]:.2f}\n cut threshold: [{max_index:.2f}]', '$Z = S/\\sqrt{S+B}$'), 
+               fontsize=14, frameon=False)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
     print("------>Plotting significance scan")
-    print(f"------>Saved Importance to {loc.PLOTS}/significance_scan.{plot_file}")
-    plt.savefig(f"{loc.PLOTS}/significance_scan.{plot_file}")
+    plt.savefig(f"{loc.PLOTS_BDT}/significance_scan.{plot_file}", bbox_inches='tight')
+    print(f"------>Saved Importance to {loc.PLOTS_BDT}/significance_scan.{plot_file}")
     plt.close()
 
 
@@ -250,7 +252,7 @@ def plot_efficiency(df,mode_names,label):
     fig, ax = plt.subplots(figsize=(12,8))
     
     for cur_mode in mode_names:
-      plt.plot(cut_vals, eff[cur_mode], label=cur_mode)
+      plt.plot(cut_vals, eff[cur_mode], label=Label[cur_mode])
          
     ax.tick_params(axis='both', which='major', labelsize=25)
     plt.xlim(0,1)
@@ -259,14 +261,14 @@ def plot_efficiency(df,mode_names,label):
     #plt.yscale('log')
     ymin,ymax = plt.ylim()
     plt.ylim(ymin,1.3)
-    plt.legend(fontsize=20, loc="best")
+    plt.legend(fontsize=14, loc="best", ncols=3)
     plt.grid(alpha=0.4,which="both")
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
     plt.tight_layout()
     print("------>Plotting efficiency")
-    print(f"------>Saved Efficiency to {loc.PLOTS}/efficiency.{plot_file}")
-    plt.savefig(f"{loc.PLOTS}/efficiency.{plot_file}")
+    plt.savefig(f"{loc.PLOTS_BDT}/efficiency.{plot_file}", bbox_inches='tight')
+    print(f"------>Saved Efficiency to {loc.PLOTS_BDT}/efficiency.{plot_file}")
     plt.close()
 
 
@@ -276,7 +278,7 @@ def main():
     bdt = load_trained_model(loc)
     df = evaluate_bdt_model(df, bdt, train_vars)
     results, epochs, x_axis, best_iteration = get_performance_metrics(bdt)
-    plot_metrics(df,bdt,train_vars,results, x_axis, best_iteration, mode_names, final_states)
+    plot_metrics(df,bdt,train_vars,results, x_axis, best_iteration, mode_names, final_state)
 
 
 if __name__ == "__main__":

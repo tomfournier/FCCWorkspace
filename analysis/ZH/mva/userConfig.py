@@ -45,6 +45,9 @@ loc.FINAL = f"{loc.OUT}/final/{final_state}/"
 #Output BDT model location - used in official sample production to assign MVA weights
 loc.BDT = f"{loc.OUT}/BDT/{final_state}"
 
+#Location of BDT evaluation plots
+loc.PLOTS_BDT = f"{loc.PLOTS}/evaluation"
+
 #Samples for first stage BDT training
 loc.TRAIN = f"{loc.OUT}/MVAInputs/{final_state}"
 
@@ -61,7 +64,7 @@ samples = {
     #background: 
     f"p8_ee_WW_ecm{ecm}",
     f"p8_ee_ZZ_ecm{ecm}",
-    f"wzp6_ee_tautau_ecm{ecm}",
+    f"wzp6_ee_tautau_ecm{ecm}"
     #rare backgrounds:
     f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
     f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
@@ -115,3 +118,22 @@ mode_names = {f"{final_state}H": f"wzp6_ee_{final_state}H_ecm{ecm}",
               f"egamma": f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
               f"gammae": f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
               f"gaga_{final_state}": f"wzp6_gaga_{final_state}_60_ecm{ecm}"}
+
+Label = {}
+if final_state == "mumu":
+    Label = {f"{final_state}H": r"$e^+e^-\rightarrow Z(\mu^+\mu^-)H$",
+            f"ZZ": r"$e^+e^-\rightarrow ZZ$",
+            f"WW{final_state}": r"$e^+e^-\rightarrow WW[\nu_{\mu}\mu]$",
+            f"Zll": r"$e^+e^-\rightarrow\mu^+\mu^-$",
+            f"egamma": r"$e^-\gamma\rightarrow e^-Z(\mu^+\mu^-)$",
+            f"gammae": r"$e^+\gamma\rightarrow e^+Z(\mu^+\mu^-)$",
+            f"gaga_{final_state}": r"$\gamma\gamma\rightarrow\mu^+\mu^-$"}
+
+elif final_state == "ee":
+    Label = {f"{final_state}H": r"$e^+e^-\rightarrow Z(e^+e^-)H$",
+            f"ZZ": r"$e^+e^-\rightarrow ZZ$",
+            f"WW{final_state}": r"$e^+e^-\rightarrow WW[\nu_{e}e]$",
+            f"Zll": r"$e^+e^-\rightarrow e^+e^-$",
+            f"egamma": r"$e^-\gamma\rightarrow e^-Z(e^+e^-)$",
+            f"gammae": r"$e^+\gamma\rightarrow e^+Z(e^+e^-)$",
+            f"gaga_{final_state}": r"$\gamma\gamma\rightarrow e^+e^-$"}

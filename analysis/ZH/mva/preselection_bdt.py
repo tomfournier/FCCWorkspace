@@ -121,6 +121,7 @@ class RDFanalysis():
         df2 = df2.Define("leps_no", "FCCAnalyses::ReconstructedParticle::get_n(leps)")
         df2 = df2.Define("leps_iso", "HiggsTools::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)")
         df2 = df2.Define("leps_sel_iso", "HiggsTools::sel_isol(0.25)(leps, leps_iso)")
+
         # momentum resolution
         df2 = df2.Define("leps_all_reso_p", "HiggsTools::leptonResolution_p(leps_all, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
         df2 = df2.Define("leps_reso_p", "HiggsTools::leptonResolution_p(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
@@ -137,13 +138,15 @@ class RDFanalysis():
         # df2 = df2.Define("cut1", "1")
         
         #########
-        ### CUT 2: at least 2 leptons, and build the resonance
+        ### CUT 2: at least 2 leptons
         #########
         df2 = df2.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()")
         # df2 = df2.Define("cut2", "2")
 
-        # build the Z resonance based on the available leptons. Returns the best lepton pair compatible with the Z mass and recoil at 125 GeV
-        # technically, it returns a ReconstructedParticleData object with index 0 the di-lepton system, index and 2 the leptons of the pair
+        # build the Z resonance based on the available leptons. 
+        # Returns the best lepton pair compatible with the Z mass and recoil at 125 GeV
+        # technically, it returns a ReconstructedParticleData object with index 0 the di-lepton system, 
+        # index 1 and 2 the leptons of the pair
         df2 = df2.Define("zbuilder_result", "HiggsTools::resonanceBuilder_mass_recoil(91.2, 125, 0.4, 240, false)(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
         df2 = df2.Define("zll", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[0]}") # the Z
         df2 = df2.Define("zll_leps", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[1],zbuilder_result[2]}") # the leptons

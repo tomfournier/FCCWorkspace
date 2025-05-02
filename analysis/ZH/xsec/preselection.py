@@ -11,7 +11,12 @@ final_state = userConfig.final_state
 ecm = userConfig.ecm
 
 # Mandatory: List of processes
-processList = {i:{'chunks':10} for i in userConfig.processList}
+processList = {i:userConfig.paramList for i in userConfig.processList}
+
+if final_state=="mumu":
+    processList[f"ee_{final_state}_ecm{ecm}"] = userConfig.paramList
+elif final_state=="ee":
+    processList[f"wzp6_ee_{final_state}_Mee_30_150_ecm{ecm}"] = userConfig.paramList
 
 # Mandatory: Production tag when running over EDM4Hep centrally produced events, 
 # this points to the yaml files for getting sample statistics
@@ -117,6 +122,8 @@ class RDFanalysis():
         df2 = df2.Define("leps_no", "FCCAnalyses::ReconstructedParticle::get_n(leps)")
         df2 = df2.Define("leps_iso", "HiggsTools::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)")
         df2 = df2.Define("leps_sel_iso", "HiggsTools::sel_isol(0.25)(leps, leps_iso)")
+
+        # momentum resolution
         df2 = df2.Define("leps_all_reso_p", "HiggsTools::leptonResolution_p(leps_all, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
         df2 = df2.Define("leps_reso_p", "HiggsTools::leptonResolution_p(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
         
@@ -125,10 +132,28 @@ class RDFanalysis():
         df2 = df2.Define("zed_leptonic_m_MC", "FCCAnalyses::ReconstructedParticle::get_mass(zed_leptonic_MC)")
         df2 = df2.Define("zed_leptonic_recoil_MC", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zed_leptonic_MC)")
         df2 = df2.Define("zed_leptonic_recoil_m_MC", "FCCAnalyses::ReconstructedParticle::get_mass(zed_leptonic_recoil_MC)")
-        
-        # gen analysis
+
+        #########
+        ### CUT 0: no cut
+        #########
+        # df2 = df2.Define("cut0", "0")
+
+        #########
+        ### CUT 1: at least one lepton and at least one lepton isolated (I_rel < 0.25)
+        #########
         df2 = df2.Filter("leps_no >= 1 && leps_sel_iso.size() > 0")
+        # df2 = df2.Define("cut1", "1")
+
+        #########
+        ### CUT 2: at least 2 leptons
+        #########
         df2 = df2.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()")
+        # df2 = df2.Define("cut2", "2")
+
+        # build the Z resonance based on the available leptons. 
+        # Returns the best lepton pair compatible with the Z mass and recoil at 125 GeV
+        # technically, it returns a ReconstructedParticleData object with index 0 the di-lepton system, 
+        # index 1 and 2 the leptons of the pair
         df2 = df2.Define("zbuilder_result_Hll", f"HiggsTools::resonanceBuilder_mass_recoil2(125, 91.2, 0.4, {ecm}, false)(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
         df2 = df2.Define("zll_Hll", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[0]}") # the Z
         df2 = df2.Define("zll_Hll_m", "FCCAnalyses::ReconstructedParticle::get_mass(zll_Hll)[0]")
@@ -171,12 +196,27 @@ class RDFanalysis():
         
         # Higgsstrahlungness
         df2 = df2.Define("H", "HiggsTools::Higgsstrahlungness(zll_m, zll_recoil_m)")
+
+        #########
+        ### CUT 3: Z mass between 86 and 96 GeV
+        #########
         df2 = df2.Filter("zll_m > 86 && zll_m < 96") 
+        # df2 = df2.Define("cut3", "3")
+
+        #########
+        ### CUT 4: Z momentum between 20 and 70 GeV (240 GeV) or > 20 GeV (365 GeV)
+        #########
         if ecm == "240":
             df2 = df2.Filter("zll_p > 20 && zll_p < 70")
         elif ecm == "365":
             df2 = df2.Filter("zll_p > 20")
+        # df2 = df2.Define("cut4", "4")
+
+        #########
+        ### CUT 5: recoil mass between 100 and 150 GeV
+        #########
         df2 = df2.Filter("zll_recoil_m < 150 && zll_recoil_m > 100")
+        # df2 = df2.Define("cut5", "5")
         
         return df2
 

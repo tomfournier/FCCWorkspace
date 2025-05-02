@@ -44,7 +44,7 @@ def Z(S, B):
 def Significance(df_s, df_b, score_column='BDTscore', func=Z0, score_range=(0, 1), nbins=50):
   S0 = np.sum(df_s.loc[df_s.index,'norm_weight'])
   B0 = np.sum(df_b.loc[df_b.index,'norm_weight']) 
-  print('initial: S0 =m{:.2f}, B0 = {:.2f}'.format(S0, B0))
+  print('initial: S0 = {:.2f}, B0 = {:.2f}'.format(S0, B0))
   print('inclusive Z: {:.2f}'.format(func(S0, B0)))
 
   wid = (score_range[1]-score_range[0])/nbins
@@ -107,7 +107,7 @@ def plot_roc_curve(df, score_column, tpr_threshold=0.7, ax=None, color=None, lin
     roc_auc = auc(fpr, tpr)
     mask = tpr >= tpr_threshold
     fpr, tpr = fpr[mask], tpr[mask]
-    ax.plot(fpr, tpr, label=label+', auc={:.2f}'.format(roc_auc), color=color, linestyle=linestyle)
+    ax.plot(fpr, tpr, label=label+', AUC={:.2f}'.format(roc_auc), color=color, linestyle=linestyle, linewidth=2)
     #ax.semilogy(tpr, fpr, label=label, color=color, linestyle=linestyle)
 #__________________________________________________________
 def dir_exist(mydir):
