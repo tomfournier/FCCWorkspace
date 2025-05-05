@@ -4,7 +4,7 @@ import importlib
 userConfig = importlib.import_module("userConfig")
 
 # Input directory where the files produced at the pre-selection level are
-inputDir = userConfig.loc.PRESEL
+inputDir = userConfig.loc.TRAIN
 
 # Output directory where the files produced at the final selection level will be put
 outputDir = userConfig.loc.FINAL
@@ -40,16 +40,22 @@ cutList = {
   # "sel_Baseline_costhetamiss":"zll_m  > 86 && zll_m  < 96  && zll_recoil_m > 120 && zll_recoil_m  <140 && zll_p  > 20 && zll_p  <70 && cosTheta_miss < 0.995 && cosTheta_miss > -0.995",
 }
 
-# Dictionary for the ouput variable/hitograms. The key is the name of the variable in the output files. "name" is the name of the variable in the input file, "title" is the x-axis label of the histogram, "bin" the number of bins of the histogram, "xmin" the minimum x-axis value and "xmax" the maximum x-axis value.
+# Dictionary for the ouput variable/hitograms. 
+# The key is the name of the variable in the output files. 
+# "name" is the name of the variable in the input file, 
+# "title" is the x-axis label of the histogram, 
+# "bin" the number of bins of the histogram, 
+# "xmin" the minimum x-axis value and 
+# "xmax" the maximum x-axis value.
 histoList = {
-    # plot fundamental varibales:
+    # plot fundamental variables:
     "leading_p":{"name":"leading_p","title":"p_{l,leading} [GeV]","bin":100,"xmin":45,"xmax":85},
     "leading_theta":{"name":"leading_theta","title":"#theta_{l,leading}","bin":100,"xmin":0,"xmax":3.2},
     "subleading_p":{"name":"subleading_p","title":"p_{l,subleading}  [GeV]","bin":100,"xmin":20,"xmax":60},
     "subleading_theta":{"name":"subleading_theta","title":"#theta_{l,subleading}","bin":100,"xmin":0,"xmax":3.2},
     
     # Zed
-    "zll_m":{"name":"zll_m","title":"m_{l^{+}l^{-}} [GeV]","bin":100,"xmin":86,"xmax":96},
+    "zll_m":{"name":"zll_m","title":"m_{l^{+}l^{-}} [GeV]","bin":100,"xmin":50,"xmax":120},
     "zll_p":{"name":"zll_p","title":"p_{l^{+}l^{-}} [GeV]","bin":100,"xmin":20,"xmax":70},
     "zll_theta":{"name":"zll_theta","title":"#theta_{l^{+}l^{-}}","bin":100,"xmin":0,"xmax":3.2},
     "zll_phi":{"name":"zll_phi","title":"#phi_{l^{+}l^{-}}","bin":100,"xmin":-3.2,"xmax":3.2},

@@ -53,11 +53,11 @@ def update_dataframe_with_additional_info(df, cur_mode, sig):
 
 def calculate_BDT_input_numbers(mode_names, sig, df, eff, xsec, frac):
     N_BDT_inputs = {}
-    print(f"Calculating number of BDT inputs for {mode_names}")
     # print(f"eff = {eff*100:.3f}%")
     # print(f"xsec = {xsec}")
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in mode_names if mode != sig)
     for cur_mode in mode_names:
+        print(f"Calculating number of BDT inputs for {cur_mode}")
         N_BDT_inputs[cur_mode] = (int(frac[cur_mode] * len(df[cur_mode])) if cur_mode == sig else
                                   int(frac[cur_mode] * len(df[sig]) * (eff[cur_mode] * xsec[cur_mode] / xsec_tot_bkg)))
     return N_BDT_inputs
@@ -82,13 +82,23 @@ def run(modes, n_folds, stage):
     procFile = "FCCee_procDict_winter2023_IDEA.json"
     proc_dict = get_procDict(procFile)
     procDict = update_procDict_keys(proc_dict, mode_names)
+    
+    procFile_training = "FCCee_procDict_winter2023_training_IDEA.json"
+    proc_dict_training = get_procDict(procFile_training)
+    procDict_training = update_procDict_keys(proc_dict_training, mode_names)
 
-    xsec = {key: value["crossSection"] for key, value in procDict.items() if key in mode_names}
+    xsec = {}
+    for key, value in procDict_training.items(): 
+        if key in mode_names:      
+            xsec[key] = value["crossSection"]
+    for key, value in procDict.items():
+        if (key not in procDict_training) & (key in mode_names):
+            xsec[key] = value["crossSection"]
 
-    # print(f"Cross sections = {xsec}")
+    print(f"Cross sections = {xsec}")
     
     sig = f"{final_state}H"
-    data_path = loc.PRESEL if stage == "training" else loc.ANALYSIS
+    data_path = loc.TRAIN if stage == "training" else loc.ANALYSIS
     pkl_path = loc.PKL if stage == "training" else loc.PKL_Val
 
     files = {}
@@ -115,7 +125,8 @@ def run(modes, n_folds, stage):
         df[cur_mode] = update_dataframe_with_additional_info(df[cur_mode], cur_mode, sig)
 
     N_BDT_inputs = calculate_BDT_input_numbers(mode_names, sig, df, eff, xsec, frac)
-    print(f"Number of BDT inputs = {N_BDT_inputs}")
+    for cur_mode in mode_names:
+       print(f"Number of BDT inputs for {cur_mode} = {N_BDT_inputs[cur_mode]}")
 
     for cur_mode in mode_names:
         df[cur_mode] = split_data_and_update_dataframe(df[cur_mode], N_BDT_inputs, xsec, N_events, cur_mode)

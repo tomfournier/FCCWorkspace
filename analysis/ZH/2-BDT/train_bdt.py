@@ -61,11 +61,11 @@ def get_config_dict():
 
 
 def train_model(X_train, y_train, X_valid, y_valid, config_dict, early_stopping_round):
-    bdt = xgb.XGBClassifier(**config_dict)
+    bdt = xgb.XGBClassifier(**config_dict, eval_metric=["error", "logloss", "auc"], 
+                            early_stopping_rounds=early_stopping_round)
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
     print("Training model")
-    bdt.fit(X_train, y_train, eval_metric=["error", "logloss", "auc"], eval_set=eval_set,
-            early_stopping_rounds=early_stopping_round, verbose=True)
+    bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True)
     return bdt
 
 

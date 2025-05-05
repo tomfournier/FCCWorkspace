@@ -4,23 +4,18 @@ import importlib
 userConfig = importlib.import_module("userConfig")
 
 # Output directory where the files produced at the pre-selection level will be put
-outputDir = userConfig.loc.PRESEL
+outputDir = userConfig.loc.TRAIN
 
 # Define final_state and ecm
 final_state = userConfig.final_state
 ecm = userConfig.ecm
 
 # Mandatory: List of processes
-processList = {i:userConfig.paramList for i in userConfig.processList}
-
-if final_state=="mumu":
-    processList[f"ee_{final_state}_ecm{ecm}"] = userConfig.paramList
-elif final_state=="ee":
-    processList[f"wzp6_ee_{final_state}_Mee_30_150_ecm{ecm}"] = userConfig.paramList
+processList = userConfig.processList
 
 # Mandatory: Production tag when running over EDM4Hep centrally produced events, 
 # this points to the yaml files for getting sample statistics
-prodTag = "FCCee/winter2023/IDEA/"
+prodTag = "FCCee/winter2023_training/IDEA/"
 
 # Optional: output directory, default is local dir
 eosType = "eosuser"
