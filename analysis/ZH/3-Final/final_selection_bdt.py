@@ -62,8 +62,13 @@ cutList = {
              
 }
 
-
-# Dictionary for the ouput variable/hitograms. The key is the name of the variable in the output files. "name" is the name of the variable in the input file, "title" is the x-axis label of the histogram, "bin" the number of bins of the histogram, "xmin" the minimum x-axis value and "xmax" the maximum x-axis value.
+# Dictionary for the ouput variable/hitograms. 
+# The key is the name of the variable in the output files. 
+# "name" is the name of the variable in the input file, 
+# "title" is the x-axis label of the histogram, 
+# "bin" the number of bins of the histogram, 
+# "xmin" the minimum x-axis value and 
+# "xmax" the maximum x-axis value.
 histoList = {
     "mz":{"name":"zll_m","title":"m_{Z} [GeV]","bin":125,"xmin":86,"xmax":96},
     # "mz_zoom1":{"name":"zll_m","title":"m_{Z} [GeV]","bin":200,"xmin":80,"xmax":100},
