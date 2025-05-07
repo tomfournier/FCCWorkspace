@@ -4,9 +4,8 @@ import numpy as np
 eos = True
 ZH =True
 
-final_state, ecm = "mumu", 240
+final_state, ecm = "ee", 240
 intLumi = 10.8 # in ab-1
-training = True
 
 plot_file = "png"
 
@@ -31,7 +30,7 @@ loc.PKL = f"{loc.DATA}/pkl"
 loc.PKL_Val = f"{loc.DATA}/pkl_val"
 loc.ROOTFILES = f"{loc.DATA}/ROOT"
 loc.PLOTS = f"{repo}/plots/{final_state}"
-loc.PLOTS_Val = f"{repo}/plots_val/{final_state}"
+loc.PLOTS_Val = f"{repo}/plots_val/{final_state}/"
 loc.METRIC = f"{loc.PLOTS}/metrics"
 loc.TEX = f"{loc.OUT}/tex"
 loc.JSON = f"{loc.OUT}/json"
@@ -56,7 +55,7 @@ loc.PLOTS_BDT = f"{loc.PLOTS}/evaluation"
 loc.ANALYSIS = f"{loc.OUT}/BDT_analysis/{final_state}"
 
 #Samples for final analysis final selection
-loc.ANALYSIS_FINAL = f"{loc.OUT}/BDT_final/{final_state}"
+loc.ANALYSIS_FINAL = f"{loc.OUT}/BDT_final/{final_state}/"
 
 # Process samples that should match the produced files.
 samples = {
@@ -71,35 +70,36 @@ samples = {
 }
 
 # Parameter of processList
-paramList = {'chunks':20} # {'frac':1}
+# paramList = {'chunks':20} 
+paramList = {'frac':0.1}
 
 # Process list that should match the produced files.
 processList = {i:paramList for i in samples}
-
-if training:
-    processList[f"p8_ee_WW_{final_state}_ecm{ecm}"] = paramList
-else:
-    processList[f"p8_ee_WW_ecm{ecm}"] = paramList
-    processList[f"wzp6_ee_tautau_ecm{ecm}"] = paramList
-    processList[f"wzp6_gaga_tautau_60_ecm{ecm}"] = paramList
-    processList[f"wzp6_ee_nuenueZ_ecm{ecm}"] = paramList
 
 if final_state=="mumu":
     processList[f"wzp6_ee_{final_state}_ecm{ecm}"] = paramList
 elif final_state=="ee":
     processList[f"wzp6_ee_{final_state}_Mee_30_150_ecm{ecm}"] = paramList
 
+processList1 = processList.copy()
+processList[f"p8_ee_WW_{final_state}_ecm{ecm}"] = paramList
+
+processList1[f"p8_ee_WW_ecm{ecm}"] = paramList
+processList1[f"wzp6_ee_tautau_ecm{ecm}"] = paramList
+processList1[f"wzp6_gaga_tautau_60_ecm{ecm}"] = paramList
+processList1[f"wzp6_ee_nuenueZ_ecm{ecm}"] = paramList
+
 mass = False
 if mass:
-    processList[f"wzp6_ee_{final_state}H_mH-higher-100MeV_ecm{ecm}"] = paramList
-    processList[f"wzp6_ee_{final_state}H_mH-higher-50MeV_ecm{ecm}"] = paramList
-    processList[f"wzp6_ee_{final_state}H_mH-lower-100MeV_ecm{ecm}"] = paramList
-    processList[f"wzp6_ee_{final_state}H_mH-lower-50MeV_ecm{ecm}"] = paramList
+    processList1[f"wzp6_ee_{final_state}H_mH-higher-100MeV_ecm{ecm}"] = paramList
+    processList1[f"wzp6_ee_{final_state}H_mH-higher-50MeV_ecm{ecm}"] = paramList
+    processList1[f"wzp6_ee_{final_state}H_mH-lower-100MeV_ecm{ecm}"] = paramList
+    processList1[f"wzp6_ee_{final_state}H_mH-lower-50MeV_ecm{ecm}"] = paramList
 
 syst = False
 if syst:
-    processList[f"wzp6_ee_{final_state}H_BES-higher-1pc_ecm{ecm}"] = paramList
-    processList[f"wzp6_ee_{final_state}H_BES-lower-1pc_ecm{ecm}"] = paramList
+    processList1[f"wzp6_ee_{final_state}H_BES-higher-1pc_ecm{ecm}"] = paramList
+    processList1[f"wzp6_ee_{final_state}H_BES-lower-1pc_ecm{ecm}"] = paramList
 
 #First stage BDT including event-level vars
 train_vars = [

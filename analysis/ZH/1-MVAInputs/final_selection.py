@@ -35,7 +35,7 @@ doTree = False
 # Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
 cutList = { 
   # baseline without costhetamiss 
-  "sel_Baseline_no_costhetamiss":"zll_m  > 86 && zll_m  < 96  && zll_recoil_m > 120 && zll_recoil_m  <140 && zll_p  > 20 && zll_p  <70",
+  "sel_Baseline_no_costhetamiss":"zll_m  > 86 && zll_m  < 96  && zll_recoil_m > 120 && zll_recoil_m  < 140 && zll_p  > 20 && zll_p  < 70",
   # baseline with costhetamiss
   # "sel_Baseline_costhetamiss":"zll_m  > 86 && zll_m  < 96  && zll_recoil_m > 120 && zll_recoil_m  <140 && zll_p  > 20 && zll_p  <70 && cosTheta_miss < 0.995 && cosTheta_miss > -0.995",
 }
@@ -55,7 +55,7 @@ histoList = {
     "subleading_theta":{"name":"subleading_theta","title":"#theta_{l,subleading}","bin":100,"xmin":0,"xmax":3.2},
     
     # Zed
-    "zll_m":{"name":"zll_m","title":"m_{l^{+}l^{-}} [GeV]","bin":100,"xmin":50,"xmax":120},
+    "zll_m":{"name":"zll_m","title":"m_{l^{+}l^{-}} [GeV]","bin":100,"xmin":86,"xmax":96},
     "zll_p":{"name":"zll_p","title":"p_{l^{+}l^{-}} [GeV]","bin":100,"xmin":20,"xmax":70},
     "zll_theta":{"name":"zll_theta","title":"#theta_{l^{+}l^{-}}","bin":100,"xmin":0,"xmax":3.2},
     "zll_phi":{"name":"zll_phi","title":"#phi_{l^{+}l^{-}}","bin":100,"xmin":-3.2,"xmax":3.2},
@@ -68,7 +68,7 @@ histoList = {
     "zll_recoil_m":{"name":"zll_recoil_m","title":"m_{recoil} [GeV]","bin":100,"xmin":120,"xmax":140},
     
     # missing Information
-    "cosTheta_miss":{"name":"cosTheta_miss","title":"cos#theta_{missing}","bin":100,"xmin":-1,"xmax":1},
+    "cosTheta_miss":{"name":"cosTheta_miss","title":"|#cos#theta_{miss}|","bin":100,"xmin":0,"xmax":1},
     
     # Higgsstrahlungness
     "H":{"name":"H","title":"Higgsstrahlungness","bin":110,"xmin":0,"xmax":110} 

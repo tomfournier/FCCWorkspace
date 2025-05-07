@@ -19,19 +19,19 @@ energy          = ecm
 collider        = 'FCC-ee'
 inputDir        = userConfig.loc.ANALYSIS_FINAL
 yaxis           = ['lin','log']
-stacksig        = ['stack']
+stacksig        = ['nostack']
 formats         = ['png']
-outdir          = userConfig.loc.PLOTS_vals
+outdir          = userConfig.loc.PLOTS_Val
 
 variables = [
         # lepton
         "mz",
-        "mz_zoom1", "mz_zoom2",
-        "mz_zoom3", "mz_zoom4",
-        "leptonic_recoil_m", "leptonic_recoil_m_zoom1", 
-        "leptonic_recoil_m_zoom2", "leptonic_recoil_m_zoom3", 
-        "leptonic_recoil_m_zoom4", "leptonic_recoil_m_zoom5",
-        "leptonic_recoil_m_zoom6", "leptonic_recoil_m_zoom7",
+        # "mz_zoom1", "mz_zoom2",
+        # "mz_zoom3", "mz_zoom4",
+        "recoil_m", # "leptonic_recoil_m_zoom1", 
+        # "leptonic_recoil_m_zoom2", "leptonic_recoil_m_zoom3", 
+        # "leptonic_recoil_m_zoom4", "leptonic_recoil_m_zoom5",
+        # "leptonic_recoil_m_zoom6", "leptonic_recoil_m_zoom7",
         "BDT_Score",
         # control vaiables
         "acolinearity", "acoplanarity", "cosTheta_miss",
@@ -42,14 +42,14 @@ variables = [
         # Zed
         "zll_p", "zll_theta", "zll_phi",
         # Higgsstralungness
-        "H",
-        "leps_no"
+        # "H",
+        # "leps_no"
 ]
 
 #cDictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
 selections = {}
 selections['ZH'] = [ 
-        "sel0", 
+        # "sel0", 
         "sel_Baseline", 
         "sel_Baseline_MVA01",
         "sel_Baseline_MVA02", 
@@ -90,7 +90,14 @@ selections['ZH'] = [
         "sel_Baseline_no_costhetamiss_MVA07",
         "sel_Baseline_no_costhetamiss_MVA08",
         "sel_Baseline_no_costhetamiss_MVA09",
-        "sel_mll_86_96"
+        # "sel_mll_86_96",
+        "sel_Baseline_without_mrec",
+        "sel_Baseline_without_mrec_1",
+        "sel_Baseline_without_mrec_2",
+        "sel_Baseline_without_mrec_3",
+        "sel_Baseline_without_mrec_4",
+        "sel_Baseline_without_mrec_5",
+        "sel_Baseline_with_mrec",
 ]
 
 extralabel = {}
@@ -172,12 +179,19 @@ extralabel["sel_Baseline_no_costhetamiss_MVA07"]                = "sel_Baseline_
 extralabel["sel_Baseline_no_costhetamiss_MVA08"]                = "sel_Baseline_no_costhetamiss_MVA08"
 extralabel["sel_Baseline_no_costhetamiss_MVA09"]                = "sel_Baseline_no_costhetamiss_MVA09"
 extralabel["sel_mll_86_96"]                                     = " 86 < m_{l^-l^+} < 96"
+extralabel["sel_Baseline_without_mrec"]                         =  "sel_Baseline_without_mrec"
+extralabel["sel_Baseline_without_mrec_1"]                       =  "sel_Baseline_without_mrec_1"
+extralabel["sel_Baseline_without_mrec_2"]                       =  "sel_Baseline_without_mrec_2"
+extralabel["sel_Baseline_without_mrec_3"]                       =  "sel_Baseline_without_mrec_3"
+extralabel["sel_Baseline_without_mrec_4"]                       =  "sel_Baseline_without_mrec_4"
+extralabel["sel_Baseline_without_mrec_5"]                       =  "sel_Baseline_without_mrec_5"
+extralabel["sel_Baseline_with_mrec"]                            =  "sel_Baseline_with_mrec"
 
 colors = {}
 colors['mumuH']      = ROOT.kRed
 colors['tautauH']    = ROOT.kMagenta
 colors['nunuH']      = ROOT.kOrange
-colors['eeH']        = ROOT.kYellow
+colors['eeH']        = ROOT.kRed
 colors['qqH']        = ROOT.kSpring
 colors['WWmumu']     = ROOT.kBlue+1
 colors['ZZ']         = ROOT.kGreen+2
@@ -190,14 +204,20 @@ colors['ZH']         = ROOT.kRed
 colors['WW']         = ROOT.kBlue+1
 colors['VV']         = ROOT.kGreen+3
 colors['rare']       = ROOT.kSpring
+
+if final_state=="mumu":
+        ee_ll = f'wzp6_ee_{final_state}_ecm{ecm}'
+elif final_state=="ee":
+        ee_ll = f'wzp6_ee_{final_state}_Mee_30_150_ecm{ecm}'
+
 plots = {}
-plots['ZH'] = {'signal':{'mumuH':['wzp6_ee_mumuH_ecm240']},
-               'backgrounds':{'eeZ':["wzp6_egamma_eZ_Zmumu_ecm240", "wzp6_gammae_eZ_Zmumu_ecm240"],
-                              'WW':['p8_ee_WW_ecm240'],
-                              'Zll':['wzp6_ee_mumu_ecm240'],
-                              'ZZ':['p8_ee_ZZ_ecm240'],
-                              'rare':["wzp6_ee_tautau_ecm240", "wzp6_gaga_mumu_60_ecm240",
-                                      "wzp6_gaga_tautau_60_ecm240", "wzp6_ee_nuenueZ_ecm240"]
+plots['ZH'] = {'signal':{f'{final_state}H':[f"wzp6_ee_{final_state}H_ecm{ecm}"]},
+               'backgrounds':{'eeZ':[f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", 
+                                     f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"],
+                              'WW':[f'p8_ee_WW_ecm{ecm}'],
+                              'Zll':[ee_ll], 'ZZ':[f'p8_ee_ZZ_ecm{ecm}'],
+                              'rare':[f"wzp6_ee_tautau_ecm{ecm}", f"wzp6_gaga_{final_state}_60_ecm{ecm}",
+                                      f"wzp6_gaga_tautau_60_ecm{ecm}", f"wzp6_ee_nuenueZ_ecm{ecm}"]
         }
 }
 

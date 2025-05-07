@@ -96,7 +96,7 @@ class RDFanalysis():
         df2 = df2.Define("gen_photons_no", "FCCAnalyses::MCParticle::get_n(gen_photons)")
         
         # Missing ET
-        df2 = df2.Define("cosTheta_miss", "HiggsTools::get_cosTheta(MissingET)") 
+        df2 = df2.Define("cosTheta_miss", "abs(HiggsTools::get_cosTheta(MissingET))") 
         
         # all leptons (bare)
         df2 = df2.Define("leps_all", "FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)")

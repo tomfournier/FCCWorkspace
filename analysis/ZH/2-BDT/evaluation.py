@@ -123,7 +123,7 @@ def plot_auc(results, x_axis, best_iteration, label):
 def plot_roc(df,label):
     # plot ROC 1
     print("------>Plotting ROC")
-    fig, axes = plt.subplots(1, 1, figsize=(12,8))
+    fig, axes = plt.subplots(1, 1, figsize=(12,12))
     #df_train = df_tot.query('valid==False')
     #df_valid =  df_tot.query("valid==True")
     eps=0.

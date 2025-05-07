@@ -61,7 +61,7 @@ colors['WW'] = ROOT.kBlue+1
 colors['ZZ'] = ROOT.kGreen+2
 colors['rare'] = ROOT.kSpring
 
-if userConfig.training:
+if final_state=="mumu":
      dict = {'signal':{f'{final_state}H':[f'wzp6_ee_{final_state}H_ecm{ecm}']},
              'backgrounds':{
                   f'WW{final_state}':[f'p8_ee_WW_{final_state}_ecm{ecm}'],
@@ -71,16 +71,21 @@ if userConfig.training:
                          f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"],
                          f'gaga{final_state}':[f"wzp6_gaga_{final_state}_60_ecm{ecm}"]}
      }
-else:
-     dict = {'signal':{f'{final_state}H':[f'wzp6_ee_{final_state}H_ecm{ecm}']}, 
+
+elif final_state=="ee":
+     dict = {'signal':{f'{final_state}H':[f'wzp6_ee_{final_state}H_ecm{ecm}']},
              'backgrounds':{
-                  'eeZ':[f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"],
-                  'WW':[f'p8_ee_WW_ecm{ecm}'], 
-                  f'Z{final_state}':[f'wzp6_ee_{final_state}_ecm{ecm}'], 
-                  'ZZ':[f'p8_ee_ZZ_ecm{ecm}'],
-                  'rare':[f"wzp6_ee_tautau_ecm{ecm}", f"wzp6_gaga_{final_state}_60_ecm{ecm}",
-                          f"wzp6_gaga_tautau_60_ecm{ecm}", f"wzp6_ee_nuenueZ_ecm{ecm}"]}
+                  f'WW{final_state}':[f'p8_ee_WW_{final_state}_ecm{ecm}'],
+                  'ZZ':[f'p8_ee_ZZ_ecm240'],
+                  f'Z{final_state}':[f'wzp6_ee_{final_state}_Mee_30_150_ecm{ecm}'],
+                  'eeZ':[f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
+                         f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"],
+                         f'gaga{final_state}':[f"wzp6_gaga_{final_state}_60_ecm{ecm}"]}
      }
+else:
+     raise ValueError(f"final_state {final_state} not supported")
+
+
 
 plots = {}
 plots['ZH'] = dict
@@ -92,7 +97,7 @@ legend['Zmumu'] = 'Z/#gamma#rightarrow #mu^{+}#mu^{-}'
 legend['Zee'] = 'Z/#gamma#rightarrow e^{+}e^{-}'
 legend['eeZ'] = 'e^{+}(e^{-})#gamma'
 legend['WWmumu'] = 'W^{+}W^{-}[#nu_{#mu}#mu]'
-legend['WWee'] = 'W^{+}W^{-}(#nu_{e}e)'
+legend['WWee'] = 'W^{+}W^{-}[#nu_{e}e]'
 legend['gagamumu'] = '#gamma#gamma#rightarrow#mu^{+}#mu^{-}'
 legend['gagaee'] = '#gamma#gamma#rightarrow e^{+}e^{-}'
 legend['WW'] = 'W^{+}W^{-}'

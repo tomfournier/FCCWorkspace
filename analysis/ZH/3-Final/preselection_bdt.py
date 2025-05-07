@@ -9,7 +9,7 @@ ecm = userConfig.ecm
 
 #Mandatory: List of processes
 
-processList = userConfig.processList
+processList = userConfig.processList1
 
 # Mandatory: Production tag when running over EDM4Hep centrally produced events, 
 # this points to the yaml files for getting sample statistics
@@ -20,7 +20,7 @@ outputDir = userConfig.loc.ANALYSIS
 eosType = "eosuser"
 
 #Optional: ncpus, default is 4
-nCPUS = 10
+nCPUS = 40
 
 # Optional running on HTCondor, default is False
 # runBatch = True
@@ -79,7 +79,7 @@ class RDFanalysis():
         df2 = df2.Define("gen_photons_no", "FCCAnalyses::MCParticle::get_n(gen_photons)")
         
         # Missing ET
-        df2 = df2.Define("cosTheta_miss", "HiggsTools::get_cosTheta(MissingET)") 
+        df2 = df2.Define("cosTheta_miss", "abs(HiggsTools::get_cosTheta(MissingET))") 
         
         # all leptons (bare)
         df2 = df2.Define("leps_all", "FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)")
@@ -173,19 +173,19 @@ class RDFanalysis():
         #########
         ### CUT 3: Zll mass between 73 and 120 GeV
         #########
-        # df2 = df2.Filter("zll_m > 73 && zll_m < 120") 
+        df2 = df2.Filter("zll_m > 73 && zll_m < 120") 
         # df2 = df2.Define("cut3", "3")
 
         #########
         ### CUT 4: zll momentum > 5 GeV
         #########
-        # df2 = df2.Filter("zll_p > 5")
+        df2 = df2.Filter("zll_p > 5")
         # df2 = df2.Define("cut4", "4")
 
         #########
         ### CUT 5: recoil mass between 120 and 140 GeV
         #########
-        # df2 = df2.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
+        df2 = df2.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
         # df2 = df2.Define("cut5", "5")
         
         ##############
@@ -198,88 +198,88 @@ class RDFanalysis():
         ### Systematics
         ###############
 
-        # muon momentum scale
-        # scaleup
-        df2 = df2.Define("leps_scaleup", "HiggsTools::lepton_momentum_scale(1e-5)(leps)")
-        df2 = df2.Define("zbuilder_result_scaleup", f"HiggsTools::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)(leps_scaleup, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
-        df2 = df2.Define("zll_scaleup", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_scaleup[0]}")
-        df2 = df2.Define("zll_recoil_scaleup", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll_scaleup)")
-        df2 = df2.Define("zll_recoil_m_scaleup", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scaleup)[0]")
-        df2 = df2.Define("zll_leps_scaleup", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_scaleup[1],zbuilder_result_scaleup[2]}") 
+        # lepton momentum scale
+        # # scaleup
+        # df2 = df2.Define("leps_scaleup", "HiggsTools::lepton_momentum_scale(1e-5)(leps)")
+        # df2 = df2.Define("zbuilder_result_scaleup", f"HiggsTools::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)(leps_scaleup, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
+        # df2 = df2.Define("zll_scaleup", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_scaleup[0]}")
+        # df2 = df2.Define("zll_recoil_scaleup", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll_scaleup)")
+        # df2 = df2.Define("zll_recoil_m_scaleup", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scaleup)[0]")
+        # df2 = df2.Define("zll_leps_scaleup", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_scaleup[1],zbuilder_result_scaleup[2]}") 
 
-        df2 = df2.Define("zll_m_scaleup", "FCCAnalyses::ReconstructedParticle::get_mass(zll_scaleup)[0]")
-        df2 = df2.Define("zll_p_scaleup", "FCCAnalyses::ReconstructedParticle::get_p(zll_scaleup)[0]")
-        df2 = df2.Define("zll_theta_scaleup", "FCCAnalyses::ReconstructedParticle::get_theta(zll_scaleup)[0]")
-        df2 = df2.Define("zll_phi_scaleup", "FCCAnalyses::ReconstructedParticle::get_phi(zll_scaleup)[0]")
-        df2 = df2.Define("zll_category_scaleup", "HiggsTools::polarAngleCategorization(0.8, 2.34)(zll_leps_scaleup)")
+        # df2 = df2.Define("zll_m_scaleup", "FCCAnalyses::ReconstructedParticle::get_mass(zll_scaleup)[0]")
+        # df2 = df2.Define("zll_p_scaleup", "FCCAnalyses::ReconstructedParticle::get_p(zll_scaleup)[0]")
+        # df2 = df2.Define("zll_theta_scaleup", "FCCAnalyses::ReconstructedParticle::get_theta(zll_scaleup)[0]")
+        # df2 = df2.Define("zll_phi_scaleup", "FCCAnalyses::ReconstructedParticle::get_phi(zll_scaleup)[0]")
+        # df2 = df2.Define("zll_category_scaleup", "HiggsTools::polarAngleCategorization(0.8, 2.34)(zll_leps_scaleup)")
+
+        # # Z leptons informations
+        # df2 = df2.Define("sorted_scaleup", "HiggsTools::sort_greater_p(zll_leps_scaleup)")
+        # df2 = df2.Define("sorted_p_scaleup", "FCCAnalyses::ReconstructedParticle::get_p(sorted_scaleup)")
+        # df2 = df2.Define("sorted_m_scaleup", "FCCAnalyses::ReconstructedParticle::get_mass(sorted_scaleup)")
+        # df2 = df2.Define("sorted_theta_scaleup", "FCCAnalyses::ReconstructedParticle::get_theta(sorted_scaleup)")
+        # df2 = df2.Define("sorted_phi_scaleup",  "FCCAnalyses::ReconstructedParticle::get_phi(sorted_scaleup)")
+        # df2 = df2.Define("leading_p_scaleup",  "return sorted_p_scaleup.at(0)")
+        # df2 = df2.Define("leading_m_scaleup",  "return sorted_m_scaleup.at(0)")
+        # df2 = df2.Define("leading_theta_scaleup",  "return sorted_theta_scaleup.at(0)")
+        # df2 = df2.Define("leading_phi_scaleup",  "return sorted_phi_scaleup.at(0)")
+        # df2 = df2.Define("subleading_p_scaleup",  "return sorted_p_scaleup.at(1)")
+        # df2 = df2.Define("subleading_m_scaleup",  "return sorted_m_scaleup.at(1)")
+        # df2 = df2.Define("subleading_theta_scaleup",  "return sorted_theta_scaleup.at(1)")
+        # df2 = df2.Define("subleading_phi_scaleup",  "return sorted_phi_scaleup.at(1)")
+        
+        # df2 = df2.Define("zll_acolinearity_scaleup", "HiggsTools::acolinearity(sorted_scaleup)")
+        # df2 = df2.Define("zll_acoplanarity_scaleup", "HiggsTools::acoplanarity(sorted_scaleup)") 
+        # df2 = df2.Define("acolinearity_scaleup", "if(zll_acolinearity_scaleup.size()>0) return zll_acolinearity_scaleup.at(0); else return -std::numeric_limits<float>::max()") 
+        # df2 = df2.Define("acoplanarity_scaleup", "if(zll_acoplanarity_scaleup.size()>0) return zll_acoplanarity_scaleup.at(0); else return -std::numeric_limits<float>::max()") 
+        
+        # df2 = df2.Define("MVAVec_scaleup", ROOT.computeModel1, userConfig.train_vars_scaleup)
+        # df2 = df2.Define("BDTscore_scaleup", "MVAVec_scaleup.at(0)") 
+
+        # # scaledw
+        # df2 = df2.Define("leps_scaledw", "HiggsTools::lepton_momentum_scale(-1e-5)(leps)")
+        # df2 = df2.Define("zbuilder_result_scaledw", f"HiggsTools::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)(leps_scaledw, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
+        # df2 = df2.Define("zll_scaledw", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_scaledw[0]}")
+        # df2 = df2.Define("zll_recoil_scaledw", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll_scaledw)")
+        # df2 = df2.Define("zll_recoil_m_scaledw", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scaledw)[0]")
+        # df2 = df2.Define("zll_leps_scaledw", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_scaledw[1],zbuilder_result_scaledw[2]}") 
+
+        # df2 = df2.Define("zll_m_scaledw", "FCCAnalyses::ReconstructedParticle::get_mass(zll_scaledw)[0]")
+        # df2 = df2.Define("zll_p_scaledw", "FCCAnalyses::ReconstructedParticle::get_p(zll_scaledw)[0]")
+        # df2 = df2.Define("zll_theta_scaledw", "FCCAnalyses::ReconstructedParticle::get_theta(zll_scaledw)[0]")
+        # df2 = df2.Define("zll_phi_scaledw", "FCCAnalyses::ReconstructedParticle::get_phi(zll_scaledw)[0]")
+
+        # df2 = df2.Define("zll_category_scaledw", "HiggsTools::polarAngleCategorization(0.8, 2.34)(zll_leps_scaledw)")
 
         # Z leptons informations
-        df2 = df2.Define("sorted_scaleup", "HiggsTools::sort_greater_p(zll_leps_scaleup)")
-        df2 = df2.Define("sorted_p_scaleup", "FCCAnalyses::ReconstructedParticle::get_p(sorted_scaleup)")
-        df2 = df2.Define("sorted_m_scaleup", "FCCAnalyses::ReconstructedParticle::get_mass(sorted_scaleup)")
-        df2 = df2.Define("sorted_theta_scaleup", "FCCAnalyses::ReconstructedParticle::get_theta(sorted_scaleup)")
-        df2 = df2.Define("sorted_phi_scaleup",  "FCCAnalyses::ReconstructedParticle::get_phi(sorted_scaleup)")
-        df2 = df2.Define("leading_p_scaleup",  "return sorted_p_scaleup.at(0)")
-        df2 = df2.Define("leading_m_scaleup",  "return sorted_m_scaleup.at(0)")
-        df2 = df2.Define("leading_theta_scaleup",  "return sorted_theta_scaleup.at(0)")
-        df2 = df2.Define("leading_phi_scaleup",  "return sorted_phi_scaleup.at(0)")
-        df2 = df2.Define("subleading_p_scaleup",  "return sorted_p_scaleup.at(1)")
-        df2 = df2.Define("subleading_m_scaleup",  "return sorted_m_scaleup.at(1)")
-        df2 = df2.Define("subleading_theta_scaleup",  "return sorted_theta_scaleup.at(1)")
-        df2 = df2.Define("subleading_phi_scaleup",  "return sorted_phi_scaleup.at(1)")
+        # # scaledw
+        # df2 = df2.Define("sorted_scaledw", "HiggsTools::sort_greater_p(zll_leps_scaledw)")
+        # df2 = df2.Define("sorted_p_scaledw", "FCCAnalyses::ReconstructedParticle::get_p(sorted_scaledw)")
+        # df2 = df2.Define("sorted_m_scaledw", "FCCAnalyses::ReconstructedParticle::get_mass(sorted_scaledw)")
+        # df2 = df2.Define("sorted_theta_scaledw", "FCCAnalyses::ReconstructedParticle::get_theta(sorted_scaledw)")
+        # df2 = df2.Define("sorted_phi_scaledw", "FCCAnalyses::ReconstructedParticle::get_phi(sorted_scaledw)")
+        # df2 = df2.Define("leading_p_scaledw", "return sorted_p_scaledw.at(0)")
+        # df2 = df2.Define("leading_m_scaledw", "return sorted_m_scaledw.at(0)")
+        # df2 = df2.Define("leading_theta_scaledw", "return sorted_theta_scaledw.at(0)")
+        # df2 = df2.Define("leading_phi_scaledw", "return sorted_phi_scaledw.at(0)")
+        # df2 = df2.Define("subleading_p_scaledw", "return sorted_p_scaledw.at(1)")
+        # df2 = df2.Define("subleading_m_scaledw", "return sorted_m_scaledw.at(1)")
+        # df2 = df2.Define("subleading_theta_scaledw", "return sorted_theta_scaledw.at(1)")
+        # df2 = df2.Define("subleading_phi_scaledw", "return sorted_phi_scaledw.at(1)")
         
-        df2 = df2.Define("zll_acolinearity_scaleup", "HiggsTools::acolinearity(sorted_scaleup)")
-        df2 = df2.Define("zll_acoplanarity_scaleup", "HiggsTools::acoplanarity(sorted_scaleup)") 
-        df2 = df2.Define("acolinearity_scaleup", "if(zll_acolinearity_scaleup.size()>0) return zll_acolinearity_scaleup.at(0); else return -std::numeric_limits<float>::max()") 
-        df2 = df2.Define("acoplanarity_scaleup", "if(zll_acoplanarity_scaleup.size()>0) return zll_acoplanarity_scaleup.at(0); else return -std::numeric_limits<float>::max()") 
+        # df2 = df2.Define("zll_acolinearity_scaledw", "HiggsTools::acolinearity(sorted_scaledw)")
+        # df2 = df2.Define("zll_acoplanarity_scaledw", "HiggsTools::acoplanarity(sorted_scaledw)") 
+        # df2 = df2.Define("acolinearity_scaledw", "if(zll_acolinearity_scaledw.size()>0) return zll_acolinearity_scaledw.at(0); else return -std::numeric_limits<float>::max()") 
+        # df2 = df2.Define("acoplanarity_scaledw", "if(zll_acoplanarity_scaledw.size()>0) return zll_acoplanarity_scaledw.at(0); else return -std::numeric_limits<float>::max()") 
         
-        df2 = df2.Define("MVAVec_scaleup", ROOT.computeModel1, userConfig.train_vars_scaleup)
-        df2 = df2.Define("BDTscore_scaleup", "MVAVec_scaleup.at(0)") 
-
-        # scaledw
-        df2 = df2.Define("leps_scaledw", "HiggsTools::lepton_momentum_scale(1e-5)(leps)")
-        df2 = df2.Define("zbuilder_result_scaledw", f"HiggsTools::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)(leps_scaledw, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
-        df2 = df2.Define("zll_scaledw", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_scaledw[0]}")
-        df2 = df2.Define("zll_recoil_scaledw", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll_scaledw)")
-        df2 = df2.Define("zll_recoil_m_scaledw", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scaledw)[0]")
-        df2 = df2.Define("zll_leps_scaledw", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_scaledw[1],zbuilder_result_scaledw[2]}") 
-
-        df2 = df2.Define("zll_m_scaledw", "FCCAnalyses::ReconstructedParticle::get_mass(zll_scaledw)[0]")
-        df2 = df2.Define("zll_p_scaledw", "FCCAnalyses::ReconstructedParticle::get_p(zll_scaledw)[0]")
-        df2 = df2.Define("zll_theta_scaledw", "FCCAnalyses::ReconstructedParticle::get_theta(zll_scaledw)[0]")
-        df2 = df2.Define("zll_phi_scaledw", "FCCAnalyses::ReconstructedParticle::get_phi(zll_scaledw)[0]")
-
-        df2 = df2.Define("zll_category_scaledw", "HiggsTools::polarAngleCategorization(0.8, 2.34)(zll_leps_scaledw)")
-
-        # Z leptons informations
-        # scaledw
-        df2 = df2.Define("sorted_scaledw", "HiggsTools::sort_greater_p(zll_leps_scaledw)")
-        df2 = df2.Define("sorted_p_scaledw", "FCCAnalyses::ReconstructedParticle::get_p(sorted_scaledw)")
-        df2 = df2.Define("sorted_m_scaledw", "FCCAnalyses::ReconstructedParticle::get_mass(sorted_scaledw)")
-        df2 = df2.Define("sorted_theta_scaledw", "FCCAnalyses::ReconstructedParticle::get_theta(sorted_scaledw)")
-        df2 = df2.Define("sorted_phi_scaledw", "FCCAnalyses::ReconstructedParticle::get_phi(sorted_scaledw)")
-        df2 = df2.Define("leading_p_scaledw", "return sorted_p_scaledw.at(0)")
-        df2 = df2.Define("leading_m_scaledw", "return sorted_m_scaledw.at(0)")
-        df2 = df2.Define("leading_theta_scaledw", "return sorted_theta_scaledw.at(0)")
-        df2 = df2.Define("leading_phi_scaledw", "return sorted_phi_scaledw.at(0)")
-        df2 = df2.Define("subleading_p_scaledw", "return sorted_p_scaledw.at(1)")
-        df2 = df2.Define("subleading_m_scaledw", "return sorted_m_scaledw.at(1)")
-        df2 = df2.Define("subleading_theta_scaledw", "return sorted_theta_scaledw.at(1)")
-        df2 = df2.Define("subleading_phi_scaledw", "return sorted_phi_scaledw.at(1)")
+        # df2 = df2.Define("MVAVec_scaledw", ROOT.computeModel1, userConfig.train_vars_scaledw)
+        # df2 = df2.Define("BDTscore_scaledw", "MVAVec_scaledw.at(0)")  
         
-        df2 = df2.Define("zll_acolinearity_scaledw", "HiggsTools::acolinearity(sorted_scaledw)")
-        df2 = df2.Define("zll_acoplanarity_scaledw", "HiggsTools::acoplanarity(sorted_scaledw)") 
-        df2 = df2.Define("acolinearity_scaledw", "if(zll_acolinearity_scaledw.size()>0) return zll_acolinearity_scaledw.at(0); else return -std::numeric_limits<float>::max()") 
-        df2 = df2.Define("acoplanarity_scaledw", "if(zll_acoplanarity_scaledw.size()>0) return zll_acoplanarity_scaledw.at(0); else return -std::numeric_limits<float>::max()") 
-        
-        df2 = df2.Define("MVAVec_scaledw", ROOT.computeModel1, userConfig.train_vars_scaledw)
-        df2 = df2.Define("BDTscore_scaledw", "MVAVec_scaledw.at(0)")  
-        
-        # sqrt uncertainty
-        df2 = df2.Define("zll_recoil_sqrtsup", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm+0.002})(zll)")
-        df2 = df2.Define("zll_recoil_sqrtsdw", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm-0.002})(zll)")
-        df2 = df2.Define("zll_recoil_m_sqrtsup", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsup)[0]")
-        df2 = df2.Define("zll_recoil_m_sqrtsdw", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsdw)[0]")
+        # # sqrt uncertainty
+        # df2 = df2.Define("zll_recoil_sqrtsup", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm+0.002})(zll)")
+        # df2 = df2.Define("zll_recoil_sqrtsdw", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm-0.002})(zll)")
+        # df2 = df2.Define("zll_recoil_m_sqrtsup", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsup)[0]")
+        # df2 = df2.Define("zll_recoil_m_sqrtsdw", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsdw)[0]")
         
         return df2
 
@@ -304,40 +304,40 @@ class RDFanalysis():
             # Category
             "zll_category",
 
-            # scaleup
-            "leading_p_scaleup", "leading_m_scaleup",  
-            "leading_theta_scaleup", "leading_phi_scaleup",
-            "subleading_p_scaleup", "subleading_m_scaleup",
-            "subleading_theta_scaleup", "subleading_phi_scaleup",
-            "acolinearity_scaleup", "acoplanarity_scaleup",
-            # Zed
-            "zll_m_scaleup", "zll_p_scaleup",
-            "zll_theta_scaleup", "zll_phi_scaleup",
-            # Recoil
-            "zll_recoil_m_scaleup",
-            # BDT Score
-            "BDTscore_scaleup",
-            # Category
-            "zll_category_scaleup",
+            # # scaleup
+            # "leading_p_scaleup", "leading_m_scaleup",  
+            # "leading_theta_scaleup", "leading_phi_scaleup",
+            # "subleading_p_scaleup", "subleading_m_scaleup",
+            # "subleading_theta_scaleup", "subleading_phi_scaleup",
+            # "acolinearity_scaleup", "acoplanarity_scaleup",
+            # # Zed
+            # "zll_m_scaleup", "zll_p_scaleup",
+            # "zll_theta_scaleup", "zll_phi_scaleup",
+            # # Recoil
+            # "zll_recoil_m_scaleup",
+            # # BDT Score
+            # "BDTscore_scaleup",
+            # # Category
+            # "zll_category_scaleup",
 
-            # scaledw
-            "leading_p_scaledw", "leading_m_scaledw",  
-            "leading_theta_scaledw", "leading_phi_scaledw",
-            "subleading_p_scaledw", "subleading_m_scaledw",
-            "subleading_theta_scaledw", "subleading_phi_scaledw",
-            "acolinearity_scaledw", "acoplanarity_scaledw",
-            # Zed
-            "zll_m_scaledw", "zll_p_scaledw",
-            "zll_theta_scaledw", "zll_phi_scaledw",
-            # Recoil
-            "zll_recoil_m_scaledw",
-            # BDT Score
-            "BDTscore_scaledw",
-            # Category
-            "zll_category_scaledw", 
+            # # scaledw
+            # "leading_p_scaledw", "leading_m_scaledw",  
+            # "leading_theta_scaledw", "leading_phi_scaledw",
+            # "subleading_p_scaledw", "subleading_m_scaledw",
+            # "subleading_theta_scaledw", "subleading_phi_scaledw",
+            # "acolinearity_scaledw", "acoplanarity_scaledw",
+            # # Zed
+            # "zll_m_scaledw", "zll_p_scaledw",
+            # "zll_theta_scaledw", "zll_phi_scaledw",
+            # # Recoil
+            # "zll_recoil_m_scaledw",
+            # # BDT Score
+            # "BDTscore_scaledw",
+            # # Category
+            # "zll_category_scaledw", 
             
-            "zll_recoil_m_sqrtsup",
-            "zll_recoil_m_sqrtsdw", 
+            # "zll_recoil_m_sqrtsup",
+            # "zll_recoil_m_sqrtsdw", 
     
             
             # missing Information
