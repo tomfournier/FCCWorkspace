@@ -19,7 +19,7 @@ energy         = ecm
 collider       = 'FCC-ee'
 inputDir       = userConfig.loc.FINAL
 yaxis          = ['lin','log']
-stacksig       = ['stack', 'nostack']
+stacksig       = ['nostack']
 formats        = ['png']
 outdir         = userConfig.loc.PLOTS
 
@@ -41,11 +41,11 @@ variables = [
 
 # Dictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
 selections = {}
-selections['ZH'] = ["sel_Baseline_no_costhetamiss"] # "sel_Baseline_costhetamiss"]
+selections['ZH'] = ["sel_Baseline_no_costhetamiss", "sel_Baseline_costhetamiss"]
 
 extralabel = {}
 extralabel["sel_Baseline_no_costhetamiss"] = "Baseline without cos#theta_{miss} cut"
-# extralabel["sel_Baseline_costhetamiss"] = "Baseline with cos#theta_{miss} cut"   
+extralabel["sel_Baseline_costhetamiss"]    = "Baseline with cos#theta_{miss} cut"   
 
 colors = {}
 colors['mumuH'] = ROOT.kRed

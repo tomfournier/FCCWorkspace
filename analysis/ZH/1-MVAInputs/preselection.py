@@ -212,6 +212,12 @@ class RDFanalysis():
         #########
         df2 = df2.Filter("zll_recoil_m < 150 && zll_recoil_m > 100")
         # df2 = df2.Define("cut5", "5")
+
+        #########
+        ### CUT 6: cos(theta_miss) cut
+        #########
+        # df2 = df2.Filter("cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98")
+        # df2 = df2.Define("cut6", "6")
         
         return df2
 

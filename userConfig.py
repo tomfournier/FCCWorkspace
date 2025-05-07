@@ -4,7 +4,7 @@ import numpy as np
 eos = True
 ZH =True
 
-final_state, ecm = "ee", 240
+final_state, ecm = "mumu", 240
 intLumi = 10.8 # in ab-1
 
 plot_file = "png"
