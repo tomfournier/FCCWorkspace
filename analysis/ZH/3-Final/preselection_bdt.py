@@ -20,7 +20,7 @@ outputDir = userConfig.loc.ANALYSIS
 eosType = "eosuser"
 
 #Optional: ncpus, default is 4
-nCPUS = -1
+nCPUS = 80
 
 # Optional running on HTCondor, default is False
 # runBatch = True

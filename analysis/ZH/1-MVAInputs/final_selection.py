@@ -15,7 +15,8 @@ ecm = userConfig.ecm
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
-procDict = "FCCee_procDict_winter2023_IDEA.json"
+procDict = "/cvmfs/fcc.cern.ch/FCCDicts/FCCee_procDict_winter2023_training_IDEA.json"
+procDictAdd = userConfig.procDictAdd
 
 # Process list that should match the produced files.
 processList = userConfig.processList
@@ -37,7 +38,7 @@ cutList = {
   # baseline without costhetamiss 
   "sel_Baseline_no_costhetamiss":"zll_m  > 86 && zll_m  < 96  && zll_recoil_m > 120 && zll_recoil_m  < 140 && zll_p  > 20 && zll_p  < 70",
   # baseline with costhetamiss
-  "sel_Baseline_costhetamiss":"zll_m  > 86 && zll_m  < 96  && zll_recoil_m > 120 && zll_recoil_m  < 140 && zll_p  > 20 && zll_p  < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.995 && cosTheta_miss[0] > -0.995",
+  "sel_Baseline_costhetamiss":"zll_m  > 86 && zll_m  < 96  && zll_recoil_m > 120 && zll_recoil_m  < 140 && zll_p  > 20 && zll_p  < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.995",
 }
 
 # Dictionary for the ouput variable/hitograms. 

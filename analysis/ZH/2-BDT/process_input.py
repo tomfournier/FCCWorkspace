@@ -38,7 +38,7 @@ def update_procDict_keys(procDict, mode_names):
 
 def get_data_paths(cur_mode, data_path):
     path = f"{data_path}/{mode_names[cur_mode]}"
-    return glob.glob(f"{path}/*.root")
+    return glob.glob(f"{path}.root")
 
 def calculate_event_counts_and_efficiencies(cur_mode, files, vars_list):
     N_events = sum([uproot.open(f)["eventsProcessed"].value for f in files])

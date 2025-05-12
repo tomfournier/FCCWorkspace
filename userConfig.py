@@ -4,7 +4,7 @@ import numpy as np
 eos = True
 ZH =True
 
-final_state, ecm = "mumu", 240
+final_state, ecm = "ee", 240
 intLumi = 10.8 # in ab-1
 
 plot_file = "png"
@@ -56,6 +56,12 @@ loc.ANALYSIS = f"{loc.OUT}/BDT_analysis/{final_state}"
 
 #Samples for final analysis final selection
 loc.ANALYSIS_FINAL = f"{loc.OUT}/BDT_final/{final_state}/"
+
+#Location of the cutflow histmaker
+loc.CUTFLOW = f"{loc.OUT}/cutFlow/{final_state}"
+
+#Location of the cutflow plots
+loc.PLOTS_CUTFLOW = f"{loc.PLOTS}/cutFlow"
 
 # Process samples that should match the produced files.
 samples = {
@@ -109,8 +115,10 @@ train_vars = [
     "acolinearity", "acoplanarity",
     #Zed
     "zll_m", "zll_p", "zll_theta"
+    #Missing energy information
+    # cosTheta_miss
     #Higgsstrahlungness
-    #"H"
+    # "H"
 ]
 
 train_vars_scaleup = [
@@ -190,3 +198,152 @@ elif final_state == "ee":
             f"egamma": r"$e^-\gamma\rightarrow e^-Z(e^+e^-)$",
             f"gammae": r"$e^+\gamma\rightarrow e^+Z(e^+e^-)$",
             f"gaga_{final_state}": r"$\gamma\gamma\rightarrow e^+e^-$"}
+    
+if final_state=='mumu':
+    procDictAdd = {"wzp6_ee_mumuH_ecm240": {"numberOfEvents": 1200000, "sumOfWeights": 1200000.0, "crossSection": 0.0067643, "kfactor": 1.0, "matchingEfficiency": 1.0},
+                "wzp6_egamma_eZ_Zmumu_ecm240": {"numberOfEvents": 2500000, "sumOfWeights": 2500000.0, "crossSection": 0.10368, "kfactor": 1.0, "matchingEfficiency": 1.0},
+                "wzp6_gammae_eZ_Zmumu_ecm240": {"numberOfEvents": 6000000, "sumOfWeights": 6000000.0, "crossSection": 0.10368, "kfactor": 1.0, "matchingEfficiency": 1.0},
+                "wzp6_gaga_mumu_60_ecm240": {"numberOfEvents": 19500000, "sumOfWeights": 19500000.0, "crossSection": 0.873, "kfactor": 1.0, "matchingEfficiency": 1.0},
+                "wzp6_ee_mumu_ecm240": {"numberOfEvents": 116400000, "sumOfWeights": 116400000.0, "crossSection": 5.288, "kfactor": 1.0, "matchingEfficiency": 1.0},
+    }
+elif final_state=='ee':
+    procDictAdd = {"wzp6_ee_eeH_ecm240": {"numberOfEvents": 1200000, "sumOfWeights": 1200000.0, "crossSection": 0.0071611, "kfactor": 1.0, "matchingEfficiency": 1.0},
+                "wzp6_egamma_eZ_Zee_ecm240": {"numberOfEvents": 5900000, "sumOfWeights": 5900000.0, "crossSection": 0.05198, "kfactor": 1.0, "matchingEfficiency": 1.0},
+                "wzp6_gammae_eZ_Zee_ecm240": {"numberOfEvents": 6000000, "sumOfWeights": 6000000.0, "crossSection": 0.05198, "kfactor": 1.0, "matchingEfficiency": 1.0},
+                "wzp6_gaga_ee_60_ecm240": {"numberOfEvents": 19500000, "sumOfWeights": 19500000.0, "crossSection": 0.873, "kfactor": 1.0, "matchingEfficiency": 1.0},
+                "wzp6_ee_ee_Mee_30_150_ecm240": {"numberOfEvents": 119100000, "sumOfWeights": 119100000.0, "crossSection": 8.305, "kfactor": 1.0, "matchingEfficiency": 1.0},
+    }
+
+fraction = 1
+
+processListBkg = {
+
+    f'p8_ee_WW_ecm{ecm}':                  {'fraction':fraction},
+    f'p8_ee_WW_mumu_ecm{ecm}':             {'fraction':fraction},
+    f'p8_ee_WW_ee_ecm{ecm}':               {'fraction':fraction},
+    f'p8_ee_ZZ_ecm{ecm}':                  {'fraction':fraction},
+    f'wz3p6_ee_uu_ecm{ecm}':               {'fraction':fraction},
+    f'wz3p6_ee_dd_ecm{ecm}':               {'fraction':fraction},
+    f'wz3p6_ee_cc_ecm{ecm}':               {'fraction':fraction},
+    f'wz3p6_ee_ss_ecm{ecm}':               {'fraction':fraction},
+    f'wz3p6_ee_bb_ecm{ecm}':               {'fraction':fraction},
+    f'wz3p6_ee_tautau_ecm{ecm}':           {'fraction':fraction},
+    f'wz3p6_ee_mumu_ecm{ecm}':             {'fraction':fraction},
+    f'wz3p6_ee_ee_Mee_30_150_ecm{ecm}':    {'fraction':fraction},
+    f'wz3p6_ee_nunu_ecm{ecm}':             {'fraction':fraction},
+
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':      {'fraction':fraction},
+    f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':      {'fraction':fraction},
+    f'wzp6_gaga_mumu_60_ecm{ecm}':         {'fraction':fraction},
+
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}':        {'fraction':fraction},
+    f'wzp6_gammae_eZ_Zee_ecm{ecm}':        {'fraction':fraction},
+    f'wzp6_gaga_ee_60_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_gaga_tautau_60_ecm{ecm}':       {'fraction':fraction},
+    f'wzp6_ee_nuenueZ_ecm{ecm}':           {'fraction':fraction},
+}
+
+processListSignal = {
+
+    # f'wzp6_ee_qqH_Hbb_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_qqH_Hcc_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_qqH_Hss_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_qqH_Hgg_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_qqH_Haa_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_qqH_HZa_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_qqH_HWW_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_qqH_HZZ_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_qqH_Hmumu_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_qqH_Htautau_ecm{ecm}':       {'fraction':fraction},
+    # f'wz3p6_ee_qqH_Hinv_ecm{ecm}':         {'fraction':fraction},
+
+    # f'wzp6_ee_ssH_Hbb_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ssH_Hcc_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ssH_Hss_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ssH_Hgg_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ssH_Haa_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ssH_HZa_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ssH_HWW_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ssH_HZZ_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ssH_Hmumu_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_ssH_Htautau_ecm{ecm}':       {'fraction':fraction},
+    # f'wz3p6_ee_ssH_Hinv_ecm{ecm}':         {'fraction':fraction},
+
+    # f'wzp6_ee_ccH_Hbb_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ccH_Hcc_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ccH_Hss_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ccH_Hgg_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ccH_Haa_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ccH_HZa_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ccH_HWW_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ccH_HZZ_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_ccH_Hmumu_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_ccH_Htautau_ecm{ecm}':       {'fraction':fraction},
+    # f'wz3p6_ee_ccH_Hinv_ecm{ecm}':         {'fraction':fraction},
+
+
+    # f'wzp6_ee_bbH_Hbb_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_bbH_Hcc_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_bbH_Hss_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_bbH_Hgg_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_bbH_Haa_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_bbH_HZa_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_bbH_HWW_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_bbH_HZZ_ecm{ecm}':           {'fraction':fraction},
+    # f'wzp6_ee_bbH_Hmumu_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_bbH_Htautau_ecm{ecm}':       {'fraction':fraction},
+    # f'wz3p6_ee_bbH_Hinv_ecm{ecm}':         {'fraction':fraction},
+
+
+    f'wzp6_ee_eeH_Hbb_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_eeH_Hcc_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_eeH_Hss_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_eeH_Hgg_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_eeH_Haa_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_eeH_HZa_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_eeH_HWW_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_eeH_HZZ_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_eeH_Hmumu_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_eeH_Htautau_ecm{ecm}':       {'fraction':fraction},
+    f'wz3p6_ee_eeH_Hinv_ecm{ecm}':         {'fraction':fraction},
+
+    f'wzp6_ee_mumuH_Hbb_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_mumuH_Hcc_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_mumuH_Hss_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_mumuH_Hgg_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_mumuH_Haa_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_mumuH_HZa_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_mumuH_HWW_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_mumuH_HZZ_ecm{ecm}':         {'fraction':fraction},
+    f'wzp6_ee_mumuH_Hmumu_ecm{ecm}':       {'fraction':fraction},
+    f'wzp6_ee_mumuH_Htautau_ecm{ecm}':     {'fraction':fraction},
+    f'wz3p6_ee_mumuH_Hinv_ecm{ecm}':       {'fraction':fraction},
+
+    # f'wzp6_ee_tautauH_Hbb_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_tautauH_Hcc_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_tautauH_Hss_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_tautauH_Hgg_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_tautauH_Haa_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_tautauH_HZa_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_tautauH_HWW_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_tautauH_HZZ_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_tautauH_Hmumu_ecm{ecm}':     {'fraction':fraction},
+    # f'wzp6_ee_tautauH_Htautau_ecm{ecm}':   {'fraction':fraction},
+    # f'wz3p6_ee_tautauH_Hinv_ecm{ecm}':     {'fraction':fraction},
+
+
+    # f'wzp6_ee_nunuH_Hbb_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_nunuH_Hcc_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_nunuH_Hss_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_nunuH_Hgg_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_nunuH_Haa_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_nunuH_HZa_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_nunuH_HWW_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_nunuH_HZZ_ecm{ecm}':         {'fraction':fraction},
+    # f'wzp6_ee_nunuH_Hmumu_ecm{ecm}':       {'fraction':fraction},
+    # f'wzp6_ee_nunuH_Htautau_ecm{ecm}':     {'fraction':fraction},
+    # f'wz3p6_ee_nunuH_Hinv_ecm{ecm}':       {'fraction':fraction},
+
+}
+
+processCutFlow = processListSignal | processListBkg

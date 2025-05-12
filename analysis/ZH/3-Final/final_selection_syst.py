@@ -28,7 +28,7 @@ doTree = False
 # Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
 cutList = { 
     # "sel0":"return true;",
-    "sel_Baseline":"zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
+    "sel_Baseline":"zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
     "sel_Baseline_no_costhetamiss":"zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 &&zll_recoil_m <140 && zll_p > 20 && zll_p < 70", 
     # "sel_Baseline_no_costhetamiss_scaleup":"zll_m_scaleup > 86 && zll_m_scaleup < 96 && zll_recoil_m_scaleup > 120 &&zll_recoil_m_scaleup < 140 && zll_p_scaleup > 20 && zll_p_scaleup < 70", 
     # "sel_Baseline_no_costhetamiss_scaledw":"zll_m_scaledw > 86 && zll_m_scaledw < 96 && zll_recoil_m_scaledw > 120 &&zll_recoil_m_scaledw < 140 && zll_p_scaledw > 20 && zll_p_scaledw < 70",

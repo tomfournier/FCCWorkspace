@@ -212,12 +212,11 @@ elif final_state=="ee":
 
 plots = {}
 plots['ZH'] = {'signal':{f'{final_state}H':[f"wzp6_ee_{final_state}H_ecm{ecm}"]},
-               'backgrounds':{'eeZ':[f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", 
-                                     f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"],
-                              'WW':[f'p8_ee_WW_ecm{ecm}'],
+               'backgrounds':{'WW':[f'p8_ee_WW_ecm{ecm}'],
                               'Zll':[ee_ll], 'ZZ':[f'p8_ee_ZZ_ecm{ecm}'],
                               'rare':[f"wzp6_ee_tautau_ecm{ecm}", f"wzp6_gaga_{final_state}_60_ecm{ecm}",
-                                      f"wzp6_gaga_tautau_60_ecm{ecm}", f"wzp6_ee_nuenueZ_ecm{ecm}"]
+                                      f"wzp6_gaga_tautau_60_ecm{ecm}", f"wzp6_ee_nuenueZ_ecm{ecm}",
+                                      f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"]
         }
 }
 

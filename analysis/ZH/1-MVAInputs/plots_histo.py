@@ -9,7 +9,7 @@ final_state = userConfig.final_state
 ecm = userConfig.ecm
 
 # global parameters
-intLumi        = userConfig.intLumi * 1e6 #in pb-1
+intLumi        = userConfig.intLumi * 1e6 # in pb-1
 if final_state == 'mumu':
      ana_tex        = 'e^{+}e^{-} #rightarrow ZH #rightarrow #mu^{+}#mu^{-} + X'
 else:

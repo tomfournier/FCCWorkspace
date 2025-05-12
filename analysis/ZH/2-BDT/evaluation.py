@@ -121,16 +121,14 @@ def plot_auc(results, x_axis, best_iteration, label):
 
 
 def plot_roc(df,label):
-    # plot ROC 1
+    # plot ROC
     print("------>Plotting ROC")
     fig, axes = plt.subplots(1, 1, figsize=(12,12))
-    #df_train = df_tot.query('valid==False')
-    #df_valid =  df_tot.query("valid==True")
     eps=0.
     ax=axes
     ax.tick_params(axis='both', which='major', labelsize=25)
-    ax.set_xlabel("$\epsilon_B$", fontsize=30)
-    ax.set_ylabel("$\epsilon_S$", fontsize=30)
+    ax.set_xlabel("False positive rate", fontsize=30) # "$\epsilon_B$", fontsize=30)
+    ax.set_ylabel("True positive rate", fontsize=30) # "$\epsilon_S$", fontsize=30)
     ut.plot_roc_curve(df[df['valid']==True],  "BDTscore", ax=ax, label="Validation Sample", tpr_threshold=eps)
     ut.plot_roc_curve(df[df['valid']==False], "BDTscore", ax=ax, color="#ff7f02", tpr_threshold=eps,linestyle='dotted', label="Training Sample")
     plt.plot([eps, 1], [eps, 1], color='navy', lw=2, linestyle='--')

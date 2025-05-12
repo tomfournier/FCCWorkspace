@@ -107,7 +107,7 @@ def plot_roc_curve(df, score_column, tpr_threshold=0.7, ax=None, color=None, lin
     roc_auc = auc(fpr, tpr)
     mask = tpr >= tpr_threshold
     fpr, tpr = fpr[mask], tpr[mask]
-    ax.plot(fpr, tpr, label=label+', AUC={:.2f}'.format(roc_auc), color=color, linestyle=linestyle, linewidth=2)
+    ax.plot(fpr, tpr, label=label+', AUC={:.2f}'.format(roc_auc), color=color, linestyle=linestyle, linewidth=4)
     #ax.semilogy(tpr, fpr, label=label, color=color, linestyle=linestyle)
 #__________________________________________________________
 def dir_exist(mydir):

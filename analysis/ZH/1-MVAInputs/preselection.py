@@ -20,7 +20,7 @@ prodTag = "FCCee/winter2023_training/IDEA/"
 # Optional: output directory, default is local dir
 eosType = "eosuser"
 # Optional: ncpus, default is 4
-nCPUS = 4
+nCPUS = 40
 
 # Optional running on HTCondor, default is False
 # runBatch = True
@@ -204,19 +204,19 @@ class RDFanalysis():
         if ecm == "240":
             df2 = df2.Filter("zll_p > 20 && zll_p < 70")
         elif ecm == "365":
-            df2 = df2.Filter("zll_p > 20")
+            df2 = df2.Filter("zll_p > 50 && zll_p < 150")
         # df2 = df2.Define("cut4", "4")
 
         #########
         ### CUT 5: recoil mass between 100 and 150 GeV
         #########
-        df2 = df2.Filter("zll_recoil_m < 150 && zll_recoil_m > 100")
+        df2 = df2.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
         # df2 = df2.Define("cut5", "5")
 
         #########
         ### CUT 6: cos(theta_miss) cut
         #########
-        # df2 = df2.Filter("cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98")
+        # df2 = df2.Filter("cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98")
         # df2 = df2.Define("cut6", "6")
         
         return df2

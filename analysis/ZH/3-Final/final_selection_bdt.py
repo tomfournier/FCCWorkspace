@@ -28,16 +28,16 @@ doTree = False
 # Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
 cutList = { 
   # "sel0":"return true;",
-  "sel_Baseline":"zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 &&zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA01":"BDTscore>0.1 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA02":"BDTscore>0.2 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA03":"BDTscore>0.3 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA04":"BDTscore>0.4 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA05":"BDTscore>0.5 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA06":"BDTscore>0.6 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA07":"BDTscore>0.7 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA08":"BDTscore>0.8 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  "sel_Baseline_MVA09":"BDTscore>0.9 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline":"zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 &&zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA01":"BDTscore>0.1 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA02":"BDTscore>0.2 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA03":"BDTscore>0.3 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA04":"BDTscore>0.4 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA05":"BDTscore>0.5 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA06":"BDTscore>0.6 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA07":"BDTscore>0.7 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA08":"BDTscore>0.8 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_Baseline_MVA09":"BDTscore>0.9 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
 
   # baseline without costhetamiss 
   "sel_Baseline_no_costhetamiss":"zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70",
@@ -52,13 +52,13 @@ cutList = {
   "sel_Baseline_no_costhetamiss_MVA09":"BDTscore > 0.9 && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70",
 
   # Figure 4 and 5
-  # "sel_Baseline_without_mrec":"zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p <70 && cosTheta_miss.size() >=1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
+  # "sel_Baseline_without_mrec":"zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p <70 && cosTheta_miss.size() >=1 && cosTheta_miss[0] < 0.98",
   # "sel_Baseline_without_mrec_1":"zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p <70",
   # "sel_Baseline_without_mrec_2":"zll_m > 86 && zll_m < 96",
   # "sel_Baseline_without_mrec_3":"zll_p > 20 && zll_p <70",
-  # "sel_Baseline_without_mrec_4":"zll_m > 86 && zll_m < 96 && cosTheta_miss.size() >=1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98",
-  # "sel_Baseline_without_mrec_5":"zll_m > 86 && zll_m < 96 && cosTheta_miss.size() >=1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98 && zll_p > 20",
-  # "sel_Baseline_with_mrec":"zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p <70 && cosTheta_miss.size() >=1 && cosTheta_miss[0] > -0.98 && cosTheta_miss[0] < 0.98 && zll_recoil_m > 120 && zll_recoil_m  < 140",
+  # "sel_Baseline_without_mrec_4":"zll_m > 86 && zll_m < 96 && cosTheta_miss.size() >=1 && cosTheta_miss[0] < 0.98",
+  # "sel_Baseline_without_mrec_5":"zll_m > 86 && zll_m < 96 && cosTheta_miss.size() >=1 && cosTheta_miss[0] < 0.98 && zll_p > 20",
+  # "sel_Baseline_with_mrec":"zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p <70 && cosTheta_miss.size() >=1 && cosTheta_miss[0] < 0.98 && zll_recoil_m > 120 && zll_recoil_m  < 140",
              
 }
 
