@@ -196,14 +196,15 @@ colors['qqH']        = ROOT.kSpring
 colors['WWmumu']     = ROOT.kBlue+1
 colors['ZZ']         = ROOT.kGreen+2
 colors['Zqq']        = ROOT.kYellow+2
-colors['Zll']        = ROOT.kCyan
+colors['Zmumu']      = ROOT.kCyan
+colors['Zee']        = ROOT.kCyan
 colors['eeZ']        = ROOT.kSpring+10
 colors['gagatautau'] = ROOT.kViolet+7
 colors['gagamumu']   = ROOT.kBlue-8
 colors['ZH']         = ROOT.kRed
 colors['WW']         = ROOT.kBlue+1
 colors['VV']         = ROOT.kGreen+3
-colors['rare']       = ROOT.kSpring
+colors['rare']       = ROOT.kBlue-8
 
 if final_state=="mumu":
         ee_ll = f'wzp6_ee_{final_state}_ecm{ecm}'
@@ -213,7 +214,7 @@ elif final_state=="ee":
 plots = {}
 plots['ZH'] = {'signal':{f'{final_state}H':[f"wzp6_ee_{final_state}H_ecm{ecm}"]},
                'backgrounds':{'WW':[f'p8_ee_WW_ecm{ecm}'],
-                              'Zll':[ee_ll], 'ZZ':[f'p8_ee_ZZ_ecm{ecm}'],
+                              f'Z{final_state}':[ee_ll], 'ZZ':[f'p8_ee_ZZ_ecm{ecm}'],
                               'rare':[f"wzp6_ee_tautau_ecm{ecm}", f"wzp6_gaga_{final_state}_60_ecm{ecm}",
                                       f"wzp6_gaga_tautau_60_ecm{ecm}", f"wzp6_ee_nuenueZ_ecm{ecm}",
                                       f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"]
@@ -227,7 +228,8 @@ legend['qqH']        = 'Z(q#bar{q})H'
 legend['eeH']        = 'Z(e^{-}e^{+})H'
 legend['nunuH']      = 'Z(#nu#bar{#nu})H'
 legend['Zqq']        = 'Z#rightarrow q#bar{q}'
-legend['Zll']        = 'Z/#gamma#rightarrow #mu^{+}#mu^{-}'
+legend['Zmumu']        = 'Z/#gamma#rightarrow #mu^{+}#mu^{-}'
+legend['Zee']        = 'Z/#gamma#rightarrow e^{+}e^{-}'
 legend['eeZ']        = 'e^{+}(e^{-})Z'
 legend['Wmumu']      = 'W^{+}(#bar{#nu}#mu^{+})W^{-}(#nu#mu^{-})'
 legend['gagamumu']   = '#gamma#gamma#mu^{-}#mu^{+}'

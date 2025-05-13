@@ -173,7 +173,7 @@ class RDFanalysis():
         #########
         ### CUT 3: Zll mass between 73 and 120 GeV
         #########
-        df2 = df2.Filter("zll_m > 73 && zll_m < 120") 
+        # df2 = df2.Filter("zll_m > 73 && zll_m < 120") 
         # df2 = df2.Define("cut3", "3")
 
         #########
@@ -185,7 +185,7 @@ class RDFanalysis():
         #########
         ### CUT 5: recoil mass between 120 and 140 GeV
         #########
-        df2 = df2.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
+        # df2 = df2.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
         # df2 = df2.Define("cut5", "5")
         
         ##############
@@ -302,7 +302,7 @@ class RDFanalysis():
             # BDT Score
             "BDTscore",
             # Category
-            "zll_category",
+            # "zll_category",
 
             # # scaleup
             # "leading_p_scaleup", "leading_m_scaleup",  
@@ -339,7 +339,6 @@ class RDFanalysis():
             # "zll_recoil_m_sqrtsup",
             # "zll_recoil_m_sqrtsdw", 
     
-            
             # missing Information
             "cosTheta_miss",
             # Higgsstrahlungness

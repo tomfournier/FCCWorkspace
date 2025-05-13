@@ -7,7 +7,7 @@ ZH =True
 final_state, ecm = "ee", 240
 intLumi = 10.8 # in ab-1
 
-plot_file = "png"
+plot_file, final = "png", False
 
 if eos:
     repo = os.path.abspath(".")
@@ -57,11 +57,17 @@ loc.ANALYSIS = f"{loc.OUT}/BDT_analysis/{final_state}"
 #Samples for final analysis final selection
 loc.ANALYSIS_FINAL = f"{loc.OUT}/BDT_final/{final_state}/"
 
-#Location of the cutflow histmaker
-loc.CUTFLOW = f"{loc.OUT}/cutFlow/{final_state}"
+#Location of the cutflow histmaker for MVAInputs
+loc.CUTFLOW_MVA = f"{loc.OUT}/cutFlow/{final_state}/MVAInputs"
 
-#Location of the cutflow plots
-loc.PLOTS_CUTFLOW = f"{loc.PLOTS}/cutFlow"
+#Location of the cutflow plots for MVAInputs
+loc.PLOTS_CUTFLOW_MVA = f"{loc.PLOTS}/cutFlow/MVAInputs"
+
+#Location of the cutflow histmaker for MVAInputs
+loc.CUTFLOW_FINAL = f"{loc.OUT}/cutFlow/{final_state}/final"
+
+#Location of the cutflow plots for MVAInputs
+loc.PLOTS_CUTFLOW_FINAL = f"{loc.PLOTS}/cutFlow/final"
 
 # Process samples that should match the produced files.
 samples = {

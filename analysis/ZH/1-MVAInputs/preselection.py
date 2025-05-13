@@ -201,9 +201,9 @@ class RDFanalysis():
         #########
         ### CUT 4: Z momentum between 20 and 70 GeV (240 GeV) or > 20 GeV (365 GeV)
         #########
-        if ecm == "240":
+        if ecm == 240:
             df2 = df2.Filter("zll_p > 20 && zll_p < 70")
-        elif ecm == "365":
+        elif ecm == 365:
             df2 = df2.Filter("zll_p > 50 && zll_p < 150")
         # df2 = df2.Define("cut4", "4")
 

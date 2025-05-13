@@ -4,28 +4,26 @@ import importlib
 userConfig = importlib.import_module("userConfig")
 
 # Output directory where the files produced at the pre-selection level will be put
-outputDir = userConfig.loc.CUTFLOW
+if userConfig.final:
+    outputDir = userConfig.loc.CUTFLOW_FINAL
+    prodTag = "FCCee/winter2023/IDEA/"
+    procDict = "/cvmfs/fcc.cern.ch/FCCDicts/FCCee_procDict_winter2023_IDEA.json"
+    processList = userConfig.processList1
+else:
+    outputDir = userConfig.loc.CUTFLOW_MVA
+    prodTag = "FCCee/winter2023_training/IDEA/"
+    procDict = "/cvmfs/fcc.cern.ch/FCCDicts/FCCee_procDict_winter2023_training_IDEA.json"
+    procDictAdd = userConfig.procDictAdd
+    processList = userConfig.processList
 
 # Define final_state and ecm
 final_state = userConfig.final_state
 ecm = userConfig.ecm
 
-# Mandatory: List of processes
-processList = userConfig.processList
-
-# Mandatory: Production tag when running over EDM4Hep centrally produced events, 
-# this points to the yaml files for getting sample statistics
-prodTag = "FCCee/winter2023_training/IDEA/"
-
-# Link to the dictonary that contains all the cross section informations etc...
-# path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
-procDict = "/cvmfs/fcc.cern.ch/FCCDicts/FCCee_procDict_winter2023_training_IDEA.json"
-procDictAdd = userConfig.procDictAdd
-
 # Optional: output directory, default is local dir
 eosType = "eosuser"
 # Optional: ncpus, default is 4
-nCPUS = -1
+nCPUS = 20
 
 # Optional running on HTCondor, default is False
 # runBatch = True
@@ -36,6 +34,9 @@ batchQueue = "longlunch"
 
 # Optional computing account when running on HTCondor, default is group_u_FCC.local_gen
 compGroup = "group_u_FCC.local_gen"
+
+doScale = True
+intLumi = userConfig.intLumi * 1e6 # in pb-1
 
 # userBatchConfig = userConfig.loc.BATCH
 
@@ -64,7 +65,7 @@ bool Selection(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> in){
 }
 """)
 
-bins_count = (50, 0, 50)
+bins_count = (7, 0, 7)
 
 #__________________________________________________________
 # Mandatory: analysers funtion to define the analysers to process, please make sure you return the last dataframe, in this example it is df2
@@ -205,9 +206,9 @@ def build_graph_ll(df, hists, dataset):
     #########
     ### CUT 4: Z momentum between 20 and 70 GeV (240 GeV) or between 50 and 150 GeV (365 GeV)
     #########
-    if ecm == "240":
+    if ecm == 240:
         df2 = df2.Filter("zll_p > 20 && zll_p < 70")
-    elif ecm == "365":
+    elif ecm == 365:
         df2 = df2.Filter("zll_p > 50 && zll_p < 150")
     hists.append(df2.Histo1D(("cutFlow", "", *bins_count), "cut4"))
 

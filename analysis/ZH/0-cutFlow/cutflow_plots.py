@@ -9,7 +9,7 @@ final_state = userConfig.final_state
 ecm = userConfig.ecm
 
 # global parameters
-intLumi        = userConfig.intLumi * 1e6 # in pb-1
+intLumi        = 1.
 intLumiLabel   = "L = 10.8 ab^{-1}"
 if final_state=='mumu':
      ana_tex   = 'e^{+}e^{-} #rightarrow ZH #rightarrow #mu^{+}#mu^{-} + X'
@@ -19,8 +19,12 @@ energy         = 240.0
 collider       = 'FCC-ee'
 formats        = ['png']
 
-outdir         = userConfig.loc.PLOTS_CUTFLOW
-inputDir       = userConfig.loc.CUTFLOW 
+if userConfig.final:
+     outdir         = userConfig.loc.PLOTS_CUTFLOW_FINAL
+     inputDir       = userConfig.loc.CUTFLOW_FINAL
+else:
+     outdir         = userConfig.loc.PLOTS_CUTFLOW_MVA
+     inputDir       = userConfig.loc.CUTFLOW_MVA
 
 plotStatUnc    = True
 
@@ -29,25 +33,21 @@ procs = {}
 procs['signal'] = {f'{final_state}H':[f'wzp6_ee_{final_state}H_ecm{ecm}']}
 
 if final_state=="mumu":
-     procs['backgrounds'] = {f'WW{final_state}':[f'p8_ee_WW_{final_state}_ecm{ecm}'],
-                             'ZZ':[f'p8_ee_ZZ_ecm240'],
-                             f'Z{final_state}':[f'wzp6_ee_{final_state}_ecm{ecm}'],
-                             'eeZ':[f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
-                                    f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"],
-                                    f'gaga{final_state}':[f"wzp6_gaga_{final_state}_60_ecm{ecm}"]}
+        ee_ll = f'wzp6_ee_{final_state}_ecm{ecm}'
 elif final_state=="ee":
-     procs['backgrounds'] = {f'WW{final_state}':[f'p8_ee_WW_{final_state}_ecm{ecm}'],
-                             'ZZ':[f'p8_ee_ZZ_ecm240'],
-                             f'Z{final_state}':[f'wzp6_ee_{final_state}_Mee_30_150_ecm{ecm}'],
-                             'eeZ':[f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
-                                    f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"],
-                                    f'gaga{final_state}':[f"wzp6_gaga_{final_state}_60_ecm{ecm}"]}
-else:
-     raise ValueError(f"final_state {final_state} not supported")
+        ee_ll = f'wzp6_ee_{final_state}_Mee_30_150_ecm{ecm}'
 
-extralabel = {}
-extralabel["sel_Baseline_no_costhetamiss"] = "Baseline without cos#theta_{miss} cut"
-extralabel["sel_Baseline_costhetamiss"]    = "Baseline with cos#theta_{miss} cut"   
+procs['backgrounds'] = {f'WW{final_state}':[f'p8_ee_WW_{final_state}_ecm{ecm}'],
+                        'ZZ':[f'p8_ee_ZZ_ecm240'],
+                        f'Z{final_state}':[ee_ll],
+                        'eeZ':[f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
+                               f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"],
+                               f'gaga{final_state}':[f"wzp6_gaga_{final_state}_60_ecm{ecm}"]}
+# procs['backgrounds'] = {f'WW{final_state}':[f'p8_ee_WW_ecm{ecm}'],
+#                          'ZZ':[f'p8_ee_ZZ_ecm240'], f'Z{final_state}':[ee_ll],
+#                          'Rare':[f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
+#                                    f"wzp6_gaga_{final_state}_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}",
+#                                    f"wzp6_ee_tautau_ecm{ecm}", f"wzp6_ee_nuenueZ_ecm{ecm}"]}
 
 colors = {}
 colors['mumuH'] = ROOT.kRed
@@ -61,7 +61,7 @@ colors['gagamumu'] = ROOT.kBlue-8
 colors['gagaee'] = ROOT.kBlue-8
 colors['WW'] = ROOT.kBlue+1
 colors['ZZ'] = ROOT.kGreen+2
-colors['rare'] = ROOT.kSpring
+colors['Rare'] = ROOT.kBlue-8
 
 legend = {}
 legend['mumuH'] = 'Z(#mu^{-}#mu^{+})H'
@@ -75,7 +75,7 @@ legend['gagamumu'] = '#gamma#gamma#rightarrow#mu^{+}#mu^{-}'
 legend['gagaee'] = '#gamma#gamma#rightarrow e^{+}e^{-}'
 legend['WW'] = 'W^{+}W^{-}'
 legend['ZZ'] = 'ZZ'
-legend['rare'] = 'Rare'
+legend['Rare'] = 'Rare'
 
 hists = {}
 
@@ -91,9 +91,9 @@ hists["cutFlow"] = {
     "logy":     True,
     "stack":    False,
     "xmin":     0,
-    "xmax":     6,
+    "xmax":     7,
     "ymin":     1e4,
-    "ymax":     1e10,
+    "ymax":     1e11,
     "xtitle":   xtitle,
     "ytitle":   "Events",
     "scaleSig": 1
