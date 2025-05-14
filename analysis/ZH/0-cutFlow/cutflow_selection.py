@@ -7,12 +7,12 @@ userConfig = importlib.import_module("userConfig")
 if userConfig.final:
     outputDir = userConfig.loc.CUTFLOW_FINAL
     prodTag = "FCCee/winter2023/IDEA/"
-    procDict = "/cvmfs/fcc.cern.ch/FCCDicts/FCCee_procDict_winter2023_IDEA.json"
+    procDict = "FCCee_procDict_winter2023_IDEA.json"
     processList = userConfig.processList1
 else:
     outputDir = userConfig.loc.CUTFLOW_MVA
     prodTag = "FCCee/winter2023_training/IDEA/"
-    procDict = "/cvmfs/fcc.cern.ch/FCCDicts/FCCee_procDict_winter2023_training_IDEA.json"
+    procDict = "FCCee_procDict_winter2023_training_IDEA.json"
     procDictAdd = userConfig.procDictAdd
     processList = userConfig.processList
 

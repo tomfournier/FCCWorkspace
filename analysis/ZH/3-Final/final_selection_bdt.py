@@ -84,7 +84,7 @@ histoList = {
     # "leptonic_recoil_m_zoom5":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":20,"xmin":124,"xmax":126}, 
     # "leptonic_recoil_m_zoom6":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":200,"xmin":110,"xmax":150}, 
     # "leptonic_recoil_m_zoom7":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":240,"xmin":40,"xmax":160}, 
-    "BDT_Score":{"name":"BDTscore","title":"BDT Score","bin":100,"xmin":0,"xmax":1},
+    "BDT_Score":{"name":"BDTscore","title":"BDT Score","bin":1000,"xmin":0,"xmax":1},
     # "BDT_Score_scaleup":{"name":"BDTscore_scaleup","title":"BDT Score LEPSCALE UP","bin":100,"xmin":0,"xmax":1}, 
     # "BDT_Score_scaledw":{"name":"BDTscore_scaledw","title":"BDT Score LEPSCALE DOWN","bin":100,"xmin":0,"xmax":1}, 
     # more control variables

@@ -46,7 +46,8 @@ variables = [
         # "leps_no"
 ]
 
-#cDictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
+# Dictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. 
+# The name of the selections should be the same than in the final selection
 selections = {}
 selections['ZH'] = [ 
         # "sel0", 
@@ -214,8 +215,8 @@ elif final_state=="ee":
 plots = {}
 plots['ZH'] = {'signal':{f'{final_state}H':[f"wzp6_ee_{final_state}H_ecm{ecm}"]},
                'backgrounds':{'WW':[f'p8_ee_WW_ecm{ecm}'],
-                              f'Z{final_state}':[ee_ll], 'ZZ':[f'p8_ee_ZZ_ecm{ecm}'],
-                              'rare':[f"wzp6_ee_tautau_ecm{ecm}", f"wzp6_gaga_{final_state}_60_ecm{ecm}",
+                              f'Z{final_state}':[ee_ll, f"wzp6_ee_tautau_ecm{ecm}"], 'ZZ':[f'p8_ee_ZZ_ecm{ecm}'],
+                              'rare':[f"wzp6_gaga_{final_state}_60_ecm{ecm}",
                                       f"wzp6_gaga_tautau_60_ecm{ecm}", f"wzp6_ee_nuenueZ_ecm{ecm}",
                                       f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}"]
         }
@@ -228,8 +229,8 @@ legend['qqH']        = 'Z(q#bar{q})H'
 legend['eeH']        = 'Z(e^{-}e^{+})H'
 legend['nunuH']      = 'Z(#nu#bar{#nu})H'
 legend['Zqq']        = 'Z#rightarrow q#bar{q}'
-legend['Zmumu']        = 'Z/#gamma#rightarrow #mu^{+}#mu^{-}'
-legend['Zee']        = 'Z/#gamma#rightarrow e^{+}e^{-}'
+legend['Zmumu']        = 'Z/#gamma#rightarrow #mu^{+}#mu^{-}, #tau^{+}#tau^{-}'
+legend['Zee']        = 'Z/#gamma#rightarrow e^{+}e^{-}, #tau^{+}#tau^{-}'
 legend['eeZ']        = 'e^{+}(e^{-})Z'
 legend['Wmumu']      = 'W^{+}(#bar{#nu}#mu^{+})W^{-}(#nu#mu^{-})'
 legend['gagamumu']   = '#gamma#gamma#mu^{-}#mu^{+}'
