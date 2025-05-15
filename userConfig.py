@@ -8,6 +8,7 @@ final_state, ecm = "mumu", 240
 intLumi = 10.8 # in ab-1
 
 plot_file, final = "png", False
+combine, miss = False, False
 
 if eos:
     repo = os.path.abspath(".")
@@ -68,6 +69,12 @@ loc.CUTFLOW_FINAL = f"{loc.OUT}/cutFlow/{final_state}/final"
 
 #Location of the cutflow plots for MVAInputs
 loc.PLOTS_CUTFLOW_FINAL = f"{loc.PLOTS}/cutFlow/final"
+
+#Location of the combine output
+if combine:
+    loc.COMBINE = f"{loc.OUT}/combine/combined"
+else:
+    loc.COMBINE = f"{loc.OUT}/combine/{final_state}"
 
 # Process samples that should match the produced files.
 samples = {

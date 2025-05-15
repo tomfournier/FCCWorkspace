@@ -4,7 +4,8 @@ import importlib
 userConfig = importlib.import_module("userConfig")
 
 # Define final state and ecm
-final_state = userConfig.final_state
+if not userConfig.combine:
+    final_state = userConfig.final_state
 ecm = userConfig.ecm
 
 #Mandatory: List of processes
@@ -47,7 +48,7 @@ class RDFanalysis():
 
     #__________________________________________________________
     # Mandatory: analysers funtion to define the analysers to process, please make sure you return the last dataframe, in this example it is df2
-    def analysers(df):
+    def analysers(df, final_state):
         df2 = df
 
         #############################################
@@ -282,6 +283,7 @@ class RDFanalysis():
         # df2 = df2.Define("zll_recoil_m_sqrtsdw", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsdw)[0]")
         
         return df2
+
 
     #__________________________________________________________
     # Mandatory: output function, please make sure you return the branchlist as a python list
