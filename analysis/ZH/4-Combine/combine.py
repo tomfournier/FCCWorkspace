@@ -7,7 +7,7 @@ userConfig = importlib.import_module("userConfig")
 final_state = userConfig.final_state
 ecm = userConfig.ecm
 
-intLumi = 1
+intLumi = userConfig.intLumi * 1e6
 mc_stats = True
 rebin = 1
 
@@ -49,9 +49,9 @@ else:
     categories = [f'z{final_state}']
 
 if userConfig.miss:
-    selection = 'sel_Baseline'
+    selection = 'sel_highmass_costhetamiss'
 else:
-    selection = 'sel_Baseline_no_costhetamiss'
+    selection = 'sel_highmass_no_costhetamiss'
 
 hist_names = ['recoil_m']
 

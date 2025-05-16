@@ -99,6 +99,10 @@ selections['ZH'] = [
         # "sel_Baseline_without_mrec_4",
         # "sel_Baseline_without_mrec_5",
         # "sel_Baseline_with_mrec",
+        "sel_highmass_no_costhetamiss",
+        "sel_highmass_costhetamiss",
+        "sel_lowmass_no_costhetamiss",
+        "sel_lowmass_costhetamiss"
 ]
 
 extralabel = {}
@@ -187,6 +191,10 @@ extralabel["sel_Baseline_without_mrec_3"]                       =  "sel_Baseline
 extralabel["sel_Baseline_without_mrec_4"]                       =  "sel_Baseline_without_mrec_4"
 extralabel["sel_Baseline_without_mrec_5"]                       =  "sel_Baseline_without_mrec_5"
 extralabel["sel_Baseline_with_mrec"]                            =  "sel_Baseline_with_mrec"
+extralabel["sel_highmass_no_costhetamiss"]                      = "sel_highmass_no_costhetamiss"
+extralabel["sel_lowmass_no_costhetamiss"]                       = "sel_lowmass_no_costhetamiss"
+extralabel["sel_highmass_costhetamiss"]                         = "sel_highmass_costhetamiss"
+extralabel["sel_lowmass_costhetamiss"]                          = "sel_lowmass_costhetamiss"
 
 colors = {}
 colors['mumuH']      = ROOT.kRed

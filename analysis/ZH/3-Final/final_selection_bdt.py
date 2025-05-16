@@ -25,6 +25,11 @@ nCPUS = 2
 # produces ROOT TTrees, default is False
 doTree = False
 
+if final_state=='mumu':
+    bdtcut = 0.84
+elif final_state=='ee':
+    bdtcut = 0.83
+
 # Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
 cutList = { 
   # "sel0":"return true;",
@@ -59,7 +64,13 @@ cutList = {
   # "sel_Baseline_without_mrec_4":"zll_m > 86 && zll_m < 96 && cosTheta_miss.size() >=1 && cosTheta_miss[0] < 0.98",
   # "sel_Baseline_without_mrec_5":"zll_m > 86 && zll_m < 96 && cosTheta_miss.size() >=1 && cosTheta_miss[0] < 0.98 && zll_p > 20",
   # "sel_Baseline_with_mrec":"zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p <70 && cosTheta_miss.size() >=1 && cosTheta_miss[0] < 0.98 && zll_recoil_m > 120 && zll_recoil_m  < 140",
-             
+  
+  "sel_highmass_no_costhetamiss":f"BDTscore >= {bdtcut} && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70",
+  "sel_lowmass_no_costhetamiss":f"BDTscore < {bdtcut} && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70",
+
+  "sel_highmass_costhetamiss":f"BDTscore >= {bdtcut} && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+  "sel_lowmass_costhetamiss":f"BDTscore < {bdtcut} && zll_m > 86 && zll_m < 96 && zll_recoil_m > 120 && zll_recoil_m < 140 && zll_p > 20 && zll_p < 70 && cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98",
+
 }
 
 # Dictionary for the ouput variable/hitograms. 
@@ -71,20 +82,8 @@ cutList = {
 # "xmax" the maximum x-axis value.
 histoList = {
     "mz":{"name":"zll_m","title":"m_{Z} [GeV]","bin":125,"xmin":86,"xmax":96},
-    # "mz_zoom1":{"name":"zll_m","title":"m_{Z} [GeV]","bin":200,"xmin":80,"xmax":100},
-    # "mz_zoom2":{"name":"zll_m","title":"m_{Z} [GeV]","bin":100,"xmin":86,"xmax":96},
-    # "mz_zoom3":{"name":"zll_m","title":"m_{Z} [GeV]","bin":250,"xmin":75,"xmax":100},
-    # "mz_zoom4":{"name":"zll_m","title":"m_{Z} [GeV]","bin":235,"xmin":73,"xmax":120},
-    # "mz_zoom5":{"name":"zll_m","title":"m_{Z} [GeV]","bin":230,"xmin":40,"xmax":160},
     "recoil_m":{"name":"zll_recoil_m","title":"m_{recoil} [GeV]","bin":100,"xmin":120,"xmax":140},
-    # "leptonic_recoil_m_zoom1":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":200,"xmin":80,"xmax":160},
-    # "leptonic_recoil_m_zoom2":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":100,"xmin":120,"xmax":140},
-    # "leptonic_recoil_m_zoom3":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":200,"xmin":120,"xmax":140},
-    # "leptonic_recoil_m_zoom4":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":70,"xmin":123,"xmax":130},
-    # "leptonic_recoil_m_zoom5":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":20,"xmin":124,"xmax":126}, 
-    # "leptonic_recoil_m_zoom6":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":200,"xmin":110,"xmax":150}, 
-    # "leptonic_recoil_m_zoom7":{"name":"zll_recoil_m","title":"Z leptonic recoil [GeV]","bin":240,"xmin":40,"xmax":160}, 
-    "BDT_Score":{"name":"BDTscore","title":"BDT Score","bin":1000,"xmin":0,"xmax":1},
+    "BDT_Score":{"name":"BDTscore","title":"BDT Score","bin":200,"xmin":0,"xmax":1},
     # "BDT_Score_scaleup":{"name":"BDTscore_scaleup","title":"BDT Score LEPSCALE UP","bin":100,"xmin":0,"xmax":1}, 
     # "BDT_Score_scaledw":{"name":"BDTscore_scaledw","title":"BDT Score LEPSCALE DOWN","bin":100,"xmin":0,"xmax":1}, 
     # more control variables
