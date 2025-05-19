@@ -70,6 +70,12 @@ loc.CUTFLOW_FINAL = f"{loc.OUT}/cutFlow/{final_state}/final"
 #Location of the cutflow plots for MVAInputs
 loc.PLOTS_CUTFLOW_FINAL = f"{loc.PLOTS}/cutFlow/final"
 
+#Location of the hists for the combine part
+loc.COMBINE_HIST = f"{loc.OUT}/combine/hists"
+
+#Location of the hists for the combine part
+loc.COMBINE_PROC = f"{loc.OUT}/combine/hists_processed/{final_state}"
+
 #Location of the combine output
 if combine:
     loc.COMBINE = f"{loc.OUT}/combine/combined"

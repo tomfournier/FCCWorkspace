@@ -37,10 +37,16 @@ compGroup = "group_u_FCC.local_gen"
  
 # USER DEFINED CODE
 import ROOT
-ROOT.gInterpreter.ProcessLine('''
-  TMVA::Experimental::RBDT<> bdt("ZH_Recoil_BDT", "/eos/user/t/tofourni/public/FCC/FCCWorkspace/analysis/ZH/output/BDT/mumu/xgb_bdt.root");
-  computeModel1 = TMVA::Experimental::Compute<9, float>(bdt);
-''')
+if final_state=='mumu':
+    ROOT.gInterpreter.ProcessLine('''
+    TMVA::Experimental::RBDT<> bdt("ZH_Recoil_BDT", "/eos/user/t/tofourni/public/FCC/FCCWorkspace/analysis/ZH/output/BDT/mumu/xgb_bdt.root");
+    computeModel1 = TMVA::Experimental::Compute<9, float>(bdt);
+    ''')
+elif final_state=='ee':
+    ROOT.gInterpreter.ProcessLine('''
+    TMVA::Experimental::RBDT<> bdt("ZH_Recoil_BDT", "/eos/user/t/tofourni/public/FCC/FCCWorkspace/analysis/ZH/output/BDT/ee/xgb_bdt.root");
+    computeModel1 = TMVA::Experimental::Compute<9, float>(bdt);
+    ''')
 
 
 # Mandatory: RDFanalysis class where the use defines the operations on the TTree
