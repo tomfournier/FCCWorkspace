@@ -4,11 +4,11 @@ import numpy as np
 eos = True
 ZH =True
 
-final_state, ecm = "mumu", 240
+final_state, ecm = "ee", 240
 intLumi = 10.8 # in ab-1
 
 plot_file, final = "png", False
-combine, miss = False, False
+combine, miss = True, False
 
 if eos:
     repo = os.path.abspath(".")
@@ -78,9 +78,18 @@ loc.COMBINE_PROC = f"{loc.OUT}/combine/hists_processed/{final_state}"
 
 #Location of the combine output
 if combine:
-    loc.COMBINE = f"{loc.OUT}/combine/combined"
+    loc.COMBINE = f"{loc.OUT}/combine"
 else:
     loc.COMBINE = f"{loc.OUT}/combine/{final_state}"
+
+#Location of the hists for the model-independence part
+loc.MODEL = f"{loc.OUT}/model-independence/hists"
+
+#Location of the plots for the model-independence part
+loc.MODEL_PLOTS = loc.PLOTS_Val = f"{repo}/plots_independence"
+
+#Location of the hists for the model-independence part
+loc.BIAS = f"{loc.OUT}/model-independence/bias"
 
 # Process samples that should match the produced files.
 samples = {

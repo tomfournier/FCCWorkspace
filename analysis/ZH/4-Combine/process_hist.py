@@ -57,8 +57,8 @@ def unroll(hist, hName):
             
     return h1
 
-if not os.path.isdir(f'{outputdir}/{final_state}'):
-    os.system(f'mkdir {outputdir}/{final_state}')
+if not os.path.isdir(f'{outputdir}'):
+    os.system(f'mkdir {outputdir}')
 
 print('----->[Info] Processing histograms for Combine')
 for proc in procs:
