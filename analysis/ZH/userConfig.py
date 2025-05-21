@@ -2,13 +2,13 @@ import os
 import numpy as np
 
 eos = True
-ZH =True
+ZH = False
 
-final_state, ecm = "ee", 240
+final_state, ecm = "mumu", 240
 intLumi = 10.8 # in ab-1
 
 plot_file, final = "png", False
-combine, miss = True, False
+combine, miss = False, False
 
 if eos:
     repo = os.path.abspath(".")
@@ -86,8 +86,16 @@ else:
 loc.MODEL = f"{loc.OUT}/model-independence/hists"
 
 #Location of the plots for the model-independence part
-loc.MODEL_PLOTS = loc.PLOTS_Val = f"{repo}/plots_independence"
+if not combine:
+    loc.MODEL_PLOTS = loc.PLOTS_Val = f"{repo}/plots_independence/{final_state}"
+else:
+    loc.MODEL_PLOTS = loc.PLOTS_Val = f"{repo}/plots_independence/combined"
 
+#Location of the hists for the model-independence part
+if not combine:
+    loc.BIAS_HIST = f"{loc.OUT}/model-independence/{final_state}"
+else:
+    loc.BIAS_HIST = f"{loc.OUT}/model-independence/combined"
 #Location of the hists for the model-independence part
 loc.BIAS = f"{loc.OUT}/model-independence/bias"
 

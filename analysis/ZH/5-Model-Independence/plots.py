@@ -14,7 +14,7 @@ ROOT.gStyle.SetOptTitle(0)
 
 import tools.plotter as plotter # type: ignore
 
-def getHist(hName, procs, rebin=1):
+def getHist(hName, procs, rebin=-1):
     hist = None
     for proc in procs:
         fInName = f"{inputDir}/{proc}.root"
@@ -32,7 +32,8 @@ def getHist(hName, procs, rebin=1):
         else:
             hist.Add(h)
         fIn.Close()
-    hist.Rebin(rebin)
+    if rebin!=-1:
+        hist.Rebin(rebin)
     return hist
 
 def makeCutFlow(hName="cutFlow", cuts=[], labels=[], sig_scale=1.0, yMin=1e6, yMax=1e10):
@@ -126,6 +127,9 @@ def makeCutFlow(hName="cutFlow", cuts=[], labels=[], sig_scale=1.0, yMin=1e6, yM
     h_sig.Draw("SAME HIST")
     leg.Draw("SAME")
 
+    if not os.path.isdir(f'{outDir}'):
+            os.system(f'mkdir -p {outDir}')
+
     plotter.aux()
     canvas.RedrawAxis()
     canvas.Modify()
@@ -202,7 +206,7 @@ def makeCutFlowHiggsDecays(hName="cutFlow", outName="", cuts=[], cut_labels=[], 
         'ymax'              : yMax ,
 
         'xtitle'            : "",
-        'ytitle'            : "Selection efficiency (%)",
+        'ytitle'            : "Selection efficiency [%]",
 
         'topRight'          : f"#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}",
         'topLeft'           : "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}",
@@ -238,6 +242,10 @@ def makeCutFlowHiggsDecays(hName="cutFlow", outName="", cuts=[], cut_labels=[], 
     canvas.Modify()
     canvas.Update()
     canvas.Draw()
+
+    if not os.path.isdir(f'{outDir}/higgsDecays'):
+            os.system(f'mkdir -p {outDir}/higgsDecays')
+
     canvas.SaveAs(f"{outDir}/higgsDecays/{outName}.{userConfig.plot_file}")
 
     out_orig = sys.stdout
@@ -261,8 +269,6 @@ def makeCutFlowHiggsDecays(hName="cutFlow", outName="", cuts=[], cut_labels=[], 
     del canvas
 
     # make final efficiency plot eff_final, eff_final_err
-    sel_eff_avg = eff_avg 
-    sel_eff_tot_err = 0
     if final_state == "mumu":
         xMin, xMax = 68, 74
         if len(z_decays) > 1:
@@ -356,10 +362,13 @@ def makeCutFlowHiggsDecays(hName="cutFlow", outName="", cuts=[], cut_labels=[], 
     txt.DrawLatex(0.2, 0.15, f"Min/max: {eff_min:.2f}/{eff_max:.2f}")
     txt.Draw("SAME")
 
+    if not os.path.isdir(f'{outDir}/higgsDecays'):
+            os.system(f'mkdir -p {outDir}/higgsDecays')
+
     canvas.SaveAs(f"{outDir}/higgsDecays/{outName}_finalSelection.{userConfig.plot_file}")
 
 
-def makePlotHiggsDecays(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, xLabel="", yLabel="Events", logX=False, logY=True, rebin=1, xLabels=[]):
+def makePlotHiggsDecays(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, xLabel="", yLabel="Events", logX=False, logY=True, rebin=-1, xLabels=[]):
 
     if outName == "":
         outName = hName
@@ -376,7 +385,8 @@ def makePlotHiggsDecays(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, x
     for i,sig in enumerate(sigs):
         h_decay = h_decays[i]
         h_sig = getHist(hName, sig)
-        h_sig.Rebin(rebin)
+        if rebin!=-1:
+            h_sig.Rebin(rebin)
         if h_sig.Integral() > 0:
             h_sig.Scale(1./h_sig.Integral())
 
@@ -417,7 +427,6 @@ def makePlotHiggsDecays(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, x
 
     for i,hist in enumerate(hists):
         hist.Draw("SAME HIST")
-        print(i, hist.GetBinContent(5))
     leg.Draw("SAME")
     
     canvas.SetGrid()
@@ -428,12 +437,14 @@ def makePlotHiggsDecays(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, x
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
-    canvas.SaveAs(f"{outDir}/higgsDecays/{outName}.png")
-    canvas.SaveAs(f"{outDir}/higgsDecays/{outName}.pdf")
+    if not os.path.isdir(f'{outDir}/higgsDecays'):
+            os.system(f'mkdir -p {outDir}/higgsDecays')
+
+    canvas.SaveAs(f"{outDir}/higgsDecays/{outName}.{userConfig.plot_file}")
     canvas.Close()
 
 
-def makePlotSignalRatios(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, xLabel="xlabel", yLabel="Events", rebin=1):
+def makePlotSignalRatios(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, xLabel="xlabel", yLabel="Events", rebin=-1):
 
     if outName == "":
         outName = hName
@@ -451,7 +462,8 @@ def makePlotSignalRatios(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, 
     for i,sig in enumerate(sigs):
         h_decay = h_decays[i]
         h_sig = getHist(hName, sig)
-        h_sig.Rebin(rebin)
+        if rebin!=-1:
+            h_sig.Rebin(rebin)
         # h_sig.Scale(1./h_sig.Integral())
 
         h_sig.SetLineColor(h_decays_colors[h_decay])
@@ -507,11 +519,14 @@ def makePlotSignalRatios(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, 
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
+    if not os.path.isdir(f'{outDir}/higgsDecays'):
+            os.system(f'mkdir -p {outDir}/higgsDecays')
+
     canvas.SaveAs(f"{outDir}/higgsDecays/{outName}.{userConfig.plot_file}")
     canvas.Close()
 
 
-def makePlot(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, xLabel="xlabel", yLabel="Events", logX=False, logY=True, rebin=1, legPos=[0.3, 0.75, 0.9, 0.9], sig_scale=1, xLabels=[]):
+def makePlot(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, xLabel="xlabel", yLabel="Events", logX=False, logY=True, rebin=-1, legPos=[0.3, 0.75, 0.9, 0.9], sig_scale=1, xLabels=[]):
 
     if outName == "":
         outName = hName
@@ -604,6 +619,9 @@ def makePlot(hName, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, xLabel="xlab
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
+    if not os.path.isdir(f'{outDir}'):
+            os.system(f'mkdir -p {outDir}')
+
     canvas.SaveAs(f"{outDir}/{outName}.{userConfig.plot_file}")
     canvas.Close()
 
@@ -686,21 +704,27 @@ def significance(hName, xMin=-10000, xMax=10000, reverse=False):
     text.DrawLatexNDC(0.1, 0.92, f"Max: x = {max_x}, y = {max_y:.5f}, signal loss = {max_l:.5f}")
 
     suffix = "_reverse" if reverse else ""
-    canvas.SaveAs(f"{outDir}/significance/{hName}{suffix}.png")
-    canvas.SaveAs(f"{outDir}/significance/{hName}{suffix}.pdf")
+    if not os.path.isdir(f'{outDir}/significance'):
+            os.system(f'mkdir -p {outDir}/significance')
+    canvas.SaveAs(f"{outDir}/significance/{hName}{suffix}.{userConfig.plot_file}")
     canvas.Close()
 
 if __name__ == "__main__":
 
     ecm = userConfig.ecm
     final_state = userConfig.final_state
-    lumi = userConfig.intLumi * 1e6
+    lumi = userConfig.intLumi
 
     z_decays = ['mumu', 'ee']
-    h_decays = ["bb", "cc", "gg", "ss", "mumu", "tautau", "ZZ", "WW", "Za", "aa", "inv"]
+    h_decays = ["bb", "cc", "gg", "ss", "mumu", "tautau", "ZZ", "WW", "Za", "aa"]
 
-    h_decays_labels = {"bb": "H#rightarrowb#bar{b}", "cc": "H#rightarrowc#bar{c}", "ss": "H#rightarrows#bar{s}", "gg": "H#rightarrowgg", "mumu": "H#rightarrow#mu^{#plus}#mu^{#minus}", "tautau": "H#rightarrow#tau^{#plus}#tau^{#minus}", "ZZ": "H#rightarrowZZ*", "WW": "H#rightarrowWW*", "Za": "H#rightarrowZ#gamma", "aa": "H#rightarrow#gamma#gamma", "inv": "H#rightarrowInv"}
-    h_decays_colors = {"bb": ROOT.kBlack, "cc": ROOT.kBlue , "ss": ROOT.kRed, "gg": ROOT.kGreen+1, "mumu": ROOT.kOrange, "tautau": ROOT.kCyan, "ZZ": ROOT.kGray, "WW": ROOT.kGray+2, "Za": ROOT.kGreen+2, "aa": ROOT.kRed+2, "inv": ROOT.kBlue+2}
+    h_decays_labels = {"bb": "H#rightarrowb#bar{b}", "cc": "H#rightarrowc#bar{c}", "ss": "H#rightarrows#bar{s}", 
+                       "gg": "H#rightarrowgg", "mumu": "H#rightarrow#mu^{#plus}#mu^{#minus}", "tautau": "H#rightarrow#tau^{#plus}#tau^{#minus}", 
+                       "ZZ": "H#rightarrowZZ*", "WW": "H#rightarrowWW*", "Za": "H#rightarrowZ#gamma", 
+                       "aa": "H#rightarrow#gamma#gamma", "inv": "H#rightarrowInv"}
+    h_decays_colors = {"bb": ROOT.kBlack, "cc": ROOT.kBlue , "ss": ROOT.kRed, "gg": ROOT.kGreen+1, "mumu": ROOT.kOrange, 
+                       "tautau": ROOT.kCyan, "ZZ": ROOT.kGray, "WW": ROOT.kGray+2, "Za": ROOT.kGreen+2, "aa": ROOT.kRed+2, 
+                       "inv": ROOT.kBlue+2}
 
     procs_cfg = {
         "ZH"        : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays],
@@ -708,8 +732,8 @@ if __name__ == "__main__":
         "ZeeH"      : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in ["ee"] for y in h_decays],
         "WW"        : [f'p8_ee_WW_ecm{ecm}'],
         "ZZ"        : [f'p8_ee_ZZ_ecm{ecm}'],
-        "Zgamma"    : [f'wz3p6_ee_tautau_ecm{ecm}', f'wz3p6_ee_mumu_ecm{ecm}',
-                       f'wz3p6_ee_ee_Mee_30_150_ecm{ecm}'],
+        "Zgamma"    : [f'wzp6_ee_tautau_ecm{ecm}', f'wzp6_ee_mumu_ecm{ecm}',
+                       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'],
         "Rare"      : [f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}', 
                        f'wzp6_gaga_mumu_60_ecm{ecm}', f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
                        f'wzp6_gammae_eZ_Zee_ecm{ecm}', f'wzp6_gaga_ee_60_ecm{ecm}', 
@@ -742,18 +766,21 @@ if __name__ == "__main__":
 
     if final_state == "ee" or final_state == "mumu":
 
+        print(f'----->[Info] Making plots for {final_state} channel')
+
         inputDir = userConfig.loc.MODEL
         outDir = userConfig.loc.MODEL_PLOTS
 
         z_decays = [final_state] # only mumu or ee
         procs = [f"Z{final_state}H", "WW", "ZZ", "Zgamma", "Rare"] # first must be signal
 
-        cuts = ["cut0", "cut1", "cut2", "cut3", "cut4", "cut5", "cut6"]
+        cuts = ["cut0", "cut1", "cut2", "cut3", "cut4", "cut5"] # , "cut6"]
         if final_state=='mumu':
-            cut_labels = ["All events", "#geq 1 #mu^{#pm} + ISO", "#geq 2 #mu^{#pm} + OS", "86 < m_{#mu^{+}#mu^{#minus}} < 96", "20 < p_{#mu^{+}#mu^{#minus}} < 70", "100 < m_{rec} < 150", "|cos#theta_{miss}| < 0.98"]
+            cut_labels = ["All events", "#geq 1 #mu^{#pm} + ISO", "#geq 2 #mu^{#pm} + OS", "86 < m_{#mu^{+}#mu^{#minus}} < 96", "20 < p_{#mu^{+}#mu^{#minus}} < 70", "120 < m_{rec} < 140"] # , "|cos#theta_{miss}| < 0.98"]
         else:
             cut_labels = ["All events", "#geq 1 e^{#pm} + ISO", "#geq 2 e^{#pm} + OS", "86 < m_{e^{+}e^{#minus}} < 96", "20 < p_{e^{+}e^{#minus}} < 70", "120 < m_{rec} < 140"] # , "|cos#theta_{miss}| < 0.98"]
 
-        makeCutFlow(f"{final_state}_cutFlow", cuts, cut_labels, sig_scale=1, yMin=1e4, yMax=1e10)
+        # makeCutFlow(f"{final_state}_cutFlow", cuts, cut_labels, sig_scale=1, yMin=1e4, yMax=1e10)
+        makePlotHiggsDecays(f"{final_state}_mva_score", outName="mva_score", xMin=0, xMax=1, yMin=1e-4, yMax=1e1, xLabel="MVA score", yLabel="Events", logY=True)
         makeCutFlowHiggsDecays(f"{final_state}_cutFlow", outName="cutFlow", cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=z_decays, h_decays=h_decays, h_decays_labels=h_decays_labels, h_decays_colors=h_decays_colors)
         

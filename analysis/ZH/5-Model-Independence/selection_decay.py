@@ -15,9 +15,9 @@ processListBkg = {
 
     f'p8_ee_WW_ecm{ecm}':                  {'fraction':fraction},
     f'p8_ee_ZZ_ecm{ecm}':                  {'fraction':fraction},
-    f'wz3p6_ee_tautau_ecm{ecm}':           {'fraction':fraction},
-    f'wz3p6_ee_mumu_ecm{ecm}':             {'fraction':fraction},
-    f'wz3p6_ee_ee_Mee_30_150_ecm{ecm}':    {'fraction':fraction},
+    f'wzp6_ee_tautau_ecm{ecm}':           {'fraction':fraction},
+    f'wzp6_ee_mumu_ecm{ecm}':             {'fraction':fraction},
+    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}':    {'fraction':fraction},
 
     f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':      {'fraction':fraction},
     f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':      {'fraction':fraction},
@@ -42,7 +42,6 @@ processListSignal = {
     f'wzp6_ee_eeH_HZZ_ecm{ecm}':           {'fraction':fraction},
     f'wzp6_ee_eeH_Hmumu_ecm{ecm}':         {'fraction':fraction},
     f'wzp6_ee_eeH_Htautau_ecm{ecm}':       {'fraction':fraction},
-    f'wz3p6_ee_eeH_Hinv_ecm{ecm}':         {'fraction':fraction},
 
     f'wzp6_ee_mumuH_Hbb_ecm{ecm}':         {'fraction':fraction},
     f'wzp6_ee_mumuH_Hcc_ecm{ecm}':         {'fraction':fraction},
@@ -54,7 +53,8 @@ processListSignal = {
     f'wzp6_ee_mumuH_HZZ_ecm{ecm}':         {'fraction':fraction},
     f'wzp6_ee_mumuH_Hmumu_ecm{ecm}':       {'fraction':fraction},
     f'wzp6_ee_mumuH_Htautau_ecm{ecm}':     {'fraction':fraction},
-    f'wz3p6_ee_mumuH_Hinv_ecm{ecm}':       {'fraction':fraction},
+    
+    f'wzp6_ee_ZH_Hinv_ecm{ecm}':           {'fraction':fraction},
 
 }
 
@@ -75,9 +75,15 @@ intLumi = userConfig.intLumi * 1e6
 
 bins_count = (50, 0, 50)
 
-ROOT.EnableImplicitMT(nCPUS) # hack to deal correctly with TMVAHelperXGB
-tmva_mumu = TMVAHelperXGB(f"{userConfig.loc.OUT}/BDT/mumu/xgb_bdt.root", "ZH_Recoil_BDT")
-tmva_ee = TMVAHelperXGB(f"{userConfig.loc.OUT}/ee/xgb_bdt_ee.root", "ZH_Recoil_BDT")
+ROOT.gInterpreter.ProcessLine('''
+TMVA::Experimental::RBDT<> bdt("ZH_Recoil_BDT", "/eos/user/t/tofourni/public/FCC/FCCWorkspace/analysis/ZH/output/BDT/mumu/xgb_bdt.root");
+tmva_mumu = TMVA::Experimental::Compute<9, float>(bdt);
+''')
+
+ROOT.gInterpreter.ProcessLine('''
+TMVA::Experimental::RBDT<> bdt("ZH_Recoil_BDT", "/eos/user/t/tofourni/public/FCC/FCCWorkspace/analysis/ZH/output/BDT/ee/xgb_bdt.root");
+tmva_ee = TMVA::Experimental::Compute<9, float>(bdt);
+''')
 
 def build_graph_ll(df, hists, dataset, final_state):
     df2 = df
@@ -137,26 +143,24 @@ def build_graph_ll(df, hists, dataset, final_state):
     # momentum resolution
     df2 = df2.Define("leps_all_reso_p", "HiggsTools::leptonResolution_p(leps_all, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
     df2 = df2.Define("leps_reso_p", "HiggsTools::leptonResolution_p(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
-    
 
     #########
     ### CUT 0 all events
     #########
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut0"))
+    hists.append(df2.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut0"))
 
     #########
     ### CUT 1: at least a lepton with at least 1 isolated one
     #########
-    df = df.Filter("leps_no >= 1 && leps_sel_iso.size() > 0")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut1"))
+    df2 = df2.Filter("leps_no >= 1 && leps_sel_iso.size() > 0")
+    hists.append(df2.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut1"))
 
     #########
     ### CUT 2 :at least 2 OS leptons, and build the resonance
     #########
-    df = df.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut2"))
+    df2 = df2.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()")
+    hists.append(df2.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut2"))
 
-   
     # build the Z resonance based on the available leptons. 
     # Returns the best lepton pair compatible with the Z mass and recoil at 125 GeV
     # technically, it returns a ReconstructedParticleData object with index 0 the di-lepton system, 
@@ -208,38 +212,38 @@ def build_graph_ll(df, hists, dataset, final_state):
     #########
     ### CUT 3: Z mass window
     #########
-    df = df.Filter("zll_m > 86 && zll_m < 96")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut3"))
+    df2 = df2.Filter("zll_m > 86 && zll_m < 96")
+    hists.append(df2.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut3"))
 
     #########
     ### CUT 4: Z momentum
     #########
     if ecm == 240:
-        df = df.Filter("zll_p > 20 && zll_p < 70")
+        df2 = df2.Filter("zll_p > 20 && zll_p < 70")
     if ecm == 365:
-        df = df.Filter("zll_p > 50 && zll_p < 150")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut4"))
+        df2 = df2.Filter("zll_p > 50 && zll_p < 150")
+    hists.append(df2.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut4"))
 
     #########
     ### CUT 5: recoil cut
     #########
-    df = df.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut5"))
+    df2 = df2.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
+    hists.append(df2.Histo1D((f"{final_state}_recoil_m", "", *bins_count), "zll_recoil_m"))
+    hists.append(df2.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut5"))
 
-    #########
-    ### CUT 6: cosThetaMiss, for mass analysis
-    #########
-    # df = df.Filter("cosTheta_miss < 0.98")
-    # hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
+    ##########
+    ### MVA
+    ##########
 
-    if final_state == "mumu":
-        df = tmva_mumu.run_inference(df, col_name="mva_score")
-    elif final_state == "ee":
-        df = tmva_ee.run_inference(df, col_name="mva_score")
-    hists.append(df.Histo1D((f"{final_state}_mva_score", "", *(1000, 0, 1)), "mva_score"))
+    if final_state=='mumu':
+        df2 = df2.Define("MVAVec", ROOT.tmva_mumu, userConfig.train_vars)
+    if final_state=='ee':
+        df2 = df2.Define("MVAVec", ROOT.tmva_ee, userConfig.train_vars)
+    df2 = df2.Define("BDTscore", "MVAVec.at(0)")
+    hists.append(df2.Histo1D((f"{final_state}_mva_score", "", *(1000, 0, 1)), "BDTscore"))
 
     ########################
-    # Final histograms
+    # Final  (Baseline)
     ########################
 
     mva_sign = 0.84 if final_state=='mumu' else 0.83
@@ -248,27 +252,47 @@ def build_graph_ll(df, hists, dataset, final_state):
     bins_mva = array.array('d', bins_mva_)
     bins_mrec = array.array('d', bins_mrec_)
     model = ROOT.RDF.TH2DModel(f"{final_state}_recoil_m_mva", "", len(bins_mrec_)-1, bins_mrec, len(bins_mva_)-1, bins_mva)
-    hists.append(df.Histo2D(model, "zll_recoil_m", "mva_score"))
+    hists.append(df2.Histo2D(model, "zll_recoil_m", "BDTscore"))
+
+
+    #########
+    ### CUT 6: cosThetaMiss, for mass analysis
+    #########
+    df = df2.Filter("cosTheta_miss < 0.98")
+    hists.append(df2.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
+
+    ########################
+    # Final  (Baseline)
+    ########################
+
+    mva_sign = 0.84 if final_state=='mumu' else 0.83
+    bins_mva_ = [0, mva_sign, 1]
+    bins_mrec_ = list(np.arange(100, 150.5, 0.5))
+    bins_mva = array.array('d', bins_mva_)
+    bins_mrec = array.array('d', bins_mrec_)
+    model = ROOT.RDF.TH2DModel(f"{final_state}_recoil_m_mva_miss", "", len(bins_mrec_)-1, bins_mrec, len(bins_mva_)-1, bins_mva)
+    hists.append(df2.Histo2D(model, "zll_recoil_m", "BDTscore"))
 
     return hists
 
 
 def build_graph(df, dataset):
 
+    df2 = df
     hists = []
 
-    df = df.Define("weight", "1.0")
-    weightsum = df.Sum("weight")
+    df2 = df2.Define("weight", "1.0")
+    weightsum = df2.Sum("weight")
 
-    df = df.Define("cut0", "0")
-    df = df.Define("cut1", "1")
-    df = df.Define("cut2", "2")
-    df = df.Define("cut3", "3")
-    df = df.Define("cut4", "4")
-    df = df.Define("cut5", "5")
-    df = df.Define("cut6", "6")
+    df2 = df2.Define("cut0", "0")
+    df2 = df2.Define("cut1", "1")
+    df2 = df2.Define("cut2", "2")
+    df2 = df2.Define("cut3", "3")
+    df2 = df2.Define("cut4", "4")
+    df2 = df2.Define("cut5", "5")
+    df2 = df2.Define("cut6", "6")
 
-    build_graph_ll(df, hists, dataset, "mumu")
-    build_graph_ll(df, hists, dataset, "ee")
+    build_graph_ll(df2, hists, dataset, "mumu")
+    build_graph_ll(df2, hists, dataset, "ee")
 
     return hists, weightsum
