@@ -137,7 +137,7 @@ ipython_config.py
 #poetry.lock
 
 # pdm
-#pdm.lock
+pdm.lock
 pdm.toml
 .pdm-python
 .pdm-build/
