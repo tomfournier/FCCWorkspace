@@ -5,5 +5,5 @@
 
 [submodule "FCCAnalyses"]
 	path = FCCAnalyses
-	url = https://github.com/Ang-Li-93/FCCAnalyses.git
-	branch = AngDevOld
+	url = git@github.com:HEP-FCC/FCCAnalyses.git
+	branch = pre-edm4hep1
