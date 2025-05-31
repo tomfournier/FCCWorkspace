@@ -11,7 +11,7 @@ This section will describe step-by-step how to install and set-up the repository
 To clone the repository, use the following command:
 
 ```shell
-git clone https://github.com/tomfournier/FCCWorkspace.git
+git clone --recursive https://github.com/tomfournier/FCCWorkspace.git
 cd FCCWorkspace
 git submodule update --remote
 ```
