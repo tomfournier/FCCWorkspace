@@ -12,7 +12,7 @@ To clone the repository, use the following command:
 
 ```shell
 git clone https://github.com/tomfournier/FCCWorkspace.git
-cd FCCWorkplace
+cd FCCWorkspace
 git submodule update --remote
 ```
 
