@@ -63,10 +63,42 @@ After each login you'll just have to source `setup_CombinedLimit.sh` by using th
 source setup_CombinedLimit.sh
 ```
 
+### Local environment
+
+It is possible but not mandatory to make a local environment by sourcing `install_venv.sh` by using the following command:
+
+```shell
+source install_venv.sh
+```
+
+When running the command, `pdm` will ask you which environment to take, you will have to choose the one which start by `/cvmfs` end by `python` and have `2024-03-10` in its path.
+
 ## Careful
 
 Be careful to use a different terminal to use `CombinedLimit` and `FCCAnalyses` as they are not compatible
 
+# ZH cross-section analysis
+
+The ZH cross-section analysis is in the `analysis/ZH/xsec` folder and separated in 4 phases and are explicitely noted by a number at the beginning of each folder, the first one concerns the production of MVA inputs for the training of a BDT. The second one concerns the training of the BDT and its evaluation. The third one concerns the production of histograms for the events selection. The fourth and last one concerns the fit of the ZH cross-section and the verification of the model-independence of the measurement by a bias test. 
+
+A `userConfig.py` file is also present and contains the location of the output files, the samples names and other variables that are used across the analysis and centralized here so as to have to modify a variable only one time instead of going to each concerned files to modify it by hand. A description of the information in it is made in the following section.
+
+## userConfig file
+
+To write
+
 ## 1. MVAInputs
+
+To write
+
+## 2. BDT
+
+To write
+
+## 3. Combine
+
+To write
+
+## 4. Fit
 
 To write
