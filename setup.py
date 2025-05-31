@@ -116,3 +116,12 @@ def install_venv():
 
     shell = '#!/bin/bash\n'
     shell += 'export ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"\n\n'
+
+if __name__=='__main__':
+    if args.fcc: set_fcc()
+    elif args.combine: set_combine()
+    elif args.venv: install_venv()
+    elif args.local: set_local()
+    else:
+        print('No arguments chosen. Aborting...')
+        exit(0)
