@@ -13,6 +13,9 @@ outputDir = loc.MVA_INPUTS
 # Mandatory: List of processes
 processList = List_bdt
 
+# include custom functions
+includePaths = ["../../../../functions/functions.h"]
+
 # Mandatory: Production tag when running over EDM4Hep centrally produced events, 
 # this points to the yaml files for getting sample statistics
 prodTag = "FCCee/winter2023_training/IDEA/"
@@ -37,7 +40,6 @@ class RDFanalysis():
     #__________________________________________________________
     # Mandatory: analysers funtion to define the analysers to process, please make sure you return the last dataframe, in this example it is df
     def analysers(df):
-        df = df
 
         ################################################
         ## Alias for lepton and MC truth informations ##
@@ -54,21 +56,9 @@ class RDFanalysis():
         df = df.Alias("Particle1", "Particle#1.index")
         df = df.Alias("Photon0", "Photon#0.index")
         
-        # photons
-        df = df.Define("photons", "FCCAnalyses::ReconstructedParticle::get(Photon0, ReconstructedParticles)")
-        df = df.Define("photons_p", "FCCAnalyses::ReconstructedParticle::get_p(photons)")
-        df = df.Define("photons_theta", "FCCAnalyses::ReconstructedParticle::get_theta(photons)")
-        df = df.Define("photons_phi", "FCCAnalyses::ReconstructedParticle::get_phi(photons)")
-        df = df.Define("photons_no", "FCCAnalyses::ReconstructedParticle::get_n(photons)")
-        
-        df = df.Define("gen_photons", "HiggsTools::get_photons(Particle)")
-        df = df.Define("gen_photons_p", "FCCAnalyses::MCParticle::get_p(gen_photons)")
-        df = df.Define("gen_photons_theta", "FCCAnalyses::MCParticle::get_theta(gen_photons)")
-        df = df.Define("gen_photons_phi", "FCCAnalyses::MCParticle::get_phi(gen_photons)")
-        df = df.Define("gen_photons_no", "FCCAnalyses::MCParticle::get_n(gen_photons)")
-        
         # Missing ET
-        df = df.Define("cosTheta_miss", "abs(HiggsTools::get_cosTheta(MissingET))") 
+        df = df.Define("missingEnergy", f"FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)")
+        df = df.Define("cosTheta_miss", "FCCAnalyses::get_cosTheta_miss(missingEnergy)")
         
         # all leptons (bare)
         df = df.Define("leps_all", "FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)")
@@ -77,8 +67,7 @@ class RDFanalysis():
         df = df.Define("leps_all_phi", "FCCAnalyses::ReconstructedParticle::get_phi(leps_all)")
         df = df.Define("leps_all_q", "FCCAnalyses::ReconstructedParticle::get_charge(leps_all)")
         df = df.Define("leps_all_no", "FCCAnalyses::ReconstructedParticle::get_n(leps_all)")
-        df = df.Define("leps_all_iso", "HiggsTools::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)") 
-        df = df.Define("leps_all_p_gen", "HiggsTools::gen_p_from_reco(leps_all, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
+        df = df.Define("leps_all_iso", "FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)") 
         
         # cuts on leptons
         df = df.Define("leps", "FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_all)")
@@ -87,18 +76,8 @@ class RDFanalysis():
         df = df.Define("leps_phi", "FCCAnalyses::ReconstructedParticle::get_phi(leps)")
         df = df.Define("leps_q", "FCCAnalyses::ReconstructedParticle::get_charge(leps)")
         df = df.Define("leps_no", "FCCAnalyses::ReconstructedParticle::get_n(leps)")
-        df = df.Define("leps_iso", "HiggsTools::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)")
-        df = df.Define("leps_sel_iso", "HiggsTools::sel_isol(0.25)(leps, leps_iso)")
-
-        # momentum resolution
-        df = df.Define("leps_all_reso_p", "HiggsTools::leptonResolution_p(leps_all, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
-        df = df.Define("leps_reso_p", "HiggsTools::leptonResolution_p(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
-        
-        # build the Z resonance and recoil using MC information from the selected leptons
-        df = df.Define("zed_leptonic_MC", "HiggsTools::resonanceZBuilder2(91, true)(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)")
-        df = df.Define("zed_leptonic_m_MC", "FCCAnalyses::ReconstructedParticle::get_mass(zed_leptonic_MC)")
-        df = df.Define("zed_leptonic_recoil_MC", f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zed_leptonic_MC)")
-        df = df.Define("zed_leptonic_recoil_m_MC", "FCCAnalyses::ReconstructedParticle::get_mass(zed_leptonic_recoil_MC)")
+        df = df.Define("leps_iso", "FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)")
+        df = df.Define("leps_sel_iso", "FCCAnalyses::sel_isol(0.25)(leps, leps_iso)")
 
         #########
         ### CUT 0: no cut
@@ -114,19 +93,20 @@ class RDFanalysis():
         #########
         df = df.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()")
 
-        # build the Z resonance based on the available leptons. 
-        # Returns the best lepton pair compatible with the Z mass and recoil at 125 GeV
-        # technically, it returns a ReconstructedParticleData object with index 0 the di-lepton system, 
-        # index 1 and 2 the leptons of the pair
-        df = df.Define("zbuilder_result_Hll", f"HiggsTools::resonanceBuilder_mass_recoil2(125, 91.2, 0.4, {ecm}, false)(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
+        # remove H->mumu/ee candidate leptons
+        df = df.Define("zbuilder_result_Hll", f"FCCAnalyses::resonanceBuilder_mass_recoil(125, 91.2, 0.4, {ecm}, false)(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
         df = df.Define("zll_Hll", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[0]}") # the Z
         df = df.Define("zll_Hll_m", "FCCAnalyses::ReconstructedParticle::get_mass(zll_Hll)[0]")
         df = df.Define("zll_leps_Hll", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[1],zbuilder_result_Hll[2]}") # the leptons
         df = df.Define("zll_leps_dummy", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{}") # the leptons
         df = df.Define("leps_to_remove", "return (zll_Hll_m > (125-3) && zll_Hll_m < (125+3)) ? zll_leps_Hll : zll_leps_dummy")
         df = df.Define("leps_good", "FCCAnalyses::ReconstructedParticle::remove(leps, leps_to_remove)") 
-        df = df.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()") 
-        df = df.Define("zbuilder_result", f"HiggsTools::resonanceBuilder_mass_recoil2(91.2, 125, 0.4, {ecm}, false)(leps_good, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
+
+        # build the Z resonance based on the available leptons. 
+        # Returns the best lepton pair compatible with the Z mass and recoil at 125 GeV
+        # technically, it returns a ReconstructedParticleData object with index 0 the di-lepton system, 
+        # index 1 and 2 the leptons of the pair
+        df = df.Define("zbuilder_result", f"FCCAnalyses::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)(leps_good, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
         df = df.Define("zll", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[0]}") # the Z
         df = df.Define("zll_leps", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[1],zbuilder_result[2]}") # the leptons
         df = df.Define("zll_m", "FCCAnalyses::ReconstructedParticle::get_mass(zll)[0]")
@@ -139,25 +119,21 @@ class RDFanalysis():
         df = df.Define("zll_recoil_m", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]")
         
         # Z leptons informations
-        df = df.Define("sorted_leptons", "HiggsTools::sort_greater_p(zll_leps)")
-        df = df.Define("sorted_p", "FCCAnalyses::ReconstructedParticle::get_p(sorted_leptons)")
-        df = df.Define("sorted_m", "FCCAnalyses::ReconstructedParticle::get_mass(sorted_leptons)")
-        df = df.Define("sorted_theta", "FCCAnalyses::ReconstructedParticle::get_theta(sorted_leptons)")
-        df = df.Define("sorted_phi", "FCCAnalyses::ReconstructedParticle::get_phi(sorted_leptons)")
-        df = df.Define("leading_p", "return sorted_p.at(0)")
-        df = df.Define("leading_m", "return sorted_m.at(0)")
-        df = df.Define("leading_theta", "return sorted_theta.at(0)")
-        df = df.Define("leading_phi", "return sorted_phi.at(0)")
-        df = df.Define("subleading_p", "return sorted_p.at(1)")
-        df = df.Define("subleading_m", "return sorted_m.at(1)")
-        df = df.Define("subleading_theta", "return sorted_theta.at(1)")
-        df = df.Define("subleading_phi", "return sorted_phi.at(1)")
+        df = df.Define("zll_leps_p", "FCCAnalyses::ReconstructedParticle::get_p(zll_leps)")
+        df = df.Define("zll_leps_theta", "FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)")
+        df = df.Define("zll_leps_phi", "FCCAnalyses::ReconstructedParticle::get_phi(zll_leps)")
+        df = df.Define("leading_p_idx", "(zll_leps_p[0] > zll_leps_p[1]) ? 0 : 1")
+        df = df.Define("subleading_p_idx", "(zll_leps_p[0] > zll_leps_p[1]) ? 1 : 0")
+        df = df.Define("leading_p", "zll_leps_p[leading_p_idx]")
+        df = df.Define("subleading_p", "zll_leps_p[subleading_p_idx]")
+        df = df.Define("leading_theta", "zll_leps_theta[leading_p_idx]")
+        df = df.Define("subleading_theta", "zll_leps_theta[subleading_p_idx]")
+        df = df.Define("leading_phi", "zll_leps_phi[leading_p_idx]")
+        df = df.Define("subleading_phi", "zll_leps_phi[subleading_p_idx]")
         
-        df = df.Define("zll_acolinearity", "HiggsTools::acolinearity(sorted_leptons)")
-        df = df.Define("zll_acoplanarity", "HiggsTools::acoplanarity(sorted_leptons)") 
-        df = df.Define("acolinearity", "if(zll_acolinearity.size()>0) return zll_acolinearity.at(0); else return -std::numeric_limits<float>::max()") 
-        df = df.Define("acoplanarity", "if(zll_acoplanarity.size()>0) return zll_acoplanarity.at(0); else return -std::numeric_limits<float>::max()") 
-        
+        df = df.Define("acoplanarity", "FCCAnalyses::acoplanarity(zll_leps)")
+        df = df.Define("acolinearity", "FCCAnalyses::acolinearity(zll_leps)")
+
         # Higgsstrahlungness
         df = df.Define("H", "HiggsTools::Higgsstrahlungness(zll_m, zll_recoil_m)")
 
@@ -175,7 +151,7 @@ class RDFanalysis():
             df = df.Filter("zll_p > 50 && zll_p < 150")
 
         #########
-        ### CUT 5: recoil mass between 100 and 150 GeV
+        ### CUT 5: recoil mass cut
         #########
         if recoil_120:
             df = df.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
@@ -186,7 +162,7 @@ class RDFanalysis():
         ### CUT 6: cos(theta_miss) cut
         #########
         if miss:
-            df = df.Filter("cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98")
+            df = df.Filter("cosTheta_miss < 0.98")
         
         return df
 
@@ -196,8 +172,8 @@ class RDFanalysis():
         branchList = [
             # Reconstructed Particle
             # leptons
-            "leading_p",    "leading_m",    "leading_theta",    "leading_phi",
-            "subleading_p", "subleading_m", "subleading_theta", "subleading_phi",
+            "leading_p",    "leading_theta",    "leading_phi",
+            "subleading_p", "subleading_theta", "subleading_phi",
             "acolinearity", "acoplanarity",
             # Zed
             "zll_m", "zll_p", "zll_theta", "zll_phi",

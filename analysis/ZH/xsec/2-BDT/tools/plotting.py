@@ -285,7 +285,7 @@ def importance(bdt, vars_list, latex_mapping, label, outDir, plot_file):
     plt.close()
 
 #__________________________________________________________
-def significance(df, label, outDir, plot_file):
+def significance(df, label, outDir, out_txt, plot_file):
     print("------>Plotting Significance scan")
     #compute the significance
     df_Z = ut.Significance(df[(df['isSignal'] == 1) & (df['valid'] == True)], 
@@ -293,6 +293,10 @@ def significance(df, label, outDir, plot_file):
                            score_column='BDTscore', func=ut.Z, nbins=100)
     max_index=df_Z["Z"].idxmax()
     print(f'max-Z: {df_Z.loc[max_index,"Z"]:.2f} cut threshold: [{max_index}]')
+
+    np.savetxt(f"{out_txt}/BDT_cut.txt", [np.round(max_index, 2)])
+    print(f"----->[Info] Wrote BDT cut in {out_txt}/BDT_cut.txt")
+
     fig, ax = plt.subplots(figsize=(12,8))
     plt.scatter(df_Z.index, df_Z["Z"], marker='.')
     ax.scatter(x=max_index, y=df_Z.loc[max_index,"Z"], c='r', marker="*")
@@ -301,7 +305,7 @@ def significance(df, label, outDir, plot_file):
     plt.ylabel("Significance", fontsize=30)
     txt1 = Rectangle((0, 0), .01, .01, fc="w", fill=False, edgecolor='none', linewidth=0)
     txt2 = Rectangle((0, 0), .01, .01, fc="w", fill=False, edgecolor='none', linewidth=0)
-    plt.legend([txt1, txt2], (f'max-Z: {df_Z.loc[max_index,"Z"]:.2f}\n cut threshold: [{max_index:.2f}]', '$Z = S/\\sqrt{S+B}$'), 
+    plt.legend([txt1, txt2], (f'max-Z: {df_Z.loc[max_index,"Z"]:.2f}\ncut threshold: [{max_index:.2f}]', '$Z = S/\\sqrt{S+B}$'), 
                fontsize=14, frameon=False)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')

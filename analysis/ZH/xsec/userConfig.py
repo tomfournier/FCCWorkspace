@@ -4,9 +4,9 @@ import os
 ##### PARAMETERS #####
 ######################
 
-final_state, plot_file = 'mumu', 'png'
-ecm, intLumi, pert, fraction = 240, 10.8, 1.05, 0.01
-treemaker, miss, combine, recoil_120 = False, False, True, False
+final_state, plot_file               = 'ee', 'png'
+ecm, intLumi, pert, fraction         = 240, 10.8, 1.05, 1
+treemaker, miss, combine, recoil_120 = False, False, False, False
 
 missing = '_miss' if miss else ''
 _120 = '_120' if recoil_120 else ''
@@ -46,7 +46,7 @@ loc.BDT                = f"{loc.MVA}/{ecm}/{final_state}/{selection}/BDT"
 
 # Location of histograms
 loc.HIST               = f"{loc.DATA}/histograms"
-loc.HIST_MVA           = f"{loc.HIST}/{ecm}/{final_state}/{selection}/MVAFinal/"
+loc.HIST_MVA           = f"{loc.HIST}/MVAFinal/{ecm}/{final_state}/"
 loc.HIST_PREPROCESSED  = f"{loc.HIST}/preprocessed/{ecm}/{selection}"
 loc.HIST_PROCESSED     = f"{loc.HIST}/processed/{ecm}/{selection}"
 loc.HIST_PSEUDO        = f"{loc.HIST}/pseudo-data/{ecm}/{selection}"

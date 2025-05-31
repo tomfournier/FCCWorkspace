@@ -1,13 +1,6 @@
 #!/bin/bash
 export ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-# check if python3 is available locally
-if ! [[ $(command -v python3) ]] 
-then
-    echo "Error: python3 not available locally, cannot continue!"
-    exit 1
-fi
-
 echo "> getting latest pip"
 if ! [[ $(command -v pip)]]
 then 

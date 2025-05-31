@@ -33,7 +33,7 @@ else:
     recoil_dw, recoil_up = 100, 150
 
 baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
-cosTheta_missCut = "cosTheta_miss.size() >= 1 && cosTheta_miss[0] < 0.98"
+cosTheta_missCut = "cosTheta_miss < 0.98"
 
 _120 = '_120' if recoil_120 else ''
 cutList = { 

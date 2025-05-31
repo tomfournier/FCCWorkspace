@@ -26,7 +26,7 @@ def plot_metrics(df, bdt, vars_list, results,
     roc(df, label, outDir, plot_file)
     bdt_score(df, label, outDir, plot_file)
     importance(bdt, vars_list, latex_mapping, label, outDir, plot_file)
-    significance(df, label, outDir, plot_file)
+    significance(df, label, outDir, loc.BDT, plot_file)
     efficiency(df, mode_names, Label, label, outDir, plot_file)
 
 df = load_data(loc.MVA_PROCESSED)
