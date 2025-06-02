@@ -89,7 +89,6 @@ def build_graph_ll(df, hists, dataset, final_state):
 
     # baseline selections and histograms
     hists.append(df.Histo1D((f"{final_state}_leps_all_p_noSel",     "", *bins_p_mu),  "leps_all_p"))
-    hists.append(df.Histo1D((f"{final_state}_leps_all_p_gen_noSel", "", *bins_p_mu),  "leps_all_p_gen"))
     hists.append(df.Histo1D((f"{final_state}_leps_all_theta_noSel", "", *bins_theta), "leps_all_theta"))
     hists.append(df.Histo1D((f"{final_state}_leps_all_phi_noSel",   "", *bins_phi),   "leps_all_phi"))
     hists.append(df.Histo1D((f"{final_state}_leps_all_no_noSel",    "", *bins_count), "leps_all_no"))
@@ -123,7 +122,7 @@ def build_graph_ll(df, hists, dataset, final_state):
                    "(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)")
     df = df.Define("zll_Hll",        "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_Hll[0]}") # the Z
     df = df.Define("zll_Hll_m",      "FCCAnalyses::ReconstructedParticle::get_mass(zll_Hll)[0]")
-    df = df.Define("zll_leps_Hll",   "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[1], zbuilder_result_Hll[2]}") # the leptons
+    df = df.Define("zll_leps_Hll",   "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_Hll[1], zbuilder_Hll[2]}") # the leptons
     df = df.Define("zll_leps_dummy", "ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{}") # the leptons
     df = df.Define("leps_to_remove", "return (zll_Hll_m > (125-3) && zll_Hll_m < (125+3)) ? zll_leps_Hll : zll_leps_dummy")
     df = df.Define("leps_good",      "FCCAnalyses::ReconstructedParticle::remove(leps, leps_to_remove)")
@@ -145,15 +144,12 @@ def build_graph_ll(df, hists, dataset, final_state):
     df = df.Define("zll_recoil",   f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)")
     df = df.Define("zll_recoil_m", "FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]")
     df = df.Define("zll_category", "FCCAnalyses::polarAngleCategorization(0.8, 2.34)(zll_leps)")
-    
-    df = df.Define("zll_leps_p",     "FCCAnalyses::ReconstructedParticle::get_p(zll_leps)")
-    df = df.Define("zll_leps_dR",    "FCCAnalyses::deltaR(zll_leps)")
-    df = df.Define("zll_leps_theta", "FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)")
 
     # Z leptons informations
     df = df.Define("zll_leps_p",       "FCCAnalyses::ReconstructedParticle::get_p(zll_leps)")
     df = df.Define("zll_leps_theta",   "FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)")
     df = df.Define("zll_leps_phi",     "FCCAnalyses::ReconstructedParticle::get_phi(zll_leps)")
+    df = df.Define("zll_leps_dR",    "FCCAnalyses::deltaR(zll_leps)")
     df = df.Define("leading_p_idx",    "(zll_leps_p[0] > zll_leps_p[1]) ? 0 : 1")
     df = df.Define("subleading_p_idx", "(zll_leps_p[0] > zll_leps_p[1]) ? 1 : 0")
     df = df.Define("leading_p",        "zll_leps_p[leading_p_idx]")

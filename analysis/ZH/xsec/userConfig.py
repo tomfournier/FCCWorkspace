@@ -4,13 +4,18 @@ import os
 ##### PARAMETERS #####
 ######################
 
-final_state, plot_file               = 'ee', 'png'
-ecm, intLumi, pert, fraction         = 240, 10.8, 1.05, 1
-treemaker, miss, combine, recoil_120 = False, False, False, False
+final_state, plot_file              = 'ee', 'png'
+ecm, intLumi, pert, fraction        = 240, 10.8, 1.05, 1
+miss_BDT, miss, combine, recoil_120 = False, False, True, False
 
-missing = '_miss' if miss else ''
-_120 = '_120' if recoil_120 else ''
-selection = 'Baseline'+_120+missing
+if miss_BDT and miss:
+    miss = False
+
+missing   = '_miss' if miss else ''
+_120      = '_120' if recoil_120 else ''
+_missBDT  = '_missBDT' if miss_BDT else ''
+
+selection = 'Baseline'+_120+missing+_missBDT
 
 
 
@@ -27,7 +32,7 @@ else:
     # example: "/afs/cern.ch/user/t/tofourni/eos/public/FCC/FCCWorkspace"
 
 if ZH:
-    repo = repo+"/analysis/ZH"
+    repo = repo+"/analysis/ZH/xsec"
 
 class loc : pass
 # Location of the root folder
@@ -40,15 +45,17 @@ loc.PLOTS              = f"{loc.OUT}/plots"
 
 # Location of MVA related files
 loc.MVA                = f"{loc.DATA}/MVA"
-loc.MVA_INPUTS         = f"{loc.MVA}/{ecm}/{final_state}/{selection}/MVAInputs"
+loc.MVA_INPUTS         = f"{loc.MVA}/{ecm}/{final_state}/{selection}/MVAInputs".replace('_missBDT','')
+
 loc.MVA_PROCESSED      = f"{loc.MVA}/{ecm}/{final_state}/{selection}/MVAProcessed"
 loc.BDT                = f"{loc.MVA}/{ecm}/{final_state}/{selection}/BDT"
 
 # Location of histograms
 loc.HIST               = f"{loc.DATA}/histograms"
+
 loc.HIST_MVA           = f"{loc.HIST}/MVAFinal/{ecm}/{final_state}/"
 loc.HIST_PREPROCESSED  = f"{loc.HIST}/preprocessed/{ecm}/{selection}"
-loc.HIST_PROCESSED     = f"{loc.HIST}/processed/{ecm}/{selection}"
+loc.HIST_PROCESSED     = f"{loc.HIST}/processed/{ecm}/{selection}/{final_state}"
 loc.HIST_PSEUDO        = f"{loc.HIST}/pseudo-data/{ecm}/{selection}"
 
 # Location of plots
@@ -115,6 +122,10 @@ h_decays = ['bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'WW', 'ZZ', 'Za', 'aa'] #,
 samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
 for i in ['ee', 'mumu']:
     samples_sig.append(f"wzp6_ee_{i}H_ecm{ecm}")
+samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
+
+# Signal samples for measurement
+sig_combine = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
 
 # For Beam Energy spread uncertainty
 syst = False
@@ -149,8 +160,8 @@ train_vars = [
     #Z
     "zll_m", "zll_p", "zll_theta"
 ]
-if miss:
-    train_vars.append("costheta_miss")
+if miss_BDT:
+    train_vars.append("cosTheta_miss")
 
 # Latex mapping for importance plot
 latex_mapping = {
@@ -163,6 +174,7 @@ latex_mapping = {
     'zll_m': r'$m_{\ell\ell}$',
     'zll_p': r'$p_{\ell\ell}$',
     'zll_theta': r'$\theta_{\ell\ell}$',
+    'cosTheta_miss': r'$cos\theta_{miss}$',
     'H': r'$H$'
 }
 

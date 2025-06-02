@@ -24,6 +24,10 @@ nCPUS = 20
 # produces ROOT TTrees, default is False
 doTree = False
 
+# Scale to integrated luminosity
+doScale = True
+intLumi = userConfig.intLumi * 1e6
+
 # Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
 if recoil_120:
     bin, xmin, xmax = 80, 120, 140

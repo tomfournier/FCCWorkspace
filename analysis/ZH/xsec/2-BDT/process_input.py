@@ -1,8 +1,10 @@
-import importlib
+import importlib, time
 import pandas as pd
 
+t1 = time.time()
+
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, train_vars, mode_names, final_state
+from userConfig import loc, train_vars, mode_names, final_state, miss_BDT
 
 from tools.utils import get_procDict, update_keys, get_data_paths, BDT_input_numbers
 from tools.utils import counts_and_efficiencies, save_to_pickle
@@ -48,3 +50,7 @@ for cur_mode in mode_names:
 dfsum = pd.concat([df[cur_mode] for cur_mode in mode_names])
 
 save_to_pickle(dfsum, pkl_path)
+
+print('\n\n------------------------------------\n')
+print(f'Time taken to run the code: {time.time()-t1:.1f} s')
+print('\n------------------------------------\n\n')

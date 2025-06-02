@@ -20,15 +20,14 @@ else:
     ws, log, res = loc.BIAS_WS, loc.BIAS_LOG, loc.BIAS_FIT_RESULT
 
 comb, tar = "_combined" if combine else "", f"_{args.target}" if args.bias else ""
-rmin, rmax = args.pert-0.1, args.pert+0.1
 
 cmd = f"cd {dir};"
 if combine:
     dc_mu, dc_e = f"{loc.COMBINE}/mumu/{tp}/datacard", f"{loc.COMBINE}/ee/{tp}/datacard"
-    cmd += f"combineCards.py {dc_mu}/datacard{tar}.txt {dc_mu}/datacard{tar}.txt > {dc}/datacard{tar}{comb}.txt;"
+    cmd += f"combineCards.py {dc_mu}/datacard{tar}.txt {dc_e}/datacard{tar}.txt > {dc}/datacard{tar}{comb}.txt;"
 cmd += f"text2workspace.py {dc}/datacard{tar}{comb}.txt -v 10 --X-allow-no-background -m 125 -o {ws}/ws{tar}.root &> {log}/log_text2workspace.txt;"
 cmd += f"cd {ws};"
-cmd += f"combine ws{tar}.root -M MultiDimFit -m 125 -v 10 -t 0 --expectSignal={args.pert} -n Xsec &> {log}/log_results{tar}.txt"
+cmd += f"combine ws{tar}.root -M MultiDimFit -m 125 -v 10 -t 0 --rMax {args.pert+0.1} --rMin {args.pert-0.1} --expectSignal={args.pert} -n Xsec &> {log}/log_results{tar}.txt"
 
 print('----->[Info] Running the fit')
 for i in [dc, ws, log, res]:
@@ -57,6 +56,7 @@ if (mu==np.inf) & (err==np.inf):
 else:
     print('----->[Info] Results successfully extracted')
     print(f'\tmu = {mu} +/- {err}')
+    print(f'----->[Info] Uncertainty on cross-section: {err*100:.2f} %')
     f = np.array([mu, err])
     np.savetxt(f"{res}/results{tar}.txt", f)
     print(f'----->[Info] Saved result in {res}/results{tar}.txt')

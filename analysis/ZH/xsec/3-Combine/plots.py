@@ -3,7 +3,7 @@ t1 = time.time()
 
 import importlib
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, intLumi, procs_cfg, z_decays, h_decays, miss, recoil_120
+from userConfig import loc, intLumi, procs_cfg, h_decays, miss, recoil_120
 
 import ROOT
 ROOT.gROOT.SetBatch(True)
@@ -63,13 +63,13 @@ for final_state in ['ee', 'mumu']:
         PlotDecays(f"{final_state}_zll_m_nOne",        inputDir, outDir, [final_state], h_decays, outName="zll_m_nOne", 
                    xMin=15, xMax=130, yMin=1e-5, yMax=1, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_zll_p_nOne",        inputDir, outDir, [final_state], h_decays, outName="zll_p_nOne", 
-                   xMin=0, xMax=100, yMin=1e-5, yMax=1, xLabel="p_{ll} [GeV]", yLabel="Events", logY=True)
+                   xMin=0, xMax=80, yMin=1e-5, yMax=1, xLabel="p_{ll} [GeV]", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_zll_m",             inputDir, outDir, [final_state], h_decays, outName="zll_m", 
-                   xMin=86, xMax=96, yMin=1e-5, yMax=1, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True)
+                   xMin=86, xMax=96, yMin=1e-3, yMax=1, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_zll_p",             inputDir, outDir, [final_state], h_decays, outName="zll_p", 
                    xMin=20, xMax=70, yMin=1e-5, yMax=1, xLabel="p_{ll} [GeV]", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_zll_recoil",        inputDir, outDir, [final_state], h_decays, outName="zll_recoil", 
-                   xMin=120, xMax=140, yMin=1e-5, yMax=1, xLabel="Recoil [GeV]", yLabel="Events", logY=True)
+                   xMin=int(m_dw), xMax=int(m_up), yMin=1e-5, yMax=1, xLabel="Recoil [GeV]", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_cosThetaMiss_nOne", inputDir, outDir, [final_state], h_decays, outName="cosThetaMiss_nOne", 
                    xMin=0.9, xMax=1, yMin=1e-5, yMax=1e1, xLabel="|cos#theta_{miss}|", yLabel="Events", logY=True, rebin=8)
         PlotDecays(f"{final_state}_mva_score",         inputDir, outDir, [final_state], h_decays, outName="mva_score", 
@@ -79,15 +79,15 @@ for final_state in ['ee', 'mumu']:
         PlotDecays(f"{final_state}_acolinearity",      inputDir, outDir, [final_state], h_decays, outName="acolinearity", 
                    xMin=0, xMax=3, yMin=1e-5, yMax=1, xLabel="#Delta#theta_{ll}", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_leading_p",         inputDir, outDir, [final_state], h_decays, outName="leading_p", 
-                   xMin=40, xMax=100, yMin=0, yMax=1, xLabel="p_{l,leading} [GeV]", yLabel="Events", logY=False)
+                   xMin=40, xMax=90, yMin=1e-5, yMax=10, xLabel="p_{l,leading} [GeV]", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_subleading_p",      inputDir, outDir, [final_state], h_decays, outName="subleading_p", 
-                   xMin=20, xMax=60, yMin=0, yMax=1, xLabel="p_{l,subleading} [GeV]", yLabel="Events", logY=False)
+                   xMin=20, xMax=60, yMin=1e-5, yMax=1e1, xLabel="p_{l,subleading} [GeV]", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_leading_theta",     inputDir, outDir, [final_state], h_decays, outName="leading_theta", 
-                   xMin=0, xMax=3.2, yMin=0, yMax=1, xLabel="#theta_{l,leading}", yLabel="Events", logY=False)
+                   xMin=0, xMax=3.2, yMin=1e-5, yMax=1, xLabel="#theta_{l,leading}", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_subleading_theta",  inputDir, outDir, [final_state], h_decays, outName="subleading_theta", 
-                   xMin=0, xMax=3.2, yMin=0, yMax=1, xLabel="#theta_{l,subleading}", yLabel="Events", logY=False)
+                   xMin=0, xMax=3.2, yMin=1e-5, yMax=1, xLabel="#theta_{l,subleading}", yLabel="Events", logY=True)
         PlotDecays(f"{final_state}_leps_p",            inputDir, outDir, [final_state], h_decays, outName="leps_p", 
-                   xMin=10, xMax=100, yMin=1e-5, yMax=1, xLabel="p_{leptons} [GeV]", yLabel="Events", logY=True)
+                   xMin=10, xMax=90, yMin=1e-5, yMax=1, xLabel="p_{leptons} [GeV]", yLabel="Events", logY=True)
         
 
         makePlot(f"{final_state}_zll_m_nOne",            inputDir, outDir, procs, procs_cfg, outName="zll_m_nOne", 
@@ -97,29 +97,29 @@ for final_state in ['ee', 'mumu']:
         makePlot(f"{final_state}_zll_recoil_nOne",       inputDir, outDir, procs, procs_cfg, outName="zll_recoil_nOne", 
                  xMin=100, xMax=150, yMin=1, yMax=1e6, xLabel="Recoil [GeV]", yLabel="Events", logY=True, rebin=8)
         makePlot(f"{final_state}_zll_recoil",            inputDir, outDir, procs, procs_cfg, outName="zll_recoil", 
-                 xMin=120, xMax=130, yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
-        makePlot(f"{final_state}_cosThetaMiss_nOne",     inputDir, outDir, [final_state], h_decays, outName="cosThetaMiss_nOne", 
-                   xMin=0.9, xMax=1, yMin=1e-5, yMax=1e1, xLabel="|cos#theta_{miss}|", yLabel="Events", logY=True, rebin=8)
+                 xMin=int(m_dw), xMax=int(m_up), yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=16)
+        makePlot(f"{final_state}_cosThetaMiss_nOne",     inputDir, outDir, procs, procs_cfg, outName="cosThetaMiss_nOne", 
+                   xMin=0.9, xMax=1, yMin=1e1, yMax=1e7, xLabel="|cos#theta_{miss}|", yLabel="Events", logY=True, rebin=8)
         makePlot(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, outName="mva_score", 
-                 xMin=0, xMax=1, yMin=1e0, yMax=1e5, xLabel="MVA score", yLabel="Events", logY=True, rebin=5)
+                 xMin=0, xMax=1, yMin=1e0, yMax=1e7, xLabel="MVA score", yLabel="Events", logY=True, rebin=5)
         makePlot(f"{final_state}_zll_recoil_m_mva_low",  inputDir, outDir, procs, procs_cfg, outName="zll_recoil_m_mva_low", 
-                 xMin=100, xMax=150, yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=1)
+                 xMin=int(m_dw), xMax=int(m_up), yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=2)
         makePlot(f"{final_state}_zll_recoil_m_mva_high", inputDir, outDir, procs, procs_cfg, outName="zll_recoil_m_mva_high", 
-                 xMin=122, xMax=130, yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=1)
-        makePlot(f"{final_state}_acoplanarity",          inputDir, outDir, [final_state], h_decays, outName="acoplanarity", 
-                   xMin=0, xMax=3.2, yMin=1e-5, yMax=1, xLabel="#pi-#Delta#phi_{ll}", yLabel="Events", logY=True)
-        makePlot(f"{final_state}_acolinearity",          inputDir, outDir, [final_state], h_decays, outName="acolinearity", 
-                   xMin=0, xMax=3, yMin=1e-5, yMax=1, xLabel="#Delta#theta_{ll}", yLabel="Events", logY=True)
-        makePlot(f"{final_state}_leading_p",             inputDir, outDir, [final_state], h_decays, outName="leading_p", 
-                   xMin=40, xMax=100, yMin=0, yMax=1, xLabel="p_{l,leading} [GeV]", yLabel="Events", logY=False)
-        makePlot(f"{final_state}_subleading_p",          inputDir, outDir, [final_state], h_decays, outName="subleading_p", 
-                   xMin=20, xMax=60, yMin=0, yMax=1, xLabel="p_{l,subleading} [GeV]", yLabel="Events", logY=False)
-        makePlot(f"{final_state}_leading_theta",         inputDir, outDir, [final_state], h_decays, outName="leading_theta", 
-                   xMin=0, xMax=3.2, yMin=0, yMax=1, xLabel="#theta_{l,leading}", yLabel="Events", logY=False)
-        makePlot(f"{final_state}_subleading_theta",      inputDir, outDir, [final_state], h_decays, outName="subleading_theta", 
-                   xMin=0, xMax=3.2, yMin=0, yMax=1, xLabel="#theta_{l,subleading}", yLabel="Events", logY=False)
-        makePlot(f"{final_state}_leps_p",                inputDir, outDir, [final_state], h_decays, outName="leps_p", 
-                   xMin=10, xMax=100, yMin=1e-5, yMax=1, xLabel="p_{leptons} [GeV]", yLabel="Events", logY=True)
+                 xMin=122, xMax=134, yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=1)
+        makePlot(f"{final_state}_acoplanarity",          inputDir, outDir, procs, procs_cfg, outName="acoplanarity", 
+                   xMin=0, xMax=3.2, yMin=1e-2, yMax=1e7, xLabel="#pi-#Delta#phi_{ll}", yLabel="Events", logY=True)
+        makePlot(f"{final_state}_acolinearity",          inputDir, outDir, procs, procs_cfg, outName="acolinearity", 
+                   xMin=0, xMax=3, yMin=1e-2, yMax=1e7, xLabel="#Delta#theta_{ll}", yLabel="Events", logY=True)
+        makePlot(f"{final_state}_leading_p",             inputDir, outDir, procs, procs_cfg, outName="leading_p", 
+                   xMin=40, xMax=100, yMin=0, yMax=-1, xLabel="p_{l,leading} [GeV]", yLabel="Events", logY=False)
+        makePlot(f"{final_state}_subleading_p",          inputDir, outDir, procs, procs_cfg, outName="subleading_p", 
+                   xMin=10, xMax=70, yMin=1e-5, yMax=-1, xLabel="p_{l,subleading} [GeV]", yLabel="Events", logY=False)
+        makePlot(f"{final_state}_leading_theta",         inputDir, outDir, procs, procs_cfg, outName="leading_theta", 
+                   xMin=0, xMax=3.2, yMin=1e1, yMax=1e7, xLabel="#theta_{l,leading}", yLabel="Events", logY=True)
+        makePlot(f"{final_state}_subleading_theta",      inputDir, outDir, procs, procs_cfg, outName="subleading_theta", 
+                   xMin=0, xMax=3.2, yMin=1e1, yMax=1e6, xLabel="#theta_{l,subleading}", yLabel="Events", logY=True)
+        makePlot(f"{final_state}_leps_p",                inputDir, outDir, procs, procs_cfg, outName="leps_p", 
+                   xMin=20, xMax=100, yMin=1e-2, yMax=1e9, xLabel="p_{leptons} [GeV]", yLabel="Events", logY=True)
 
 
 print('\n\n------------------------------------\n')

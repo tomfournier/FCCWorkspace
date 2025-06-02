@@ -13,5 +13,6 @@ else
     echo "cd HiggsAnalysis/CombinedLimit"
     echo ". env_standalone.sh"
     echo "cd ../../"
+fi
 
 cd ../../

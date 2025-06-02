@@ -135,7 +135,7 @@ class RDFanalysis():
         df = df.Define("acolinearity", "FCCAnalyses::acolinearity(zll_leps)")
 
         # Higgsstrahlungness
-        df = df.Define("H", "HiggsTools::Higgsstrahlungness(zll_m, zll_recoil_m)")
+        df = df.Define("H", "FCCAnalyses::Higgsstrahlungness(zll_m, zll_recoil_m)")
 
         #########
         ### CUT 3: Z mass between 86 and 96 GeV

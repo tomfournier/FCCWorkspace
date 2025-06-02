@@ -1,6 +1,8 @@
 import os
 import ROOT
-import importlib
+import importlib, time
+
+t1 = time.time()
 
 userConfig = importlib.import_module('userConfig')
 from userConfig import samples, loc, final_state
@@ -63,3 +65,7 @@ for proc in procs:
     h.Write()
     f.Close()
     print(f'----->[Info] Saved histogram in {outputdir}/{proc}.root')
+
+print('\n\n------------------------------------\n')
+print(f'Time taken to run the code: {time.time()-t1:.1f} s')
+print('\n------------------------------------\n\n')

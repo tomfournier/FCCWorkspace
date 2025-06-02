@@ -1,7 +1,9 @@
 import os
 import ROOT
 import argparse
-import importlib
+import importlib, time
+
+t1 = time.time()
 
 userConfig = importlib.import_module('userConfig')
 from userConfig import loc, final_state, procs_cfg, z_decays, h_decays, ecm
@@ -67,3 +69,7 @@ make_datacard(outDir, procs, final_state, args.target, 1.01,
 if args.run:
     cmd = f"python3 4-Fit/fit.py --bias --target {args.target} --pert {args.pert}"
     os.system(cmd)
+else:
+    print('\n\n------------------------------------\n')
+    print(f'Time taken to run the code: {time.time()-t1:.1f} s')
+    print('\n------------------------------------\n\n')

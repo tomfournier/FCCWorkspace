@@ -4,16 +4,24 @@ import importlib
 userConfig = importlib.import_module("userConfig")
 from userConfig import loc, ecm, final_state, samples_sig, combine
 
-# Define final state and ecm
-final_state = userConfig.final_state
-ecm = userConfig.ecm
+if combine:
+    print('Do not use combine.py with the variable combine set to True in userConfig.py')
+    exit(0)
 
 intLumi = 1 # userConfig.intLumi * 1e6
-mc_stats = True
+mc_stats = False
 rebin = 1
 
 inputDir  = loc.HIST_PROCESSED
 outputDir = loc.NOMINAL_DATACARD
+
+# Signal samples for measurement
+z_decays = ['bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu']
+h_decays = ['bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'WW', 'ZZ', 'Za', 'aa'] #, 'inv']
+
+samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
+samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
+
 
 sig_procs = {'sig': samples_sig}
 
@@ -26,7 +34,7 @@ bkg_procs = {'ZZ':[f'p8_ee_ZZ_ecm{ecm}'],
                      f'wzp6_ee_nuenueZ_ecm{ecm}']
 }
 
-categories = [f'z_{final_state}'] if not combine else ['z_lep']
+categories = [f'z_{final_state}']
 
 
 hist_names = [f'{final_state}_recoil_m_mva']

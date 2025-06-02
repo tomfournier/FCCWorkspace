@@ -50,6 +50,11 @@ sign_name = {
             'recoil':'m_{recoil}',
             'acolinearity':'#Delta#theta_{ll}',
             'acoplanarity':'#pi-#Delta#phi_{ll}',
+            'leading_p':'p_{l,leading}',
+            'subleading_p':'p_{l,subleading}',
+            'leading_theta':'#theta_{l,leading}',
+            'subleading_theta':'#theta_{l,subleading}',
+            'leps_p':'p_{lepton}'
 }
 
 sign_label = {
@@ -58,6 +63,11 @@ sign_label = {
             'recoil':'m_{recoil} [GeV]',
             'acolinearity':'#Delta#theta_{ll}',
             'acoplanarity':'#pi-#Delta#phi_{ll}',
+            'leading_p':'p_{l,leading} [GeV]',
+            'subleading_p':'p_{l,subleading} [GeV]',
+            'leading_theta':'#theta_{l,leading}',
+            'subleading_theta':'#theta_{l,subleading}',
+            'leps_p':'p_{lepton} [GeV]'
 }
 
 #__________________________________________________________
@@ -328,18 +338,12 @@ def CutFlowDecays(inputDir, outDir, final_state, plot_file=['png'], ecm=240, lum
     del canvas
 
     # make final efficiency plot eff_final, eff_final_err
-    if final_state == "mumu":
-        if 'miss' in outName:
-            xMin, xMax = 40, 78
-        else:
-            xMin, xMax = 68, 78
-    if final_state == "ee":
-        if 'miss' in outName:
-            xMin, xMax = 40, 66
-        else:
-            xMin, xMax = 61, 68
+    if 'miss' in outName:
+        xMin, xMax = int(eff_avg)-15, int(eff_avg)+10
+    else:
+        xMin, xMax = int(eff_avg)-3, int(eff_avg)+2
     if final_state == "qq":
-        xMin, xMax = 55, 85
+        xMin, xMax = int(eff_avg)-10, int(eff_avg)+10
     h_pulls = ROOT.TH2F("pulls", "pulls", (xMax-xMin)*10, xMin, xMax, len(sigs)+1, 0, len(sigs)+1)
     g_pulls = ROOT.TGraphErrors(len(sigs)+1)
 
