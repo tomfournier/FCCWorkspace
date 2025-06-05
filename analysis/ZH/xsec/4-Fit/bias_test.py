@@ -2,19 +2,38 @@ import os
 import sys
 import time
 import importlib
+import argparse
 import numpy as np
 import pandas as pd
 
 t1 = time.time()
 
-userConfig = importlib.import_module('userConfig')
-from userConfig import loc, h_decays
+parser = argparse.ArgumentParser()
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
+parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
+arg = parser.parse_args()
 
-inputdir = loc.BIAS_FIT_RESULT
-loc_result = loc.BIAS_RESULT
+if arg.cat=='' and not arg.combine:
+    print('\n----------------------------------------------------------------\n')
+    print('Final state was not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------\n')
+    exit(0)
+
+userConfig = importlib.import_module('userConfig')
+from userConfig import loc, get_loc, select, h_decays
+
+sel = select(arg.recoil120, arg.miss, arg.bdt)
+inputdir   = get_loc(loc.BIAS_FIT_RESULT)
+loc_result = get_loc(loc.BIAS_RESULT, arg.cat, arg.ecm, arg.sel)
+cat, comb = f'--cat {arg.cat}', '--combine' if arg.combine else ''
 
 def run_fit(target, pert, extraArgs=""):
-    cmd = f"python3 4-Fit/make_pseudo.py --target {target} --pert {pert} --run {extraArgs}"
+    cmd = f"python3 4-Fit/make_pseudo.py {cat} --target {target} --pert {pert} --run {comb} {extraArgs}"
     os.system(cmd)
     mu, err = np.loadtxt(f'{inputdir}/results_{target}.txt')
     return mu, err
@@ -53,8 +72,6 @@ with open(f"{loc_result}/bias_results.txt", 'w') as f:
 sys.stdout = out_orig
 print(f'----->[Info] Bias saved at {loc_result}/bias_results.txt')
 
-t2 = time.time()
-
 print('\n\n------------------------------------\n')
-print(f'Time taken to run the code: {t2-t1:.1f} s')
+print(f'Time taken to run the code: {time.time()-t1:.1f} s')
 print('\n------------------------------------\n\n')

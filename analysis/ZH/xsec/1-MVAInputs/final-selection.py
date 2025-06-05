@@ -1,22 +1,36 @@
-import importlib
+import importlib, argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+parser.add_argument('--param', help='Select the fraction of the samples or the number of files to put the samples', choices=['frac', 'chunks'], default='frac')
+arg = parser.parse_args()
+
+if arg.cat=='':
+    print('\n----------------------------------------------------------------\n')
+    print('Final state was not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------\n')
+    exit(0)
 
 # Load userConfig 
 userConfig = importlib.import_module("userConfig")
-from userConfig import loc, List_bdt, recoil_120
+from userConfig import loc, get_loc, select, frac, nb
+
+final_state, ecm = arg.cat, arg.ecm
+sel = select(arg.recoil120)
 
 # Input directory where the files produced at the pre-selection level are
-inputDir = loc.MVA_INPUTS
+inputDir = get_loc(loc.MVA_INPUTS, final_state, ecm, sel)
 
 # Output directory where the files produced at the final selection level will be put
-outputDir = loc.HIST_MVA
+outputDir = get_loc(loc.HIST_MVA, final_state, ecm, sel)
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
-procDict = "/cvmfs/fcc.cern.ch/FCCDicts/FCCee_procDict_winter2023_training_IDEA.json"
+procDict = "FCCee_procDict_winter2023_training_IDEA.json"
 # procDictAdd = userConfig.procDictAdd
-
-# Process list that should match the produced files.
-processList = List_bdt
 
 # Number of CPUs to use
 nCPUS = 20
@@ -26,10 +40,32 @@ doTree = False
 
 # Scale to integrated luminosity
 doScale = True
-intLumi = userConfig.intLumi * 1e6
+intLumi = arg.lumi * 1e6 # in pb-1
+
+# Process list that should match the produced files.
+ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
+
+# Process samples for BDT
+samples_BDT = [
+    #signal
+    f"wzp6_ee_{final_state}H_ecm{ecm}",
+
+    #background: 
+    f"p8_ee_ZZ_ecm{ecm}", f"p8_ee_WW_{final_state}_ecm{ecm}", ee_ll,
+
+    #rare backgrounds:
+    f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
+    f"wzp6_gaga_{final_state}_60_ecm{ecm}"
+]
+
+if arg.param=='frac':   param = {'fraction': frac} 
+elif arg.param=='chunks': param = {'chunks':   nb}
+
+# Mandatory: List of processes
+processList = {i:param for i in samples_BDT}
 
 # Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
-if recoil_120:
+if arg.recoil120:
     bin, xmin, xmax = 80, 120, 140
     recoil_dw, recoil_up = 120, 140
 else:
@@ -39,21 +75,14 @@ else:
 baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
 cosTheta_missCut = "cosTheta_miss < 0.98"
 
-_120 = '_120' if recoil_120 else ''
+_120 = '_120' if arg.recoil120 else ''
 cutList = { 
   "Baseline"+_120: baselineCut,
   "Baseline"+_120+"_miss": baselineCut + " && " + cosTheta_missCut,
 }
 
 # Dictionary for the ouput variable/hitograms. 
-# The key is the name of the variable in the output files. 
-# "name" is the name of the variable in the input file, 
-# "title" is the x-axis label of the histogram, 
-# "bin" the number of bins of the histogram, 
-# "xmin" the minimum x-axis value and 
-# "xmax" the maximum x-axis value.
 histoList = {
-    # plot fundamental variables:
     "leading_p":        {"name":"leading_p",
                          "title":"p_{l,leading} [GeV]",
                          "bin":120, "xmin":40, "xmax":100},
@@ -87,7 +116,6 @@ histoList = {
                          "title":"#phi_{l^{+}l^{-}}",
                          "bin":64,"xmin":-3.2,"xmax":3.2},
     
-    # more control variables
     "acolinearity":     {"name":"acolinearity",
                          "title":"#Delta#theta_{l^{+}l^{-}}",
                          "bin":120,"xmin":0,"xmax":3},
@@ -96,17 +124,14 @@ histoList = {
                          "title":"#Delta#phi_{l^{+}l^{-}}",
                          "bin":128,"xmin":0,"xmax":3.2},
     
-    # Recoil
     "zll_recoil_m":     {"name":"zll_recoil_m",
                          "title":"m_{recoil} [GeV]",
                          "bin":bin,"xmin":xmin,"xmax":xmax},
     
-    # missing Information
     "cosTheta_miss":    {"name":"cosTheta_miss",
                          "title":"|cos#theta_{miss}|",
                          "bin":100,"xmin":0.9,"xmax":1},
     
-    # Higgsstrahlungness
     "H":                {"name":"H",
                          "title":"Higgsstrahlungness",
                          "bin":110,"xmin":0,"xmax":110},

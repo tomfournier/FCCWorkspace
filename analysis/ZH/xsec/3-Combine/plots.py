@@ -1,9 +1,17 @@
-import time
+import time, argparse
 t1 = time.time()
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
+parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+arg = parser.parse_args()
 
 import importlib
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, intLumi, procs_cfg, h_decays, miss, recoil_120
+from userConfig import loc, get_loc, select, z_decays, h_decays
 
 import ROOT
 ROOT.gROOT.SetBatch(True)
@@ -12,23 +20,38 @@ ROOT.gStyle.SetOptTitle(0)
 
 from tools.plotting import makePlot, CutFlow, PlotDecays, CutFlowDecays, significance
 
-lumi = intLumi
+ecm, lumi = arg.ecm, arg.lumi
+
+procs_cfg = {
+"ZH"        : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays],
+"ZmumuH"    : [f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_decays],
+"ZeeH"      : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in ["ee"] for y in h_decays],
+"WW"        : [f'p8_ee_WW_ecm{ecm}'],
+"ZZ"        : [f'p8_ee_ZZ_ecm{ecm}'],
+"Zgamma"    : [f'wzp6_ee_tautau_ecm{ecm}', f'wzp6_ee_mumu_ecm{ecm}',
+               f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'],
+"Rare"      : [f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}', 
+               f'wzp6_gaga_mumu_60_ecm{ecm}', f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
+               f'wzp6_gammae_eZ_Zee_ecm{ecm}', f'wzp6_gaga_ee_60_ecm{ecm}', 
+               f'wzp6_gaga_tautau_60_ecm{ecm}', f'wzp6_ee_nuenueZ_ecm{ecm}'],
+}
 
 for final_state in ['ee', 'mumu']:
         print(f'\n----->[Info] Making plots for {final_state} channel\n')
 
-        inputDir = loc.HIST_PREPROCESSED
-        outDir   = loc.PLOTS_MEASUREMENT.replace('final_state',final_state)
-        print(inputDir)
+        sel =select(arg.recoil120, arg.miss, arg.bdt)
+        inputDir = get_loc(loc.HIST_PREPROCESSED, final_state, ecm, sel)
+        outDir   = get_loc(loc.PLOTS_MEASUREMENT, final_state, ecm, sel)
+
         procs = [f"Z{final_state}H", "WW", "ZZ", "Zgamma", "Rare"] # first must be signal
 
         cuts = ["cut0", "cut1", "cut2", "cut3", "cut4", "cut5"]
         lep = '#mu' if final_state=="mumu" else "e"
-        m_dw, m_up = '120' if recoil_120 else '100', '140' if recoil_120 else '150'
+        m_dw, m_up = '120' if arg.recoil120 else '100', '140' if arg.recoil120 else '150'
         cut_labels = ["All events", "#geq 1 "+lep+"^{#pm} + ISO", "#geq 2 "+lep+"^{#pm} + OS", 
                       "86 < m_{"+lep+"^{+}"+lep+"^{#minus}} < 96", "20 < p_{"+lep+"^{+}"+lep+"^{#minus}} < 70", 
                       m_dw+" < m_{rec} < "+m_up]
-        if miss:
+        if arg.miss:
                 cuts.append("cut6")
                 cut_labels = cut_labels.append(["|cos#theta_{miss}| < 0.98"])
 

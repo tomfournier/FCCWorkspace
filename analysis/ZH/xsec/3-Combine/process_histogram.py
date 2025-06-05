@@ -1,15 +1,42 @@
 import os
 import ROOT
-import importlib, time
+import importlib, time, argparse
 
 t1 = time.time()
 
-userConfig = importlib.import_module('userConfig')
-from userConfig import samples, loc, final_state
+parser = argparse.ArgumentParser()
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
+parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+arg = parser.parse_args()
 
-inputdir  = loc.HIST_PREPROCESSED
-outputdir = loc.HIST_PROCESSED
+userConfig = importlib.import_module('userConfig')
+from userConfig import loc, get_loc, select, z_decays, h_decays
+
+ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt)
+
+samples_bkg = [
+    f"p8_ee_WW_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",
+    f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}", f"wzp6_ee_tautau_ecm{ecm}",
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}', f'wzp6_gammae_eZ_Zee_ecm{ecm}',
+    f"wzp6_gaga_ee_60_ecm{ecm}", f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
+    f"wzp6_ee_nuenueZ_ecm{ecm}"
+]
+samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
+for i in ['ee', 'mumu']:
+    samples_sig.append(f"wzp6_ee_{i}H_ecm{ecm}")
+samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
+
+samples = samples_sig + samples_bkg
 procs = samples
+
+#__________________________________________________________
+def getMetaInfo(proc):
+    fIn = ROOT.TFile(f"{inputdir}/{proc}.root")
+    xsec = fIn.Get("crossSection").GetVal()
+    return xsec
 
 #__________________________________________________________
 def get_hist(hName, proc):
@@ -17,6 +44,10 @@ def get_hist(hName, proc):
     f = ROOT.TFile(f"{inputdir}/{proc}.root")
     h = f.Get(hName)
     h.SetDirectory(0)
+
+    xsec = f.Get("crossSection").GetVal()
+    if 'HZZ' in proc: xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
+    h.Scale((xsec-xsec_inv)/xsec)
     f.Close()
     return h
 
@@ -47,22 +78,26 @@ def unroll(hist, hName):
             
     return h1
 
+inputdir  = get_loc(loc.HIST_PREPROCESSED, '', ecm, sel)
+outputdir = get_loc(loc.HIST_PROCESSED, '', ecm, sel)
 
 if not os.path.isdir(f'{outputdir}'):
     os.system(f'mkdir -p {outputdir}')
 
 print('----->[Info] Processing histograms for Combine')
 for proc in procs:
-    print(f'----->[Info] Processing {proc}')
-    h = get_hist(f'{final_state}_recoil_m_mva', proc)
-    
-    print('----->[Info] Unrolling histogram')
-    h = unroll(h, f'{final_state}_recoil_m_mva')
-    print(f'----->[Info] {proc} histogram processed')
-
-    print(f'----->[Info] Saving histogram')
     f = ROOT.TFile(f"{outputdir}/{proc}.root", "RECREATE")
-    h.Write()
+
+    for cat in ['ee', 'mumu']:
+        print(f'----->[Info] Processing {proc}')
+        h = get_hist(f'{cat}_recoil_m_mva', proc)
+        
+        print('----->[Info] Unrolling histogram')
+        h = unroll(h, f'{cat}_recoil_m_mva')
+        print(f'----->[Info] {proc} histogram for {cat} channel processed')
+        h.Write()
+
+    print(f'----->[Info] Saving histograms')
     f.Close()
     print(f'----->[Info] Saved histogram in {outputdir}/{proc}.root')
 

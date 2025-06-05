@@ -1,19 +1,38 @@
 import pandas as pd
-import importlib, time
+import importlib, time, argparse
 
-userconfig = importlib.import_module('userConfig')
-from userConfig import loc, train_vars, final_state, miss_BDT
+t1 = time.time()
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
+parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+arg = parser.parse_args()
+
+if arg.cat=='':
+    print('\n----------------------------------------------------------------\n')
+    print('Final state was not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------\n')
+    exit(0)
 
 from tools.utils import print_stats, split_data
 from tools.utils import train_model, save_model
 
-modes = [f"{final_state}H", "ZZ", f"WW{final_state}", 
-         "Zll", "egamma", "gammae", f"gaga_{final_state}"]
-vars_list = train_vars
-inputDir = loc.MVA_PROCESSED
-outDir = loc.BDT
+userconfig = importlib.import_module('userConfig')
+from userConfig import loc, get_loc, select, train_vars
 
-t1 = time.time()
+final_state, ecm = arg.cat, arg.ecm
+sel = select(arg.recoil120, arg.miss, arg.bdt)
+
+modes = [f"{final_state}H", "ZZ", f"WW{final_state}", 
+         f"Z{final_state}", f"egamma_{final_state}", f"gammae_{final_state}", f"gaga_{final_state}"]
+vars_list = train_vars.copy()
+if arg.bdt: vars_list.append("cosTheta_miss")
+
+inputDir = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
+outDir   = get_loc(loc.BDT, final_state, ecm, sel)
 
 print("TRAINING VARS")
 print(vars_list)

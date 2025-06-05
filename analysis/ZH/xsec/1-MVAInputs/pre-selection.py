@@ -1,17 +1,30 @@
 import ROOT
-import importlib
+import importlib, argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
+parser.add_argument('--param', help='Select the fraction of the samples or the number of files to put the samples', choices=['frac', 'chunks'], default='frac')
+arg = parser.parse_args()
+
+if arg.cat=='':
+    print('\n----------------------------------------------------------------\n')
+    print('Final state was not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------\n')
+    exit(0)
+
 
 # Load userConfig 
 userConfig = importlib.import_module("userConfig")
-from userConfig import loc, final_state, List_bdt, miss, recoil_120
+from userConfig import loc, get_loc, select, frac, nb
 
-ecm = userConfig.ecm
+final_state, ecm = arg.cat, arg.ecm
+sel = select(arg.recoil120, arg.miss)
 
 # Output directory where the files produced at the pre-selection level will be put
-outputDir = loc.MVA_INPUTS
-
-# Mandatory: List of processes
-processList = List_bdt
+outputDir = get_loc(loc.MVA_INPUTS, final_state, ecm, sel)
 
 # include custom functions
 includePaths = ["../../../../functions/functions.h"]
@@ -19,21 +32,36 @@ includePaths = ["../../../../functions/functions.h"]
 # Mandatory: Production tag when running over EDM4Hep centrally produced events, 
 # this points to the yaml files for getting sample statistics
 prodTag = "FCCee/winter2023_training/IDEA/"
-
 # Optional: output directory, default is local dir
 eosType = "eosuser"
-
 # Optional: ncpus, default is 4
 nCPUS = 20
-
 # Optional running on HTCondor, default is False
 runBatch = False
-
 # Optional batch queue name when running on HTCondor, default is workday
 batchQueue = "longlunch"
-
 # Optional computing account when running on HTCondor, default is group_u_FCC.local_gen
 compGroup = "group_u_FCC.local_gen"
+
+# Process samples for BDT
+ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
+samples_BDT = [
+    #signal
+    f"wzp6_ee_{final_state}H_ecm{ecm}",
+
+    #background: 
+    f"p8_ee_ZZ_ecm{ecm}", f"p8_ee_WW_{final_state}_ecm{ecm}", ee_ll,
+
+    #rare backgrounds:
+    f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}", f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
+    f"wzp6_gaga_{final_state}_60_ecm{ecm}"
+]
+
+if arg.param=='frac':     param = {'fraction': frac} 
+elif arg.param=='chunks': param = {'chunks':   nb}
+
+# Mandatory: List of processes
+processList = {i:param for i in samples_BDT}
 
 class RDFanalysis():
 
@@ -153,7 +181,7 @@ class RDFanalysis():
         #########
         ### CUT 5: recoil mass cut
         #########
-        if recoil_120:
+        if arg.recoil120:
             df = df.Filter("zll_recoil_m < 140 && zll_recoil_m > 120")
         else:
             df = df.Filter("zll_recoil_m < 150 && zll_recoil_m > 100")
@@ -161,7 +189,7 @@ class RDFanalysis():
         #########
         ### CUT 6: cos(theta_miss) cut
         #########
-        if miss:
+        if arg.miss:
             df = df.Filter("cosTheta_miss < 0.98")
         
         return df

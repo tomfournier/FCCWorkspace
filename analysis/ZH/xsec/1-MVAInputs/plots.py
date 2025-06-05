@@ -1,25 +1,41 @@
 import ROOT
-import importlib
+import importlib, argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+arg = parser.parse_args()
+
+if arg.cat=='':
+    print('\n----------------------------------------------------------------\n')
+    print('Final state was not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------\n')
+    exit(0)
 
 # Load userConfig
 userConfig = importlib.import_module("userConfig")
-from userConfig import final_state, ecm, loc, plot_file, recoil_120
+from userConfig import loc, get_loc, select, plot_file
+
+final_state, ecm = arg.cat, arg.ecm
+sel = select(arg.recoi120)
 
 # global parameters
-intLumi        = userConfig.intLumi * 1e6
-intLumiLabel   = "L = {} ab^{}".format(userConfig.intLumi, '{-1}')
+intLumi        = arg.lumi * 1e6
+intLumiLabel   = "L = {} ab^{}".format(arg.lumi, '{-1}')
 if final_state == 'mumu':
      ana_tex        = 'e^{+}e^{-} #rightarrow ZH #rightarrow #mu^{+}#mu^{-} + X'
-else:
+elif final_state =='ee':
      ana_tex        = 'e^{+}e^{-} #rightarrow ZH #rightarrow e^{+}e^{-} + X'
 delphesVersion = '3.4.2'
 energy         = ecm
 collider       = 'FCC-ee'
-inputDir       = loc.HIST_MVA
+inputDir       = get_loc(loc.HIST_MVA, final_state, ecm, sel)
 yaxis          = ['lin','log']
 stacksig       = ['nostack']
 formats        = [plot_file]
-outdir         = loc.PLOTS_MVA
+outdir         = get_loc(loc.PLOTS_MVA, final_state, ecm, sel)
 
 variables = [   
      # Leptons
@@ -37,7 +53,7 @@ variables = [
 ]
 
 # Dictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
-_120 = '_120' if recoil_120 else ''
+_120 = '_120' if arg.recoil120 else ''
 selections = {}
 selections['ZH'] = ["Baseline"+_120, "Baseline"+_120+"_miss"]
 

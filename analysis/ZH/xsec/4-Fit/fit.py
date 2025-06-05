@@ -4,30 +4,50 @@ import numpy as np
 import argparse
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, combine
+from userConfig import loc, get_loc, select
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
+parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+
 parser.add_argument("--bias", help="Nominal fit or bias test", action='store_true')
 parser.add_argument("--pert", type=float, help="Target pseudodata size", default=1.0)
 parser.add_argument("--target", type=str, help="Target pseudodata", default="")
-args = parser.parse_args()
+parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
+arg = parser.parse_args()
 
-if not args.bias:
-    dir, dc, tp  = loc.COMBINE_NOMINAL, loc.NOMINAL_DATACARD, "nominal"
-    ws, log, res = loc.NOMINAL_WS, loc.NOMINAL_LOG, loc.NOMINAL_RESULT
+if arg.cat=='' and not arg.combine:
+    print('\n----------------------------------------------------------------\n')
+    print('Final state was not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------\n')
+    exit(0)
+if arg.combine: arg.cat = 'combined'
+
+sel = select(arg.recoil120, arg.miss, arg.bdt)
+if not arg.bias:
+    dir, dc = get_loc(loc.COMBINE_NOMINAL, arg.cat, arg.ecm, sel), get_loc(loc.NOMINAL_DATACARD, arg.cat, arg.ecm, sel)
+    tp      = "nominal"
+    ws, log = get_loc(loc.NOMINAL_WS, arg.cat, arg.ecm, sel), get_loc(loc.NOMINAL_LOG, arg.cat, arg.ecm, sel)
+    res     = get_loc(loc.NOMINAL_RESULT, arg.cat, arg.ecm, sel)
 else:
-    dir, dc, tp  = loc.COMBINE_BIAS, loc.BIAS_DATACARD, "bias"
-    ws, log, res = loc.BIAS_WS, loc.BIAS_LOG, loc.BIAS_FIT_RESULT
+    dir, dc = get_loc(loc.COMBINE_BIAS, arg.cat, arg.ecm, sel), get_loc(loc.BIAS_DATACARD, arg.cat, arg.ecm, sel)
+    tp      = "bias"
+    ws, log = get_loc(loc.BIAS_WS, arg.cat, arg.ecm, sel), get_loc(loc.BIAS_LOG, arg.cat, arg.ecm, sel)
+    res     = get_loc(loc.BIAS_FIT_RESULT, arg.cat, arg.ecm, sel)
 
-comb, tar = "_combined" if combine else "", f"_{args.target}" if args.bias else ""
+comb, tar   = "_combined" if arg.combine else "", f"_{arg.target}" if arg.bias else ""
+dc_comb = get_loc(loc.COMBINE, arg.cat, arg.ecm, sel)
 
 cmd = f"cd {dir};"
-if combine:
-    dc_mu, dc_e = f"{loc.COMBINE}/mumu/{tp}/datacard", f"{loc.COMBINE}/ee/{tp}/datacard"
+if arg.combine:
+    dc_mu, dc_e = f"{dc_comb}/mumu/{tp}/datacard", f"{dc_comb}/ee/{tp}/datacard"
     cmd += f"combineCards.py {dc_mu}/datacard{tar}.txt {dc_e}/datacard{tar}.txt > {dc}/datacard{tar}{comb}.txt;"
 cmd += f"text2workspace.py {dc}/datacard{tar}{comb}.txt -v 10 --X-allow-no-background -m 125 -o {ws}/ws{tar}.root &> {log}/log_text2workspace.txt;"
 cmd += f"cd {ws};"
-cmd += f"combine ws{tar}.root -M MultiDimFit -m 125 -v 10 -t 0 --rMax {args.pert+0.1} --rMin {args.pert-0.1} --expectSignal={args.pert} -n Xsec &> {log}/log_results{tar}.txt"
+cmd += f"combine ws{tar}.root -M MultiDimFit -m 125 -v 10 -t 0 --expectSignal={arg.pert} -n Xsec &> {log}/log_results{tar}.txt"
 
 print('----->[Info] Running the fit')
 for i in [dc, ws, log, res]:
@@ -56,7 +76,7 @@ if (mu==np.inf) & (err==np.inf):
 else:
     print('----->[Info] Results successfully extracted')
     print(f'\tmu = {mu} +/- {err}')
-    print(f'----->[Info] Uncertainty on cross-section: {err*100:.2f} %')
+    print(f'----->[Info] Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
     f = np.array([mu, err])
     np.savetxt(f"{res}/results{tar}.txt", f)
     print(f'----->[Info] Saved result in {res}/results{tar}.txt')

@@ -1,31 +1,65 @@
 import ROOT
 import array
 import importlib
+import argparse
 import numpy as np
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
+parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
+parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
+parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+parser.add_argument('--param', help='Select the fraction of the samples or the number of files to put the samples', choices=['frac', 'chunks'], default='frac')
+arg = parser.parse_args()
 
 ROOT.TH1.SetDefaultSumw2(ROOT.kTRUE)
 from addons.TMVAHelper.TMVAHelper import TMVAHelperXGB # type: ignore
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import ecm, loc, train_vars, miss, selection, List_meas, recoil_120
+from userConfig import loc, get_loc, select, train_vars, frac, nb, z_decays, h_decays
 
-prodTag = "FCCee/winter2023/IDEA/"
-procDict = "FCCee_procDict_winter2023_IDEA.json"
+ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt)
 
-processList = List_meas
+# Output directory where the files produced at the pre-selection level will be put
+outputDir = get_loc(loc.HIST_PREPROCESSED, '', ecm, sel)
 
 # include custom functions
 includePaths = ["../../../../functions/functions.h"]
 
-# output directory
-outputDir = loc.HIST_PREPROCESSED
-
+# Mandatory: Production tag when running over EDM4Hep centrally produced events, 
+# this points to the yaml files for getting sample statistics
+prodTag = "FCCee/winter2023/IDEA/"
+# Link to the dictonary that contains all the cross section informations etc...
+# path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
+procDict = "FCCee_procDict_winter2023_IDEA.json"
 # optional: ncpus, default is 4, -1 uses all cores available
 nCPUS = 20
-
 # scale the histograms with the cross-section and integrated luminosity
 doScale = True
-intLumi = userConfig.intLumi * 1e6
+intLumi = arg.lumi * 1e6 # in pb-1
+
+# Process samples
+samples_bkg = [
+    f"p8_ee_WW_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",
+    f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}", f"wzp6_ee_tautau_ecm{ecm}",
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}', f'wzp6_gammae_eZ_Zee_ecm{ecm}',
+    f"wzp6_gaga_ee_60_ecm{ecm}", f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
+    f"wzp6_ee_nuenueZ_ecm{ecm}"
+]
+samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
+for i in ['ee', 'mumu']:
+    samples_sig.append(f"wzp6_ee_{i}H_ecm{ecm}")
+samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
+
+samples = samples_sig + samples_bkg
+
+if arg.param=='frac':     param = {'fraction': frac} 
+elif arg.param=='chunks': param = {'chunks':   nb}
+processList = {i:param for i in samples}
+
+
 
 # define histograms
 bins_p_mu        = (2000,  0,   200) # 100 MeV bins
@@ -42,14 +76,15 @@ bins_aco   = (400,  0, 4)
 bins_iso   = (500, 0, 5)
 bins_count = (50,  0, 50)
 
+vars_list = train_vars.copy()
+if arg.bdt: vars_list.append("cosTheta_miss")
+
 ROOT.EnableImplicitMT(nCPUS) # hack to deal correctly with TMVAHelperXGB
+tmva_mumu = TMVAHelperXGB(f"{loc.MVA}/{ecm}/mumu/{sel}/BDT/xgb_bdt.root", "ZH_Recoil_BDT", variables=vars_list)
+tmva_ee   = TMVAHelperXGB(f"{loc.MVA}/{ecm}/ee/{sel}/BDT/xgb_bdt.root", "ZH_Recoil_BDT",   variables=vars_list)
 
-tmva_mumu = TMVAHelperXGB(f"{loc.MVA}/{ecm}/mumu/{selection}/BDT/xgb_bdt.root", "ZH_Recoil_BDT", variables=train_vars)
-tmva_ee   = TMVAHelperXGB(f"{loc.MVA}/{ecm}/ee/{selection}/BDT/xgb_bdt.root", "ZH_Recoil_BDT", variables=train_vars)
-
-
-mva_mumu = float(np.loadtxt(f"{loc.MVA}/{ecm}/mumu/{selection}/BDT/BDT_cut.txt"))
-mva_ee   = float(np.loadtxt(f"{loc.MVA}/{ecm}/ee/{selection}/BDT/BDT_cut.txt"))
+mva_mumu = float(np.loadtxt(f"{loc.MVA}/{ecm}/mumu/{sel}/BDT/BDT_cut.txt"))
+mva_ee   = float(np.loadtxt(f"{loc.MVA}/{ecm}/ee/{sel}/BDT/BDT_cut.txt"))
 
 def build_graph_ll(df, hists, dataset, final_state):
 
@@ -149,7 +184,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     df = df.Define("zll_leps_p",       "FCCAnalyses::ReconstructedParticle::get_p(zll_leps)")
     df = df.Define("zll_leps_theta",   "FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)")
     df = df.Define("zll_leps_phi",     "FCCAnalyses::ReconstructedParticle::get_phi(zll_leps)")
-    df = df.Define("zll_leps_dR",    "FCCAnalyses::deltaR(zll_leps)")
+    df = df.Define("zll_leps_dR",      "FCCAnalyses::deltaR(zll_leps)")
     df = df.Define("leading_p_idx",    "(zll_leps_p[0] > zll_leps_p[1]) ? 0 : 1")
     df = df.Define("subleading_p_idx", "(zll_leps_p[0] > zll_leps_p[1]) ? 1 : 0")
     df = df.Define("leading_p",        "zll_leps_p[leading_p_idx]")
@@ -186,7 +221,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     ### CUT 5: recoil cut
     #########
     hists.append(df.Histo1D((f"{final_state}_zll_recoil_nOne", "", *bins_recoil), "zll_recoil_m"))
-    if recoil_120:
+    if arg.recoil120:
         df = df.Filter(f"zll_recoil_m < 140 && zll_recoil_m > 120")
     else:
         df = df.Filter(f"zll_recoil_m < 150 && zll_recoil_m > 100")
@@ -196,7 +231,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     ### CUT 6: cosThetaMiss cut
     #########
     hists.append(df.Histo1D((f"{final_state}_cosThetaMiss_nOne", "", *bins_miss), "cosTheta_miss"))
-    if miss:
+    if arg.miss:
         df = df.Filter("cosTheta_miss < 0.98")
         hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
 
@@ -246,10 +281,40 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_acoplanarity", "", *bins_aco),  "acoplanarity"))
     hists.append(df.Histo1D((f"{final_state}_acolinearity", "", *bins_aco),  "acolinearity"))
 
-    hists.append(df.Histo1D((f"{final_state}_leading_p",        "", *bins_p_ll),  "leading_p"))
+    hists.append(df.Histo1D((f"{final_state}_leading_p",        "", *bins_p_mu),  "leading_p"))
     hists.append(df.Histo1D((f"{final_state}_leading_theta",    "", *bins_theta), "leading_theta"))
-    hists.append(df.Histo1D((f"{final_state}_subleading_p",     "", *bins_p_ll),  "subleading_p"))
+    hists.append(df.Histo1D((f"{final_state}_subleading_p",     "", *bins_p_mu),  "subleading_p"))
     hists.append(df.Histo1D((f"{final_state}_subleading_theta", "", *bins_theta), "subleading_theta"))
+
+    # final histograms for high mass events
+    hists.append(df_high.Histo1D((f"{final_state}_leps_p_high",     "", *bins_p_mu),   "leps_p"))
+    hists.append(df_high.Histo1D((f"{final_state}_zll_p_high",      "", *bins_p_mu),   "zll_p"))
+    hists.append(df_high.Histo1D((f"{final_state}_zll_m_high",      "", *bins_m_ll),   "zll_m"))
+    hists.append(df_high.Histo1D((f"{final_state}_zll_recoil_high", "", *bins_recoil), "zll_recoil_m"))
+
+    hists.append(df_high.Histo1D((f"{final_state}_cosThetaMiss_high", "", *bins_miss), "cosTheta_miss"))
+    hists.append(df_high.Histo1D((f"{final_state}_acoplanarity_high", "", *bins_aco),  "acoplanarity"))
+    hists.append(df_high.Histo1D((f"{final_state}_acolinearity_high", "", *bins_aco),  "acolinearity"))
+
+    hists.append(df_high.Histo1D((f"{final_state}_leading_p_high",        "", *bins_p_mu),  "leading_p"))
+    hists.append(df_high.Histo1D((f"{final_state}_leading_theta_high",    "", *bins_theta), "leading_theta"))
+    hists.append(df_high.Histo1D((f"{final_state}_subleading_p_high",     "", *bins_p_mu),  "subleading_p"))
+    hists.append(df_high.Histo1D((f"{final_state}_subleading_theta_high", "", *bins_theta), "subleading_theta"))
+
+    # final histograms for high mass events
+    hists.append(df_low.Histo1D((f"{final_state}_leps_p_low",     "", *bins_p_mu),   "leps_p"))
+    hists.append(df_low.Histo1D((f"{final_state}_zll_p_low",      "", *bins_p_mu),   "zll_p"))
+    hists.append(df_low.Histo1D((f"{final_state}_zll_m_low",      "", *bins_m_ll),   "zll_m"))
+    hists.append(df_low.Histo1D((f"{final_state}_zll_recoil_low", "", *bins_recoil), "zll_recoil_m"))
+
+    hists.append(df_low.Histo1D((f"{final_state}_cosThetaMiss_low", "", *bins_miss), "cosTheta_miss"))
+    hists.append(df_low.Histo1D((f"{final_state}_acoplanarity_low", "", *bins_aco),  "acoplanarity"))
+    hists.append(df_low.Histo1D((f"{final_state}_acolinearity_low", "", *bins_aco),  "acolinearity"))
+
+    hists.append(df_low.Histo1D((f"{final_state}_leading_p_low",        "", *bins_p_mu),  "leading_p"))
+    hists.append(df_low.Histo1D((f"{final_state}_leading_theta_low",    "", *bins_theta), "leading_theta"))
+    hists.append(df_low.Histo1D((f"{final_state}_subleading_p_low",     "", *bins_p_mu),  "subleading_p"))
+    hists.append(df_low.Histo1D((f"{final_state}_subleading_theta_low", "", *bins_theta), "subleading_theta"))
 
     return hists
 
@@ -269,7 +334,7 @@ def build_graph(df, dataset):
     df = df.Define("cut3", "3")
     df = df.Define("cut4", "4")
     df = df.Define("cut5", "5")
-    if miss:
+    if arg.miss:
         df = df.Define("cut6", "6")
 
     df = df.Alias("MCRecoAssociations0", "MCRecoAssociations#0.index")
