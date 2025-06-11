@@ -64,7 +64,7 @@ It is possible but not mandatory to make a local environment by sourcing `instal
 source install_venv.sh
 ```
 
-When running the command, `pdm` will ask you which environment to take, you will have to choose the one which start by `/cvmfs` end by `python` and have `2024-03-10` in its path.
+When running the command, `pdm` will ask you which environment to take, you will have to choose the one which start by `/cvmfs`, end by `python` and have `2024-03-10` in its path.
 
 ## Careful
 
@@ -88,11 +88,13 @@ The `userConfig.py` file is divised in different zone delimited by headers that 
 
 ### Parameters
 
-The first header is for global parameters that you can import with `importlib` in the analysis files. These parameters are put there so as to not have to put it by hand in each file.
+The first header is for global parameters that you can import with the `import_module` function from `importlib` module in the analysis files. These parameters are put there so as to not have to put it by hand in each file.
 
 ### Location of files
 
 This section is very important as it determines the structure of your output directory. The output directory is where all your data, plots, histograms, etc. will be put so it has to be well structured so that you can easily find what you want.
+
+If this configuration does not suit you, you change it by modifying the path of the different variables in this header.
 
 The current structure of the `xsec` directory is displayed below. To be easier to look at, not all the folders are displayed and only their function are displayed:
 
@@ -152,7 +154,13 @@ The current structure of the `xsec` directory is displayed below. To be easier t
                 │   └── selection
                 │       ├── cutflow
                 │       ├── higgsDecays
+                │       │   ├── high
+                │       │   ├── low
+                │       │   └── nominal
                 │       ├── makePlot
+                │       │   ├── high
+                │       │   ├── low
+                │       │   └── nominal
                 │       └── significance
                 └── MVAInputs
                     └── selection
@@ -161,13 +169,13 @@ The current structure of the `xsec` directory is displayed below. To be easier t
 
 The output directory is separated in two folders: `data` and `plots`. In data, all your results that go from your histograms to your BDT will be put there. In plots, as its name says, all your plots will be put there.
 
-The data directory is separated in 3 folders: `MVA`, `histograms` and `combine`. The MVA part is where all that concern the BDT: the training samples and the BDT itself will be put. For the histograms, as its name says, this is where all your histograms that you will produce across the analysis will be put. The combine part is where all that concern the fit of the cross-section and the bias test are, more details in `3-Combine` and `4-Fit`.
+The data directory is separated in 3 folders: `MVA`, `histograms` and `combine`. The MVA part is where all that concern the BDT: the training samples and the BDT itself will be put. For the histograms, as its name says, this is where all your histograms that you will produce across the analysis will be put. The combine part is where all that concern the fit of the cross-section and the bias test are.
 
 #### Add a path
 
-If you want to add a folder in the analysis, you can put it in the section. The name of the variable of the path to the folder that you want must start by `loc.`, you can choose an explicit name after to help you remember which path the variable contains.
+If you want to add a folder in the analysis, you can put it in this header. The name of the variable of the path to the folder that you want must start by `loc.`, you can choose an explicit after to help you remember which path the variable contains.
 
-If your path require one of the variables explained before (`ecm`, `final_state` or `selection`) you have to put exactly their name in you path, the reasone why is explained below.
+If your path require one of the variables explained before (`ecm`, `final_state` or `selection`) you have to put exactly their name in you path, the reason why is explained below.
 
 ### Functions to extract the path
 
@@ -177,7 +185,7 @@ The paths in the previous header follow a rule of putting `selection`, `ecm` or 
 
 `get_loc` is precisely the function that convert the general path to the specific that you want depending on the situation. Here is the function:
 
-```python=82
+```python
 def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
     path = path.replace('final_state', cat)
     path = path.replace('ecm', str(ecm))
@@ -189,7 +197,7 @@ The function takes as argument the path (variable starting by `loc.`), the final
 
 It can be bothersome to put the selection by hand in each file when calling `get_loc`. To simplify this, we use the function `select` that returns the selection that you want.
 
-```python=88
+```python
 def select(recoil120: bool, miss: bool = False, bdt: bool = False) -> str:
     sel = 'Baseline'
     if recoil120: sel += '_120'
@@ -208,7 +216,7 @@ There is also a variable for the label of the processes, `Label`, if you add a p
 
 #### Other variables
 
-This header contains all the other variables, for the moment there is only the $Z$ and Higgs decays that are considered in the analysis in the `z_decays` and `h_decays` respectively.
+This header contains all the other variables, for the moment there is only the $Z$ and Higgs decays that are considered in the analysis in the `z_decays` and `h_decays` respectively and `param`, the variable that will be used in the preselection to do the events selection only on a fraction of the total events or separate the resulting events in separate files.
 
 If you want to add other variables, you can put them there.
 
@@ -234,7 +242,7 @@ The first command is for files that do a pre-selection of the events. In this an
 - `1-MVAInputs/pre-selection.py` 
 - `3-Combine/selection.py`
 
-Contrary to `1-MVAInputs/pre-selection.py`, `3-Combine/selection.py` directly make histograms and not `TTree` and do not need and file to do the next command.
+Contrary to `1-MVAInputs/pre-selection.py`, `3-Combine/selection.py` directly make histograms and not `TTree` and thus does not need the next command.
 
 #### final-selection
 
@@ -258,7 +266,7 @@ The fourth and last command is for files that prepare histograms for the fit of 
 
 ### Running `HiggsAnalysis-CombinedLimit` files
 
-`FCCAnalyses` and `HiggsAnalysis-CombinedLimit` are not compatible and thus require to use another terminal when using both. In this analysis, they all are in the `4-Fit` directory:
+`FCCAnalyses` and `HiggsAnalysis-CombinedLimit` are not compatible and thus require to use different terminals when using both. In this analysis, they all are in the `4-Fit` directory:
 
 - `4-Fit/make_pseudo.py`
 - `4-Fit/fit.py`
@@ -288,4 +296,4 @@ if arg.cat=='':
 
 or just run the code without adding argument and see if it works.
 
-For files in `4-Fit`, you don't have to put the final state if you do the combined fit but be sure to have runned in both channel before doing the combined fit as it uses the datacard from the individual fits to run.
+For files in `4-Fit`, you don't have to put the final state if you do the combined fit by adding the `--combine` argument but be sure to run the code in both channel individually before doing the combined fit as it uses the datacard from the individual fits to run.
