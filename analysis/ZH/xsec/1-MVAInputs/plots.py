@@ -1,29 +1,15 @@
 import ROOT
-import importlib, argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
-parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
-parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
-arg = parser.parse_args()
-
-if arg.cat=='':
-    print('\n----------------------------------------------------------------\n')
-    print('Final state was not selected, please select one to run this code')
-    print('\n----------------------------------------------------------------\n')
-    exit(0)
+import importlib
 
 # Load userConfig
 userConfig = importlib.import_module("userConfig")
-from userConfig import loc, get_loc, select, plot_file
+from userConfig import loc, get_loc, ecm, sel, lumi, plot_file
 
-final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoi120)
+final_state = input('Select a channel [ee, mumu]: ')
 
 # global parameters
-intLumi        = arg.lumi * 1e6
-intLumiLabel   = "L = {} ab^{}".format(arg.lumi, '{-1}')
+intLumi        = lumi * 1e6
+intLumiLabel   = "L = {} ab^{}".format(lumi, '{-1}')
 if final_state == 'mumu':
      ana_tex        = 'e^{+}e^{-} #rightarrow ZH #rightarrow #mu^{+}#mu^{-} + X'
 elif final_state =='ee':
@@ -53,7 +39,7 @@ variables = [
 ]
 
 # Dictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
-_120 = '_120' if arg.recoil120 else ''
+_120 = '_120' if userConfig.recoil120 else ''
 selections = {}
 selections['ZH'] = ["Baseline"+_120, "Baseline"+_120+"_miss"]
 

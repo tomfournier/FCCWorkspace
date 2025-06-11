@@ -51,17 +51,10 @@ When you execute the command, the building will start and take a few minute to s
 To build `HiggsAnalysis-CombinedLimit` you will not have to verify in which branch you are as the master branch's building is working. To build you just have to run the following command and wait patiently for the building to be done, it will also take a few minutes.
 
 ```shell
-cd HiggsAnalysis/CombinedLimit
-. env_standalone.sh
-make -j 4
-cd ../../
-```
-
-After each login you'll just have to source `setup_CombinedLimit.sh` by using the command:
-
-```shell
 source setup_CombinedLimit.sh
 ```
+
+After each login you'll just have to source `setup_CombinedLimit.sh` by using the previous command but this time it won't rebuild `HiggsAnalysis/CombinedLimit` so it won't take much time.
 
 ### Local environment
 
@@ -85,20 +78,214 @@ A `userConfig.py` file is also present and contains the location of the output f
 
 ## userConfig file
 
-To write
+The `userConfig.py` file is divised in different zone delimited by headers that look like:
 
-## 1. MVAInputs
+```
+##################
+##### HEADER #####
+##################
+```
 
-To write
+### Parameters
 
-## 2. BDT
+The first header is for global parameters that you can import with `importlib` in the analysis files. These parameters are put there so as to not have to put it by hand in each file.
 
-To write
+### Location of files
 
-## 3. Combine
+This section is very important as it determines the structure of your output directory. The output directory is where all your data, plots, histograms, etc. will be put so it has to be well structured so that you can easily find what you want.
 
-To write
+The current structure of the `xsec` directory is displayed below. To be easier to look at, not all the folders are displayed and only their function are displayed:
 
-## 4. Fit
+- `ecm` is the folder where you put all your files with a given center of mass energy
+    - By default it is set to `240 GeV`
+- `selection` is the folder where you put all you files with given selection 
+    - There are several selections available and will be further explained below
+- `final_state` is the folder where you put all your files with a given final state
+    - For the moment only `ee` and `mumu` are available
 
-To write
+```
+├── 1-MVAInputs
+├── 2-BDT
+├── 3-Combine
+├── 4-Fit
+└── output
+    ├── data
+    │   ├── combine
+    │   │   └── ecm
+    │   │       └── selection
+    │   │            └── final_state
+    │   │               ├── bias
+    │   │               │   ├── datacard
+    │   │               │   ├── log
+    │   │               │   ├── results
+    │   │               │   │   ├── bias
+    │   │               │   │   └── fit
+    │   │               │   └── WS
+    │   │               └── nominal
+    │   │                   ├── datacard
+    │   │                   ├── log
+    │   │                   ├── results
+    │   │                   └── WS
+    │   ├── histograms
+    │   │   ├── MVAFinal
+    │   │   │   └── ecm
+    │   │   │       └── final_state
+    │   │   ├── preprocessed
+    │   │   │   └── ecm
+    │   │   │       └── selection
+    │   │   └── processed
+    │   │       └── ecm
+    │   │           └── selection
+    │   └── MVA
+    │       └── ecm
+    │           └── final_state
+    │               └── selection
+    │                   ├── BDT
+    │                   ├── MVAInputs
+    │                   └── MVAProcessed
+    └── plots
+        └── ecm
+            └── final_state
+                ├── evaluation
+                │   └── selection
+                ├── measurement
+                │   └── selection
+                │       ├── cutflow
+                │       ├── higgsDecays
+                │       ├── makePlot
+                │       └── significance
+                └── MVAInputs
+                    └── selection
+
+```
+
+The output directory is separated in two folders: `data` and `plots`. In data, all your results that go from your histograms to your BDT will be put there. In plots, as its name says, all your plots will be put there.
+
+The data directory is separated in 3 folders: `MVA`, `histograms` and `combine`. The MVA part is where all that concern the BDT: the training samples and the BDT itself will be put. For the histograms, as its name says, this is where all your histograms that you will produce across the analysis will be put. The combine part is where all that concern the fit of the cross-section and the bias test are, more details in `3-Combine` and `4-Fit`.
+
+#### Add a path
+
+If you want to add a folder in the analysis, you can put it in the section. The name of the variable of the path to the folder that you want must start by `loc.`, you can choose an explicit name after to help you remember which path the variable contains.
+
+If your path require one of the variables explained before (`ecm`, `final_state` or `selection`) you have to put exactly their name in you path, the reasone why is explained below.
+
+### Functions to extract the path
+
+The paths in the previous header follow a rule of putting `selection`, `ecm` or `final_state` in place of the selection, center of mass energy or final state that you use to be more general and because there are two functions in this header that are made to convert the general path in the path with the selection, center of mass energy or final state that you want.
+
+#### get_loc
+
+`get_loc` is precisely the function that convert the general path to the specific that you want depending on the situation. Here is the function:
+
+```python=82
+def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
+    path = path.replace('final_state', cat)
+    path = path.replace('ecm', str(ecm))
+    path = path.replace('selection', sel)
+    return path
+```
+
+The function takes as argument the path (variable starting by `loc.`), the final state (`cat`), the center of mass energy (`ecm`) and the selection (`sel`)
+
+It can be bothersome to put the selection by hand in each file when calling `get_loc`. To simplify this, we use the function `select` that returns the selection that you want.
+
+```python=88
+def select(recoil120: bool, miss: bool = False, bdt: bool = False) -> str:
+    sel = 'Baseline'
+    if recoil120: sel += '_120'
+    elif miss: sel += '_miss'
+    elif bdt: sel += '_missBDT'
+    return sel
+```
+
+If you want to add a selection, you just have to modify this function by adding an argument on the function and on the file that you want.
+
+#### Variables for BDT
+
+This header contains the variables for the BDT in `train_vars` and their label that will be used when plotting the performance of the BDT in `latex_mapping`. If you want to add a variable, be sure to add it in both variables.
+
+There is also a variable for the label of the processes, `Label`, if you add a process for the BDT training, be sure to update this variable
+
+#### Other variables
+
+This header contains all the other variables, for the moment there is only the $Z$ and Higgs decays that are considered in the analysis in the `z_decays` and `h_decays` respectively.
+
+If you want to add other variables, you can put them there.
+
+## Running the analysis
+
+There are tree types of file in the analysis: the one that use `FCCAnalyses`, the one that use `HiggsAnalysis-CombinedLimit` and the one that use neither.
+
+### Running `FCCAnalyses` files
+
+To run `FCCAnalyses` file, there are four possible command depending on the file that you run
+
+```shell=1
+fccanalysis run <preselection_file>.py
+fccanalysis final <final_selection_file>.py
+fccanalysis plots <plots_file>.py
+fccanalysis combine <combine_file>.py
+```
+
+#### pre-selection
+
+The first command is for files that do a pre-selection of the events. In this analysis, there are only two of those files: 
+
+- `1-MVAInputs/pre-selection.py` 
+- `3-Combine/selection.py`
+
+Contrary to `1-MVAInputs/pre-selection.py`, `3-Combine/selection.py` directly make histograms and not `TTree` and do not need and file to do the next command.
+
+#### final-selection
+
+The second command is for files that make histograms out of pre-selection file that use `RDFanalysis` class. In this analysis, there is only one such file: 
+
+- `1-MVAInputs/final-selection.py`
+
+#### plots
+
+The third command is for files that make plots out of histograms. In this analysis, there is only one such file:
+
+- `1-MVAInputs/plots.py`
+
+Be careful as `3-Combine/plots.py` does not use the `FCCAnalyses` framework and thus do not require the third command.
+
+#### combine
+
+The fourth and last command is for files that prepare histograms for the fit of the cross-section. In this analysis there is only one such file:
+
+- `3-Combine/combine.py`
+
+### Running `HiggsAnalysis-CombinedLimit` files
+
+`FCCAnalyses` and `HiggsAnalysis-CombinedLimit` are not compatible and thus require to use another terminal when using both. In this analysis, they all are in the `4-Fit` directory:
+
+- `4-Fit/make_pseudo.py`
+- `4-Fit/fit.py`
+- `4-Fit/bias_test.py`
+
+To run them you just have to be in a separate terminal and source `HiggsAnalysis-CombinedLimit` as explained before and run them the same way than the other files in the section below.
+
+### Running other files
+
+All the otherr files not yet cited do not need either of the two framework and can be used in either of these set up. To run these files you just need to call them with the `python` or `python3` command and with the adequate argument.
+
+### Argument of the files
+
+To run the files in the different selections, center of mass energies or final states you will need to use argument when calling the file. As these arguments are not compatible with `FCCAnalyses` there are no argument in files that run on `FCCAnalyses` framework.
+
+There is only one mandatory argument that can be required: the final state. But it is not mandatory in some files as they will run for each final state.
+
+To know which file can be runned without mandatory argument, you can see in the code if there are lines that look like this:
+
+```python
+if arg.cat=='':
+    print('\n----------------------------------------------------------------\n')
+    print('Final state was not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------\n')
+    exit(0)
+```
+
+or just run the code without adding argument and see if it works.
+
+For files in `4-Fit`, you don't have to put the final state if you do the combined fit but be sure to have runned in both channel before doing the combined fit as it uses the datacard from the individual fits to run.

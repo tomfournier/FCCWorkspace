@@ -45,39 +45,43 @@ procs_colors = {
 }
 
 sign_name = {
-            'cosThetaMiss':'|cos#theta_{miss}|',
-            'mva':'MVA', 'zll_m':'m_{ll}', 'zll_p':'p_{ll}',
-            'recoil':'m_{recoil}',
-            'acolinearity':'#Delta#theta_{ll}',
-            'acoplanarity':'#pi-#Delta#phi_{ll}',
-            'leading_p':'p_{l,leading}',
-            'subleading_p':'p_{l,subleading}',
-            'leading_theta':'#theta_{l,leading}',
-            'subleading_theta':'#theta_{l,subleading}',
-            'leps_p':'p_{lepton}'
+            'cosThetaMiss':         '|cos#theta_{miss}|',
+            'mva':                  'MVA', 
+            'zll_m':                'm_{ll}', 
+            'zll_p':                'p_{ll}',
+            'recoil':               'm_{recoil}',
+            'acolinearity':         '#Delta#theta_{ll}',
+            'acoplanarity':         '#pi-#Delta#phi_{ll}',
+            'leading_p':            'p_{l,leading}',
+            'subleading_p':         'p_{l,subleading}',
+            'leading_theta':        '#theta_{l,leading}',
+            'subleading_theta':     '#theta_{l,subleading}',
+            'leps_p':               'p_{lepton}',
+            'leps_all_p_noSel':     'p_{lepton} no sel',
+            'leps_all_theta_noSel': '#theta_{lepton} no sel'
 }
 
 sign_label = {
-            'cosThetaMiss':'|cos#theta_{miss}|',
-            'mva':'MVA Score', 'zll_m':'m_{ll} [GeV]', 'zll_p':'p_{ll} [GeV]',
-            'recoil':'m_{recoil} [GeV]',
-            'acolinearity':'#Delta#theta_{ll}',
-            'acoplanarity':'#pi-#Delta#phi_{ll}',
-            'leading_p':'p_{l,leading} [GeV]',
-            'subleading_p':'p_{l,subleading} [GeV]',
-            'leading_theta':'#theta_{l,leading}',
-            'subleading_theta':'#theta_{l,subleading}',
-            'leps_p':'p_{lepton} [GeV]'
+            'cosThetaMiss':         '|cos#theta_{miss}|',
+            'mva':                  'MVA Score', 
+            'zll_m':                'm_{ll} [GeV]', 
+            'zll_p':                'p_{ll} [GeV]',
+            'recoil':               'm_{recoil} [GeV]',
+            'acolinearity':         '#Delta#theta_{ll}',
+            'acoplanarity':         '#pi-#Delta#phi_{ll}',
+            'leading_p':            'p_{l,leading} [GeV]',
+            'subleading_p':         'p_{l,subleading} [GeV]',
+            'leading_theta':        '#theta_{l,leading}',
+            'subleading_theta':     '#theta_{l,subleading}',
+            'leps_p':               'p_{lepton} [GeV]',
+            'leps_all_p_noSel':     'p_{lepton} no sel [GeV]',
+            'leps_all_theta_noSel': '#theta_{lepton} no sel [GeV]' 
 }
 
 #__________________________________________________________
 def getHist(hName, procs, inputDir, rebin=-1):
     hist = None
     for proc in procs:
-        if 'Hinv' in proc:
-            for i in ['bb', 'cc', 'ee', 'mumu', 'nunu', 'qq', 'ss', 'tautau']:
-                if f'{i}H' in proc:
-                    proc = proc.replace(f'{i}H', 'ZH')
         fInName = f"{inputDir}/{proc}.root"
         
         if os.path.exists(fInName):
@@ -426,14 +430,11 @@ def CutFlowDecays(inputDir, outDir, final_state, plot_file=['png'], ecm=240, lum
     txt.DrawLatex(0.2, 0.15, f"Min/max: {eff_min:.2f}/{eff_max:.2f}")
     txt.Draw("SAME")
 
-    if not os.path.isdir(f'{outDir}/higgsDecays'):
-            os.system(f'mkdir -p {outDir}/higgsDecays')
+    if not os.path.isdir(f'{outDir}/higgsDecays/nominal'):
+            os.system(f'mkdir -p {outDir}/higgsDecays/nominal')
 
     for pl in plot_file:
-        if 'miss' in outName:
-            canvas.SaveAs(f"{outDir}/higgsDecays/selection_efficiency_miss.{pl}")
-        else:
-            canvas.SaveAs(f"{outDir}/higgsDecays/selection_efficiency.{pl}")
+        canvas.SaveAs(f"{outDir}/higgsDecays/nominal/selection_efficiency.{pl}")
 
 #__________________________________________________________
 def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, ecm=240, lumi=10.8, outName="", xMin=0, xMax=100, 
@@ -505,12 +506,16 @@ def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, ecm=240, lumi=10.8, 
     plotter.aux()
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
+    
+    if '_low' in hName:    out = f'{outDir}/higgsDecays/low'
+    elif '_high' in hName: out = f'{outDir}/higgsDecays/high'
+    else :                 out = f'{outDir}/higgsDecays/nominal'
 
-    if not os.path.isdir(f'{outDir}/higgsDecays'):
-            os.system(f'mkdir -p {outDir}/higgsDecays')
+    if not os.path.isdir(out):
+            os.system(f'mkdir -p {out}')
 
     for pl in plot_file:
-        canvas.SaveAs(f"{outDir}/higgsDecays/{outName}.{pl}")
+        canvas.SaveAs(f"{out}/{outName}.{pl}")
     canvas.Close()
 
 #__________________________________________________________
@@ -590,11 +595,11 @@ def SignalRatios(hName, inputDir, outDir, z_decays, h_decays, ecm=240, lumi=10.8
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
-    if not os.path.isdir(f'{outDir}/higgsDecays'):
-            os.system(f'mkdir -p {outDir}/higgsDecays')
+    if not os.path.isdir(f'{outDir}/ratio'):
+            os.system(f'mkdir -p {outDir}/ratio')
 
     for pl in plot_file:
-        canvas.SaveAs(f"{outDir}/higgsDecays/{outName}.{pl}")
+        canvas.SaveAs(f"{outDir}/ratio/{outName}.{pl}")
     canvas.Close()
 
 #__________________________________________________________
@@ -692,11 +697,15 @@ def makePlot(hName, inputDir, outDir, procs, procs_cfg, ecm=240, lumi=10.8, outN
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
-    if not os.path.isdir(f'{outDir}/makePlot'):
-            os.system(f'mkdir -p {outDir}/makePlot')
+    if '_low' in hName:    out = f'{outDir}/makePlot/low'
+    elif '_high' in hName: out = f'{outDir}/makePlot/high'
+    else :                 out = f'{outDir}/makePlot/nominal'
+
+    if not os.path.isdir(out):
+            os.system(f'mkdir -p {out}')
 
     for pl in plot_file:
-        canvas.SaveAs(f"{outDir}/makePlot/{outName}.{pl}")
+        canvas.SaveAs(f"{out}/{outName}.{pl}")
     canvas.Close()
 
 #__________________________________________________________

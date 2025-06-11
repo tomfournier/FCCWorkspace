@@ -25,7 +25,7 @@ userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, train_vars
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoi120, arg.miss, arg.bdt)
+sel = select(arg.recoil120, arg.miss, arg.bdt)
 
 # Decay modes used in first stage training and their respective file names
 ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
@@ -54,8 +54,8 @@ N_events, vars_list = {}, train_vars.copy()
 if arg.bdt: vars_list.append("cosTheta_miss")
 
 frac = {
-    f"{final_state}H": 1.0, f"WW{final_state}": 1.0, "ZZ": 1.0, "Zll": 1.0, 
-    "egamma": 1.0, "gammae": 1.0, f"gaga_{final_state}": 1.0
+    f"{final_state}H": 1.0, f"WW{final_state}": 1.0, "ZZ": 1.0, f"Z{final_state}": 1.0, 
+    f"egamma_{final_state}": 1.0, f"gammae_{final_state}": 1.0, f"gaga_{final_state}": 1.0
 }
 
 for cur_mode in modes:

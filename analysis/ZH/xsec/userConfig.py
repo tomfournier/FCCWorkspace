@@ -7,7 +7,11 @@ import os
 plot_file = 'png'
 frac, nb  = 1, 10
 
+ecm, lumi = 240, 10.8
+recoil120, miss, bdt = False, False, False
 
+_120, _miss, _bdt = '_120' if recoil120 else '', '_miss' if miss else '', '_missBDT' if bdt else ''
+sel = 'Baseline'+_120+_miss+_bdt
 
 #############################
 ##### LOCATION OF FILES #####
@@ -145,4 +149,7 @@ Label = {
 
 # Decays of the Z and the Higgs
 z_decays = ['bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu']
-h_decays = ['bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'WW', 'ZZ', 'Za', 'aa'] #, 'inv']
+h_decays = ['bb', 'cc', 'gg', 'ss', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa', 'inv']
+
+param = {'fraction': frac} 
+# param = {'chunks':   nb}

@@ -545,6 +545,67 @@ float deltaR(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> in) {
     return tlv1.DeltaR(tlv2); 
 }
 
+bool is_ww_leptonic(Vec_mc mc, Vec_i ind) {
+   int l1 = 0;
+   int l2 = 0;
+   for(size_t i = 0; i < mc.size(); ++i) {
+        auto & p = mc[i];
+        if(std::abs(p.PDG) == 24) {
+            int ds = p.daughters_begin;
+            int de = p.daughters_end;
+            for(int k=ds; k<de; k++) {
+                int pdg = abs(mc[ind[k]].PDG);
+                if(pdg == 24) continue;
+                if(pdg == 11 or pdg == 13) {
+                    if(l1 == 0) l1 = pdg;
+                    else l2 = pdg;
+                }
+            }
+        }
+        else if(std::abs(p.PDG) == 15) { // tau decays
+            int ds = p.daughters_begin;
+            int de = p.daughters_end;
+            for(int k=ds; k<de; k++) {
+                int pdg = abs(mc[ind[k]].PDG);
+                if(pdg == 15) continue;
+                if(pdg == 11 or pdg == 13) {
+                    if(l1 == 0) l1 = pdg;
+                    else l2 = pdg;
+                }
+            }
+        }
+   }
+   if(l1 == l2 && (l1==13 || l1 == 11)) {
+       return true;
+   }
+   return false;
+}
+
+bool is_hzz_invisible(Vec_mc mc, Vec_i ind) {
+   bool is_inv = true;
+   int d1 = 0;
+   int d2 = 0;
+   for(size_t i = 0; i < mc.size(); ++i) {
+        auto & p = mc[i];
+        if(std::abs(p.PDG) != 23) continue;
+
+        int ds = p.daughters_begin;
+        int de = p.daughters_end;
+        int idx_ds = ind[ds];
+        int idx_de = ind[de-1];
+        int pdg_d1 = abs(mc[idx_ds].PDG);
+        int pdg_d2 = abs(mc[idx_de].PDG);
+
+        if(std::abs(pdg_d1) == 23 or std::abs(pdg_d2) == 23) continue;
+        if(d1 == 0) d1  += pdg_d1 + pdg_d2;
+        else d2  += pdg_d1 + pdg_d2;
+   }
+   if((d1==24 || d1==28 || d1==32) && (d2==24 || d2==28 || d2==32)) {
+       return true;
+   }
+   return false;
+}
+
 }
 
 

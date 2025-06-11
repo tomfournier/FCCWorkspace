@@ -25,6 +25,7 @@ samples_bkg = [
     f"wzp6_ee_nuenueZ_ecm{ecm}"
 ]
 samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
+samples_sig.remove(f'wzp6_ee_nunuH_Hinv_ecm{ecm}')
 for i in ['ee', 'mumu']:
     samples_sig.append(f"wzp6_ee_{i}H_ecm{ecm}")
 samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
@@ -34,8 +35,11 @@ procs = samples
 
 #__________________________________________________________
 def getMetaInfo(proc):
-    fIn = ROOT.TFile(f"{inputdir}/{proc}.root")
-    xsec = fIn.Get("crossSection").GetVal()
+    if 'nunuH' in proc and 'Hinv' in proc:
+        xsec = 4.84e-5 if ecm==240 else 5.652e-5
+    else:
+        fIn = ROOT.TFile(f"{inputdir}/{proc}.root")
+        xsec = fIn.Get("crossSection").GetVal()
     return xsec
 
 #__________________________________________________________
@@ -46,8 +50,9 @@ def get_hist(hName, proc):
     h.SetDirectory(0)
 
     xsec = f.Get("crossSection").GetVal()
-    if 'HZZ' in proc: xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
-    h.Scale((xsec-xsec_inv)/xsec)
+    if 'HZZ' in proc: 
+        xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
+        h.Scale((xsec-xsec_inv)/xsec)
     f.Close()
     return h
 
@@ -86,18 +91,20 @@ if not os.path.isdir(f'{outputdir}'):
 
 print('----->[Info] Processing histograms for Combine')
 for proc in procs:
-    f = ROOT.TFile(f"{outputdir}/{proc}.root", "RECREATE")
-
+    hists = []
+    print(f'----->[Info] Processing {proc}')
     for cat in ['ee', 'mumu']:
-        print(f'----->[Info] Processing {proc}')
         h = get_hist(f'{cat}_recoil_m_mva', proc)
         
         print('----->[Info] Unrolling histogram')
         h = unroll(h, f'{cat}_recoil_m_mva')
         print(f'----->[Info] {proc} histogram for {cat} channel processed')
-        h.Write()
+        hists.append(h)
 
+    f = ROOT.TFile(f"{outputdir}/{proc}.root", "RECREATE")
     print(f'----->[Info] Saving histograms')
+    for hist in hists:
+        hist.Write()
     f.Close()
     print(f'----->[Info] Saved histogram in {outputdir}/{proc}.root')
 

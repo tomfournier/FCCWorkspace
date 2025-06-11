@@ -1,29 +1,13 @@
-import importlib, argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
-parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
-parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
-parser.add_argument('--param', help='Select the fraction of the samples or the number of files to put the samples', choices=['frac', 'chunks'], default='frac')
-arg = parser.parse_args()
-
-if arg.cat=='':
-    print('\n----------------------------------------------------------------\n')
-    print('Final state was not selected, please select one to run this code')
-    print('\n----------------------------------------------------------------\n')
-    exit(0)
+import importlib
 
 # Load userConfig 
 userConfig = importlib.import_module("userConfig")
-from userConfig import loc, get_loc, select, frac, nb
+from userConfig import loc, get_loc, select, ecm, sel, lumi, param
 
-final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120)
+final_state = input('Select a channel [ee, mumu]: ')
 
 # Input directory where the files produced at the pre-selection level are
-inputDir = get_loc(loc.MVA_INPUTS, final_state, ecm, sel)
-
+inputDir  = get_loc(loc.MVA_INPUTS, final_state, ecm, sel)
 # Output directory where the files produced at the final selection level will be put
 outputDir = get_loc(loc.HIST_MVA, final_state, ecm, sel)
 
@@ -40,7 +24,7 @@ doTree = False
 
 # Scale to integrated luminosity
 doScale = True
-intLumi = arg.lumi * 1e6 # in pb-1
+intLumi = lumi * 1e6 # in pb-1
 
 # Process list that should match the produced files.
 ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
@@ -58,14 +42,11 @@ samples_BDT = [
     f"wzp6_gaga_{final_state}_60_ecm{ecm}"
 ]
 
-if arg.param=='frac':   param = {'fraction': frac} 
-elif arg.param=='chunks': param = {'chunks':   nb}
-
 # Mandatory: List of processes
 processList = {i:param for i in samples_BDT}
 
 # Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
-if arg.recoil120:
+if userConfig.recoil120:
     bin, xmin, xmax = 80, 120, 140
     recoil_dw, recoil_up = 120, 140
 else:
@@ -75,7 +56,7 @@ else:
 baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
 cosTheta_missCut = "cosTheta_miss < 0.98"
 
-_120 = '_120' if arg.recoil120 else ''
+_120 = '_120' if userConfig.recoil120 else ''
 cutList = { 
   "Baseline"+_120: baselineCut,
   "Baseline"+_120+"_miss": baselineCut + " && " + cosTheta_missCut,

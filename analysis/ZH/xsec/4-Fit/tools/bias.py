@@ -6,14 +6,18 @@ ROOT.gStyle.SetOptStat(0)
 ROOT.gStyle.SetOptTitle(0)
 
 #__________________________________________________________
-def getMetaInfo(proc, inputDir):
-    fIn = ROOT.TFile(f"{inputDir}/{proc}.root")
-    xsec = fIn.Get("crossSection").GetVal()
+def getMetaInfo(proc, inputDir, ecm):
     
-    # if "HZZ" in proc: # HZZ contains invisible, remove xsec
-    #     xsec_inv = getMetaInfo(proc.replace("mumuH", "ZH").replace("HZZ", "Hinv"))
-    #     print("REMOVE INV FROM ZZ XSEC", proc, xsec, xsec-xsec_inv)
-    #     xsec = xsec - xsec_inv
+    if 'nunuH_Hinv' in proc:
+        xsec = 4.84e-5 if ecm==240 else 5.652e-5
+        return xsec
+    else:
+        fIn = ROOT.TFile(f"{inputDir}/{proc}.root")
+        xsec = fIn.Get("crossSection").GetVal()
+    
+    if "HZZ" in proc: # HZZ contains invisible, remove xsec
+        xsec_inv = getMetaInfo(proc.replace("HZZ", "Hinv"), inputDir, ecm)
+        xsec = xsec - xsec_inv
     return xsec
 
 #__________________________________________________________
@@ -43,10 +47,6 @@ def removeNegativeBins(hist):
 
 #__________________________________________________________
 def getSingleHist(hName, proc, inputDir):
-    if "Hinv" in proc:
-        for i in ['bb', 'cc', 'ee', 'mumu', 'nunu', 'qq', 'ss', 'tautau']:
-                if f'{i}H' in proc:
-                    proc = proc.replace(f'{i}H', 'ZH')
     fIn = ROOT.TFile(f"{inputDir}/{proc}.root")
     h = fIn.Get(hName)
     h.SetDirectory(0)
@@ -141,20 +141,14 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
     xsec_target = 0  # nominal cross-section of the target process
     xsec_rest = 0 # cross-section of the rest
 
-    i = 0
-
     sigProcs = procs_cfg[procs[0]] # get all signal processes
     for h_decay in h_decays:
         xsec = 0.
         for z_decay in z_decays:
             proc = f'wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}'
-            if 'Hinv' in proc:
-                i = 1
-            elif not proc in sigProcs:
-                continue
-            elif i==1:
-                continue
-            xsec += getMetaInfo(proc, inputDir)
+            # if not proc in sigProcs:
+            #     continue
+            xsec += getMetaInfo(proc, inputDir, ecm)
         xsec_tot += xsec
         if h_decay != target:
             xsec_rest += xsec
@@ -167,11 +161,11 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
     scale_target = (xsec_target + xsec_delta)/xsec_target
     scale_rest = (xsec_rest - xsec_delta)/xsec_rest
 
-    print(f"----->[Info] Total cross-section of the signal: {xsec_tot*1e6:.1f} fb")
-    print(f"----->[Info] New cross-section: {xsec_new*1e6:.1f} fb")
-    print(f"----->[Info] Difference between new and previous cross-section: {xsec_delta*1e6:.1f} fb")
+    # print(f"----->[Info] Total cross-section of the signal: {xsec_tot*1e6:.1f} fb")
+    # print(f"----->[Info] New cross-section: {xsec_new*1e6:.1f} fb")
+    # print(f"----->[Info] Difference between new and previous cross-section: {xsec_delta*1e6:.1f} fb")
     print(f"----->[Info] Scale of the {target} channel: {scale_target:.3f}")
-    print(f"----->[Info] Scale of the rest: {scale_rest:.3f}")
+    # print(f"----->[Info] Scale of the rest: {scale_rest:.3f}")
 
     hist_pseudo = None # start with all backgrounds
     for proc in procs[1:]:
@@ -187,14 +181,15 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
         hist = None
         for z_decay in z_decays:
             proc = f'wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}'
-            if not proc in sigProcs:
-                continue
-            xsec += getMetaInfo(proc, inputDir)
-            h = getSingleHist(hName, proc, inputDir)
-            if hist == None:
-                hist = h
-            else:
-                hist.Add(h)
+            # if not proc in sigProcs:
+            #     continue
+            xsec += getMetaInfo(proc, inputDir, ecm)
+            if 'nunuH_Hinv' not in proc:
+                h = getSingleHist(hName, proc, inputDir)
+                if hist == None:
+                    hist = h
+                else:
+                    hist.Add(h)
         if h_decay == target:
             hist.Scale(scale_target)
             xsec_tot_new += xsec*scale_target
@@ -203,8 +198,8 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
             xsec_tot_new += xsec*scale_rest
         hist_pseudo.Add(hist)
     
-    print(f'----->[CROSS-CHECK] This quantity {xsec_tot*1e6:.4f} must be equal to this one {xsec_tot_new*1e6:.4f}')
-    print(f'\tDifference: {np.abs(xsec_tot-xsec_tot_new)*1e6:.4f}')
+    print(f'----->[CROSS-CHECK] This quantity {xsec_tot*1e6:.2f} must be equal to this one {xsec_tot_new*1e6:.2f}')
+    print(f'\tDifference: {np.abs(xsec_tot-xsec_tot_new)*1e6:.2f}')
     return hist_pseudo
 
 def make_datacard(outDir, procs, final_state, target, bkg_unc, 
@@ -236,21 +231,29 @@ def make_datacard(outDir, procs, final_state, target, bkg_unc,
     dc += "##########################################################################\n"
 
     if not freezeBackgrounds and not floatBackgrounds:
-        for i, proc in enumerate(procs):
-            if i == 0: continue # no signal
+        if False:
+            dc_tmp = f"{f'bkg_norm':{' '}{'<'}{15}} {'lnN':{' '}{'<'}{5}} {'-':{' '}{'<'}{12}}"
+            for i in range(len(procs)-1):
+                dc_tmp += f"{str(bkg_unc):{' '}{'<'}{12}}"
+            dc += dc_tmp
+        else:
+            for i, proc in enumerate(procs):
+                if i == 0: continue # no signal
 
-            dc_tmp = f"{f'norm_{proc}':{' '}{'<'}{15}} {'lnN':{' '}{'<'}{5}} "
-            for proc1 in procs:
-                if proc==proc1:
-                    val = str(bkg_unc)
-                else:
-                    val = '-'
-                dc_tmp += f"{val:{' '}{'<'}{12}}"
-            dc += f'{dc_tmp}\n'
+                dc_tmp = f"{f'norm_{proc}':{' '}{'<'}{15}} {'lnN':{' '}{'<'}{5}} "
+                for proc1 in procs:
+                    if proc==proc1:
+                        val = str(bkg_unc)
+                    else:
+                        val = '-'
+                    dc_tmp += f"{val:{' '}{'<'}{12}}"
+                dc += f'{dc_tmp}\n'
+
     else:
-        dc_tmp = f"{f'norm_{proc}':{' '}{'<'}{15}} {'lnN':{' '}{'<'}{10}} "
-        for proc1 in procs:
-                if proc==procs[0]:
+        for proc in procs:
+            dc_tmp = f"{f'norm_{proc}':{' '}{'<'}{15}} {'lnN':{' '}{'<'}{10}} "
+            for proc1 in procs:
+                if proc1==procs[0]:
                     val = str(1.000000005)
                 else:
                     val = '-'

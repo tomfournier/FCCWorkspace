@@ -1,25 +1,13 @@
 import ROOT
 import array
 import importlib
-import argparse
 import numpy as np
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
-parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
-parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
-parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
-parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
-parser.add_argument('--param', help='Select the fraction of the samples or the number of files to put the samples', choices=['frac', 'chunks'], default='frac')
-arg = parser.parse_args()
 
 ROOT.TH1.SetDefaultSumw2(ROOT.kTRUE)
 from addons.TMVAHelper.TMVAHelper import TMVAHelperXGB # type: ignore
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, select, train_vars, frac, nb, z_decays, h_decays
-
-ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt)
+from userConfig import loc, get_loc, ecm, sel, lumi, param, train_vars, z_decays, h_decays
 
 # Output directory where the files produced at the pre-selection level will be put
 outputDir = get_loc(loc.HIST_PREPROCESSED, '', ecm, sel)
@@ -37,26 +25,24 @@ procDict = "FCCee_procDict_winter2023_IDEA.json"
 nCPUS = 20
 # scale the histograms with the cross-section and integrated luminosity
 doScale = True
-intLumi = arg.lumi * 1e6 # in pb-1
+intLumi = lumi * 1e6 # in pb-1
 
 # Process samples
 samples_bkg = [
     f"p8_ee_WW_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",
-    f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}", f"wzp6_ee_tautau_ecm{ecm}",
-    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_egamma_eZ_Zee_ecm{ecm}', f'wzp6_gammae_eZ_Zee_ecm{ecm}',
-    f"wzp6_gaga_ee_60_ecm{ecm}", f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
+    f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}",      f"wzp6_ee_tautau_ecm{ecm}",
+    f"wzp6_gaga_ee_60_ecm{ecm}",       f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',  f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}',    f'wzp6_gammae_eZ_Zee_ecm{ecm}',
     f"wzp6_ee_nuenueZ_ecm{ecm}"
 ]
 samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
+samples_sig.remove(f'wzp6_ee_nunuH_Hinv_ecm{ecm}')
 for i in ['ee', 'mumu']:
     samples_sig.append(f"wzp6_ee_{i}H_ecm{ecm}")
 samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
 
 samples = samples_sig + samples_bkg
-
-if arg.param=='frac':     param = {'fraction': frac} 
-elif arg.param=='chunks': param = {'chunks':   nb}
 processList = {i:param for i in samples}
 
 
@@ -64,8 +50,8 @@ processList = {i:param for i in samples}
 # define histograms
 bins_p_mu        = (2000,  0,   200) # 100 MeV bins
 bins_m_ll        = (2000,  0,   200) # 100 MeV bins
-bins_p_ll        = (200,   0,   200) # 1 GeV bins
-bins_recoil      = (20000, 0,   200) # 10 MeV bins 
+bins_p_ll        = (200,   0,   200) # 1   GeV bins
+bins_recoil      = (20000, 0,   200) # 10  MeV bins 
 bins_recoil_fine = (500,   100, 150) # 100 MeV bins 
 bins_miss        = (10000, 0,   1)
 
@@ -77,14 +63,14 @@ bins_iso   = (500, 0, 5)
 bins_count = (50,  0, 50)
 
 vars_list = train_vars.copy()
-if arg.bdt: vars_list.append("cosTheta_miss")
+if userConfig.bdt: vars_list.append("cosTheta_miss")
 
 ROOT.EnableImplicitMT(nCPUS) # hack to deal correctly with TMVAHelperXGB
-tmva_mumu = TMVAHelperXGB(f"{loc.MVA}/{ecm}/mumu/{sel}/BDT/xgb_bdt.root", "ZH_Recoil_BDT", variables=vars_list)
-tmva_ee   = TMVAHelperXGB(f"{loc.MVA}/{ecm}/ee/{sel}/BDT/xgb_bdt.root", "ZH_Recoil_BDT",   variables=vars_list)
+tmva_mumu = TMVAHelperXGB(f"{get_loc(loc.BDT, 'mumu', ecm, sel)}/xgb_bdt.root", "ZH_Recoil_BDT", variables=vars_list)
+tmva_ee   = TMVAHelperXGB(f"{get_loc(loc.BDT, 'ee',   ecm, sel)}/xgb_bdt.root", "ZH_Recoil_BDT", variables=vars_list)
 
-mva_mumu = float(np.loadtxt(f"{loc.MVA}/{ecm}/mumu/{sel}/BDT/BDT_cut.txt"))
-mva_ee   = float(np.loadtxt(f"{loc.MVA}/{ecm}/ee/{sel}/BDT/BDT_cut.txt"))
+mva_mumu = float(np.loadtxt(f"{get_loc(loc.BDT, 'mumu', ecm, sel)}/BDT_cut.txt"))
+mva_ee   = float(np.loadtxt(f"{get_loc(loc.BDT, 'ee',   ecm, sel)}/BDT_cut.txt"))
 
 def build_graph_ll(df, hists, dataset, final_state):
 
@@ -221,7 +207,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     ### CUT 5: recoil cut
     #########
     hists.append(df.Histo1D((f"{final_state}_zll_recoil_nOne", "", *bins_recoil), "zll_recoil_m"))
-    if arg.recoil120:
+    if userConfig.recoil120:
         df = df.Filter(f"zll_recoil_m < 140 && zll_recoil_m > 120")
     else:
         df = df.Filter(f"zll_recoil_m < 150 && zll_recoil_m > 100")
@@ -231,7 +217,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     ### CUT 6: cosThetaMiss cut
     #########
     hists.append(df.Histo1D((f"{final_state}_cosThetaMiss_nOne", "", *bins_miss), "cosTheta_miss"))
-    if arg.miss:
+    if userConfig.miss:
         df = df.Filter("cosTheta_miss < 0.98")
         hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
 
@@ -334,13 +320,20 @@ def build_graph(df, dataset):
     df = df.Define("cut3", "3")
     df = df.Define("cut4", "4")
     df = df.Define("cut5", "5")
-    if arg.miss:
+    if userConfig.miss:
         df = df.Define("cut6", "6")
 
     df = df.Alias("MCRecoAssociations0", "MCRecoAssociations#0.index")
     df = df.Alias("MCRecoAssociations1", "MCRecoAssociations#1.index")
     df = df.Alias("Particle0", "Particle#0.index")
     df = df.Alias("Particle1", "Particle#1.index")
+
+    if 'HZZ' in dataset:
+        df = df.Define('hzz_invisible', 'FCCAnalyses::is_hzz_invisible(Particle, Particle1)')
+        df = df.Filter('!hzz_invisible')
+    # if 'p8_ee_WW_ecm' in dataset:
+    #     df = df.Define('ww_leptonic', 'FCCAnalyses:is_ww_leptonic(Particle, Particle1)')
+    #     df = df.Filter('!ww_leptonic')
 
     build_graph_ll(df, hists, dataset, 'mumu')
     build_graph_ll(df, hists, dataset, 'ee')

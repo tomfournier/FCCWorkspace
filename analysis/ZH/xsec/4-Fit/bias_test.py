@@ -19,18 +19,18 @@ parser.add_argument("--combine", help='Combine the channel to do the fit', actio
 arg = parser.parse_args()
 
 if arg.cat=='' and not arg.combine:
-    print('\n----------------------------------------------------------------\n')
-    print('Final state was not selected, please select one to run this code')
-    print('\n----------------------------------------------------------------\n')
+    print('\n----------------------------------------------------------------------------\n')
+    print('Final state or combine were not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------------------\n')
     exit(0)
 
 userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, h_decays
 
 sel = select(arg.recoil120, arg.miss, arg.bdt)
-inputdir   = get_loc(loc.BIAS_FIT_RESULT)
-loc_result = get_loc(loc.BIAS_RESULT, arg.cat, arg.ecm, arg.sel)
-cat, comb = f'--cat {arg.cat}', '--combine' if arg.combine else ''
+inputdir   = get_loc(loc.BIAS_FIT_RESULT, arg.cat, arg.ecm, sel)
+loc_result = get_loc(loc.BIAS_RESULT, arg.cat, arg.ecm, sel)
+cat, comb = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
 
 def run_fit(target, pert, extraArgs=""):
     cmd = f"python3 4-Fit/make_pseudo.py {cat} --target {target} --pert {pert} --run {comb} {extraArgs}"
@@ -45,8 +45,9 @@ for i, h_decay in enumerate(h_decays):
     print(f'----->[Info] Running fit for {h_decay} channel')
     mu, err = run_fit(h_decay, pert)
     b = 100*(mu - pert)
+    res.append(mu)
     bias.append(b)
-    print(f"----->[Info] Bias obtained:\n\t{b:.3f}")
+    print(f"\n----->[Info] Bias obtained: {b:.3f}\n")
 
 print(f'----->[Info] Saving bias in a .csv file')
 dict = {'mode':h_decays, 'bias':bias}
@@ -65,12 +66,21 @@ with open(f"{loc_result}/bias_results.txt", 'w') as f:
     formatted_row = '{:<15}' + ' '.join(['{:<15}']*len(h_decays))
     print(formatted_row.format(*(["Decay modes"]+h_decays)))
     print(formatted_row.format(*(["----------"]*(len(h_decays)+1))))
-    row = ["Bias"]
+
+    row1 = ["Result"]
+    for i in res:
+        row1.append("%.5f" % i)
+    print(formatted_row.format(*row1))
+    row2 = ["Bias"]
     for i in bias:
-        row.append("%.3f" % i)
-    print(formatted_row.format(*row))
+        row2.append("%.3f" % i)
+    print(formatted_row.format(*row2))
+    row3 = ["Bias"]
+    for i in bias:
+        row3.append("%.2f" % i)
+    print(formatted_row.format(*row3))
 sys.stdout = out_orig
-print(f'----->[Info] Bias saved at {loc_result}/bias_results.txt')
+print(f'----->[Info] Bias saved at {loc_result}/bias_results.txt\n')
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

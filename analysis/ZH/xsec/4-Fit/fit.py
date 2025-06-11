@@ -20,9 +20,9 @@ parser.add_argument("--combine", help='Combine the channel to do the fit', actio
 arg = parser.parse_args()
 
 if arg.cat=='' and not arg.combine:
-    print('\n----------------------------------------------------------------\n')
-    print('Final state was not selected, please select one to run this code')
-    print('\n----------------------------------------------------------------\n')
+    print('\n----------------------------------------------------------------------------\n')
+    print('Final state or combine were not selected, please select one to run this code')
+    print('\n----------------------------------------------------------------------------\n')
     exit(0)
 if arg.combine: arg.cat = 'combined'
 
@@ -39,13 +39,13 @@ else:
     res     = get_loc(loc.BIAS_FIT_RESULT, arg.cat, arg.ecm, sel)
 
 comb, tar   = "_combined" if arg.combine else "", f"_{arg.target}" if arg.bias else ""
-dc_comb = get_loc(loc.COMBINE, arg.cat, arg.ecm, sel)
+dc_comb = get_loc(loc.COMBINE, '', arg.ecm, sel)
 
 cmd = f"cd {dir};"
 if arg.combine:
     dc_mu, dc_e = f"{dc_comb}/mumu/{tp}/datacard", f"{dc_comb}/ee/{tp}/datacard"
     cmd += f"combineCards.py {dc_mu}/datacard{tar}.txt {dc_e}/datacard{tar}.txt > {dc}/datacard{tar}{comb}.txt;"
-cmd += f"text2workspace.py {dc}/datacard{tar}{comb}.txt -v 10 --X-allow-no-background -m 125 -o {ws}/ws{tar}.root &> {log}/log_text2workspace.txt;"
+cmd += f"text2workspace.py {dc}/datacard{tar}{comb}.txt -v 10 --X-allow-no-background -m 125 -o {ws}/ws{tar}.root &> {log}/log_text2workspace{tar}.txt;"
 cmd += f"cd {ws};"
 cmd += f"combine ws{tar}.root -M MultiDimFit -m 125 -v 10 -t 0 --expectSignal={arg.pert} -n Xsec &> {log}/log_results{tar}.txt"
 
