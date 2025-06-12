@@ -52,10 +52,10 @@ procs = [f"ZH", "WW", "ZZ", "Zgamma", "Rare"]
 procs_cfg = {
 "ZH"        : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_decays for y in h_decays],
 "ZmumuH"    : [f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_decays],
-"ZeeH"      : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in ["ee"] for y in h_decays],
+"ZeeH"      : [f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_decays],
 "WW"        : [f'p8_ee_WW_ecm{ecm}'],
 "ZZ"        : [f'p8_ee_ZZ_ecm{ecm}'],
-"Zgamma"    : [f'wzp6_ee_tautau_ecm{ecm}', f'wzp6_ee_mumu_ecm{ecm}',
+"Zgamma"    : [f'wzp6_ee_tautau_ecm{ecm}',       f'wzp6_ee_mumu_ecm{ecm}',
                f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'],
 "Rare"      : [f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}', 
                f'wzp6_gaga_mumu_60_ecm{ecm}',    f'wzp6_egamma_eZ_Zee_ecm{ecm}', 

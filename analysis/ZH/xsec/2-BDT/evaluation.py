@@ -31,8 +31,8 @@ final_state, ecm = arg.cat, arg.ecm
 sel = select(arg.recoil120, arg.miss, arg.bdt)
 
 inputDir = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
-inputBDT = get_loc(loc.BDT, final_state, ecm, sel)
-outDir   = get_loc(loc.PLOTS_BDT, final_state, ecm, sel)
+inputBDT = get_loc(loc.BDT,           final_state, ecm, sel)
+outDir   = get_loc(loc.PLOTS_BDT,     final_state, ecm, sel)
 
 # Decay modes used in first stage training and their respective file names
 ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"

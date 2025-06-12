@@ -46,7 +46,7 @@ for key, value in procDict.items():
     if key in modes: xsec[key] = value["crossSection"]
 
 sig = f"{final_state}H"
-data_path = get_loc(loc.MVA_INPUTS, final_state, ecm, sel)
+data_path = get_loc(loc.MVA_INPUTS,    final_state, ecm, sel)
 pkl_path  = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
 
 files, df, eff = {}, {}, {}

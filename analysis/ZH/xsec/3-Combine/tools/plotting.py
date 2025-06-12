@@ -430,11 +430,11 @@ def CutFlowDecays(inputDir, outDir, final_state, plot_file=['png'], ecm=240, lum
     txt.DrawLatex(0.2, 0.15, f"Min/max: {eff_min:.2f}/{eff_max:.2f}")
     txt.Draw("SAME")
 
-    if not os.path.isdir(f'{outDir}/higgsDecays/nominal'):
-            os.system(f'mkdir -p {outDir}/higgsDecays/nominal')
+    if not os.path.isdir(f'{outDir}/cutflow'):
+            os.system(f'mkdir -p {outDir}/cutflow')
 
     for pl in plot_file:
-        canvas.SaveAs(f"{outDir}/higgsDecays/nominal/selection_efficiency.{pl}")
+        canvas.SaveAs(f"{outDir}/cutflow/selection_efficiency.{pl}")
 
 #__________________________________________________________
 def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, ecm=240, lumi=10.8, outName="", xMin=0, xMax=100, 

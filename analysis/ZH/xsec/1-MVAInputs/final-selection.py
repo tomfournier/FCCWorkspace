@@ -2,14 +2,14 @@ import importlib
 
 # Load userConfig 
 userConfig = importlib.import_module("userConfig")
-from userConfig import loc, get_loc, select, ecm, sel, lumi, param
+from userConfig import loc, get_loc, ecm, sel, lumi, param
 
 final_state = input('Select a channel [ee, mumu]: ')
 
 # Input directory where the files produced at the pre-selection level are
 inputDir  = get_loc(loc.MVA_INPUTS, final_state, ecm, sel)
 # Output directory where the files produced at the final selection level will be put
-outputDir = get_loc(loc.HIST_MVA, final_state, ecm, sel)
+outputDir = get_loc(loc.HIST_MVA,   final_state, ecm, sel)
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
@@ -56,11 +56,9 @@ else:
 baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
 cosTheta_missCut = "cosTheta_miss < 0.98"
 
-_120 = '_120' if userConfig.recoil120 else ''
-cutList = { 
-  "Baseline"+_120: baselineCut,
-  "Baseline"+_120+"_miss": baselineCut + " && " + cosTheta_missCut,
-}
+selection = baselineCut + ' && ' + cosTheta_missCut if userConfig.miss else baselineCut
+
+cutList = { sel: selection }
 
 # Dictionary for the ouput variable/hitograms. 
 histoList = {

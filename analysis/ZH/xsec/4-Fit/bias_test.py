@@ -67,10 +67,10 @@ with open(f"{loc_result}/bias_results.txt", 'w') as f:
     print(formatted_row.format(*(["Decay modes"]+h_decays)))
     print(formatted_row.format(*(["----------"]*(len(h_decays)+1))))
 
-    row1 = ["Result"]
-    for i in res:
-        row1.append("%.5f" % i)
-    print(formatted_row.format(*row1))
+    # row1 = ["Result"]
+    # for i in res:
+    #     row1.append("%.5f" % i)
+    # print(formatted_row.format(*row1))
     row2 = ["Bias"]
     for i in bias:
         row2.append("%.3f" % i)

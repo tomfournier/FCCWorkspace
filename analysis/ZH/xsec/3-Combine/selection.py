@@ -42,7 +42,7 @@ for i in ['ee', 'mumu']:
     samples_sig.append(f"wzp6_ee_{i}H_ecm{ecm}")
 samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
 
-samples = samples_sig + samples_bkg
+samples = [f'wzp6_ee_nunuH_Hinv_ecm{ecm}'] # samples_sig + samples_bkg
 processList = {i:param for i in samples}
 
 

@@ -61,7 +61,7 @@ for final_state in ['ee', 'mumu']:
         CutFlowDecays(inputDir, outDir, final_state, hName=f"{final_state}_cutFlow", outName="cutFlow", 
                       cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=[final_state], h_decays=h_decays)
 
-        if True:
+        if False:
                 significance(f"{final_state}_cosThetaMiss_nOne",     inputDir, outDir, procs, procs_cfg, 0.95, 1, reverse=True)
                 significance(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, 0, 0.99)
                 significance(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, 0, 0.99, reverse=True)
@@ -143,9 +143,9 @@ for final_state in ['ee', 'mumu']:
                 makePlot(f"{final_state}_acolinearity{ind}",          inputDir, outDir, procs, procs_cfg, outName="acolinearity", 
                         xMin=0, xMax=3, yMin=1e-2, yMax=1e7, xLabel="#Delta#theta_{ll}", yLabel="Events", logY=True)
                 makePlot(f"{final_state}_leading_p{ind}",             inputDir, outDir, procs, procs_cfg, outName="leading_p", 
-                        xMin=40, xMax=100, yMin=0, yMax=-1, xLabel="p_{l,leading} [GeV]", yLabel="Events", logY=False, rebin=4)
+                        xMin=40, xMax=100, yMin=1, yMax=-1, xLabel="p_{l,leading} [GeV]", yLabel="Events", logY=True, rebin=4)
                 makePlot(f"{final_state}_subleading_p{ind}",          inputDir, outDir, procs, procs_cfg, outName="subleading_p", 
-                        xMin=10, xMax=70, yMin=1e-5, yMax=-1, xLabel="p_{l,subleading} [GeV]", yLabel="Events", logY=False, rebin=4)
+                        xMin=10, xMax=70, yMin=1, yMax=-1, xLabel="p_{l,subleading} [GeV]", yLabel="Events", logY=True, rebin=4)
                 makePlot(f"{final_state}_leading_theta{ind}",         inputDir, outDir, procs, procs_cfg, outName="leading_theta", 
                         xMin=0, xMax=3.2, yMin=1e1, yMax=1e7, xLabel="#theta_{l,leading}", yLabel="Events", logY=True, rebin=4)
                 makePlot(f"{final_state}_subleading_theta{ind}",      inputDir, outDir, procs, procs_cfg, outName="subleading_theta", 

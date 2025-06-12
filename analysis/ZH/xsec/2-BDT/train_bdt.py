@@ -32,7 +32,7 @@ vars_list = train_vars.copy()
 if arg.bdt: vars_list.append("cosTheta_miss")
 
 inputDir = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
-outDir   = get_loc(loc.BDT, final_state, ecm, sel)
+outDir   = get_loc(loc.BDT,           final_state, ecm, sel)
 
 print("TRAINING VARS")
 print(vars_list)

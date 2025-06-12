@@ -17,7 +17,7 @@ elif final_state =='ee':
 delphesVersion = '3.4.2'
 energy         = ecm
 collider       = 'FCC-ee'
-inputDir       = get_loc(loc.HIST_MVA, final_state, ecm, sel)
+inputDir       = get_loc(loc.HIST_MVA,  final_state, ecm, sel)
 yaxis          = ['lin','log']
 stacksig       = ['nostack']
 formats        = [plot_file]
@@ -41,13 +41,17 @@ variables = [
 # Dictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
 _120 = '_120' if userConfig.recoil120 else ''
 selections = {}
-selections['ZH'] = ["Baseline"+_120, "Baseline"+_120+"_miss"]
+selections['ZH'] = [sel]
 
 extralabel = {}
-extralabel["Baseline"]          = "Baseline"
-extralabel["Baseline_miss"]     = "Baseline with cos#theta_{miss} cut"
-extralabel["Baseline_120"]      = "Baseline with 120 < m_{recoil} < 140"
-extralabel["Baseline_120_miss"] = "Baseline with 120 < m_{recoil} < 140 and cos#theta_{miss} cut"   
+extralabel["Baseline"]                  = "Baseline"
+extralabel["Baseline_miss"]             = "Baseline with cos#theta_{miss} cut"
+extralabel["Baseline_120"]              = "Baseline with 120 < m_{recoil} < 140"
+extralabel["Baseline_120_miss"]         = "Baseline with 120 < m_{recoil} < 140 and cos#theta_{miss} cut"
+extralabel["Baseline_missBDT"]          = "Baseline with cos#theta_{miss} as input"
+extralabel["Baseline_miss_missBDT"]     = "Baseline with cos#theta_{miss} cut and as input"
+extralabel["Baseline_120_missBDT"]      = "Baseline with 120 < m_{recoil} < 140 and cos#theta_{miss} as input"
+extralabel["Baseline_120_miss_missBDT"] = "Baseline with 120 < m_{recoil} < 140 and cos#theta_{miss} cut and as input"
 
 colors = {}
 colors['mumuH']    = ROOT.kRed
