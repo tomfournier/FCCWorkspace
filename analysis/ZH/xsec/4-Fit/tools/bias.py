@@ -8,12 +8,8 @@ ROOT.gStyle.SetOptTitle(0)
 #__________________________________________________________
 def getMetaInfo(proc, inputDir, ecm):
     
-    if 'nunuH_Hinv' in proc:
-        xsec = 4.84e-5 if ecm==240 else 5.652e-5
-        return xsec
-    else:
-        fIn = ROOT.TFile(f"{inputDir}/{proc}.root")
-        xsec = fIn.Get("crossSection").GetVal()
+    fIn = ROOT.TFile(f"{inputDir}/{proc}.root")
+    xsec = fIn.Get("crossSection").GetVal()
     
     if "HZZ" in proc: # HZZ contains invisible, remove xsec
         xsec_inv = getMetaInfo(proc.replace("HZZ", "Hinv"), inputDir, ecm)
@@ -146,8 +142,8 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
         xsec = 0.
         for z_decay in z_decays:
             proc = f'wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}'
-            # if not proc in sigProcs:
-            #     continue
+            if not proc in sigProcs:
+                continue
             xsec += getMetaInfo(proc, inputDir, ecm)
         xsec_tot += xsec
         if h_decay != target:
@@ -181,15 +177,14 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
         hist = None
         for z_decay in z_decays:
             proc = f'wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}'
-            # if not proc in sigProcs:
-            #     continue
+            if not proc in sigProcs:
+                continue
             xsec += getMetaInfo(proc, inputDir, ecm)
-            if 'nunuH_Hinv' not in proc:
-                h = getSingleHist(hName, proc, inputDir)
-                if hist == None:
-                    hist = h
-                else:
-                    hist.Add(h)
+            h = getSingleHist(hName, proc, inputDir)
+            if hist == None:
+                hist = h
+            else:
+                hist.Add(h)
         if h_decay == target:
             hist.Scale(scale_target)
             xsec_tot_new += xsec*scale_target

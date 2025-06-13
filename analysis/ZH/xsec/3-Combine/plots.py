@@ -35,7 +35,6 @@ procs_cfg = {
                f'wzp6_gammae_eZ_Zee_ecm{ecm}',   f'wzp6_gaga_ee_60_ecm{ecm}', 
                f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'],
 }
-procs_cfg['ZH'].remove(f'wzp6_ee_nunuH_Hinv_ecm{ecm}')
 
 for final_state in ['ee', 'mumu']:
         print(f'\n----->[Info] Making plots for {final_state} channel\n')

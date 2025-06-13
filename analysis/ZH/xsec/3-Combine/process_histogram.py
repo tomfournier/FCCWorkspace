@@ -25,13 +25,14 @@ samples_bkg = [
     f"wzp6_ee_nuenueZ_ecm{ecm}"
 ]
 samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
-samples_sig.remove(f'wzp6_ee_nunuH_Hinv_ecm{ecm}')
 for i in ['ee', 'mumu']:
     samples_sig.append(f"wzp6_ee_{i}H_ecm{ecm}")
 samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
 
 samples = samples_sig + samples_bkg
 procs = samples
+
+
 
 #__________________________________________________________
 def getMetaInfo(proc):
