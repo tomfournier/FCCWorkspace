@@ -25,7 +25,11 @@ bkg_procs = {'ZZ':    [f'p8_ee_ZZ_ecm{ecm}'],
 }
 
 categories = [f'z_{final_state}']
-hist_names = [f'{final_state}_recoil_m_mva']
+hName = [
+    f'{final_state}_recoil_m_mva', f'{final_state}_zll_recoil', 
+    f'{final_state}_zll_recoil_m_mva_high', f'{final_state}_zll_recoil_m_mva_low'
+]
+hist_names = [hName[0]]
 
 systs = {}
 # systs['bkg_norm'] = {

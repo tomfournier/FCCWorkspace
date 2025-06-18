@@ -47,7 +47,7 @@ if arg.combine:
     cmd += f"combineCards.py {dc_mu}/datacard{tar}.txt {dc_e}/datacard{tar}.txt > {dc}/datacard{tar}{comb}.txt;"
 cmd += f"text2workspace.py {dc}/datacard{tar}{comb}.txt -v 10 --X-allow-no-background -m 125 -o {ws}/ws{tar}.root &> {log}/log_text2workspace{tar}.txt;"
 cmd += f"cd {ws};"
-cmd += f"combine ws{tar}.root -M MultiDimFit -m 125 -v 10 -t 0 --expectSignal={arg.pert} -n Xsec &> {log}/log_results{tar}.txt"
+cmd += f"combine ws{tar}.root -M MultiDimFit -m 125 -v 10 -t 0 --expectSignal=1 -n Xsec &> {log}/log_results{tar}.txt"
 
 print('----->[Info] Running the fit')
 for i in [dc, ws, log, res]:

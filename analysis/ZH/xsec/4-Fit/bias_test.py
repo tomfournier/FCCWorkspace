@@ -27,13 +27,16 @@ if arg.cat=='' and not arg.combine:
 userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, h_decays
 
+cat, comb        = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
+mis, bdt, recoil = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
+if arg.combine: arg.cat = 'combined'
+
 sel = select(arg.recoil120, arg.miss, arg.bdt)
 inputdir   = get_loc(loc.BIAS_FIT_RESULT, arg.cat, arg.ecm, sel)
 loc_result = get_loc(loc.BIAS_RESULT, arg.cat, arg.ecm, sel)
-cat, comb = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
 
 def run_fit(target, pert, extraArgs=""):
-    cmd = f"python3 4-Fit/make_pseudo.py {cat} --target {target} --pert {pert} --run {comb} {extraArgs}"
+    cmd = f"python3 4-Fit/make_pseudo.py {cat} --target {target} --pert {pert} --run {comb} {recoil} {mis} {bdt} {extraArgs}"
     os.system(cmd)
     mu, err = np.loadtxt(f'{inputdir}/results_{target}.txt')
     return mu, err

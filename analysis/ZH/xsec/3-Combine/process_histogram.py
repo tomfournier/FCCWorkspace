@@ -32,15 +32,14 @@ samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
 samples = samples_sig + samples_bkg
 procs = samples
 
+hName = ['recoil_m_mva', 'zll_recoil_m_mva_high', 'zll_recoil_m_mva_low', 'zll_recoil']
+
 
 
 #__________________________________________________________
 def getMetaInfo(proc):
-    if 'nunuH' in proc and 'Hinv' in proc:
-        xsec = 4.84e-5 if ecm==240 else 5.652e-5
-    else:
-        fIn = ROOT.TFile(f"{inputdir}/{proc}.root")
-        xsec = fIn.Get("crossSection").GetVal()
+    fIn = ROOT.TFile(f"{inputdir}/{proc}.root")
+    xsec = fIn.Get("crossSection").GetVal()
     return xsec
 
 #__________________________________________________________
@@ -95,19 +94,18 @@ for proc in procs:
     hists = []
     print(f'----->[Info] Processing {proc}')
     for cat in ['ee', 'mumu']:
-        h = get_hist(f'{cat}_recoil_m_mva', proc)
-        
-        print('----->[Info] Unrolling histogram')
-        h = unroll(h, f'{cat}_recoil_m_mva')
-        print(f'----->[Info] {proc} histogram for {cat} channel processed')
-        hists.append(h)
+        for histo in hName:
+            h = get_hist(f'{cat}_{histo}', proc)
+            if histo=='recoil_m_mva': h = unroll(h, f'{cat}_{histo}')
+            hists.append(h)
+        print(f'----->[Info] {proc} histograms for {cat} channel processed')
 
     f = ROOT.TFile(f"{outputdir}/{proc}.root", "RECREATE")
     print(f'----->[Info] Saving histograms')
     for hist in hists:
         hist.Write()
     f.Close()
-    print(f'----->[Info] Saved histogram in {outputdir}/{proc}.root')
+    print(f'----->[Info] Saved histograms in {outputdir}/{proc}.root')
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

@@ -33,9 +33,10 @@ modes = {f"{final_state}H":       f"wzp6_ee_{final_state}H_ecm{ecm}",
          f"ZZ":                   f"p8_ee_ZZ_ecm{ecm}", 
          f'Z{final_state}':       ee_ll,
          f"WW{final_state}":      f"p8_ee_WW_{final_state}_ecm{ecm}",
-         f"egamma_{final_state}": f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
          f"gammae_{final_state}": f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
-         f"gaga_{final_state}":   f"wzp6_gaga_{final_state}_60_ecm{ecm}"}
+         f"egamma_{final_state}": f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
+         f"gaga_{final_state}":   f"wzp6_gaga_{final_state}_60_ecm{ecm}"
+}
 
 procFile = "FCCee_procDict_winter2023_training_IDEA.json"
 proc_dict = get_procDict(procFile)
@@ -53,10 +54,16 @@ files, df, eff = {}, {}, {}
 N_events, vars_list = {}, train_vars.copy()
 if arg.bdt: vars_list.append("cosTheta_miss")
 
-frac = {
-    f"{final_state}H": 1.0, f"WW{final_state}": 1.0, "ZZ": 1.0, f"Z{final_state}": 1.0, 
-    f"egamma_{final_state}": 1.0, f"gammae_{final_state}": 1.0, f"gaga_{final_state}": 1.0
-}
+if not arg.miss:
+    frac = {
+        f"{final_state}H": 1.0, f"WW{final_state}": 1.0, "ZZ": 1.0, f"Z{final_state}": 1.0, 
+        f"egamma_{final_state}": 1.0, f"gammae_{final_state}": 1.0, f"gaga_{final_state}": 1.0
+    }
+else:
+    frac = {
+        f"{final_state}H": 1.0, f"WW{final_state}": 0.4, "ZZ": 0.4, f"Z{final_state}": 0.4, 
+        f"egamma_{final_state}": 0.4, f"gammae_{final_state}": 0.4, f"gaga_{final_state}": 0.4
+    }
 
 for cur_mode in modes:
     files[cur_mode] = get_data_paths(cur_mode, data_path, modes)
@@ -67,7 +74,7 @@ for cur_mode in modes:
 
 N_BDT_inputs = BDT_input_numbers(modes, sig, df, eff, xsec, frac)
 for cur_mode in modes:
-    print(f"Number of BDT inputs for {cur_mode} = {N_BDT_inputs[cur_mode]}")
+    print(f"Number of BDT inputs for {cur_mode:{' '}{'<'}{10}} = {N_BDT_inputs[cur_mode]}")
 
 for cur_mode in modes:
     df[cur_mode] = df_split_data(df[cur_mode], N_BDT_inputs, xsec, N_events, cur_mode)

@@ -3,6 +3,7 @@ import os
 import math
 import copy
 import array
+import numpy as np
 
 import ROOT
 ROOT.gROOT.SetBatch(True)
@@ -58,7 +59,8 @@ sign_name = {
             'subleading_theta':     '#theta_{l,subleading}',
             'leps_p':               'p_{lepton}',
             'leps_all_p_noSel':     'p_{lepton} no sel',
-            'leps_all_theta_noSel': '#theta_{lepton} no sel'
+            'leps_all_theta_noSel': '#theta_{lepton} no sel',
+            'leps_iso_noSel':       'I_{rel}'
 }
 
 sign_label = {
@@ -75,7 +77,8 @@ sign_label = {
             'subleading_theta':     '#theta_{l,subleading}',
             'leps_p':               'p_{lepton} [GeV]',
             'leps_all_p_noSel':     'p_{lepton} no sel [GeV]',
-            'leps_all_theta_noSel': '#theta_{lepton} no sel [GeV]' 
+            'leps_all_theta_noSel': '#theta_{lepton} no sel [GeV]',
+            'leps_iso_noSel':       'Cone isolation'
 }
 
 #__________________________________________________________
@@ -226,7 +229,7 @@ def CutFlow(inputDir, outDir, procs, procs_cfg, plot_file=['png'], ecm=240, lumi
 
 #__________________________________________________________
 def CutFlowDecays(inputDir, outDir, final_state, plot_file=['png'], ecm=240, lumi=10.8, hName="cutFlow", 
-                  outName="", cuts=[], cut_labels=[], yMin=0, yMax=150, z_decays=[], h_decays=[]):
+                  outName="", cuts=[], cut_labels=[], yMin=0, yMax=150, z_decays=[], h_decays=[], miss=False):
 
     if outName == "":
         outName = hName
@@ -342,12 +345,12 @@ def CutFlowDecays(inputDir, outDir, final_state, plot_file=['png'], ecm=240, lum
     del canvas
 
     # make final efficiency plot eff_final, eff_final_err
-    if 'miss' in outName:
-        xMin, xMax = int(eff_avg)-15, int(eff_avg)+10
-    else:
-        xMin, xMax = int(eff_avg)-3, int(eff_avg)+2
-    if final_state == "qq":
+    if miss:
+        xMin, xMax = int(np.min(eff_final))-3, int(np.max(eff_final))+3
+    elif final_state == "qq":
         xMin, xMax = int(eff_avg)-10, int(eff_avg)+10
+    else:
+        xMin, xMax = int(eff_avg)-5, int(eff_avg)+3
     h_pulls = ROOT.TH2F("pulls", "pulls", (xMax-xMin)*10, xMin, xMax, len(sigs)+1, 0, len(sigs)+1)
     g_pulls = ROOT.TGraphErrors(len(sigs)+1)
 
@@ -604,13 +607,10 @@ def SignalRatios(hName, inputDir, outDir, z_decays, h_decays, ecm=240, lumi=10.8
 
 #__________________________________________________________
 def makePlot(hName, inputDir, outDir, procs, procs_cfg, ecm=240, lumi=10.8, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, 
-             xLabel="xlabel", yLabel="Events", logX=False, logY=True, rebin=-1, sig_scale=1, xLabels=[], plot_file=['png']):
+             xLabel="xlabel", yLabel="Events", logX=False, logY=True, rebin=-1, sig_scale=1, xLabels=[], plot_file=['png'], stack=False):
 
     if outName == "":
         outName = hName
-
-    st = ROOT.THStack()
-    st.SetName("stack")
 
     leg = ROOT.TLegend(.55, 0.99-(len(procs))*0.06, .99, .90)
     leg.SetBorderSize(0)
@@ -644,6 +644,7 @@ def makePlot(hName, inputDir, outDir, procs, procs_cfg, ecm=240, lumi=10.8, outN
 
         leg.AddEntry(h_bkg, procs_labels[bkg], "F")
         st.Add(h_bkg)
+
 
 
     if yMax < 0:
@@ -681,12 +682,18 @@ def makePlot(hName, inputDir, outDir, procs, procs_cfg, ecm=240, lumi=10.8, outN
     dummy.Draw("HIST")
     st.Draw("HIST SAME")
 
-    h_bkg_tot.SetLineColor(ROOT.kBlack)
+    if stack:
+        h_bkg_tot.Add(h_sig)
+        h_bkg_tot.SetLineColor(ROOT.kRed)
+    
+    else:
+        h_bkg_tot.SetLineColor(ROOT.kBlack)
+        h_sig.Draw('HIST SAME')
+    
     h_bkg_tot.SetFillColor(0)
     h_bkg_tot.SetLineWidth(2)
     #hTot_err.Draw("E2 SAME")
     h_bkg_tot.Draw("HIST SAME")
-    h_sig.Draw("HIST SAME")
     leg.Draw("SAME")
     
     canvas.SetGrid()

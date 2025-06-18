@@ -53,37 +53,28 @@ for final_state in ['ee', 'mumu']:
                       m_dw+" < m_{rec} < "+m_up]
         if arg.miss:
                 cuts.append("cut6")
-                cut_labels = cut_labels.append(["|cos#theta_{miss}| < 0.98"])
+                cut_labels.append("|cos#theta_{miss}| < 0.98")
 
         CutFlow(inputDir, outDir, procs, procs_cfg, hName=f"{final_state}_cutFlow", cuts=cuts, 
                 labels=cut_labels, outName='cutflow', sig_scale=10, yMin=1e4, yMax=1e10)
         CutFlowDecays(inputDir, outDir, final_state, hName=f"{final_state}_cutFlow", outName="cutFlow", 
-                      cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=[final_state], h_decays=h_decays)
+                      cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=[final_state], h_decays=h_decays, miss=arg.miss)
 
         if False:
-                significance(f"{final_state}_cosThetaMiss_nOne",     inputDir, outDir, procs, procs_cfg, 0.95, 1, reverse=True)
-                significance(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, 0, 0.99)
-                significance(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, 0, 0.99, reverse=True)
-                significance(f"{final_state}_zll_p_nOne",            inputDir, outDir, procs, procs_cfg, 0, 100)
-                significance(f"{final_state}_zll_p_nOne",            inputDir, outDir, procs, procs_cfg, 0, 100,  reverse=True)
-                significance(f"{final_state}_zll_m_nOne",            inputDir, outDir, procs, procs_cfg, 50, 150)
-                significance(f"{final_state}_zll_m_nOne",            inputDir, outDir, procs, procs_cfg, 50, 150, reverse=True)
-                significance(f"{final_state}_zll_recoil_nOne",       inputDir, outDir, procs, procs_cfg, 50, 150)
-                significance(f"{final_state}_zll_recoil_nOne",       inputDir, outDir, procs, procs_cfg, 50, 150, reverse=True)
-                significance(f"{final_state}_leading_p",             inputDir, outDir, procs, procs_cfg, 20, 100)
-                significance(f"{final_state}_leading_p",             inputDir, outDir, procs, procs_cfg, 20, 100, reverse=True)
-                significance(f"{final_state}_subleading_p",          inputDir, outDir, procs, procs_cfg, 20, 100)
-                significance(f"{final_state}_subleading_p",          inputDir, outDir, procs, procs_cfg, 20, 100, reverse=True)
-                significance(f"{final_state}_leading_theta",         inputDir, outDir, procs, procs_cfg, 0, 3.2)
-                significance(f"{final_state}_leading_theta",         inputDir, outDir, procs, procs_cfg, 0, 3.2,  reverse=True)
-                significance(f"{final_state}_subleading_theta",      inputDir, outDir, procs, procs_cfg, 0, 3.2)
-                significance(f"{final_state}_subleading_theta",      inputDir, outDir, procs, procs_cfg, 0, 3.2,  reverse=True)
-                significance(f"{final_state}_leps_all_p_noSel",      inputDir, outDir, procs, procs_cfg, 20, 100)
-                significance(f"{final_state}_leps_all_p_noSel",      inputDir, outDir, procs, procs_cfg, 20, 100, reverse=True)
-                significance(f"{final_state}_leps_all_theta_noSel",  inputDir, outDir, procs, procs_cfg, 0, 3.2)
-                significance(f"{final_state}_leps_all_theta_noSel",  inputDir, outDir, procs, procs_cfg, 0, 3.2,  reverse=True)
-                significance(f"{final_state}_leps_p",                inputDir, outDir, procs, procs_cfg, 20, 100)
-                significance(f"{final_state}_leps_p",                inputDir, outDir, procs, procs_cfg, 20, 100, reverse=True)
+                for rev in [True, False]:
+                        significance(f"{final_state}_cosThetaMiss_nOne",     inputDir, outDir, procs, procs_cfg, 0.95, 1,    reverse=rev)
+                        significance(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, 0,    0.99, reverse=rev)
+                        significance(f"{final_state}_zll_p_nOne",            inputDir, outDir, procs, procs_cfg, 0,    100,  reverse=rev)
+                        significance(f"{final_state}_zll_m_nOne",            inputDir, outDir, procs, procs_cfg, 50,   150,  reverse=rev)
+                        significance(f"{final_state}_zll_recoil_nOne",       inputDir, outDir, procs, procs_cfg, 50,   150,  reverse=rev)
+                        significance(f"{final_state}_leading_p",             inputDir, outDir, procs, procs_cfg, 20,   100,  reverse=rev)
+                        significance(f"{final_state}_subleading_p",          inputDir, outDir, procs, procs_cfg, 20,   100,  reverse=rev)
+                        significance(f"{final_state}_leading_theta",         inputDir, outDir, procs, procs_cfg, 0,    3.2,  reverse=rev)
+                        significance(f"{final_state}_subleading_theta",      inputDir, outDir, procs, procs_cfg, 0,    3.2,  reverse=rev)
+                        significance(f"{final_state}_leps_all_p_noSel",      inputDir, outDir, procs, procs_cfg, 20,   100,  reverse=rev)
+                        significance(f"{final_state}_leps_all_theta_noSel",  inputDir, outDir, procs, procs_cfg, 0,    3.2,  reverse=rev)
+                        significance(f"{final_state}_leps_p",                inputDir, outDir, procs, procs_cfg, 20,   100,  reverse=rev)
+                        significance(f"{final_state}_leps_iso_noSel",        inputDir, outDir, procs, procs_cfg, 0,    5,    reverse=rev)
 
         PlotDecays(f"{final_state}_zll_m_nOne",            inputDir, outDir, [final_state], h_decays, outName="zll_m_nOne", 
                 xMin=15, xMax=130, yMin=1e-5, yMax=1, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True)
@@ -97,6 +88,8 @@ for final_state in ['ee', 'mumu']:
                 xMin=122, xMax=134, yMin=1e-5, yMax=1e1, xLabel="Recoil [GeV]", yLabel="Events", logY=True, rebin=1)
         PlotDecays(f"{final_state}_mva_score",             inputDir, outDir, [final_state], h_decays, outName="mva_score", 
                 xMin=0, xMax=1, yMin=1e-4, yMax=1, xLabel="MVA score", yLabel="Events", logY=True, rebin=10)
+        PlotDecays(f"{final_state}_leps_iso_noSel",        inputDir, outDir, [final_state], h_decays, outName="cone_iso", 
+                xMin=0, xMax=4, yMin=1e-5, yMax=1, xLabel="Cone isolation", yLabel="Events", logY=True, rebin=1)
         
         makePlot(f"{final_state}_zll_m_nOne",            inputDir, outDir, procs, procs_cfg, outName="zll_m_nOne", 
                 xMin=50, xMax=120, yMin=1e2, yMax=1e8, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True, rebin=1)
@@ -110,6 +103,14 @@ for final_state in ['ee', 'mumu']:
                 xMin=122, xMax=134, yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=1)
         makePlot(f"{final_state}_zll_recoil_nOne",       inputDir, outDir, procs, procs_cfg, outName="zll_recoil_nOne", 
                 xMin=100, xMax=150, yMin=1, yMax=1e6, xLabel="Recoil [GeV]", yLabel="Events", logY=True, rebin=8)
+        makePlot(f"{final_state}_zll_recoil_cut3",       inputDir, outDir, procs, procs_cfg, outName="recoil_cut3", 
+                xMin=40, xMax=160, yMin=0, yMax=20e3, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
+        makePlot(f"{final_state}_zll_recoil_cut4",       inputDir, outDir, procs, procs_cfg, outName="recoil_cut4", 
+                xMin=40, xMax=160, yMin=0, yMax=20e3, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
+        makePlot(f"{final_state}_leps_iso_noSel",        inputDir, outDir, procs, procs_cfg, outName="cone_iso", 
+                xMin=0, xMax=5, yMin=1e-1, yMax=-1, xLabel="Cone isolation", yLabel="Events", logY=True, rebin=1)
+        makePlot(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, outName="mva_score", 
+                xMin=0, xMax=1, yMin=1e-1, yMax=-1, xLabel="MVA score", yLabel="Events", logY=True, rebin=10)
         
 
         for ind in ['', '_low', '_high']:

@@ -64,6 +64,8 @@ bins_count = (50,  0, 50)
 vars_list = train_vars.copy()
 if userConfig.bdt: vars_list.append("cosTheta_miss")
 
+# sel_bdt = sel if not userConfig.miss else sel.replace('_miss', '')
+
 ROOT.EnableImplicitMT(nCPUS) # hack to deal correctly with TMVAHelperXGB
 tmva_mumu = TMVAHelperXGB(f"{get_loc(loc.BDT, 'mumu', ecm, sel)}/xgb_bdt.root", "ZH_Recoil_BDT", variables=vars_list)
 tmva_ee   = TMVAHelperXGB(f"{get_loc(loc.BDT, 'ee',   ecm, sel)}/xgb_bdt.root", "ZH_Recoil_BDT", variables=vars_list)
@@ -73,9 +75,10 @@ mva_ee   = float(np.loadtxt(f"{get_loc(loc.BDT, 'ee',   ecm, sel)}/BDT_cut.txt")
 
 def build_graph_ll(df, hists, dataset, final_state):
 
-    #############################################
-    ## Alias for muon and MC truth informations##
-    #############################################
+    ################################################
+    ### Alias for muon and MC truth informations ###
+    ################################################
+    
     if final_state == "mumu":
         df = df.Alias("Lepton0", "Muon#0.index")
     elif final_state == "ee":
@@ -188,7 +191,8 @@ def build_graph_ll(df, hists, dataset, final_state):
     #########
     ### CUT 3: Z mass window
     #########
-    hists.append(df.Histo1D((f"{final_state}_zll_m_nOne", "", *bins_m_ll),  "zll_m"))
+    hists.append(df.Histo1D((f"{final_state}_zll_m_nOne",      "", *bins_m_ll),   "zll_m"))
+    hists.append(df.Histo1D((f"{final_state}_zll_recoil_cut3", "", *bins_recoil), "zll_recoil_m"))
     df = df.Filter("zll_m > 86 && zll_m < 96")
     hists.append(df.Histo1D((f"{final_state}_cutFlow",    "", *bins_count), "cut3"))
 
@@ -196,6 +200,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     ### CUT 4: Z momentum
     #########
     hists.append(df.Histo1D((f"{final_state}_zll_p_nOne", "", *bins_p_mu), "zll_p"))
+    hists.append(df.Histo1D((f"{final_state}_zll_recoil_cut4", "", *bins_recoil), "zll_recoil_m"))
     if ecm == 240:
         df = df.Filter("zll_p > 20 && zll_p < 70")
     if ecm == 365:

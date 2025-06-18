@@ -42,7 +42,10 @@ modes = {f"{final_state}H":       f"wzp6_ee_{final_state}H_ecm{ecm}",
          f"WW{final_state}":      f"p8_ee_WW_{final_state}_ecm{ecm}",
          f"egamma_{final_state}": f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
          f"gammae_{final_state}": f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
-         f"gaga_{final_state}":   f"wzp6_gaga_{final_state}_60_ecm{ecm}"}
+         f"gammae_{final_state}": f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
+         f"egamma_{final_state}": f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
+         f"gaga_{final_state}":   f"wzp6_gaga_{final_state}_60_ecm{ecm}"
+}
 
 vars_list = train_vars.copy()
 if arg.bdt: vars_list.append("cosTheta_miss")

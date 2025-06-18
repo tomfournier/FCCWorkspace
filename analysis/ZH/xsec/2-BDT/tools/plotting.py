@@ -220,7 +220,7 @@ def bdt_score(df, label, outDir, plot_file):
     Bins = 20
     htype = "step"
     
-    tag = ['Signal Training', 'Signal Validation', 'Background Training', 'Background Validation']
+    tag = ['Signal Training      ', 'Signal Validation    ', 'Background Training  ', 'Background Validation']
     line = ['solid', 'dashed', 'solid', 'dashed']
     color = ['red', 'red', 'blue', 'blue']
     cut = ['valid==False & isSignal==1', 'valid==True & isSignal==1', 

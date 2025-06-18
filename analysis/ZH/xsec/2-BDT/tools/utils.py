@@ -167,7 +167,7 @@ def BDT_input_numbers(mode_names, sig, df, eff, xsec, frac):
     # print(f"xsec = {xsec}")
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in mode_names if mode != sig)
     for cur_mode in mode_names:
-        print(f"Calculating number of BDT inputs for {cur_mode}")
+        # print(f"Calculating number of BDT inputs for {cur_mode}")
         N_BDT_inputs[cur_mode] = (int(frac[cur_mode] * len(df[cur_mode])) if cur_mode == sig else
                                   int(frac[cur_mode] * len(df[sig]) * (eff[cur_mode] * xsec[cur_mode] / xsec_tot_bkg)))
     return N_BDT_inputs

@@ -90,10 +90,11 @@ if not arg.combine:
     make_datacard(outDir, procs, final_state, arg.target, 1.01, 
                 freezeBackgrounds=arg.freezeBackgrounds, floatBackgrounds=arg.floatBackgrounds, plot_dc=arg.plot_dc)
 
-cat, comb = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
+cat, comb        = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
+mis, bdt, recoil = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
 
 if arg.run:
-    cmd = f"python3 4-Fit/fit.py {cat} --bias --target {arg.target} --pert {arg.pert} {comb}"
+    cmd = f"python3 4-Fit/fit.py {cat} --bias --target {arg.target} --pert {arg.pert} {comb} {recoil} {mis} {bdt}"
     os.system(cmd)
 else:
     print('\n\n------------------------------------\n')
