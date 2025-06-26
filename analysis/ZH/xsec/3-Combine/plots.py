@@ -4,10 +4,14 @@ t1 = time.time()
 parser = argparse.ArgumentParser()
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
 parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices=[10.8, 3.1], type=float, default=10.8)
+
 parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
+parser.add_argument('--vis', help='Add a cut on visible energy', action='store_true')
+
+parser.add_argument('--sign', help='Make significance plots', action='store_true')
 arg = parser.parse_args()
 
 import importlib
@@ -22,6 +26,17 @@ ROOT.gStyle.SetOptTitle(0)
 from tools.plotting import makePlot, CutFlow, PlotDecays, CutFlowDecays, significance
 
 ecm, lumi = arg.ecm, arg.lumi
+m_dw, m_up = '120' if arg.recoil120 else '100', '140' if arg.recoil120 else '150'
+cuts = ["cut0", "cut1", "cut2", "cut3", "cut4", "cut5"]
+cut_labels = ["All events", "#geq 1 #ell^{#pm} + ISO", "#geq 2 #ell^{#pm} + OS", "86 < m_{#ell^{+}#ell^{#minus}} < 96", 
+              "20 < p_{#ell^{+}#ell^{#minus}} < 70", m_dw+" < m_{rec} < "+m_up]
+if arg.vis:
+        cuts.append('cut6')
+        cut_labels.append("E_{vis} > 10")
+if arg.miss:
+        cu = 'cut7' if arg.vis else 'cut6'
+        cuts.append(cu)
+        cut_labels.append("|cos#theta_{miss}| < 0.98")
 
 procs_cfg = {
 "ZH"        : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_decays for y in h_decays],
@@ -37,133 +52,229 @@ procs_cfg = {
                f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'],
 }
 
-for final_state in ['ee', 'mumu']:
-        print(f'\n----->[Info] Making plots for {final_state} channel\n')
+argument = {
+    'zll_m_nOne': {
+        'lim':   [50, 120, 1e2, 1e8],
+        'limH':  [15, 130, 1e-5, 1],
+        'label': ['m_{ll} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'sign':  True
+    },
 
-        sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.leading)
-        inputDir = get_loc(loc.HIST_PREPROCESSED, final_state, ecm, sel)
-        outDir   = get_loc(loc.PLOTS_MEASUREMENT, final_state, ecm, sel)
+    'zll_p_nOne': {
+        'lim':   [0, 120, 1e1, 1e8],
+        'limH':  [0, 80, 1e-5, 1],
+        'label': ['p_{ll} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 2,
+        'sign':  True
+    },
 
-        procs = [f"Z{final_state}H", "WW", "ZZ", "Zgamma", "Rare"] # first must be signal
+    'cosThetaMiss_nOne': {
+        'lim':   [0.9, 1, 1e1, 1e7],
+        'limH':  [0.9, 1, 1e-5, 1e1],
+        'label': ['|cos#theta_{miss}|', 'Events'],
+        'logY':  True, 'rebin': 8,
+        'sign':  True
+    },
 
-        cuts = ["cut0", "cut1", "cut2", "cut3", "cut4", "cut5"]
-        lep  = '#mu' if final_state=="mumu" else "e"
-        m_dw, m_up = '120' if arg.recoil120 else '100', '140' if arg.recoil120 else '150'
-        cut_labels = ["All events", "#geq 1 "+lep+"^{#pm} + ISO", "#geq 2 "+lep+"^{#pm} + OS", 
-                      "86 < m_{"+lep+"^{+}"+lep+"^{#minus}} < 96", "20 < p_{"+lep+"^{+}"+lep+"^{#minus}} < 70", 
-                      m_dw+" < m_{rec} < "+m_up]
-        
-        if arg.leading:
-                cuts.append("cut6")
-                cut_labels.append("50 < p_{leading} < 80 , p_{sub} < 53")
+    'zll_recoil_m_mva_low': {
+        'lim':   [int(m_dw), int(m_up), 0, -1],
+        'limH':  [int(m_dw), int(m_up), 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 2
+    },
 
-        if arg.miss:
-                Cut = "cut7" if arg.leading else "cut6"
-                cuts.append(Cut)
-                cut_labels.append("|cos#theta_{miss}| < 0.98")
+    'zll_recoil_m_mva_high': {
+        'lim':   [122, 134, 0, -1],
+        'limH':  [122, 134, 1e-5, 1e1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 1
+    },
 
-        CutFlow(inputDir, outDir, procs, procs_cfg, hName=f"{final_state}_cutFlow", cuts=cuts, 
-                labels=cut_labels, outName='cutflow', sig_scale=10, yMin=1e4, yMax=1e10)
-        CutFlowDecays(inputDir, outDir, final_state, hName=f"{final_state}_cutFlow", outName="cutFlow", 
-                      cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=[final_state], h_decays=h_decays, miss=arg.miss)
+    'mva_score': {
+        'lim':   [0, 1, 1e-1, -1],
+        'limH':  [0, 1, 1e-4, 1],
+        'label': ['MVA score', 'Events'],
+        'logY':  True, 'rebin': 10,
+        'sign':  True
+    },
 
-        if False:
-                for rev in [True, False]:
-                        significance(f"{final_state}_cosThetaMiss_nOne",     inputDir, outDir, procs, procs_cfg, 0.95, 1,    reverse=rev)
-                        significance(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, 0,    0.99, reverse=rev)
-                        significance(f"{final_state}_zll_p_nOne",            inputDir, outDir, procs, procs_cfg, 0,    100,  reverse=rev)
-                        significance(f"{final_state}_zll_m_nOne",            inputDir, outDir, procs, procs_cfg, 50,   150,  reverse=rev)
-                        significance(f"{final_state}_zll_recoil_nOne",       inputDir, outDir, procs, procs_cfg, 50,   150,  reverse=rev)
-                        significance(f"{final_state}_leading_p",             inputDir, outDir, procs, procs_cfg, 20,   100,  reverse=rev)
-                        significance(f"{final_state}_subleading_p",          inputDir, outDir, procs, procs_cfg, 20,   100,  reverse=rev)
-                        significance(f"{final_state}_leading_theta",         inputDir, outDir, procs, procs_cfg, 0,    3.2,  reverse=rev)
-                        significance(f"{final_state}_subleading_theta",      inputDir, outDir, procs, procs_cfg, 0,    3.2,  reverse=rev)
-                        significance(f"{final_state}_leps_all_p_noSel",      inputDir, outDir, procs, procs_cfg, 20,   100,  reverse=rev)
-                        significance(f"{final_state}_leps_all_theta_noSel",  inputDir, outDir, procs, procs_cfg, 0,    3.2,  reverse=rev)
-                        significance(f"{final_state}_leps_p",                inputDir, outDir, procs, procs_cfg, 20,   100,  reverse=rev)
-                        significance(f"{final_state}_leps_iso_noSel",        inputDir, outDir, procs, procs_cfg, 0,    5,    reverse=rev)
+    'zll_recoil_nOne': {
+        'lim':   [100, 150, 1, 1e6],
+        'limH':  [100, 150, 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 8,
+        'sign':  True
+    },
 
-        PlotDecays(f"{final_state}_zll_m_nOne",            inputDir, outDir, [final_state], h_decays, outName="zll_m_nOne", 
-                xMin=15, xMax=130, yMin=1e-5, yMax=1, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True)
-        PlotDecays(f"{final_state}_zll_p_nOne",            inputDir, outDir, [final_state], h_decays, outName="zll_p_nOne", 
-                xMin=0, xMax=80, yMin=1e-5, yMax=1, xLabel="p_{ll} [GeV]", yLabel="Events", logY=True)
-        PlotDecays(f"{final_state}_cosThetaMiss_nOne",     inputDir, outDir, [final_state], h_decays, outName="cosThetaMiss_nOne", 
-                xMin=0.9, xMax=1, yMin=1e-5, yMax=1e1, xLabel="|cos#theta_{miss}|", yLabel="Events", logY=True, rebin=8)
-        PlotDecays(f"{final_state}_zll_recoil_m_mva_low",  inputDir, outDir, [final_state], h_decays, outName="zll_recoil_m_mva_low", 
-                xMin=int(m_dw), xMax=int(m_up), yMin=1e-5, yMax=1, xLabel="Recoil [GeV]", yLabel="Events", logY=True, rebin=2)
-        PlotDecays(f"{final_state}_zll_recoil_m_mva_high", inputDir, outDir, [final_state], h_decays, outName="zll_recoil_m_mva_high", 
-                xMin=122, xMax=134, yMin=1e-5, yMax=1e1, xLabel="Recoil [GeV]", yLabel="Events", logY=True, rebin=1)
-        PlotDecays(f"{final_state}_mva_score",             inputDir, outDir, [final_state], h_decays, outName="mva_score", 
-                xMin=0, xMax=1, yMin=1e-4, yMax=1, xLabel="MVA score", yLabel="Events", logY=True, rebin=10)
-        PlotDecays(f"{final_state}_leps_iso_noSel",        inputDir, outDir, [final_state], h_decays, outName="cone_iso", 
-                xMin=0, xMax=4, yMin=1e-5, yMax=1, xLabel="Cone isolation", yLabel="Events", logY=True, rebin=1)
-        
-        makePlot(f"{final_state}_zll_m_nOne",            inputDir, outDir, procs, procs_cfg, outName="zll_m_nOne", 
-                xMin=50, xMax=120, yMin=1e2, yMax=1e8, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True, rebin=1)
-        makePlot(f"{final_state}_zll_p_nOne",            inputDir, outDir, procs, procs_cfg, outName="zll_p_nOne", 
-                xMin=0, xMax=120, yMin=1e1, yMax=1e8, xLabel="p_{ll} [GeV]", yLabel="Events", logY=True, rebin=2)
-        makePlot(f"{final_state}_cosThetaMiss_nOne",     inputDir, outDir, procs, procs_cfg, outName="cosThetaMiss_nOne", 
-                xMin=0.9, xMax=1, yMin=1e1, yMax=1e7, xLabel="|cos#theta_{miss}|", yLabel="Events", logY=True, rebin=8)
-        makePlot(f"{final_state}_zll_recoil_m_mva_low",  inputDir, outDir, procs, procs_cfg, outName="zll_recoil_m_mva_low", 
-                xMin=int(m_dw), xMax=int(m_up), yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=2)
-        makePlot(f"{final_state}_zll_recoil_m_mva_high", inputDir, outDir, procs, procs_cfg, outName="zll_recoil_m_mva_high", 
-                xMin=122, xMax=134, yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=1)
-        makePlot(f"{final_state}_zll_recoil_nOne",       inputDir, outDir, procs, procs_cfg, outName="zll_recoil_nOne", 
-                xMin=100, xMax=150, yMin=1, yMax=1e6, xLabel="Recoil [GeV]", yLabel="Events", logY=True, rebin=8)
-        # makePlot(f"{final_state}_zll_recoil_cut3",       inputDir, outDir, procs, procs_cfg, outName="recoil_cut3", 
-        #         xMin=40, xMax=160, yMin=0, yMax=20e3, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
-        # makePlot(f"{final_state}_zll_recoil_cut4",       inputDir, outDir, procs, procs_cfg, outName="recoil_cut4", 
-        #         xMin=40, xMax=160, yMin=0, yMax=20e3, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
-        makePlot(f"{final_state}_leps_iso_noSel",        inputDir, outDir, procs, procs_cfg, outName="cone_iso", 
-                xMin=0, xMax=5, yMin=1e-1, yMax=-1, xLabel="Cone isolation", yLabel="Events", logY=True, rebin=1)
-        makePlot(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, outName="mva_score", 
-                xMin=0, xMax=1, yMin=1e-1, yMax=-1, xLabel="MVA score", yLabel="Events", logY=True, rebin=10)
-        
+    'zll_recoil_cut3': {
+        'lim':   [40, 160, 0, -1],
+        'limH':  [40, 160, 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 8
+    },
 
-        for ind in ['', '_low', '_high']:
-                PlotDecays(f"{final_state}_zll_m{ind}",                 inputDir, outDir, [final_state], h_decays, outName="zll_m", 
-                        xMin=86, xMax=96, yMin=1e-3, yMax=1, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_zll_p{ind}",                 inputDir, outDir, [final_state], h_decays, outName="zll_p", 
-                        xMin=20, xMax=70, yMin=1e-5, yMax=1, xLabel="p_{ll} [GeV]", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_zll_recoil{ind}",            inputDir, outDir, [final_state], h_decays, outName="zll_recoil", 
-                        xMin=int(m_dw), xMax=int(m_up), yMin=1e-5, yMax=1, xLabel="Recoil [GeV]", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_acoplanarity{ind}",          inputDir, outDir, [final_state], h_decays, outName="acoplanarity", 
-                        xMin=0, xMax=3.2, yMin=1e-5, yMax=1, xLabel="#pi-#Delta#phi_{ll}", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_acolinearity{ind}",          inputDir, outDir, [final_state], h_decays, outName="acolinearity", 
-                        xMin=0, xMax=3, yMin=1e-5, yMax=1, xLabel="#Delta#theta_{ll}", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_leading_p{ind}",             inputDir, outDir, [final_state], h_decays, outName="leading_p", 
-                        xMin=40, xMax=90, yMin=1e-5, yMax=10, xLabel="p_{l,leading} [GeV]", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_subleading_p{ind}",          inputDir, outDir, [final_state], h_decays, outName="subleading_p", 
-                        xMin=20, xMax=60, yMin=1e-5, yMax=1e1, xLabel="p_{l,subleading} [GeV]", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_leading_theta{ind}",         inputDir, outDir, [final_state], h_decays, outName="leading_theta", 
-                        xMin=0, xMax=3.2, yMin=1e-5, yMax=1, xLabel="#theta_{l,leading}", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_subleading_theta{ind}",      inputDir, outDir, [final_state], h_decays, outName="subleading_theta", 
-                        xMin=0, xMax=3.2, yMin=1e-5, yMax=1, xLabel="#theta_{l,subleading}", yLabel="Events", logY=True)
-                PlotDecays(f"{final_state}_leps_p{ind}",                inputDir, outDir, [final_state], h_decays, outName="leps_p", 
-                        xMin=10, xMax=90, yMin=1e-5, yMax=1, xLabel="p_{leptons} [GeV]", yLabel="Events", logY=True)
-                
+    'zll_recoil_cut4': {
+        'lim':   [40, 160, 0, -1],
+        'limH':  [40, 160, 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 8
+    },
 
-                makePlot(f"{final_state}_zll_recoil{ind}",            inputDir, outDir, procs, procs_cfg, outName="zll_recoil", 
-                        xMin=int(m_dw), xMax=int(m_up), yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=16)
-                makePlot(f"{final_state}_acoplanarity{ind}",          inputDir, outDir, procs, procs_cfg, outName="acoplanarity", 
-                        xMin=0, xMax=3.2, yMin=1e-2, yMax=1e7, xLabel="#pi-#Delta#phi_{ll}", yLabel="Events", logY=True)
-                makePlot(f"{final_state}_acolinearity{ind}",          inputDir, outDir, procs, procs_cfg, outName="acolinearity", 
-                        xMin=0, xMax=3, yMin=1e-2, yMax=1e7, xLabel="#Delta#theta_{ll}", yLabel="Events", logY=True)
-                makePlot(f"{final_state}_leading_p{ind}",             inputDir, outDir, procs, procs_cfg, outName="leading_p", 
-                        xMin=40, xMax=100, yMin=1, yMax=-1, xLabel="p_{l,leading} [GeV]", yLabel="Events", logY=True, rebin=4)
-                makePlot(f"{final_state}_subleading_p{ind}",          inputDir, outDir, procs, procs_cfg, outName="subleading_p", 
-                        xMin=10, xMax=70, yMin=1, yMax=-1, xLabel="p_{l,subleading} [GeV]", yLabel="Events", logY=True, rebin=4)
-                makePlot(f"{final_state}_leading_theta{ind}",         inputDir, outDir, procs, procs_cfg, outName="leading_theta", 
-                        xMin=0, xMax=3.2, yMin=1e1, yMax=1e7, xLabel="#theta_{l,leading}", yLabel="Events", logY=True, rebin=4)
-                makePlot(f"{final_state}_subleading_theta{ind}",      inputDir, outDir, procs, procs_cfg, outName="subleading_theta", 
-                        xMin=0, xMax=3.2, yMin=1e1, yMax=1e6, xLabel="#theta_{l,subleading}", yLabel="Events", logY=True, rebin=4)
-                makePlot(f"{final_state}_leps_p{ind}",                inputDir, outDir, procs, procs_cfg, outName="leps_p", 
-                        xMin=20, xMax=100, yMin=1e-2, yMax=1e9, xLabel="p_{leptons} [GeV]", yLabel="Events", logY=True, rebin=4)
-                
-                makePlot(f"{final_state}_zll_m{ind}",                 inputDir, outDir, procs, procs_cfg, outName="zll_m", 
-                        xMin=86, xMax=96, yMin=1e1, yMax=-1, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True)
-                makePlot(f"{final_state}_zll_p{ind}",                 inputDir, outDir, procs, procs_cfg, outName="zll_p", 
-                        xMin=20, xMax=70, yMin=1e1, yMax=-1, xLabel="p_{ll} [GeV]", yLabel="Events", logY=True)
+    'leps_iso_noSel': {
+        'lim':   [0, 5, 1e-1, -1],
+        'limH':  [0, 4, 1e-5, 1],
+        'label': ['Cone Isolation', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'sign':  True
+    },
+
+    'leps_all_p_noSel': {
+        'lim':   [20, 100, 1e1, -1],
+        'limH':  [20, 100, 1e-5, 1],
+        'label': ['p_{lepton} no sel [GeV]', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'sign':  True
+    },
+
+    'leps_all_theta_noSel': {
+        'lim':   [0, 3.2, 1e1, -1],
+        'limH':  [0, 3.2, 1e-5, 1],
+        'label': ['#theta_{lepton} no sel [GeV]', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'sign':  True
+    },
+
+    'visibleEnergy_nOne': {
+        'lim':   [0, 160, 1e-1, -1],
+        'limH':  [0, 160, 1e-5, 1], 
+        'label': ['E_{vis} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 16,
+        'sign':  True
+    },
+
+    'zll_m': {
+        'lim':   [86, 96, 1e1, -1],
+        'limH':  [86, 96, 1e-5, 1],
+        'label': ['m_{ll} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'hl':    True
+    },
+
+    'zll_p': {
+        'lim':   [20, 70, 1e1, -1],
+        'limH':  [20, 70, 1e-5, 1],
+        'label': ['p_{ll} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'hl':    True
+    },
+
+    'zll_recoil': {
+        'lim':   [int(m_dw), int(m_up), 0, -1],
+        'limH':  [int(m_dw), int(m_up), 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 4,
+        'hl':    True
+    },
+
+    'acoplanarity': {
+        'lim':   [0, 3.2, 1e-2, 1e7],
+        'limH':  [0, 3.2, 1e-5, 1],
+        'label': ['#Delta#phi_{ll}', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'hl':    True, 'sign':  True
+    },
+
+    'acolinearity': {
+        'lim':   [0, 3.2, 1e-2, 1e7],
+        'limH':  [0, 3.2, 1e-5, 1],
+        'label': ['#Delta#theta_{ll}', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'hl':    True, 'sign':  True
+    },
+
+    'leading_p': {
+        'lim':   [40, 100, 1, -1],
+        'limH':  [40, 90, 1e-5, 1e1],
+        'label': ['p_{leading} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'hl':    True, 'sign':  True
+    },
+
+    'subleading_p': {
+        'lim':   [10, 70, 1, -1],
+        'limH':  [20, 60, 1e-5, 1e1],
+        'label': ['p_{subleading} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 4,
+        'hl':    True, 'sign':  True
+    },
+
+    'leading_theta': {
+        'lim':   [0, 3.2, 1e1, 1e7],
+        'limH':  [0, 3.2, 1e-5, 1],
+        'label': ['#theta_{leading}', 'Events'],
+        'logY':  True, 'rebin': 4,
+        'hl':    True, 'sign':  True
+    },
+
+    'subleading_theta': {
+        'lim':   [0, 3.2, 1e1, 1e6],
+        'limH':  [0, 3.2, 1e-5, 1],
+        'label': ['#theta_{subleading}', 'Events'],
+        'logY':  True, 'rebin': 4,
+        'hl':    True, 'sign':  True
+    }, 
+
+    'leps_p': {
+        'lim':   [20, 100, 1e-2, 1e9],
+        'limH':  [10, 90, 1e-5, 1], 
+        'label': ['p_{leptons} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 4,
+        'hl':    True, 'sign':  True
+    },
+
+    'visibleEnergy': {
+        'lim':   [10, 160, 1e-2, -1],
+        'limH':  [10, 160, 1e-5, 1],
+        'label': ['E_{vis} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 2,
+        'hl':    True, 'sign':  True
+    }          
+}
+
+
+for cat in ['ee', 'mumu']:
+    print(f'\n----->[Info] Making plots for {cat} channel\n')
+
+    sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.vis)
+    inputDir = get_loc(loc.HIST_PREPROCESSED, cat, ecm, sel)
+    outDir   = get_loc(loc.PLOTS_MEASUREMENT, cat, ecm, sel)
+
+    procs = [f"Z{cat}H", "WW", "ZZ", "Zgamma", "Rare"] # first must be signal
+
+    lep = 'e' if cat=='ee' else '#mu'
+    for i, cut in enumerate(cut_labels): cut_labels[i] = cut.replace('#ell', lep)
+
+    args = [inputDir, outDir, procs, procs_cfg]
+    args1 = [inputDir, outDir, [cat], h_decays]
+
+    CutFlow(*args, hName=f"{cat}_cutFlow", cuts=cuts, labels=cut_labels, outName='cutflow', 
+            sig_scale=10, yMin=1e4, yMax=1e10)
+    CutFlowDecays(*args1[:2], cat, hName=f"{cat}_cutFlow", outName="cutFlow", 
+            cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=[cat], h_decays=h_decays, miss=arg.miss)
+
+    for hName, kwarg in argument.items():
+        if arg.sign and 'sign' in kwarg and kwarg['sign']:
+            significance(f'{cat}_{hName}', *args, *kwarg['lim'][:2], reverse=True)
+            significance(f'{cat}_{hName}', *args, *kwarg['lim'][:2], reverse=False)
+
+        for ind in ['', '_high', '_low']:
+            if ind!='' and not 'hl' in kwarg: continue
+            if 'limH' in kwarg: PlotDecays(f'{cat}_{hName}{ind}', *args1, *kwarg['limH'], *kwarg['label'], 
+                                             outName=hName, rebin=kwarg['rebin']) 
+            if 'lim' in kwarg: makePlot(f'{cat}_{hName}{ind}', *args, *kwarg['lim'], *kwarg['label'], 
+                                          outName=hName, logY=kwarg['logY'], rebin=kwarg['rebin'])
+
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

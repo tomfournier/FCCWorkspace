@@ -6,10 +6,12 @@ t1 = time.time()
 parser = argparse.ArgumentParser()
 parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+
 parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
+parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
 arg = parser.parse_args()
 
 if arg.cat=='':
@@ -25,7 +27,7 @@ userconfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, train_vars
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis)
 
 modes = [f"{final_state}H", "ZZ", f"WW{final_state}", 
          f"Z{final_state}", f"egamma_{final_state}", f"gammae_{final_state}", f"gaga_{final_state}"]

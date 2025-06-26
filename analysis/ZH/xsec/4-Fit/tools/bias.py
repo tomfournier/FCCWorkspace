@@ -7,7 +7,15 @@ ROOT.gStyle.SetOptTitle(0)
 
 #__________________________________________________________
 def getMetaInfo(proc, inputDir, ecm):
-    
+
+    # if 'tautauH_Hinv' in proc: xsec = 7.065e-6
+    # elif 'eeH_Hinv'   in proc: xsec = 7.507e-6
+    # elif 'qqH_Hinv'   in proc: xsec = 5.587e-5
+    # elif 'ssH_Hinv'   in proc: xsec = 3.139e-5
+    # elif 'ccH_Hinv'   in proc: xsec = 2.445e-5
+    # elif 'bbH_Hinv'   in proc: xsec = 3.113e-5
+    # elif 'nunuH_Hinv' in proc: xsec = 4.840e-5
+    # else:
     fIn = ROOT.TFile(f"{inputDir}/{proc}.root")
     xsec = fIn.Get("crossSection").GetVal()
     
@@ -145,6 +153,7 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
             if not proc in sigProcs:
                 continue
             xsec += getMetaInfo(proc, inputDir, ecm)
+            # print(f'xsec for {proc}: {getMetaInfo(proc, inputDir, ecm):.3e}')
         xsec_tot += xsec
         if h_decay != target:
             xsec_rest += xsec

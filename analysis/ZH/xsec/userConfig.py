@@ -6,14 +6,16 @@ import os
 
 plot_file = 'png'
 frac, nb  = 1, 10
+treemaker = True
 
 ecm, lumi = 240, 10.8
-recoil120, miss, bdt = True, True, False
-leading = True
+recoil120, miss, bdt = False, False, False
+leading, vis = True, True
 
 _120, _miss, _bdt = '_120' if recoil120 else '', '_miss' if miss else '', '_missBDT' if bdt else ''
-_leading = '_leading' if leading else ''
-sel = 'Baseline'+_leading+_120+_miss+_bdt
+_vis, _leading = '_vis' if vis else '', '_leading' if leading else ''
+
+sel = 'Baseline'+_leading+_vis+_120+_miss+_bdt
 
 #############################
 ##### LOCATION OF FILES #####
@@ -49,15 +51,20 @@ loc.BDT                = f"{loc.MVA}/ecm/final_state/selection/BDT"
 # Location of histograms
 loc.HIST               = f"{loc.DATA}/histograms"
 
-loc.HIST_MVA           = f"{loc.HIST}/MVAFinal/ecm/final_state/"
+loc.HIST_MVAINPUTS     = f"{loc.HIST}/MVAInputs/ecm"
+loc.HIST_MVAFINAL      = f"{loc.HIST}/MVAFinal/ecm/final_state/"
+
 loc.HIST_PREPROCESSED  = f"{loc.HIST}/preprocessed/ecm/selection"
 loc.HIST_PROCESSED     = f"{loc.HIST}/processed/ecm/selection"
+
 loc.HIST_PSEUDO        = f"{loc.HIST}/pseudo-data/ecm/selection"
 
 # Location of plots
 loc.PLOTS_MVA          = f"{loc.PLOTS}/ecm/final_state/MVAInputs"
+loc.PLOTS_MVAINPUTS    = f"{loc.PLOTS}/ecm/final_state/MVA/selection"
 loc.PLOTS_BDT          = f"{loc.PLOTS}/ecm/final_state/evaluation/selection"
 loc.PLOTS_MEASUREMENT  = f"{loc.PLOTS}/ecm/final_state/measurement/selection"
+loc.PLOTS_BIAS         = f"{loc.PLOTS}/ecm/final_state/bias/selection"
 
 # Location of combine files
 loc.COMBINE            = f"{loc.DATA}/combine/ecm/selection"
@@ -91,12 +98,13 @@ def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
     path = path.replace('selection', sel)
     return path
 
-def select(recoil120: bool, miss: bool = False, bdt: bool = False, leading: bool = False) -> str:
+def select(recoil120: bool = False, miss: bool = False, bdt: bool = False, leading: bool = False, vis: bool = False) -> str:
     sel = 'Baseline'
-    if leading: sel+= '_leading'
+    if leading:   sel += '_leading'
+    if vis:       sel += '_vis'
     if recoil120: sel += '_120'
-    if miss: sel += '_miss'
-    if bdt: sel += '_missBDT'
+    if miss:      sel += '_miss'
+    if bdt:       sel += '_missBDT'
     return sel
 
 
