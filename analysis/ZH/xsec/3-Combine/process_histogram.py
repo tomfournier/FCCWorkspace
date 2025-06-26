@@ -9,12 +9,13 @@ parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[2
 parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 arg = parser.parse_args()
 
 userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, z_decays, h_decays
 
-ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt)
+ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt, arg.leading)
 
 samples_bkg = [
     f"p8_ee_WW_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",

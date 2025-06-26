@@ -55,8 +55,12 @@ else:
 
 baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
 cosTheta_missCut = "cosTheta_miss < 0.98"
+leading_pCut = "leading_p < 80 && leading_p > 50"
 
 selection = baselineCut + ' && ' + cosTheta_missCut if userConfig.miss else baselineCut
+if userConfig.leading:
+    selection += '&&' + leading_pCut
+
 
 cutList = { sel: selection }
 

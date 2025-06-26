@@ -22,7 +22,7 @@ prodTag = "FCCee/winter2023/IDEA/"
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = "FCCee_procDict_winter2023_IDEA.json"
 # optional: ncpus, default is 4, -1 uses all cores available
-nCPUS = 20
+nCPUS = 10
 # scale the histograms with the cross-section and integrated luminosity
 doScale = True
 intLumi = lumi * 1e6 # in pb-1
@@ -215,7 +215,18 @@ def build_graph_ll(df, hists, dataset, final_state):
         df = df.Filter(f"zll_recoil_m < 140 && zll_recoil_m > 120")
     else:
         df = df.Filter(f"zll_recoil_m < 150 && zll_recoil_m > 100")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow",         "", *bins_count),  "cut5"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut5"))
+
+    #########
+    ### CUT 5bis: p_leading and p_subleading cut
+    #########
+    hists.append(df.Histo1D((f"{final_state}_leading_p_nOne", "", *bins_p_mu), "leading_p"))
+    if userConfig.leading:
+        df = df.Filter("leading_p < 80 && leading_p > 50 && subleading_p < 53")
+        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
+
+
+
 
     #########
     ### CUT 6: cosThetaMiss cut
@@ -223,7 +234,8 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_cosThetaMiss_nOne", "", *bins_miss), "cosTheta_miss"))
     if userConfig.miss:
         df = df.Filter("cosTheta_miss < 0.98")
-        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
+        Cut = 'cut7' if userConfig.leading else 'cut6'
+        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), Cut))
 
     ##########
     ### MVA
@@ -324,8 +336,9 @@ def build_graph(df, dataset):
     df = df.Define("cut3", "3")
     df = df.Define("cut4", "4")
     df = df.Define("cut5", "5")
-    if userConfig.miss:
-        df = df.Define("cut6", "6")
+    df = df.Define("cut6", "6")
+    df = df.Define("cut7", "7")
+
 
     df = df.Alias("MCRecoAssociations0", "MCRecoAssociations#0.index")
     df = df.Alias("MCRecoAssociations1", "MCRecoAssociations#1.index")

@@ -8,10 +8,12 @@ plot_file = 'png'
 frac, nb  = 1, 10
 
 ecm, lumi = 240, 10.8
-recoil120, miss, bdt = True, False, True
+recoil120, miss, bdt = True, True, False
+leading = True
 
 _120, _miss, _bdt = '_120' if recoil120 else '', '_miss' if miss else '', '_missBDT' if bdt else ''
-sel = 'Baseline'+_120+_miss+_bdt
+_leading = '_leading' if leading else ''
+sel = 'Baseline'+_leading+_120+_miss+_bdt
 
 #############################
 ##### LOCATION OF FILES #####
@@ -89,11 +91,12 @@ def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
     path = path.replace('selection', sel)
     return path
 
-def select(recoil120: bool, miss: bool = False, bdt: bool = False) -> str:
+def select(recoil120: bool, miss: bool = False, bdt: bool = False, leading: bool = False) -> str:
     sel = 'Baseline'
+    if leading: sel+= '_leading'
     if recoil120: sel += '_120'
-    elif miss: sel += '_miss'
-    elif bdt: sel += '_missBDT'
+    if miss: sel += '_miss'
+    if bdt: sel += '_missBDT'
     return sel
 
 

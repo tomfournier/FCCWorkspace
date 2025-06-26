@@ -7,6 +7,7 @@ parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices
 parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 arg = parser.parse_args()
 
 import importlib
@@ -39,7 +40,7 @@ procs_cfg = {
 for final_state in ['ee', 'mumu']:
         print(f'\n----->[Info] Making plots for {final_state} channel\n')
 
-        sel      = select(arg.recoil120, arg.miss, arg.bdt)
+        sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.leading)
         inputDir = get_loc(loc.HIST_PREPROCESSED, final_state, ecm, sel)
         outDir   = get_loc(loc.PLOTS_MEASUREMENT, final_state, ecm, sel)
 
@@ -51,8 +52,14 @@ for final_state in ['ee', 'mumu']:
         cut_labels = ["All events", "#geq 1 "+lep+"^{#pm} + ISO", "#geq 2 "+lep+"^{#pm} + OS", 
                       "86 < m_{"+lep+"^{+}"+lep+"^{#minus}} < 96", "20 < p_{"+lep+"^{+}"+lep+"^{#minus}} < 70", 
                       m_dw+" < m_{rec} < "+m_up]
-        if arg.miss:
+        
+        if arg.leading:
                 cuts.append("cut6")
+                cut_labels.append("50 < p_{leading} < 80 , p_{sub} < 53")
+
+        if arg.miss:
+                Cut = "cut7" if arg.leading else "cut6"
+                cuts.append(Cut)
                 cut_labels.append("|cos#theta_{miss}| < 0.98")
 
         CutFlow(inputDir, outDir, procs, procs_cfg, hName=f"{final_state}_cutFlow", cuts=cuts, 
@@ -103,10 +110,10 @@ for final_state in ['ee', 'mumu']:
                 xMin=122, xMax=134, yMin=0, yMax=-1, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=1)
         makePlot(f"{final_state}_zll_recoil_nOne",       inputDir, outDir, procs, procs_cfg, outName="zll_recoil_nOne", 
                 xMin=100, xMax=150, yMin=1, yMax=1e6, xLabel="Recoil [GeV]", yLabel="Events", logY=True, rebin=8)
-        makePlot(f"{final_state}_zll_recoil_cut3",       inputDir, outDir, procs, procs_cfg, outName="recoil_cut3", 
-                xMin=40, xMax=160, yMin=0, yMax=20e3, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
-        makePlot(f"{final_state}_zll_recoil_cut4",       inputDir, outDir, procs, procs_cfg, outName="recoil_cut4", 
-                xMin=40, xMax=160, yMin=0, yMax=20e3, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
+        # makePlot(f"{final_state}_zll_recoil_cut3",       inputDir, outDir, procs, procs_cfg, outName="recoil_cut3", 
+        #         xMin=40, xMax=160, yMin=0, yMax=20e3, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
+        # makePlot(f"{final_state}_zll_recoil_cut4",       inputDir, outDir, procs, procs_cfg, outName="recoil_cut4", 
+        #         xMin=40, xMax=160, yMin=0, yMax=20e3, xLabel="Recoil [GeV]", yLabel="Events", logY=False, rebin=8)
         makePlot(f"{final_state}_leps_iso_noSel",        inputDir, outDir, procs, procs_cfg, outName="cone_iso", 
                 xMin=0, xMax=5, yMin=1e-1, yMax=-1, xLabel="Cone isolation", yLabel="Events", logY=True, rebin=1)
         makePlot(f"{final_state}_mva_score",             inputDir, outDir, procs, procs_cfg, outName="mva_score", 
@@ -152,7 +159,11 @@ for final_state in ['ee', 'mumu']:
                         xMin=0, xMax=3.2, yMin=1e1, yMax=1e6, xLabel="#theta_{l,subleading}", yLabel="Events", logY=True, rebin=4)
                 makePlot(f"{final_state}_leps_p{ind}",                inputDir, outDir, procs, procs_cfg, outName="leps_p", 
                         xMin=20, xMax=100, yMin=1e-2, yMax=1e9, xLabel="p_{leptons} [GeV]", yLabel="Events", logY=True, rebin=4)
-
+                
+                makePlot(f"{final_state}_zll_m{ind}",                 inputDir, outDir, procs, procs_cfg, outName="zll_m", 
+                        xMin=86, xMax=96, yMin=1e1, yMax=-1, xLabel="m_{ll} [GeV]", yLabel="Events", logY=True)
+                makePlot(f"{final_state}_zll_p{ind}",                 inputDir, outDir, procs, procs_cfg, outName="zll_p", 
+                        xMin=20, xMax=70, yMin=1e1, yMax=-1, xLabel="p_{ll} [GeV]", yLabel="Events", logY=True)
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

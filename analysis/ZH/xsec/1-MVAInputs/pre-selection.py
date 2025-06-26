@@ -20,7 +20,7 @@ prodTag = "FCCee/winter2023_training/IDEA/"
 # Optional: output directory, default is local dir
 eosType = "eosuser"
 # Optional: ncpus, default is 4
-nCPUS = 20
+nCPUS = 10
 # Optional running on HTCondor, default is False
 runBatch = False
 # Optional batch queue name when running on HTCondor, default is workday
@@ -163,6 +163,18 @@ class RDFanalysis():
             df = df.Filter("zll_p > 20 && zll_p < 70")
         elif ecm == 365:
             df = df.Filter("zll_p > 50 && zll_p < 150")
+
+        #########
+        ### CUT 4bis: p_leading between 50 GeV and 80 GeV (240GeV)
+        #########
+        if userConfig.leading:
+            df = df.Filter("leading_p < 80 && leading_p > 50")
+
+        #########
+        ### CUT 4ter: p_subleading <  53 GeV (240GeV)
+        #########
+        if userConfig.leading:
+            df = df.Filter("subleading_p < 53")
 
         #########
         ### CUT 5: recoil mass cut

@@ -17,6 +17,7 @@ parser.add_argument("--bias", help="Nominal fit or bias test", action='store_tru
 parser.add_argument("--pert", type=float, help="Target pseudodata size", default=1.0)
 parser.add_argument("--target", type=str, help="Target pseudodata", default="")
 parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
+parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 arg = parser.parse_args()
 
 if arg.cat=='' and not arg.combine:
@@ -26,7 +27,7 @@ if arg.cat=='' and not arg.combine:
     exit(0)
 if arg.combine: arg.cat = 'combined'
 
-sel = select(arg.recoil120, arg.miss, arg.bdt)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading)
 if not arg.bias:
     dir, dc = get_loc(loc.COMBINE_NOMINAL, arg.cat, arg.ecm, sel), get_loc(loc.NOMINAL_DATACARD, arg.cat, arg.ecm, sel)
     tp      = "nominal"
