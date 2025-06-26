@@ -42,6 +42,7 @@ procs_colors = {
     "ZZ"        : ROOT.TColor.GetColor("#5790fc"),
     "Zgamma"    : ROOT.TColor.GetColor("#964a8b"),
     "Zqqgamma"  : ROOT.TColor.GetColor("#964a8b"),
+    "gaga"      : ROOT.TColor.GetColor("#9c9ca1"),
     "Rare"      : ROOT.TColor.GetColor("#9c9ca1")
 }
 
@@ -60,7 +61,8 @@ sign_name = {
             'leps_p':               'p_{lepton}',
             'leps_all_p_noSel':     'p_{lepton} no sel',
             'leps_all_theta_noSel': '#theta_{lepton} no sel',
-            'leps_iso_noSel':       'I_{rel}'
+            'leps_iso_noSel':       'I_{rel}',
+            'visibleEnergy':        'E_{vis}'
 }
 
 sign_label = {
@@ -78,7 +80,8 @@ sign_label = {
             'leps_p':               'p_{lepton} [GeV]',
             'leps_all_p_noSel':     'p_{lepton} no sel [GeV]',
             'leps_all_theta_noSel': '#theta_{lepton} no sel [GeV]',
-            'leps_iso_noSel':       'Cone isolation'
+            'leps_iso_noSel':       'Cone isolation',
+            'visibleEnergy':        'E_{vis} [GeV]'
 }
 
 #__________________________________________________________
@@ -440,8 +443,8 @@ def CutFlowDecays(inputDir, outDir, final_state, plot_file=['png'], ecm=240, lum
         canvas.SaveAs(f"{outDir}/cutflow/selection_efficiency.{pl}")
 
 #__________________________________________________________
-def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, ecm=240, lumi=10.8, outName="", xMin=0, xMax=100, 
-               yMin=1, yMax=1e5, plot_file=['png'], xLabel="", yLabel="Events", logX=False, logY=True, rebin=-1, xLabels=[]):
+def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, xMin, xMax, yMin, yMax, xLabel, yLabel, 
+               ecm=240, lumi=10.8, outName="", plot_file=['png'], logX=False, logY=True, rebin=-1, xLabels=[]):
 
     if outName == "":
         outName = hName
@@ -606,8 +609,9 @@ def SignalRatios(hName, inputDir, outDir, z_decays, h_decays, ecm=240, lumi=10.8
     canvas.Close()
 
 #__________________________________________________________
-def makePlot(hName, inputDir, outDir, procs, procs_cfg, ecm=240, lumi=10.8, outName="", xMin=0, xMax=100, yMin=1, yMax=1e5, 
-             xLabel="xlabel", yLabel="Events", logX=False, logY=True, rebin=-1, sig_scale=1, xLabels=[], plot_file=['png'], stack=False):
+def makePlot(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, yMin, yMax, xLabel, yLabel, 
+             ecm=240, lumi=10.8, outName="", logX=False, logY=True, rebin=-1, sig_scale=1, xLabels=[], 
+             plot_file=['png'], stack=False):
 
     if outName == "":
         outName = hName

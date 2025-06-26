@@ -6,12 +6,15 @@ import os
 
 plot_file = 'png'
 frac, nb  = 1, 10
+treemaker = True
 
 ecm, lumi = 240, 10.8
-recoil120, miss, bdt = True, False, True
+recoil120, miss, bdt = False, False, False
+vis = True
 
 _120, _miss, _bdt = '_120' if recoil120 else '', '_miss' if miss else '', '_missBDT' if bdt else ''
-sel = 'Baseline'+_120+_miss+_bdt
+_vis = '_vis' if vis else ''
+sel = 'Baseline'+_vis+_120+_miss+_bdt
 
 #############################
 ##### LOCATION OF FILES #####
@@ -47,15 +50,20 @@ loc.BDT                = f"{loc.MVA}/ecm/final_state/selection/BDT"
 # Location of histograms
 loc.HIST               = f"{loc.DATA}/histograms"
 
-loc.HIST_MVA           = f"{loc.HIST}/MVAFinal/ecm/final_state/"
+loc.HIST_MVAINPUTS     = f"{loc.HIST}/MVAInputs/ecm"
+loc.HIST_MVAFINAL      = f"{loc.HIST}/MVAFinal/ecm/final_state/"
+
 loc.HIST_PREPROCESSED  = f"{loc.HIST}/preprocessed/ecm/selection"
 loc.HIST_PROCESSED     = f"{loc.HIST}/processed/ecm/selection"
+
 loc.HIST_PSEUDO        = f"{loc.HIST}/pseudo-data/ecm/selection"
 
 # Location of plots
 loc.PLOTS_MVA          = f"{loc.PLOTS}/ecm/final_state/MVAInputs"
+loc.PLOTS_MVAINPUTS    = f"{loc.PLOTS}/ecm/final_state/MVA/selection"
 loc.PLOTS_BDT          = f"{loc.PLOTS}/ecm/final_state/evaluation/selection"
 loc.PLOTS_MEASUREMENT  = f"{loc.PLOTS}/ecm/final_state/measurement/selection"
+loc.PLOTS_BIAS         = f"{loc.PLOTS}/ecm/final_state/bias/selection"
 
 # Location of combine files
 loc.COMBINE            = f"{loc.DATA}/combine/ecm/selection"
@@ -89,11 +97,12 @@ def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
     path = path.replace('selection', sel)
     return path
 
-def select(recoil120: bool, miss: bool = False, bdt: bool = False) -> str:
+def select(recoil120: bool = False, miss: bool = False, bdt: bool = False, vis: bool = False) -> str:
     sel = 'Baseline'
     if recoil120: sel += '_120'
-    elif miss: sel += '_miss'
-    elif bdt: sel += '_missBDT'
+    elif miss:    sel += '_miss'
+    elif bdt:     sel += '_missBDT'
+    elif vis:     sel += '_vis'
     return sel
 
 

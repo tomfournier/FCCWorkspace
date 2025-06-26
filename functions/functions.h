@@ -585,6 +585,7 @@ bool is_hzz_invisible(Vec_mc mc, Vec_i ind) {
    bool is_inv = true;
    int d1 = 0;
    int d2 = 0;
+
    for(size_t i = 0; i < mc.size(); ++i) {
         auto & p = mc[i];
         if(std::abs(p.PDG) != 23) continue;

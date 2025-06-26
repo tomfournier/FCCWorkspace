@@ -9,7 +9,7 @@ final_state = input('Select a channel [ee, mumu]: ')
 # Input directory where the files produced at the pre-selection level are
 inputDir  = get_loc(loc.MVA_INPUTS, final_state, ecm, sel)
 # Output directory where the files produced at the final selection level will be put
-outputDir = get_loc(loc.HIST_MVA,   final_state, ecm, sel)
+outputDir = get_loc(loc.HIST_MVAFINAL,   final_state, ecm, sel)
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
@@ -54,9 +54,10 @@ else:
     recoil_dw, recoil_up = 100, 150
 
 baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
-cosTheta_missCut = "cosTheta_miss < 0.98"
+cosTheta_missCut, E_visCut = "cosTheta_miss < 0.98", 'visibleEnergy > 10'
 
 selection = baselineCut + ' && ' + cosTheta_missCut if userConfig.miss else baselineCut
+selection = selection + ' && ' + E_visCut if userConfig.vis else selection
 
 cutList = { sel: selection }
 
@@ -114,4 +115,8 @@ histoList = {
     "H":                {"name":"H",
                          "title":"Higgsstrahlungness",
                          "bin":110,"xmin":0,"xmax":110},
+
+    "visibleEnergy":    {"name":"visibleEnergy",
+                         "title":"visibleEnergy",
+                         "bin":320,"xmin":0,"xmax":160},
 }

@@ -151,6 +151,7 @@ def log_loss(results, x_axis,label, outDir, plot_file):
     plt.xlabel("Number of trees", fontsize=30)
     plt.ylabel('Log Loss', fontsize=30)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
+    ax.grid()
     ax.set_title(label, fontsize=20, loc='right')
     plt.savefig(f"{outDir}/log_loss.{plot_file}", bbox_inches='tight')
     print(f"Saved log loss plot to {outDir}/log_loss.{plot_file}")
@@ -169,6 +170,7 @@ def classification_error(results, x_axis, label, outDir, plot_file):
     plt.ylabel('Classification Error', fontsize=30)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
+    ax.grid()
     plt.savefig(f"{outDir}/classification_error.{plot_file}", bbox_inches='tight')
     print(f"Saved classification error plot to {outDir}/classification_error.{plot_file}")
     plt.close()
@@ -185,6 +187,7 @@ def AUC(results, x_axis, label, outDir, plot_file):
     plt.ylabel('AUC', fontsize=30)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
+    ax.grid()
     plt.savefig(f"{outDir}/auc.{plot_file}", bbox_inches='tight')
     print(f"Saved AUC plot to {outDir}/auc.{plot_file}")
     plt.close()
@@ -208,16 +211,16 @@ def roc(df, label, outDir, plot_file):
     ax.legend(fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
+    ax.grid()
     fig.savefig(f"{outDir}/roc.{plot_file}", bbox_inches='tight')
     print(f"Saved ROC plot to {outDir}/roc.{plot_file}")
     plt.close()
 
 #__________________________________________________________
-def bdt_score(df, label, outDir, plot_file):
-    print("------>Plotting BDT score (overtraining check)")
+def bdt_score(df, label, outDir, plot_file, unity=True, Bins=100):
+    print("------>Plotting BDT score")
     
     fig, ax = plt.subplots(figsize=(12,8))
-    Bins = 20
     htype = "step"
     
     tag = ['Signal Training      ', 'Signal Validation    ', 'Background Training  ', 'Background Validation']
@@ -229,27 +232,77 @@ def bdt_score(df, label, outDir, plot_file):
     for (x, y, z, w) in zip(tag, line, color, cut):
         df_instance = df.query(w)
         print(f'---------> {x} {len(df_instance)} "Ratio: {((len(df_instance)/float(len(df))) * 100.0):.2f}')
-        ax.hist(df_instance['BDTscore'], density=True, bins=Bins, range=[0.0, 1.0], histtype=htype, 
+        ax.hist(df_instance['BDTscore'], density=unity, bins=Bins, range=[0.0, 1.0], histtype=htype, 
                 label=x, linestyle=y, color=z, linewidth=1.5)
     
     plt.yscale('log')
-    ax.legend(loc="upper right", frameon=False, shadow=False, fontsize=14)
+    ax.legend(loc="upper right", shadow=False, fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
 
+    ylabel = "Normalized to Unity" if unity else 'Events'
     ax.tick_params(axis='both', which='major', labelsize=25)
     ax.set_xlabel("BDT Score", fontsize=30, loc='right', weight='bold')  
-    ax.set_ylabel("Normalized to Unity", fontsize=30, loc='top', weight='bold')  
+    ax.set_ylabel(ylabel, fontsize=30, loc='top', weight='bold')  
      
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     
-    ax.set_ylim(top=ax.get_ylim()[1] * 3)  # Increase the Y-axis space
+    ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
     ax.set_xlim(left=0.0, right=1.0) 
+    ax.grid()
 
     print("------>Plotting BDT score")
     plt.savefig(f"{outDir}/bdt_score.{plot_file}", bbox_inches='tight')
     print(f"Saved BDT score to {outDir}/bdt_score.{plot_file}")
+    plt.close()
+
+#__________________________________________________________
+def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, all=False, unity=True, Bins=100, lumi=10.8):
+    print("------>Plotting MVA score")
+    
+    fig, ax = plt.subplots(figsize=(12,8))
+    
+    htype = "step"
+    line = ['solid', 'dashed', 'solid', 'dashed']
+    cut = ['valid==False & isSignal==1', 'valid==True & isSignal==1', 
+           'valid==False & isSignal!=1', 'valid==True & isSignal!=1']
+    xsec = ut.get_xsec(mode_names)
+
+    for (y, w) in zip(line, cut):
+        for cur_mode in mode_names:
+            if not all and 'ga' in cur_mode: continue
+            if 'isSignal==1' in w and not 'H' in cur_mode: continue
+            if 'isSignal!=1' in w and 'H' in cur_mode: continue
+            df_tmp = df[(df['sample']==cur_mode)]
+            weight = xsec[cur_mode] * lumi * 1e6 / len(df_tmp)
+            df_instance = df_tmp.query(w)
+            lab = Label[cur_mode] if 'valid==False' in w else None
+            n, b, p = ax.hist(df_instance['BDTscore'], density=unity, bins=Bins, range=[0.0, 1.0], histtype=htype, 
+                    label=lab, linestyle=y, color=modes_color[cur_mode], linewidth=1.5, 
+                    weights=weight * np.ones_like(df_instance['BDTscore']))
+    
+    ncols = 3 if all else 4
+    plt.yscale('log')
+    ax.legend(loc="upper right", shadow=False, fontsize=14, ncols=ncols)
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
+    ax.set_title(label, fontsize=20, loc='right')
+
+    ylabel = "Normalized to Unity" if unity else 'Events'
+    ax.tick_params(axis='both', which='major', labelsize=25)
+    ax.set_xlabel("BDT Score", fontsize=30, loc='right', weight='bold')  
+    ax.set_ylabel(ylabel, fontsize=30, loc='top', weight='bold')  
+     
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    
+    ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
+    ax.set_xlim(left=0.0, right=1.0)
+    ax.grid()
+
+    print("------>Plotting MVA score")
+    plt.savefig(f"{outDir}/mva_score.{plot_file}", bbox_inches='tight')
+    print(f"Saved MVA score to {outDir}/mva_score.{plot_file}")
     plt.close()
 
 #__________________________________________________________
@@ -266,7 +319,7 @@ def importance(bdt, vars_list, latex_mapping, label, outDir, plot_file):
     sorted_indices = [int(x[0][1:]) for x in sorted_importance]
 
     # Get the sorted variable names and their corresponding importances
-    sorted_vars = [vars_list[i] for i in sorted_indices]
+    sorted_vars   = [vars_list[i] for i in sorted_indices]
     sorted_values = [x[1] for x in sorted_importance]
 
     # Update variable names with their LaTeX versions
@@ -292,7 +345,7 @@ def significance(df, label, outDir, out_txt, plot_file):
                            df[(df['isSignal'] == 0) & (df['valid'] == True)], 
                            score_column='BDTscore', func=ut.Z, nbins=100)
     max_index=df_Z["Z"].idxmax()
-    print(f'max-Z: {df_Z.loc[max_index,"Z"]:.2f} cut threshold: [{max_index}]')
+    print(f'max-Z: {df_Z.loc[max_index,"Z"]:.3f} cut threshold: [{max_index}]')
 
     np.savetxt(f"{out_txt}/BDT_cut.txt", [np.round(max_index, 2)])
     print(f"----->[Info] Wrote BDT cut in {out_txt}/BDT_cut.txt")
@@ -305,10 +358,11 @@ def significance(df, label, outDir, out_txt, plot_file):
     plt.ylabel("Significance", fontsize=30)
     txt1 = Rectangle((0, 0), .01, .01, fc="w", fill=False, edgecolor='none', linewidth=0)
     txt2 = Rectangle((0, 0), .01, .01, fc="w", fill=False, edgecolor='none', linewidth=0)
-    plt.legend([txt1, txt2], (f'max-Z: {df_Z.loc[max_index,"Z"]:.2f}\ncut threshold: [{max_index:.2f}]', '$Z = S/\\sqrt{S+B}$'), 
+    plt.legend([txt1, txt2], (f'max-Z: {df_Z.loc[max_index,"Z"]:.3f}\ncut threshold: [{max_index:.2f}]', '$Z = S/\\sqrt{S+B}$'), 
                fontsize=14, frameon=False)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
+    plt.grid()
     print("------>Plotting significance scan")
     plt.savefig(f"{outDir}/significance_scan.{plot_file}", bbox_inches='tight')
     print(f"------>Saved Importance to {outDir}/significance_scan.{plot_file}")
@@ -319,19 +373,18 @@ def efficiency(df, mode_names, Label, label, outDir, plot_file):
     
     #Plot efficiency as a function of BDT cut in each sample
     print("------>Plotting Efficiency")
-    BDT_cuts = np.linspace(0,99,99)
-    cut_vals = []
-    eff = {}
-
-    for cur_mode in mode_names:
-      eff[cur_mode] = []
+    BDT_cuts = np.linspace(0,1,101)
+    cut_vals, eff = [], {x:[] for x in mode_names}
 
     for x in tqdm(BDT_cuts):
-      cut_val = float(x)/100
-      cut_vals.append(cut_val)
+      cut_vals.append(x)
       for cur_mode in mode_names:
-        eff[cur_mode].append(float(len(df[(df['sample'] == cur_mode) & (df['valid'] == True) & (df['BDTscore'] > cut_val)]))/float(len(df[(df['sample'] == cur_mode) & (df['valid'] == True)])))
+        sig = float(len(df[(df['sample']==cur_mode) & (df['valid']==True) & (df['BDTscore']>=x)]))
+        tot = float(len(df[(df['sample']==cur_mode) & (df['valid']==True)]))
+        eff[cur_mode].append(sig/tot)
     
+    print(f'------>Saved efficiencies to {f"{outDir}/efficiency.csv"}')
+
     fig, ax = plt.subplots(figsize=(12,8))
     
     for cur_mode in mode_names:
@@ -342,10 +395,9 @@ def efficiency(df, mode_names, Label, label, outDir, plot_file):
     plt.xlabel("BDT score",fontsize=30)
     plt.ylabel("Efficiency",fontsize=30)
 
-    ymin,ymax = plt.ylim()
-    plt.ylim(ymin,1.3)
+    plt.ylim(None,1.3)
     plt.legend(fontsize=14, loc="best", ncols=3)
-    plt.grid(alpha=0.4,which="both")
+    plt.grid(alpha=0.4, which="both")
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=16, loc='left')
     ax.set_title(label, fontsize=16, loc='right')
     plt.tight_layout()

@@ -22,7 +22,7 @@ prodTag = "FCCee/winter2023/IDEA/"
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = "FCCee_procDict_winter2023_IDEA.json"
 # optional: ncpus, default is 4, -1 uses all cores available
-nCPUS = 20
+nCPUS = 10
 # scale the histograms with the cross-section and integrated luminosity
 doScale = True
 intLumi = lumi * 1e6 # in pb-1
@@ -188,6 +188,10 @@ def build_graph_ll(df, hists, dataset, final_state):
     # Higgsstrahlungness
     df = df.Define("H", "FCCAnalyses::Higgsstrahlungness(zll_m, zll_recoil_m)")
 
+    # Visible energy
+    df = df.Define("rps_no_leps", "FCCAnalyses::ReconstructedParticle::remove(ReconstructedParticles, zll_leps)")
+    df = df.Define("visibleEnergy", "FCCAnalyses::visibleEnergy(rps_no_leps)")
+
     #########
     ### CUT 3: Z mass window
     #########
@@ -217,13 +221,22 @@ def build_graph_ll(df, hists, dataset, final_state):
         df = df.Filter(f"zll_recoil_m < 150 && zll_recoil_m > 100")
     hists.append(df.Histo1D((f"{final_state}_cutFlow",         "", *bins_count),  "cut5"))
 
+    ############
+    ### CUT 5bis: visible energy cut
+    ############
+    hists.append(df.Histo1D((f"{final_state}_visibleEnergy_nOne", "", *bins_p_mu), "visibleEnergy"))
+    if userConfig.vis:
+        df = df.Filter("visibleEnergy > 10")
+        hists.append(df.Histo1D((f"{final_state}_cutFlow",        "", *bins_count),  "cut6"))
+
     #########
     ### CUT 6: cosThetaMiss cut
     #########
     hists.append(df.Histo1D((f"{final_state}_cosThetaMiss_nOne", "", *bins_miss), "cosTheta_miss"))
     if userConfig.miss:
         df = df.Filter("cosTheta_miss < 0.98")
-        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
+        cut = 'cut7' if userConfig.vis else 'cut6'
+        hists.append(df.Histo1D((f"{final_state}_cutFlow",       "", *bins_count), cut))
 
     ##########
     ### MVA
@@ -276,6 +289,8 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_subleading_p",     "", *bins_p_mu),  "subleading_p"))
     hists.append(df.Histo1D((f"{final_state}_subleading_theta", "", *bins_theta), "subleading_theta"))
 
+    hists.append(df.Histo1D((f"{final_state}_visibleEnergy", "", *bins_p_mu), "visibleEnergy"))
+
     # final histograms for high mass events
     hists.append(df_high.Histo1D((f"{final_state}_leps_p_high",     "", *bins_p_mu),   "leps_p"))
     hists.append(df_high.Histo1D((f"{final_state}_zll_p_high",      "", *bins_p_mu),   "zll_p"))
@@ -290,6 +305,8 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df_high.Histo1D((f"{final_state}_leading_theta_high",    "", *bins_theta), "leading_theta"))
     hists.append(df_high.Histo1D((f"{final_state}_subleading_p_high",     "", *bins_p_mu),  "subleading_p"))
     hists.append(df_high.Histo1D((f"{final_state}_subleading_theta_high", "", *bins_theta), "subleading_theta"))
+
+    hists.append(df_high.Histo1D((f"{final_state}_visibleEnergy_high", "", *bins_p_mu), "visibleEnergy"))
 
     # final histograms for high mass events
     hists.append(df_low.Histo1D((f"{final_state}_leps_p_low",     "", *bins_p_mu),   "leps_p"))
@@ -306,13 +323,14 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df_low.Histo1D((f"{final_state}_subleading_p_low",     "", *bins_p_mu),  "subleading_p"))
     hists.append(df_low.Histo1D((f"{final_state}_subleading_theta_low", "", *bins_theta), "subleading_theta"))
 
+    hists.append(df_low.Histo1D((f"{final_state}_visibleEnergy_low", "", *bins_p_mu), "visibleEnergy"))
+
     return hists
 
 
 
 def build_graph(df, dataset):
 
-    df = df
     hists = []
 
     df = df.Define("weight", "1.0")
@@ -324,8 +342,8 @@ def build_graph(df, dataset):
     df = df.Define("cut3", "3")
     df = df.Define("cut4", "4")
     df = df.Define("cut5", "5")
-    if userConfig.miss:
-        df = df.Define("cut6", "6")
+    df = df.Define("cut6", "6")
+    df = df.Define("cut7", "7")
 
     df = df.Alias("MCRecoAssociations0", "MCRecoAssociations#0.index")
     df = df.Alias("MCRecoAssociations1", "MCRecoAssociations#1.index")

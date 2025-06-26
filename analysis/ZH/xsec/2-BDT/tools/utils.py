@@ -142,6 +142,16 @@ def update_keys(procDict, mode_names):
         updated_dict[new_key] = value
     return updated_dict
 
+def get_xsec(mode_names):
+    procFile = "FCCee_procDict_winter2023_training_IDEA.json"
+    proc_dict = get_procDict(procFile)
+    procDict = update_keys(proc_dict, mode_names)
+
+    xsec = {}
+    for key, value in procDict.items(): 
+        if key in mode_names: xsec[key] = value["crossSection"]
+    return xsec
+
 #__________________________________________________________
 def get_data_paths(cur_mode, data_path, mode_names):
     path = f"{data_path}/{mode_names[cur_mode]}"

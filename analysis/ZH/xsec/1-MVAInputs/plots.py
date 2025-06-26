@@ -17,7 +17,7 @@ elif final_state =='ee':
 delphesVersion = '3.4.2'
 energy         = ecm
 collider       = 'FCC-ee'
-inputDir       = get_loc(loc.HIST_MVA,  final_state, ecm, sel)
+inputDir       = get_loc(loc.HIST_MVAFINAL,  final_state, ecm, sel)
 yaxis          = ['lin','log']
 stacksig       = ['nostack']
 formats        = [plot_file]
@@ -33,7 +33,7 @@ variables = [
      # Recoil
      "zll_recoil_m",
      # missing Information
-     "cosTheta_miss",
+     "visibleEnergy", "cosTheta_miss",
      # Higgsstrahlungness
      "H"
 ]
@@ -43,15 +43,13 @@ _120 = '_120' if userConfig.recoil120 else ''
 selections = {}
 selections['ZH'] = [sel]
 
+_miss, _120 = ' and cos#theta_miss cut' if userConfig.miss else '', ' and 120 < m_{recoil} < 140 GeV' if userConfig.recoil120 else ''
+_bdt, _vis = ' and cos#theta_{miss} as input' if userConfig.miss else '', ' and E_{vis} cut' if userConfig.vis else ''
+
+selection = 'Baseline'+_vis+_120+_miss+_bdt
+
 extralabel = {}
-extralabel["Baseline"]                  = "Baseline"
-extralabel["Baseline_miss"]             = "Baseline with cos#theta_{miss} cut"
-extralabel["Baseline_120"]              = "Baseline with 120 < m_{recoil} < 140"
-extralabel["Baseline_120_miss"]         = "Baseline with 120 < m_{recoil} < 140 and cos#theta_{miss} cut"
-extralabel["Baseline_missBDT"]          = "Baseline with cos#theta_{miss} as input"
-extralabel["Baseline_miss_missBDT"]     = "Baseline with cos#theta_{miss} cut and as input"
-extralabel["Baseline_120_missBDT"]      = "Baseline with 120 < m_{recoil} < 140 and cos#theta_{miss} as input"
-extralabel["Baseline_120_miss_missBDT"] = "Baseline with 120 < m_{recoil} < 140 and cos#theta_{miss} cut and as input"
+extralabel[sel] = selection
 
 colors = {}
 colors['mumuH']    = ROOT.kRed
@@ -90,3 +88,5 @@ legend['gagamumu'] = '#gamma#gamma#rightarrow#mu^{+}#mu^{-}'
 legend['gagaee']   = '#gamma#gamma#rightarrow e^{+}e^{-}'
 legend['WW']       = 'W^{+}W^{-}'
 legend['ZZ']       = 'ZZ'
+
+
