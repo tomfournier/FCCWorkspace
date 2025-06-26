@@ -10,6 +10,7 @@ parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[2
 parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
 arg = parser.parse_args()
 
@@ -27,7 +28,7 @@ userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, train_vars
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.vis)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis)
 
 # Decay modes used in first stage training and their respective file names
 ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
@@ -65,6 +66,16 @@ elif arg.vis and final_state=='mumu':
     frac = {
         f"{final_state}H": 1.0, f"WW{final_state}": 0.95, "ZZ": 1.0, f"Z{final_state}": 1.0, 
         f"egamma_{final_state}": 1.0, f"gammae_{final_state}": 1.0, f"gaga_{final_state}": 0.95
+    }
+elif arg.miss and arg.leading and not arg.vis and not arg.recoil120:
+        frac = {
+        f"{final_state}H": 1.0, f"WW{final_state}": 0.34, "ZZ": 0.34, f"Z{final_state}": 0.34, 
+        f"egamma_{final_state}": 0.34, f"gammae_{final_state}": 0.34, f"gaga_{final_state}": 0.34
+    }
+elif arg.miss and arg.leading and arg.recoil120:
+        frac = {
+        f"{final_state}H": 1.0, f"WW{final_state}": 0.18, "ZZ": 0.18, f"Z{final_state}": 0.18, 
+        f"egamma_{final_state}": 0.18, f"gammae_{final_state}": 0.18, f"gaga_{final_state}": 0.18
     }
 else:
     frac = {

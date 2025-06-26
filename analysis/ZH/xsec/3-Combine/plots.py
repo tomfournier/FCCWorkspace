@@ -8,7 +8,9 @@ parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices
 parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add a cut on visible energy', action='store_true')
+
 parser.add_argument('--sign', help='Make significance plots', action='store_true')
 arg = parser.parse_args()
 

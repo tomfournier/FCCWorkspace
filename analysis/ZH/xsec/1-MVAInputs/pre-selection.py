@@ -25,7 +25,7 @@ procDict = "FCCee_procDict_winter2023_training_IDEA.json"
 # Optional: output directory, default is local dir
 eosType = "eosuser"
 # Optional: ncpus, default is 4
-nCPUS = 15
+nCPUS = 10
 # Optional running on HTCondor, default is False
 runBatch = False
 # Optional batch queue name when running on HTCondor, default is workday
@@ -234,6 +234,18 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_cutFlow",    "", *bins_count), "cut4"))
 
     #########
+    ### CUT 4bis: p_leading between 50 GeV and 80 GeV (240GeV)
+    #########
+    if userConfig.leading:
+        df = df.Filter("leading_p < 80 && leading_p > 50")
+
+    #########
+    ### CUT 4ter: p_subleading <  53 GeV (240GeV)
+    #########
+    if userConfig.leading:
+        df = df.Filter("subleading_p < 53")
+
+    #########
     ### CUT 5: recoil mass cut
     #########
     hists.append(df.Histo1D((f"{final_state}_zll_recoil_nOne", "", *bins_recoil), "zll_recoil_m"))
@@ -339,3 +351,25 @@ else:
         build_graph_ll(df, hists, dataset, 'ee')
 
         return hists, weightsum
+
+
+
+    #__________________________________________________________
+    # Mandatory: output function, please make sure you return the branchlist as a python list
+    def output():
+        branchList = [
+            # Reconstructed Particle
+            # leptons
+            "leading_p",    "leading_theta",    "leading_phi",
+            "subleading_p", "subleading_theta", "subleading_phi",
+            "acolinearity", "acoplanarity",
+            # Zed
+            "zll_m", "zll_p", "zll_theta", "zll_phi",
+            # Recoil
+            "zll_recoil_m",
+            # missing Information
+            "cosTheta_miss",
+            # Higgsstrahlungness
+            "H",
+        ]
+        return branchList

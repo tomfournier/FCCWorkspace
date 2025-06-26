@@ -219,10 +219,18 @@ def build_graph_ll(df, hists, dataset, final_state):
         df = df.Filter(f"zll_recoil_m < 140 && zll_recoil_m > 120")
     else:
         df = df.Filter(f"zll_recoil_m < 150 && zll_recoil_m > 100")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow",         "", *bins_count),  "cut5"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut5"))
+
+    #########
+    ### CUT 5bis: p_leading and p_subleading cut
+    #########
+    hists.append(df.Histo1D((f"{final_state}_leading_p_nOne", "", *bins_p_mu), "leading_p"))
+    if userConfig.leading:
+        df = df.Filter("leading_p < 80 && leading_p > 50 && subleading_p < 53")
+        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
 
     ############
-    ### CUT 5bis: visible energy cut
+    ### CUT 5ter: visible energy cut
     ############
     hists.append(df.Histo1D((f"{final_state}_visibleEnergy_nOne", "", *bins_p_mu), "visibleEnergy"))
     if userConfig.vis:
