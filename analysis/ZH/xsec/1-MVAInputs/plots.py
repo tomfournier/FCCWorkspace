@@ -51,6 +51,17 @@ selection = 'Baseline'+_vis+_120+_miss+_bdt
 extralabel = {}
 extralabel[sel] = selection
 
+extralabel["Baseline_leading"]                  = "Baseline with p_{leading} and p_{subleading} cuts"
+extralabel["Baseline_leading_120"]              = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140"
+extralabel["Baseline_leading_miss"]             = "Baseline with p_{leading}, p_{subleading} and cos#theta_{miss} cut"
+extralabel["Baseline_leading_missBDT"]          = "Baseline with p_{leading}, p_{subleading} and cos#theta_{miss} cut as input"
+extralabel["Baseline_leading_120_miss"]         = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140 and cos#theta_{miss} cut"
+extralabel["Baseline_leading_miss_missBDT"]     = "Baseline with p_{leading}, p_{subleading} and cos#theta_{miss} cut and as input"
+extralabel["Baseline_leading_120_missBDT"]      = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140 and cos#theta_{miss} cut as input"
+extralabel["Baseline_leading_120_miss_missBDT"] = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140 and cos#theta_{miss} cut and as input"
+
+
+
 colors = {}
 colors['mumuH']    = ROOT.kRed
 colors['eeH']      = ROOT.kRed
