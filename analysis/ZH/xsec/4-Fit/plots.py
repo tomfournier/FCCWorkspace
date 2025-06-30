@@ -7,6 +7,8 @@ parser.add_argument('--lumi', help='Integrated luminosity in attobarns', choices
 parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
+parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
+parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
 arg = parser.parse_args()
 
 import importlib
@@ -28,7 +30,7 @@ procs = [f"ZH", "WW", "ZZ", "Zgamma", "Rare"]
 for cat in ['mumu', 'ee']:
         print(f'\n----->[Info] Making plots for {cat} channel\n')
 
-        sel      = select(arg.recoil120, arg.miss, arg.bdt)
+        sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis)
         inputDir = get_loc(loc.BIAS_DATACARD, cat, ecm, sel)
         outDir   = get_loc(loc.PLOTS_BIAS, cat, ecm, sel)
 

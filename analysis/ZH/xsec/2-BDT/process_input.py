@@ -12,6 +12,7 @@ parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action=
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
+parser.add_argument('--visbdt', help='Add E_vis in the training variables for the BDT', action='store_true')
 arg = parser.parse_args()
 
 if arg.cat=='':
@@ -28,7 +29,7 @@ userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, train_vars
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt)
 
 # Decay modes used in first stage training and their respective file names
 ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
@@ -56,6 +57,7 @@ pkl_path  = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
 files, df, eff = {}, {}, {}
 N_events, vars_list = {}, train_vars.copy()
 if arg.bdt: vars_list.append("cosTheta_miss")
+if arg.visbdt: vars_list.append("visibleEnergy")
 
 if not arg.miss and not arg.vis:
     frac = {

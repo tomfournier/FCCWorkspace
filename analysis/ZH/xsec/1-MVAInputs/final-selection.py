@@ -57,9 +57,9 @@ baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_reco
 cosTheta_missCut, E_visCut, leading_pCut = "cosTheta_miss < 0.98", 'visibleEnergy > 10', "leading_p < 80 && leading_p > 50"
 
 selection = baselineCut + ' && ' + cosTheta_missCut if userConfig.miss else baselineCut
+selection = selection + ' && ' + leading_pCut if userConfig.leading else selection
 selection = selection + ' && ' + E_visCut if userConfig.vis else selection
 
-if userConfig.leading: selection += ' && ' + leading_pCut
 
 
 cutList = { sel: selection }

@@ -63,6 +63,7 @@ bins_count = (50,  0, 50)
 
 vars_list = train_vars.copy()
 if userConfig.bdt: vars_list.append("cosTheta_miss")
+if userConfig.visbdt: vars_list.append("visibleEnergy")
 
 # sel_bdt = sel if not userConfig.miss else sel.replace('_miss', '')
 
@@ -235,7 +236,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_visibleEnergy_nOne", "", *bins_p_mu), "visibleEnergy"))
     if userConfig.vis:
         df = df.Filter("visibleEnergy > 10")
-        hists.append(df.Histo1D((f"{final_state}_cutFlow",        "", *bins_count),  "cut6"))
+        hists.append(df.Histo1D((f"{final_state}_cutFlow",        "", *bins_count),  "cut7"))
 
     #########
     ### CUT 6: cosThetaMiss cut
@@ -243,7 +244,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_cosThetaMiss_nOne", "", *bins_miss), "cosTheta_miss"))
     if userConfig.miss:
         df = df.Filter("cosTheta_miss < 0.98")
-        cut = 'cut7' if userConfig.vis else 'cut6'
+        cut = 'cut8' if userConfig.vis else 'cut7'
         hists.append(df.Histo1D((f"{final_state}_cutFlow",       "", *bins_count), cut))
 
     ##########
@@ -352,6 +353,7 @@ def build_graph(df, dataset):
     df = df.Define("cut5", "5")
     df = df.Define("cut6", "6")
     df = df.Define("cut7", "7")
+    df = df.Define("cut8", "8")
 
     df = df.Alias("MCRecoAssociations0", "MCRecoAssociations#0.index")
     df = df.Alias("MCRecoAssociations1", "MCRecoAssociations#1.index")

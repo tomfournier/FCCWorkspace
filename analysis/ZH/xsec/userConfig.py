@@ -10,12 +10,12 @@ treemaker = True
 
 ecm, lumi = 240, 10.8
 recoil120, miss, bdt = False, False, False
-leading, vis = True, True
+leading, vis, visbdt = True, False, True
 
 _120, _miss, _bdt = '_120' if recoil120 else '', '_miss' if miss else '', '_missBDT' if bdt else ''
-_vis, _leading = '_vis' if vis else '', '_leading' if leading else ''
+_vis, _leading, _visbdt = '_vis' if vis else '', '_leading' if leading else '', '_visBDT' if visbdt else ''
 
-sel = 'Baseline'+_leading+_vis+_120+_miss+_bdt
+sel = 'Baseline'+_leading+_vis+_visbdt+_120+_miss+_bdt
 
 #############################
 ##### LOCATION OF FILES #####
@@ -98,10 +98,11 @@ def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
     path = path.replace('selection', sel)
     return path
 
-def select(recoil120: bool = False, miss: bool = False, bdt: bool = False, leading: bool = False, vis: bool = False) -> str:
+def select(recoil120: bool = False, miss: bool = False, bdt: bool = False, leading: bool = False, vis: bool = False, visbdt: bool = False) -> str:
     sel = 'Baseline'
     if leading:   sel += '_leading'
     if vis:       sel += '_vis'
+    if visbdt:    sel += '_visBDT'
     if recoil120: sel += '_120'
     if miss:      sel += '_miss'
     if bdt:       sel += '_missBDT'
@@ -131,7 +132,8 @@ latex_mapping = {
     'zll_p':            r'$p_{\ell\ell}$',
     'zll_theta':        r'$\theta_{\ell\ell}$',
     'cosTheta_miss':    r'$cos\theta_{miss}$',
-    'H':                r'$H$'
+    'H':                r'$H$',
+    'visibleEnergy':    r'$E_{visible}$'
 }
 
 Label = {}

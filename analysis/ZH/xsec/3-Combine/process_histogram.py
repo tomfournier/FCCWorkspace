@@ -10,12 +10,15 @@ parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 Ge
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
+parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
+parser.add_argument('--visbdt', help='Add E_vis > 10 GeV cut in the training variables for the BDT', action='store_true')
+
 arg = parser.parse_args()
 
 userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, z_decays, h_decays
 
-ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt, arg.leading)
+ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt)
 
 samples_bkg = [
     f"p8_ee_WW_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",

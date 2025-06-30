@@ -12,6 +12,7 @@ parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action=
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
+parser.add_argument('--visbdt', help='Add E_vis > 10 GeV cut in the training variables for the BDT', action='store_true')
 arg = parser.parse_args()
 
 if arg.cat=='':
@@ -27,12 +28,13 @@ userconfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, train_vars
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt)
 
 modes = [f"{final_state}H", "ZZ", f"WW{final_state}", 
          f"Z{final_state}", f"egamma_{final_state}", f"gammae_{final_state}", f"gaga_{final_state}"]
 vars_list = train_vars.copy()
 if arg.bdt: vars_list.append("cosTheta_miss")
+if arg.visbdt: vars_list.append("visibleEnergy")
 
 inputDir = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
 outDir   = get_loc(loc.BDT,           final_state, ecm, sel)

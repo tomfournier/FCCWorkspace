@@ -10,6 +10,7 @@ parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action=
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add a cut on visible energy', action='store_true')
+parser.add_argument('--visbdt', help='Add E_vis > 10 GeV cut in the training variables for the BDT', action='store_true')
 
 parser.add_argument('--sign', help='Make significance plots', action='store_true')
 arg = parser.parse_args()
@@ -30,11 +31,14 @@ m_dw, m_up = '120' if arg.recoil120 else '100', '140' if arg.recoil120 else '150
 cuts = ["cut0", "cut1", "cut2", "cut3", "cut4", "cut5"]
 cut_labels = ["All events", "#geq 1 #ell^{#pm} + ISO", "#geq 2 #ell^{#pm} + OS", "86 < m_{#ell^{+}#ell^{#minus}} < 96", 
               "20 < p_{#ell^{+}#ell^{#minus}} < 70", m_dw+" < m_{rec} < "+m_up]
-if arg.vis:
+if arg.leading:
         cuts.append('cut6')
+        cut_labels.append("50<p_{leading}<80 and p_{sub}<53")
+if arg.vis:
+        cuts.append('cut7')
         cut_labels.append("E_{vis} > 10")
 if arg.miss:
-        cu = 'cut7' if arg.vis else 'cut6'
+        cu = 'cut8' if arg.vis else 'cut7'
         cuts.append(cu)
         cut_labels.append("|cos#theta_{miss}| < 0.98")
 
@@ -246,7 +250,7 @@ argument = {
 for cat in ['ee', 'mumu']:
     print(f'\n----->[Info] Making plots for {cat} channel\n')
 
-    sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.vis)
+    sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt)
     inputDir = get_loc(loc.HIST_PREPROCESSED, cat, ecm, sel)
     outDir   = get_loc(loc.PLOTS_MEASUREMENT, cat, ecm, sel)
 
@@ -262,6 +266,8 @@ for cat in ['ee', 'mumu']:
             sig_scale=10, yMin=1e4, yMax=1e10)
     CutFlowDecays(*args1[:2], cat, hName=f"{cat}_cutFlow", outName="cutFlow", 
             cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=[cat], h_decays=h_decays, miss=arg.miss)
+    CutFlowDecays(*args1[:2], cat, hName=f"{cat}_cutFlow", outName="cutFlow_all", 
+            cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=z_decays, h_decays=h_decays, miss=arg.miss)
 
     for hName, kwarg in argument.items():
         if arg.sign and 'sign' in kwarg and kwarg['sign']:
@@ -274,6 +280,7 @@ for cat in ['ee', 'mumu']:
                                              outName=hName, rebin=kwarg['rebin']) 
             if 'lim' in kwarg: makePlot(f'{cat}_{hName}{ind}', *args, *kwarg['lim'], *kwarg['label'], 
                                           outName=hName, logY=kwarg['logY'], rebin=kwarg['rebin'])
+            
 
 
 print('\n\n------------------------------------\n')
