@@ -10,12 +10,11 @@ treemaker = True
 
 ecm, lumi = 240, 10.8
 recoil120, miss, bdt = False, False, False
-leading, vis = True, True
+leading, vis, sep = False, False, True
 
 _120, _miss, _bdt = '_120' if recoil120 else '', '_miss' if miss else '', '_missBDT' if bdt else ''
-_vis, _leading = '_vis' if vis else '', '_leading' if leading else ''
-
-sel = 'Baseline'+_leading+_vis+_120+_miss+_bdt
+_vis, _leading, _sep = '_vis' if vis else '', '_leading' if leading else '', '_sep' if sep else ''
+sel = 'Baseline'+_sep+_leading+_vis+_120+_miss+_bdt
 
 #############################
 ##### LOCATION OF FILES #####
@@ -98,13 +97,14 @@ def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
     path = path.replace('selection', sel)
     return path
 
-def select(recoil120: bool = False, miss: bool = False, bdt: bool = False, leading: bool = False, vis: bool = False) -> str:
+def select(recoil120: bool = False, miss: bool = False, bdt: bool = False, leading: bool = False, vis: bool = False, sep: bool = False) -> str:
     sel = 'Baseline'
-    if leading:   sel += '_leading'
-    if vis:       sel += '_vis'
-    if recoil120: sel += '_120'
-    if miss:      sel += '_miss'
-    if bdt:       sel += '_missBDT'
+    if sep:         sel += '_sep'
+    elif leading:   sel += '_leading'
+    elif vis:       sel += '_vis'
+    elif recoil120: sel += '_120'
+    elif miss:      sel += '_miss'
+    elif bdt:       sel += '_missBDT'
     return sel
 
 

@@ -54,15 +54,22 @@ else:
     recoil_dw, recoil_up = 100, 150
 
 baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
-cosTheta_missCut, E_visCut, leading_pCut = "cosTheta_miss < 0.98", 'visibleEnergy > 10', "leading_p < 80 && leading_p > 50"
+cosTheta_missCut, E_visCut, leading_pCut = "cosTheta_miss < 0.98", 'visibleEnergy > 100', "leading_p < 80 && leading_p > 50"
+
+visCut = 'visibleEnergy > 100 && cosTheta_miss < 0.995'
+invCut = 'visibleEnergy <= 100 && zll_theta < 2.85 && zll_theta > 0.25 && acoplanarity > 0.05 && cosTheta_miss < 0.998'
 
 selection = baselineCut + ' && ' + cosTheta_missCut if userConfig.miss else baselineCut
 selection = selection + ' && ' + E_visCut if userConfig.vis else selection
+selection = selection + f' && (({visCut}) || ({invCut}))' if userConfig.sep else selection
 
 if userConfig.leading: selection += ' && ' + leading_pCut
 
-
-cutList = { sel: selection }
+cutList = { sel: selection,
+            'tot': '((' + baselineCut + ' && ' + visCut +') || (' + invCut + ')) && (leading_p < 80 && subleading_p < 53 && subleading_p > 23)',
+            'inv': baselineCut + ' && ' + invCut,
+            'invdemo': baselineCut + ' && ' + 'visibleEnergy < 100' 
+            }
 
 # Dictionary for the ouput variable/hitograms. 
 histoList = {
@@ -120,6 +127,6 @@ histoList = {
                          "bin":110,"xmin":0,"xmax":110},
 
     "visibleEnergy":    {"name":"visibleEnergy",
-                         "title":"visibleEnergy",
+                         "title":"E_{vis} [GeV]",
                          "bin":320,"xmin":0,"xmax":160},
 }

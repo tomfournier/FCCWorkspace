@@ -11,6 +11,7 @@ parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action=
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
+parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
 arg = parser.parse_args()
 
 if arg.cat=='':
@@ -31,11 +32,12 @@ from userConfig import loc, get_loc, select
 from userConfig import plot_file, Label, train_vars, latex_mapping
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
 
-inputDir = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
-inputBDT = get_loc(loc.BDT,           final_state, ecm, sel)
-outDir   = get_loc(loc.PLOTS_BDT,     final_state, ecm, sel)
+inputDir  = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
+inputBDT  = get_loc(loc.BDT,           final_state, ecm, sel)
+outDir    = get_loc(loc.PLOTS_BDT,     final_state, ecm, sel)
+data_path = get_loc(loc.MVA_INPUTS,    final_state, ecm, sel)
 
 # Decay modes used in first stage training and their respective file names
 ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
@@ -76,8 +78,8 @@ def plot_metrics(df, bdt, vars_list, results, x_axis, mode_names, final_state, o
     classification_error(results, x_axis, label, outDir, plot_file)
     AUC(results, x_axis, label, outDir, plot_file)
     roc(df, label, outDir, plot_file)
-    bdt_score(df, label, outDir, plot_file, unity=True, Bins=100)
-    mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, unity=True, Bins=100)
+    bdt_score(df, label, outDir, modes, plot_file, data_path, vars_list, unity=False, Bins=100)
+    mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path, vars_list, unity=False, Bins=100)
     importance(bdt, vars_list, latex_mapping, label, outDir, plot_file)
     significance(df, label, outDir, inputBDT, plot_file)
     efficiency(df, mode_names, Label, label, outDir, plot_file)

@@ -41,7 +41,7 @@ variables = [
 # Dictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
 _120 = '_120' if userConfig.recoil120 else ''
 selections = {}
-selections['ZH'] = [sel]
+selections['ZH'] = [sel, 'inv', 'invdemo', 'tot']
 
 _miss, _120 = ' and cos#theta_miss cut' if userConfig.miss else '', ' and 120 < m_{recoil} < 140 GeV' if userConfig.recoil120 else ''
 _bdt, _vis = ' and cos#theta_{miss} as input' if userConfig.miss else '', ' and E_{vis} cut' if userConfig.vis else ''
@@ -49,7 +49,10 @@ _bdt, _vis = ' and cos#theta_{miss} as input' if userConfig.miss else '', ' and 
 selection = 'Baseline'+_vis+_120+_miss+_bdt
 
 extralabel = {}
-extralabel[sel] = selection
+extralabel[sel] = 'Visible decay'#selection
+extralabel['inv'] = 'Invisible decay'
+extralabel['invdemo'] = 'Invisible decay'
+extralabel['tot'] = 'Visible and invisible'
 
 extralabel["Baseline_leading"]                  = "Baseline with p_{leading} and p_{subleading} cuts"
 extralabel["Baseline_leading_120"]              = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140"

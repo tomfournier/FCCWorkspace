@@ -12,6 +12,7 @@ parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action=
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
+parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
 arg = parser.parse_args()
 
 if arg.cat=='':
@@ -27,7 +28,7 @@ userconfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, train_vars
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
 
 modes = [f"{final_state}H", "ZZ", f"WW{final_state}", 
          f"Z{final_state}", f"egamma_{final_state}", f"gammae_{final_state}", f"gaga_{final_state}"]

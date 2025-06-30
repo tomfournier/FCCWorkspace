@@ -217,7 +217,7 @@ def roc(df, label, outDir, plot_file):
     plt.close()
 
 #__________________________________________________________
-def bdt_score(df, label, outDir, plot_file, unity=True, Bins=100):
+def bdt_score(df, label, outDir, mode_names, plot_file, data_path, vars_list, unity=True, Bins=100, lumi=10.8):
     print("------>Plotting BDT score")
     
     fig, ax = plt.subplots(figsize=(12,8))
@@ -229,11 +229,18 @@ def bdt_score(df, label, outDir, plot_file, unity=True, Bins=100):
     cut = ['valid==False & isSignal==1', 'valid==True & isSignal==1', 
            'valid==False & isSignal!=1', 'valid==True & isSignal!=1']
     
+    xsec = ut.get_xsec(mode_names)
+    for cur_mode in mode_names:
+        files = ut.get_data_paths(cur_mode, data_path, mode_names)
+        N_events, DF, eff = ut.counts_and_efficiencies(cur_mode, files, vars_list)
+        N = len(df.loc[df['sample']==cur_mode])
+        df.loc[df['sample']==cur_mode, 'weights'] = xsec[cur_mode] * eff * lumi * 1e6 / N
+
     for (x, y, z, w) in zip(tag, line, color, cut):
         df_instance = df.query(w)
         print(f'---------> {x} {len(df_instance)} "Ratio: {((len(df_instance)/float(len(df))) * 100.0):.2f}')
         ax.hist(df_instance['BDTscore'], density=unity, bins=Bins, range=[0.0, 1.0], histtype=htype, 
-                label=x, linestyle=y, color=z, linewidth=1.5)
+                label=x, linestyle=y, color=z, linewidth=1.5, weights=df_instance['weights'])
     
     plt.yscale('log')
     ax.legend(loc="upper right", shadow=False, fontsize=14)
@@ -248,7 +255,7 @@ def bdt_score(df, label, outDir, plot_file, unity=True, Bins=100):
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     
-    ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
+    if unity: ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
     ax.set_xlim(left=0.0, right=1.0) 
     ax.grid()
 
@@ -258,7 +265,8 @@ def bdt_score(df, label, outDir, plot_file, unity=True, Bins=100):
     plt.close()
 
 #__________________________________________________________
-def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, all=False, unity=True, Bins=100, lumi=10.8):
+def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path, vars_list, 
+              all=False, unity=True, Bins=100, lumi=10.8):
     print("------>Plotting MVA score")
     
     fig, ax = plt.subplots(figsize=(12,8))
@@ -275,7 +283,9 @@ def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, all=
             if 'isSignal==1' in w and not 'H' in cur_mode: continue
             if 'isSignal!=1' in w and 'H' in cur_mode: continue
             df_tmp = df[(df['sample']==cur_mode)]
-            weight = xsec[cur_mode] * lumi * 1e6 / len(df_tmp)
+            files = ut.get_data_paths(cur_mode, data_path, mode_names)
+            N_events, DF, eff = ut.counts_and_efficiencies(cur_mode, files, vars_list)
+            weight = xsec[cur_mode] * eff * lumi * 1e6 / len(df_tmp)
             df_instance = df_tmp.query(w)
             lab = Label[cur_mode] if 'valid==False' in w else None
             n, b, p = ax.hist(df_instance['BDTscore'], density=unity, bins=Bins, range=[0.0, 1.0], histtype=htype, 
@@ -296,7 +306,7 @@ def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, all=
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     
-    ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
+    if unity: ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
     ax.set_xlim(left=0.0, right=1.0)
     ax.grid()
 

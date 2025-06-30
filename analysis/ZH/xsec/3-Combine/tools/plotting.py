@@ -110,7 +110,7 @@ def getHist(hName, procs, inputDir, rebin=-1):
 
 #__________________________________________________________
 def CutFlow(inputDir, outDir, procs, procs_cfg, plot_file=['png'], ecm=240, lumi=10.8,
-            outName="", hName="cutFlow", cuts=[], labels=[], sig_scale=1.0, yMin=1e6, yMax=1e10):
+            outName="cutFlow", hName="cutFlow", cuts=[], labels=[], sig_scale=1.0, yMin=1e6, yMax=1e10):
     
     if outName=="":
         outName = hName
@@ -231,8 +231,8 @@ def CutFlow(inputDir, outDir, procs, procs_cfg, plot_file=['png'], ecm=240, lumi
     sys.stdout = out_orig
 
 #__________________________________________________________
-def CutFlowDecays(inputDir, outDir, final_state, plot_file=['png'], ecm=240, lumi=10.8, hName="cutFlow", 
-                  outName="", cuts=[], cut_labels=[], yMin=0, yMax=150, z_decays=[], h_decays=[], miss=False):
+def CutFlowDecays(inputDir, outDir, z_decays, h_decays, final_state, plot_file=['png'], ecm=240, lumi=10.8, 
+                  hName="cutFlow", outName="cutFlow", cuts=[], cut_labels=[], yMin=0, yMax=150, miss=False):
 
     if outName == "":
         outName = hName
@@ -348,12 +348,8 @@ def CutFlowDecays(inputDir, outDir, final_state, plot_file=['png'], ecm=240, lum
     del canvas
 
     # make final efficiency plot eff_final, eff_final_err
-    if miss:
-        xMin, xMax = int(np.min(eff_final))-3, int(np.max(eff_final))+3
-    elif final_state == "qq":
-        xMin, xMax = int(eff_avg)-10, int(eff_avg)+10
-    else:
-        xMin, xMax = int(eff_avg)-5, int(eff_avg)+3
+    xMin, xMax = int(np.min(eff_final))-3, int(np.max(eff_final))+3
+
     h_pulls = ROOT.TH2F("pulls", "pulls", (xMax-xMin)*10, xMin, xMax, len(sigs)+1, 0, len(sigs)+1)
     g_pulls = ROOT.TGraphErrors(len(sigs)+1)
 

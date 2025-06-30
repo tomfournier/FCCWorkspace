@@ -53,6 +53,11 @@ procs_cfg = {
 }
 
 argument = {
+
+    ######################
+    ### Z informations ###
+    ######################
+
     'zll_m_nOne': {
         'lim':   [50, 120, 1e2, 1e8],
         'limH':  [15, 130, 1e-5, 1],
@@ -66,90 +71,6 @@ argument = {
         'limH':  [0, 80, 1e-5, 1],
         'label': ['p_{ll} [GeV]', 'Events'],
         'logY':  True, 'rebin': 2,
-        'sign':  True
-    },
-
-    'cosThetaMiss_nOne': {
-        'lim':   [0.9, 1, 1e1, 1e7],
-        'limH':  [0.9, 1, 1e-5, 1e1],
-        'label': ['|cos#theta_{miss}|', 'Events'],
-        'logY':  True, 'rebin': 8,
-        'sign':  True
-    },
-
-    'zll_recoil_m_mva_low': {
-        'lim':   [int(m_dw), int(m_up), 0, -1],
-        'limH':  [int(m_dw), int(m_up), 1e-5, 1],
-        'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 2
-    },
-
-    'zll_recoil_m_mva_high': {
-        'lim':   [122, 134, 0, -1],
-        'limH':  [122, 134, 1e-5, 1e1],
-        'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 1
-    },
-
-    'mva_score': {
-        'lim':   [0, 1, 1e-1, -1],
-        'limH':  [0, 1, 1e-4, 1],
-        'label': ['MVA score', 'Events'],
-        'logY':  True, 'rebin': 10,
-        'sign':  True
-    },
-
-    'zll_recoil_nOne': {
-        'lim':   [100, 150, 1, 1e6],
-        'limH':  [100, 150, 1e-5, 1],
-        'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 8,
-        'sign':  True
-    },
-
-    'zll_recoil_cut3': {
-        'lim':   [40, 160, 0, -1],
-        'limH':  [40, 160, 1e-5, 1],
-        'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 8
-    },
-
-    'zll_recoil_cut4': {
-        'lim':   [40, 160, 0, -1],
-        'limH':  [40, 160, 1e-5, 1],
-        'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 8
-    },
-
-    'leps_iso_noSel': {
-        'lim':   [0, 5, 1e-1, -1],
-        'limH':  [0, 4, 1e-5, 1],
-        'label': ['Cone Isolation', 'Events'],
-        'logY':  True, 'rebin': 1,
-        'sign':  True
-    },
-
-    'leps_all_p_noSel': {
-        'lim':   [20, 100, 1e1, -1],
-        'limH':  [20, 100, 1e-5, 1],
-        'label': ['p_{lepton} no sel [GeV]', 'Events'],
-        'logY':  True, 'rebin': 1,
-        'sign':  True
-    },
-
-    'leps_all_theta_noSel': {
-        'lim':   [0, 3.2, 1e1, -1],
-        'limH':  [0, 3.2, 1e-5, 1],
-        'label': ['#theta_{lepton} no sel [GeV]', 'Events'],
-        'logY':  True, 'rebin': 1,
-        'sign':  True
-    },
-
-    'visibleEnergy_nOne': {
-        'lim':   [0, 160, 1e-1, -1],
-        'limH':  [0, 160, 1e-5, 1], 
-        'label': ['E_{vis} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 16,
         'sign':  True
     },
 
@@ -169,26 +90,32 @@ argument = {
         'hl':    True
     },
 
-    'zll_recoil': {
-        'lim':   [int(m_dw), int(m_up), 0, -1],
-        'limH':  [int(m_dw), int(m_up), 1e-5, 1],
-        'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 4,
-        'hl':    True
+    # 'zll_theta': {
+    #     'lim':   [0, 3.2, 0, -1],
+    #     'limH':  [0, 3.2, 1e-5, 1],
+    #     'label': ['#theta_{ll}', 'Events'],
+    #     'logY':  False, 'rebin': 1,
+    #     'sign':  True,  'hl': True
+    # },
+
+
+
+    ##############################
+    ### Z leptons informations ###
+    ##############################
+
+    'acolinearity': {
+        'lim':   [0, 3.2, 1e-2, 1e7],
+        'limH':  [0, 3.2, 1e-5, 1],
+        'label': ['#Delta#theta_{ll}', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'hl':    True, 'sign':  True
     },
 
     'acoplanarity': {
         'lim':   [0, 3.2, 1e-2, 1e7],
         'limH':  [0, 3.2, 1e-5, 1],
         'label': ['#Delta#phi_{ll}', 'Events'],
-        'logY':  True, 'rebin': 1,
-        'hl':    True, 'sign':  True
-    },
-
-    'acolinearity': {
-        'lim':   [0, 3.2, 1e-2, 1e7],
-        'limH':  [0, 3.2, 1e-5, 1],
-        'label': ['#Delta#theta_{ll}', 'Events'],
         'logY':  True, 'rebin': 1,
         'hl':    True, 'sign':  True
     },
@@ -225,13 +152,83 @@ argument = {
         'hl':    True, 'sign':  True
     }, 
 
-    'leps_p': {
-        'lim':   [20, 100, 1e-2, 1e9],
-        'limH':  [10, 90, 1e-5, 1], 
-        'label': ['p_{leptons} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 4,
-        'hl':    True, 'sign':  True
+
+
+    #########################
+    ### Recoil mass plots ###
+    #########################
+
+    'zll_recoil_nOne': {
+        'lim':   [100, 150, 1, 1e6],
+        'limH':  [100, 150, 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 8,
+        'sign':  True
     },
+
+    'zll_recoil': {
+        'lim':   [int(m_dw), int(m_up), 0, -1],
+        'limH':  [int(m_dw), int(m_up), 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 4,
+        'hl':    True
+    },
+
+    'zll_recoil_cut3': {
+        'lim':   [40, 160, 0, -1],
+        'limH':  [40, 160, 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 8
+    },
+
+    'zll_recoil_cut4': {
+        'lim':   [40, 160, 0, -1],
+        'limH':  [40, 160, 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 8
+    },
+
+
+
+    #################
+    ### MVA plots ###
+    #################
+
+    'mva_score': {
+        'lim':   [0, 1, 1e-1, -1],
+        'limH':  [0, 1, 1e-4, 1],
+        'label': ['MVA score', 'Events'],
+        'logY':  True, 'rebin': 10,
+        'sign':  True
+    },
+
+    'zll_recoil_m_mva_low': {
+        'lim':   [int(m_dw), int(m_up), 0, -1],
+        'limH':  [int(m_dw), int(m_up), 1e-5, 1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 2
+    },
+
+    'zll_recoil_m_mva_high': {
+        'lim':   [122, 134, 0, -1],
+        'limH':  [122, 134, 1e-5, 1e1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 1
+    },
+
+
+
+    #########################################
+    ### Visible and invisible information ###
+    #########################################
+
+    'visibleEnergy_nOne': {
+        'lim':   [0, 160, 1e-1, -1],
+        'limH':  [0, 160, 1e-5, 1], 
+        'label': ['E_{vis} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 16,
+        'sign':  True
+    },    
 
     'visibleEnergy': {
         'lim':   [10, 160, 1e-2, -1],
@@ -239,11 +236,58 @@ argument = {
         'label': ['E_{vis} [GeV]', 'Events'],
         'logY':  True, 'rebin': 2,
         'hl':    True, 'sign':  True
-    }          
+    },    
+
+    'cosThetaMiss_nOne': {
+        'lim':   [0.9, 1, 1e1, 1e7],
+        'limH':  [0.9, 1, 1e-5, 1e1],
+        'label': ['|cos#theta_{miss}|', 'Events'],
+        'logY':  True, 'rebin': 8,
+        'sign':  True
+    },
+
+
+
+    ############################
+    ### Leptons informations ###
+    ############################
+
+    'leps_iso_noSel': {
+        'lim':   [0, 5, 1e-1, -1],
+        'limH':  [0, 4, 1e-5, 1],
+        'label': ['Cone Isolation', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'sign':  True
+    },
+
+    'leps_all_p_noSel': {
+        'lim':   [20, 100, 1e1, -1],
+        'limH':  [20, 100, 1e-5, 1],
+        'label': ['p_{lepton} no sel [GeV]', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'sign':  True
+    },
+
+    'leps_all_theta_noSel': {
+        'lim':   [0, 3.2, 1e1, -1],
+        'limH':  [0, 3.2, 1e-5, 1],
+        'label': ['#theta_{lepton} no sel [GeV]', 'Events'],
+        'logY':  True, 'rebin': 1,
+        'sign':  True
+    },
+
+     'leps_p': {
+        'lim':   [20, 100, 1e-2, 1e9],
+        'limH':  [10, 90, 1e-5, 1], 
+        'label': ['p_{leptons} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 4,
+        'hl':    True, 'sign':  True
+    },
+ 
 }
 
 
-for cat in ['ee', 'mumu']:
+for cat in ['mumu', 'ee']:
     print(f'\n----->[Info] Making plots for {cat} channel\n')
 
     sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.vis)
@@ -258,10 +302,10 @@ for cat in ['ee', 'mumu']:
     args = [inputDir, outDir, procs, procs_cfg]
     args1 = [inputDir, outDir, [cat], h_decays]
 
-    CutFlow(*args, hName=f"{cat}_cutFlow", cuts=cuts, labels=cut_labels, outName='cutflow', 
+    CutFlow(*args, hName=f"{cat}_cutFlow", cuts=cuts, labels=cut_labels, 
             sig_scale=10, yMin=1e4, yMax=1e10)
-    CutFlowDecays(*args1[:2], cat, hName=f"{cat}_cutFlow", outName="cutFlow", 
-            cuts=cuts, cut_labels=cut_labels, yMin=40, yMax=150, z_decays=[cat], h_decays=h_decays, miss=arg.miss)
+    CutFlowDecays(*args1, cat, hName=f"{cat}_cutFlow", cuts=cuts, cut_labels=cut_labels, 
+                  yMin=40, yMax=150, miss=arg.miss)
 
     for hName, kwarg in argument.items():
         if arg.sign and 'sign' in kwarg and kwarg['sign']:
