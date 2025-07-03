@@ -58,17 +58,17 @@ files, df, eff = {}, {}, {}
 N_events, vars_list = {}, train_vars.copy()
 if arg.bdt: vars_list.append("cosTheta_miss")
 
-if not arg.miss and not arg.vis:
+if arg.miss and not arg.vis:
     frac = {
-        f"{final_state}H": 1.0, f"WW{final_state}": 1.0, "ZZ": 1.0, f"Z{final_state}": 1.0, 
-        f"egamma_{final_state}": 1.0, f"gammae_{final_state}": 1.0, f"gaga_{final_state}": 1.0
+        f"{final_state}H": 1.0, f"WW{final_state}": 0.4, "ZZ": 0.4, f"Z{final_state}": 0.4, 
+        f"egamma_{final_state}": 0.4, f"gammae_{final_state}": 0.4, f"gaga_{final_state}": 0.4
     }
 elif arg.vis and final_state=='mumu':
     frac = {
         f"{final_state}H": 1.0, f"WW{final_state}": 0.95, "ZZ": 1.0, f"Z{final_state}": 1.0, 
         f"egamma_{final_state}": 1.0, f"gammae_{final_state}": 1.0, f"gaga_{final_state}": 0.95
     }
-elif arg.miss and arg.leading and not arg.vis and not arg.recoil120:
+elif (arg.miss and arg.leading and not arg.vis and not arg.recoil120) or arg.sep:
         frac = {
         f"{final_state}H": 1.0, f"WW{final_state}": 0.34, "ZZ": 0.34, f"Z{final_state}": 0.34, 
         f"egamma_{final_state}": 0.34, f"gammae_{final_state}": 0.34, f"gaga_{final_state}": 0.34
@@ -80,8 +80,8 @@ elif arg.miss and arg.leading and arg.recoil120:
     }
 else:
     frac = {
-        f"{final_state}H": 1.0, f"WW{final_state}": 0.4, "ZZ": 0.4, f"Z{final_state}": 0.4, 
-        f"egamma_{final_state}": 0.4, f"gammae_{final_state}": 0.4, f"gaga_{final_state}": 0.4
+        f"{final_state}H": 1.0, f"WW{final_state}": 1.0, "ZZ": 1.0, f"Z{final_state}": 1.0, 
+        f"egamma_{final_state}": 1.0, f"gammae_{final_state}": 1.0, f"gaga_{final_state}": 1.0
     }
 
 for cur_mode in modes:

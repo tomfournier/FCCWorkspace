@@ -41,27 +41,22 @@ variables = [
 # Dictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
 _120 = '_120' if userConfig.recoil120 else ''
 selections = {}
-selections['ZH'] = [sel, 'inv', 'invdemo', 'tot']
+selections['ZH'] = [sel, 'inv', 'invdemo', 'tot', 'mass', 'miss', 'vis']
 
 _miss, _120 = ' and cos#theta_miss cut' if userConfig.miss else '', ' and 120 < m_{recoil} < 140 GeV' if userConfig.recoil120 else ''
 _bdt, _vis = ' and cos#theta_{miss} as input' if userConfig.miss else '', ' and E_{vis} cut' if userConfig.vis else ''
+_leading, _sep = ' and p_(sub)leading cut' if userConfig.leading else '', ' and E_{vis} separation' if userConfig.sep else ''
 
-selection = 'Baseline'+_vis+_120+_miss+_bdt
+selection = 'Baseline'+_sep+_leading+_vis+_120+_miss+_bdt
 
 extralabel = {}
-extralabel[sel] = 'Visible decay'#selection
+extralabel[sel] = selection
 extralabel['inv'] = 'Invisible decay'
 extralabel['invdemo'] = 'Invisible decay'
 extralabel['tot'] = 'Visible and invisible'
-
-extralabel["Baseline_leading"]                  = "Baseline with p_{leading} and p_{subleading} cuts"
-extralabel["Baseline_leading_120"]              = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140"
-extralabel["Baseline_leading_miss"]             = "Baseline with p_{leading}, p_{subleading} and cos#theta_{miss} cut"
-extralabel["Baseline_leading_missBDT"]          = "Baseline with p_{leading}, p_{subleading} and cos#theta_{miss} cut as input"
-extralabel["Baseline_leading_120_miss"]         = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140 and cos#theta_{miss} cut"
-extralabel["Baseline_leading_miss_missBDT"]     = "Baseline with p_{leading}, p_{subleading} and cos#theta_{miss} cut and as input"
-extralabel["Baseline_leading_120_missBDT"]      = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140 and cos#theta_{miss} cut as input"
-extralabel["Baseline_leading_120_miss_missBDT"] = "Baseline with p_{leading}, p_{subleading} and 120 < m_{recoil} < 140 and cos#theta_{miss} cut and as input"
+extralabel['mass'] = 'E_{vis} and cos#theta_{miss} cut'
+extralabel['miss'] = 'cos#theta_{miss} cut'
+extralabel['vis'] = 'E_{vis} > 100 GeV'
 
 
 

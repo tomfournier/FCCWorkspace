@@ -222,21 +222,21 @@ argument = {
     ### Visible and invisible information ###
     #########################################
 
-    'visibleEnergy_nOne': {
-        'lim':   [0, 160, 1e-1, -1],
-        'limH':  [0, 160, 1e-5, 1], 
-        'label': ['E_{vis} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 16,
-        'sign':  True
-    },    
+    # 'visibleEnergy_nOne': {
+    #     'lim':   [0, 160, 1e-1, -1],
+    #     'limH':  [0, 160, 1e-5, 1], 
+    #     'label': ['E_{vis} [GeV]', 'Events'],
+    #     'logY':  True, 'rebin': 16,
+    #     'sign':  True
+    # },    
 
-    'visibleEnergy': {
-        'lim':   [10, 160, 1e-2, -1],
-        'limH':  [10, 160, 1e-5, 1],
-        'label': ['E_{vis} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 2,
-        'hl':    True, 'sign':  True
-    },    
+    # 'visibleEnergy': {
+    #     'lim':   [10, 160, 1e-2, -1],
+    #     'limH':  [10, 160, 1e-5, 1],
+    #     'label': ['E_{vis} [GeV]', 'Events'],
+    #     'logY':  True, 'rebin': 2,
+    #     'hl':    True, 'sign':  True
+    # },    
 
     'cosThetaMiss_nOne': {
         'lim':   [0.9, 1, 1e1, 1e7],
@@ -244,6 +244,14 @@ argument = {
         'label': ['|cos#theta_{miss}|', 'Events'],
         'logY':  True, 'rebin': 8,
         'sign':  True
+    },
+
+    'cosThetaMiss': {
+        'lim':   [0.9, 1, 1e1, 1e7],
+        'limH':  [0.9, 1, 1e-5, 1e1],
+        'label': ['|cos#theta_{miss}|', 'Events'],
+        'logY':  True, 'rebin': 8,
+        'sign':  True, 'hl': True
     },
 
 

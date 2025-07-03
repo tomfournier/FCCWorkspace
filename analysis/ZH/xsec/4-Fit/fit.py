@@ -84,3 +84,4 @@ else:
     f = np.array([mu, err])
     np.savetxt(f"{res}/results{tar}.txt", f)
     print(f'----->[Info] Saved result in {res}/results{tar}.txt')
+    

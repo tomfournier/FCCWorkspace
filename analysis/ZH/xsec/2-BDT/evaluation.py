@@ -1,4 +1,6 @@
 import importlib, time, argparse
+import numpy as np
+from tqdm import tqdm
 
 t1 = time.time()
 
@@ -24,7 +26,7 @@ import tools.utils as ut
 
 from tools.plotting import AUC, bdt_score, efficiency, roc, importance
 from tools.plotting import log_loss, classification_error, significance
-from tools.plotting import load_data, load_model, evaluate_bdt
+from tools.plotting import load_data, load_model, evaluate_bdt, tree_plot
 from tools.plotting import print_input_summary, get_metrics, mva_score
 
 userConfig = importlib.import_module('userConfig')
@@ -74,15 +76,16 @@ def plot_metrics(df, bdt, vars_list, results, x_axis, mode_names, final_state, o
     else: exit("ERROR: Invalid final state")
 
     ut.create_dir(f"{outDir}")
-    log_loss(results, x_axis, label, outDir, plot_file)
-    classification_error(results, x_axis, label, outDir, plot_file)
-    AUC(results, x_axis, label, outDir, plot_file)
-    roc(df, label, outDir, plot_file)
-    bdt_score(df, label, outDir, modes, plot_file, data_path, vars_list, unity=False, Bins=100)
-    mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path, vars_list, unity=False, Bins=100)
-    importance(bdt, vars_list, latex_mapping, label, outDir, plot_file)
-    significance(df, label, outDir, inputBDT, plot_file)
-    efficiency(df, mode_names, Label, label, outDir, plot_file)
+    # log_loss(results, x_axis, label, outDir, plot_file)
+    # classification_error(results, x_axis, label, outDir, plot_file)
+    # AUC(results, x_axis, label, outDir, plot_file)
+    # roc(df, label, outDir, plot_file)
+    # bdt_score(df, label, outDir, modes, plot_file, data_path, vars_list, unity=False, Bins=100)
+    # mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path, vars_list, unity=False, Bins=100)
+    # importance(bdt, vars_list, latex_mapping, label, outDir, plot_file)
+    # significance(df, label, outDir, inputBDT, plot_file)
+    # efficiency(df, mode_names, Label, label, outDir, plot_file)
+    tree_plot(bdt, inputBDT, outDir, epochs, 10, plot_file)
 
 df = load_data(inputDir)
 print_input_summary(df, modes)

@@ -46,14 +46,11 @@ samples_BDT = [
 processList = {i:param for i in samples_BDT}
 
 # Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
-if userConfig.recoil120:
-    bin, xmin, xmax = 80, 120, 140
-    recoil_dw, recoil_up = 120, 140
-else:
-    bin, xmin, xmax = 200, 100, 150
-    recoil_dw, recoil_up = 100, 150
+if userConfig.recoil120: bin, xmin, xmax = 80, 120, 140
+else: bin, xmin, xmax = 200, 100, 150
 
-baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
+
+baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {xmin} && zll_recoil_m < {xmax}"
 cosTheta_missCut, E_visCut, leading_pCut = "cosTheta_miss < 0.98", 'visibleEnergy > 100', "leading_p < 80 && leading_p > 50"
 
 visCut = 'visibleEnergy > 100 && cosTheta_miss < 0.995'
@@ -66,9 +63,12 @@ selection = selection + f' && (({visCut}) || ({invCut}))' if userConfig.sep else
 if userConfig.leading: selection += ' && ' + leading_pCut
 
 cutList = { sel: selection,
-            'tot': '((' + baselineCut + ' && ' + visCut +') || (' + invCut + ')) && (leading_p < 80 && subleading_p < 53 && subleading_p > 23)',
+            'tot': '((' + baselineCut + ' && ' + visCut +') || (' + invCut + '))',
             'inv': baselineCut + ' && ' + invCut,
-            'invdemo': baselineCut + ' && ' + 'visibleEnergy < 100' 
+            'vis': baselineCut + ' && ' + 'visibleEnergy > 100',
+            'miss': baselineCut + ' && ' + 'cosTheta_miss < 0.98',
+            'invdemo': baselineCut + ' && ' + 'visibleEnergy < 100',
+            'mass': baselineCut + ' && ' + 'visibleEnergy > 100 && cosTheta_miss < 0.98'
             }
 
 # Dictionary for the ouput variable/hitograms. 

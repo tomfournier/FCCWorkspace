@@ -302,40 +302,6 @@ def build_graph_ll(df, hists, dataset, final_state):
 
         hists.append(DF.Histo1D((f"{final_state}_visibleEnergy{ind}", "", *bins_p_mu), "visibleEnergy"))
 
-    # # final histograms for high mass events
-    # hists.append(df_high.Histo1D((f"{final_state}_leps_p_high",     "", *bins_p_mu),   "leps_p"))
-    # hists.append(df_high.Histo1D((f"{final_state}_zll_p_high",      "", *bins_p_mu),   "zll_p"))
-    # hists.append(df_high.Histo1D((f"{final_state}_zll_m_high",      "", *bins_m_ll),   "zll_m"))
-    # hists.append(df_high.Histo1D((f"{final_state}_zll_recoil_high", "", *bins_recoil), "zll_recoil_m"))
-
-    # hists.append(df_high.Histo1D((f"{final_state}_cosThetaMiss_high", "", *bins_miss), "cosTheta_miss"))
-    # hists.append(df_high.Histo1D((f"{final_state}_acoplanarity_high", "", *bins_aco),  "acoplanarity"))
-    # hists.append(df_high.Histo1D((f"{final_state}_acolinearity_high", "", *bins_aco),  "acolinearity"))
-
-    # hists.append(df_high.Histo1D((f"{final_state}_leading_p_high",        "", *bins_p_mu),  "leading_p"))
-    # hists.append(df_high.Histo1D((f"{final_state}_leading_theta_high",    "", *bins_theta), "leading_theta"))
-    # hists.append(df_high.Histo1D((f"{final_state}_subleading_p_high",     "", *bins_p_mu),  "subleading_p"))
-    # hists.append(df_high.Histo1D((f"{final_state}_subleading_theta_high", "", *bins_theta), "subleading_theta"))
-
-    # hists.append(df_high.Histo1D((f"{final_state}_visibleEnergy_high", "", *bins_p_mu), "visibleEnergy"))
-
-    # # final histograms for high mass events
-    # hists.append(df_low.Histo1D((f"{final_state}_leps_p_low",     "", *bins_p_mu),   "leps_p"))
-    # hists.append(df_low.Histo1D((f"{final_state}_zll_p_low",      "", *bins_p_mu),   "zll_p"))
-    # hists.append(df_low.Histo1D((f"{final_state}_zll_m_low",      "", *bins_m_ll),   "zll_m"))
-    # hists.append(df_low.Histo1D((f"{final_state}_zll_recoil_low", "", *bins_recoil), "zll_recoil_m"))
-
-    # hists.append(df_low.Histo1D((f"{final_state}_cosThetaMiss_low", "", *bins_miss), "cosTheta_miss"))
-    # hists.append(df_low.Histo1D((f"{final_state}_acoplanarity_low", "", *bins_aco),  "acoplanarity"))
-    # hists.append(df_low.Histo1D((f"{final_state}_acolinearity_low", "", *bins_aco),  "acolinearity"))
-
-    # hists.append(df_low.Histo1D((f"{final_state}_leading_p_low",        "", *bins_p_mu),  "leading_p"))
-    # hists.append(df_low.Histo1D((f"{final_state}_leading_theta_low",    "", *bins_theta), "leading_theta"))
-    # hists.append(df_low.Histo1D((f"{final_state}_subleading_p_low",     "", *bins_p_mu),  "subleading_p"))
-    # hists.append(df_low.Histo1D((f"{final_state}_subleading_theta_low", "", *bins_theta), "subleading_theta"))
-
-    # hists.append(df_low.Histo1D((f"{final_state}_visibleEnergy_low", "", *bins_p_mu), "visibleEnergy"))
-
     return hists
 
 

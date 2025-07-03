@@ -1,4 +1,4 @@
-import joblib
+import joblib, os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -9,6 +9,8 @@ from tqdm import tqdm
 from matplotlib import rc
 from sklearn.metrics import roc_curve, auc
 import sklearn.metrics as metrics
+import xgboost as xgb
+import graphviz
 from . import utils as ut
 
 rc('font', **{'family': 'serif', 'serif': ['Roman']})
@@ -99,7 +101,7 @@ def plot_roc_curve(df, score_column, tpr_threshold=0.7, ax=None, color=None, lin
     roc_auc = auc(fpr, tpr)
     mask = tpr >= tpr_threshold
     fpr, tpr = fpr[mask], tpr[mask]
-    ax.plot(fpr, tpr, label=label+', AUC={:.2f}'.format(roc_auc), color=color, linestyle=linestyle, linewidth=4)
+    ax.plot(fpr, tpr, label=label+', AUC={:.2f} %'.format(roc_auc*100), color=color, linestyle=linestyle, linewidth=4)
 
 #__________________________________________________________
 def load_data(inputDir):
@@ -415,3 +417,24 @@ def efficiency(df, mode_names, Label, label, outDir, plot_file):
     plt.savefig(f"{outDir}/efficiency.{plot_file}", bbox_inches='tight')
     print(f"------>Saved Efficiency to {outDir}/efficiency.{plot_file}")
     plt.close()
+
+#__________________________________________________________
+def tree_plot(bdt, inputBDT, outDir, epochs, n, plot_file, rankdir='LR'):
+
+    print(f"------>Plotting structure of BDT")
+    if not os.path.exists(f'{outDir}/feature'): os.system(f'mkdir -p {outDir}/structure')
+
+    if n>epochs:
+        n = epochs
+        print(f'You have chosen n>epochs. To avoid redundancy, n was put equal to epochs')
+    num_trees = np.linspace(0, epochs-1, n, dtype=int)
+    for num_tree in tqdm(num_trees):
+        dot = xgb.to_graphviz(bdt, num_trees=num_tree, fmap=f'{inputBDT}/feature.txt', rankdir=rankdir)
+        dot.save(f'{inputBDT}/bdt.dot')
+
+        with open(f'{inputBDT}/bdt.dot') as f: dot_graph = f.read()
+        graph = graphviz.Source(dot_graph)
+        graph.render(f'{outDir}/tmp/BDT_{num_tree}', format=plot_file)
+    os.system(f'mv {outDir}/tmp/*.png {outDir}/structure/')
+    os.system(f'rm -rf {outDir}/tmp')
+    print(f"------>Plotted structure of BDT in {outDir}/structure folder")
