@@ -12,14 +12,18 @@ ROOT.gStyle.SetOptTitle(0)
 
 from . import plotter
 
-h_decays_labels = {"bb": "H#rightarrowb#bar{b}", "cc": "H#rightarrowc#bar{c}", "ss": "H#rightarrows#bar{s}", 
-                   "gg": "H#rightarrowgg", "mumu": "H#rightarrow#mu^{#plus}#mu^{#minus}", "tautau": "H#rightarrow#tau^{#plus}#tau^{#minus}", 
-                   "ZZ": "H#rightarrowZZ*", "WW": "H#rightarrowWW*", "Za": "H#rightarrowZ#gamma", 
-                   "aa": "H#rightarrow#gamma#gamma", "inv": "H#rightarrowInv"}
+h_decays_labels = {
+    "bb": "H#rightarrowb#bar{b}", "cc": "H#rightarrowc#bar{c}", "ss": "H#rightarrows#bar{s}", "gg": "H#rightarrowgg", 
+    "mumu": "H#rightarrow#mu^{#plus}#mu^{#minus}", "tautau": "H#rightarrow#tau^{#plus}#tau^{#minus}", 
+    "ZZ": "H#rightarrowZZ*", "WW": "H#rightarrowWW*", "Za": "H#rightarrowZ#gamma", 
+    "aa": "H#rightarrow#gamma#gamma", "inv": "H#rightarrowInv"
+}
 
-h_decays_colors = {"bb": ROOT.kBlack, "cc": ROOT.kBlue , "ss": ROOT.kRed, "gg": ROOT.kGreen+1, "mumu": ROOT.kOrange, 
-                   "tautau": ROOT.kCyan, "ZZ": ROOT.kGray, "WW": ROOT.kGray+2, "Za": ROOT.kGreen+2, "aa": ROOT.kRed+2, 
-                   "inv": ROOT.kBlue+2}
+h_decays_colors = {
+    "bb": ROOT.kBlack, "cc": ROOT.kBlue , "ss": ROOT.kRed, "gg": ROOT.kGreen+1, "mumu": ROOT.kOrange, 
+    "tautau": ROOT.kCyan, "ZZ": ROOT.kGray, "WW": ROOT.kGray+2, "Za": ROOT.kGreen+2, "aa": ROOT.kRed+2, 
+    "inv": ROOT.kBlue+2
+}
 
 procs_labels = {
     "ZH"        : "ZH",
@@ -47,41 +51,43 @@ procs_colors = {
 }
 
 sign_name = {
-            'cosThetaMiss':         '|cos#theta_{miss}|',
-            'mva':                  'MVA', 
-            'zll_m':                'm_{ll}', 
-            'zll_p':                'p_{ll}',
-            'recoil':               'm_{recoil}',
-            'acolinearity':         '#Delta#theta_{ll}',
-            'acoplanarity':         '#pi-#Delta#phi_{ll}',
-            'leading_p':            'p_{l,leading}',
-            'subleading_p':         'p_{l,subleading}',
-            'leading_theta':        '#theta_{l,leading}',
-            'subleading_theta':     '#theta_{l,subleading}',
-            'leps_p':               'p_{lepton}',
-            'leps_all_p_noSel':     'p_{lepton} no sel',
-            'leps_all_theta_noSel': '#theta_{lepton} no sel',
-            'leps_iso_noSel':       'I_{rel}',
-            'visibleEnergy':        'E_{vis}'
+    'cosThetaMiss':         '|cos#theta_{miss}|',
+    'mva':                  'MVA', 
+    'zll_m':                'm_{ll}', 
+    'zll_p':                'p_{ll}',
+    'recoil':               'm_{recoil}',
+    'acolinearity':         '#Delta#theta_{ll}',
+    'acoplanarity':         '#pi-#Delta#phi_{ll}',
+    'leading_p':            'p_{l,leading}',
+    'subleading_p':         'p_{l,subleading}',
+    'leading_theta':        '#theta_{l,leading}',
+    'subleading_theta':     '#theta_{l,subleading}',
+    'leps_p':               'p_{lepton}',
+    'leps_all_p_noSel':     'p_{lepton} no sel',
+    'leps_all_theta_noSel': '#theta_{lepton} no sel',
+    'leps_iso_noSel':       'I_{rel}',
+    'visibleEnergy':        'E_{vis}',
+    'zll_theta':            '#theta_{ll}'
 }
 
 sign_label = {
-            'cosThetaMiss':         '|cos#theta_{miss}|',
-            'mva':                  'MVA Score', 
-            'zll_m':                'm_{ll} [GeV]', 
-            'zll_p':                'p_{ll} [GeV]',
-            'recoil':               'm_{recoil} [GeV]',
-            'acolinearity':         '#Delta#theta_{ll}',
-            'acoplanarity':         '#pi-#Delta#phi_{ll}',
-            'leading_p':            'p_{l,leading} [GeV]',
-            'subleading_p':         'p_{l,subleading} [GeV]',
-            'leading_theta':        '#theta_{l,leading}',
-            'subleading_theta':     '#theta_{l,subleading}',
-            'leps_p':               'p_{lepton} [GeV]',
-            'leps_all_p_noSel':     'p_{lepton} no sel [GeV]',
-            'leps_all_theta_noSel': '#theta_{lepton} no sel [GeV]',
-            'leps_iso_noSel':       'Cone isolation',
-            'visibleEnergy':        'E_{vis} [GeV]'
+    'cosThetaMiss':         '|cos#theta_{miss}|',
+    'mva':                  'MVA Score', 
+    'zll_m':                'm_{ll} [GeV]', 
+    'zll_p':                'p_{ll} [GeV]',
+    'recoil':               'm_{recoil} [GeV]',
+    'acolinearity':         '#Delta#theta_{ll}',
+    'acoplanarity':         '#pi-#Delta#phi_{ll}',
+    'leading_p':            'p_{l,leading} [GeV]',
+    'subleading_p':         'p_{l,subleading} [GeV]',
+    'leading_theta':        '#theta_{l,leading}',
+    'subleading_theta':     '#theta_{l,subleading}',
+    'leps_p':               'p_{lepton} [GeV]',
+    'leps_all_p_noSel':     'p_{lepton} no sel [GeV]',
+    'leps_all_theta_noSel': '#theta_{lepton} no sel',
+    'leps_iso_noSel':       'I_{rel}',
+    'visibleEnergy':        'E_{vis} [GeV]',
+    'zll_theta':            '#theta_{ll}'
 }
 
 #__________________________________________________________
@@ -440,7 +446,7 @@ def CutFlowDecays(inputDir, outDir, z_decays, h_decays, final_state, plot_file=[
 
 #__________________________________________________________
 def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, xMin, xMax, yMin, yMax, xLabel, yLabel, 
-               ecm=240, lumi=10.8, outName="", plot_file=['png'], logX=False, logY=True, rebin=-1, xLabels=[]):
+               ecm=240, lumi=10.8, outName="", plot_file=['png'], logX=False, logY=True, rebin=1, xLabels=[]):
 
     if outName == "":
         outName = hName
@@ -457,8 +463,7 @@ def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, xMin, xMax, yMin, yM
     for i,sig in enumerate(sigs):
         h_decay = h_decays[i]
         h_sig = getHist(hName, sig, inputDir)
-        if rebin!=-1:
-            h_sig.Rebin(rebin)
+        h_sig.Rebin(rebin)
         if h_sig.Integral() > 0:
             h_sig.Scale(1./h_sig.Integral())
 
@@ -509,9 +514,14 @@ def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, xMin, xMax, yMin, yM
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
     
-    if '_low' in hName:    out = f'{outDir}/higgsDecays/low'
-    elif '_high' in hName: out = f'{outDir}/higgsDecays/high'
-    else :                 out = f'{outDir}/higgsDecays/nominal'
+    name = hName.split('_')[-1]
+    if   'low'  in name: out = f'{outDir}/higgsDecays/low'
+    elif 'high' in name: out = f'{outDir}/higgsDecays/high'
+    elif 'mvis' in name: out = f'{outDir}/higgsDecays/mvis'
+    elif 'minv' in name: out = f'{outDir}/higgsDecays/minv'
+    elif 'vis'  in name: out = f'{outDir}/higgsDecays/vis'
+    elif 'inv'  in name: out = f'{outDir}/higgsDecays/inv'
+    else :               out = f'{outDir}/higgsDecays/nominal'
 
     if not os.path.isdir(out):
             os.system(f'mkdir -p {out}')
@@ -609,8 +619,7 @@ def makePlot(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, yMin, yMax, 
              ecm=240, lumi=10.8, outName="", logX=False, logY=True, rebin=-1, sig_scale=1, xLabels=[], 
              plot_file=['png'], stack=False):
 
-    if outName == "":
-        outName = hName
+    if outName == "": outName = hName
 
     leg = ROOT.TLegend(.55, 0.99-(len(procs))*0.06, .99, .90)
     leg.SetBorderSize(0)
@@ -704,9 +713,14 @@ def makePlot(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, yMin, yMax, 
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
-    if '_low' in hName:    out = f'{outDir}/makePlot/low'
-    elif '_high' in hName: out = f'{outDir}/makePlot/high'
-    else :                 out = f'{outDir}/makePlot/nominal'
+    name = hName.split('_')[-1]
+    if   'low'  in name: out = f'{outDir}/makePlot/low'
+    elif 'high' in name: out = f'{outDir}/makePlot/high'
+    elif 'mvis' in name: out = f'{outDir}/makePlot/mvis'
+    elif 'minv' in name: out = f'{outDir}/makePlot/minv'
+    elif 'vis'  in name: out = f'{outDir}/makePlot/vis'
+    elif 'inv'  in name: out = f'{outDir}/makePlot/inv'
+    else :               out = f'{outDir}/makePlot/nominal'
 
     if not os.path.isdir(out):
             os.system(f'mkdir -p {out}')
@@ -716,7 +730,9 @@ def makePlot(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, yMin, yMax, 
     canvas.Close()
 
 #__________________________________________________________
-def significance(hName, inputDir, outDir, procs, procs_cfg, xMin=-10000, xMax=10000, reverse=False, plot_file=['png']):
+def significance(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, outName="", reverse=False, plot_file=['png']):
+
+    if outName == "": outName = hName
 
     h_sig = getHist(hName, procs_cfg[procs[0]], inputDir)
     sig_tot = h_sig.Integral()
@@ -818,10 +834,19 @@ def significance(hName, inputDir, outDir, procs, procs_cfg, xMin=-10000, xMax=10
 
     canvas.Update()
 
+    name = hName.split('_')[-1]
+    if   'low'  in name: out = f'{outDir}/significance/low'
+    elif 'high' in name: out = f'{outDir}/significance/high'
+    elif 'mvis' in name: out = f'{outDir}/significance/mvis'
+    elif 'minv' in name: out = f'{outDir}/significance/minv'
+    elif 'vis'  in name: out = f'{outDir}/significance/vis'
+    elif 'inv'  in name: out = f'{outDir}/significance/inv'
+    else :               out = f'{outDir}/significance/nominal'
+
+    if not os.path.isdir(out):
+            os.system(f'mkdir -p {out}')
+
     suffix = "_reverse" if reverse else ""
-    if not os.path.isdir(f'{outDir}/significance'):
-            os.system(f'mkdir -p {outDir}/significance')
-    
     for pl in plot_file:
-        canvas.SaveAs(f"{outDir}/significance/{hName}{suffix}.{pl}")
+        canvas.SaveAs(f"{out}/{outName}{suffix}.{pl}")
     canvas.Close()

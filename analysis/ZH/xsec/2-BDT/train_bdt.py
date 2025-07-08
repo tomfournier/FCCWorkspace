@@ -56,22 +56,17 @@ config_dict = {
 }
 early_stopping_round = 25
 
-# bdt = train_model(X_train, y_train, X_valid, y_valid, 
-#                   config_dict, early_stopping_round)
+bdt = train_model(X_train, y_train, X_valid, y_valid, 
+                  config_dict, early_stopping_round)
 
-# save_model(bdt, vars_list, outDir)
+save_model(bdt, vars_list, outDir)
 
 print('----->[Info] Writing variable inputs in a .txt file for evaluation')
-# with open(f'{outDir}/feature.txt', 'w') as feature:
-#     for i, var in enumerate(vars_list):
-#         line = f"i\t{var:{' '}{'<20'}}\tq\n"
-#         feature.write(line)
-print(f'----->[Info] Wrote variable input in {outDir}/feature.txt')
-
 q = list('q' * len(vars_list))
 fmap = {'vars':vars_list, 'Q':q}
 fmap = pd.DataFrame(fmap)
 fmap.to_csv(f'{outDir}/feature.txt', sep='\t', header=False)
+print(f'----->[Info] Wrote variable input in {outDir}/feature.txt')
 
 
 print('\n\n------------------------------------\n')

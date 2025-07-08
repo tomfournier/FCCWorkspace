@@ -1,9 +1,6 @@
-import sys
 import os
-import math
-import copy
-import array
 import numpy as np
+import pandas as pd
 
 import ROOT as root
 root.gROOT.SetBatch(True)
@@ -13,14 +10,25 @@ root.gStyle.SetOptTitle(0)
 from . import plotter
 import atlasplots as aplt
 
-h_decays_labels = {"bb": "H#rightarrowb#bar{b}", "cc": "H#rightarrowc#bar{c}", "ss": "H#rightarrows#bar{s}", 
-                   "gg": "H#rightarrowgg", "mumu": "H#rightarrow#mu^{#plus}#mu^{#minus}", "tautau": "H#rightarrow#tau^{#plus}#tau^{#minus}", 
-                   "ZZ": "H#rightarrowZZ*", "WW": "H#rightarrowWW*", "Za": "H#rightarrowZ#gamma", 
-                   "aa": "H#rightarrow#gamma#gamma", "inv": "H#rightarrowInv"}
+h_decays_labels = {
+    "bb": "H#rightarrow b#bar{b}", "cc": "H#rightarrow c#bar{c}", "ss": "H#rightarrow s#bar{s}", 
+    "gg": "H#rightarrow gg", "mumu": "H#rightarrow#mu^{#plus}#mu^{#minus}", "tautau": "H#rightarrow#tau^{#plus}#tau^{#minus}", 
+    "ZZ": "H#rightarrow ZZ*", "WW": "H#rightarrow WW*", "Za": "H#rightarrow Z#gamma", 
+    "aa": "H#rightarrow#gamma#gamma", "inv": "H#rightarrow Inv"
+}
 
-h_decays_colors = {"bb": root.kBlack, "cc": root.kBlue , "ss": root.kRed, "gg": root.kGreen+1, "mumu": root.kOrange, 
-                   "tautau": root.kCyan, "ZZ": root.kGray, "WW": root.kGray+2, "Za": root.kGreen+2, "aa": root.kRed+2, 
-                   "inv": root.kBlue+2}
+h_decays_labels_pyplot = {
+    "bb": r"$H\rightarrow b\bar{b}$", "cc": r"$H\rightarrow c\bar{c}$", "ss": r"$H\rightarrow s\bar{s}$", 
+    "gg": r"$H\rightarrow gg$", "mumu": r"$H\rightarrow\mu^{+}\mu^{-}$", "tautau": r"$H\rightarrow\tau^{+}\tau^{-}$", 
+    "ZZ": r"$H\rightarrow ZZ*$", "WW": r"$H\rightarrow WW^*$", "Za": r"$H\rightarrow Z\gamma$", 
+    "aa": r"$H\rightarrow\gamma\gamma$", "inv": r"$H\rightarrow$ Inv"
+}
+
+h_decays_colors = {
+    "bb": root.kBlack, "cc": root.kBlue , "ss": root.kRed, "gg": root.kGreen+1, "mumu": root.kOrange, 
+    "tautau": root.kCyan, "ZZ": root.kGray, "WW": root.kGray+2, "Za": root.kGreen+2, "aa": root.kRed+2, 
+    "inv": root.kBlue+2
+}
 
 procs_labels = {
     "ZH"        : "ZH",
@@ -82,28 +90,6 @@ def range_hist(hist_original, x_min, x_max):
 
     # print(bin_min, bin_max, hist_original.Integral(), hist_selected.Integral())
     return hist_selected
-
-
-#__________________________________________________________
-# def Divide(base, sig, h_decay):
-#     N = base.GetNbinsX()
-#     h1 = root.TH1D('h1', 'Ratio', N, 0.5, N+0.5)
-#     for i in range(1, N+1):
-#         bin_base, bin_sig = base.GetBinContent(i), sig.GetBinContent(i)
-#         err_base, err_sig = base.GetBinError(i),   sig.GetBinError(i)
-
-#         if bin_base!=0:
-#             r = bin_sig/bin_base
-#             err = r * np.sqrt( (err_base/bin_base)**2 + (err_sig/bin_sig)**2 )
-#             h1.SetBinContent(i, r)
-#             h1.SetBinError(i, err)
-
-#     h1.SetLineColor(h_decays_colors[h_decay])
-#     h1.SetLineWidth(2)
-#     h1.SetLineStyle(1)
-#     return h1
-
-
 
 #__________________________________________________________
 def PlotDecays(hName, inputDir, outDir, h_decays, ecm=240, lumi=10.8, outName="", xMin=0, xMax=200, 
@@ -288,3 +274,90 @@ def makePlot(inputDir, outDir, cat, procs, target, sig='ZH', ecm=240, lumi=10.8,
 
     for pl in plot_file:
         fig.savefig(f"{out}/{outName}.{pl}")
+
+#__________________________________________________________
+def Bias(biasDir, nomDir, outDir, h_decays, plot_file=['png'], ecm=240, lumi=10.8):
+
+    df = pd.read_csv(f'{biasDir}/bias_results.csv')
+    mode, bias = df['mode'], df['bias'] * 100
+    unc = np.loadtxt(f'{nomDir}/results.txt')[-1] * 10000
+
+    leg = root.TLegend(.2, .925-(len(h_decays)/4+1)*0.07, .95, .925)
+    leg.SetBorderSize(0)
+    leg.SetFillStyle(0)
+    leg.SetTextSize(0.03)
+    leg.SetMargin(0.25)
+    leg.SetNColumns(4)
+
+    if unc>bias.max(): xMin, xMax = -int(unc*1.2), int(unc*1.2)
+    else:              xMin, xMax = -int(bias.max()*1.2), int(bias.max()*1.2)
+
+    h_pulls = root.TH2F("pulls", "pulls", (xMax-xMin)*10, xMin, xMax, len(h_decays), 0, len(h_decays))
+    g_pulls = root.TGraphErrors(len(h_decays))
+
+    for i, h_decay in enumerate(h_decays):
+        b = bias[np.where((mode==h_decay))[0]]
+        g_pulls.SetPoint(i, b, float(i) + 0.5)
+        h_pulls.GetYaxis().SetBinLabel(i+1, h_decays_labels[h_decay])
+
+    canvas = root.TCanvas("c", "c", 800, 800)
+    canvas.SetTopMargin(0.08)
+    canvas.SetBottomMargin(0.1)
+    canvas.SetLeftMargin(0.15)
+    canvas.SetRightMargin(0.05)
+    canvas.SetFillStyle(4000) # transparency?
+    canvas.SetGrid(1, 0)
+    canvas.SetTickx(1)
+
+    xTitle = "Bias [%] (#times 100)"
+
+    h_pulls.GetXaxis().SetTitleSize(0.04)
+    h_pulls.GetXaxis().SetLabelSize(0.035)
+    h_pulls.GetXaxis().SetTitle(xTitle)
+    h_pulls.GetXaxis().SetTitleOffset(1)
+    h_pulls.GetYaxis().SetLabelSize(0.055)
+    h_pulls.GetYaxis().SetTickLength(0)
+    h_pulls.GetYaxis().LabelsOption('v')
+    h_pulls.SetNdivisions(506, 'XYZ')
+    h_pulls.Draw("HIST 0")
+
+    maxx = len(h_decays)
+
+    lineup = root.TLine(unc, 0, unc, maxx)
+    lineup.SetLineColor(root.kBlack)
+    lineup.SetLineWidth(3)
+    lineup.Draw("SAME")
+
+    line = root.TLine(0, 0, 0, maxx)
+    line.SetLineColor(root.kGray)
+    line.SetLineWidth(2)
+    line.Draw("SAME")
+
+    linedw = root.TLine(-unc, 0, -unc, maxx)
+    linedw.SetLineColor(root.kBlack)
+    linedw.SetLineWidth(3)
+    linedw.Draw("SAME")
+
+    g_pulls.SetMarkerSize(1.2)
+    g_pulls.SetMarkerStyle(20)
+    g_pulls.SetLineWidth(2)
+    g_pulls.Draw('P0 SAME')
+
+    latex = root.TLatex()
+    latex.SetNDC()
+    latex.SetTextSize(0.045)
+    latex.SetTextColor(1)
+    latex.SetTextFont(42)
+    latex.SetTextAlign(30) # 0 special vertical aligment with subscripts
+    latex.DrawLatex(0.95, 0.925, f"#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}")
+
+    latex.SetTextAlign(13)
+    latex.SetTextFont(42)
+    latex.SetTextSize(0.045)
+    latex.DrawLatex(0.15, 0.96, "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}")
+
+    if not os.path.isdir(f'{outDir}/bias'):
+            os.system(f'mkdir -p {outDir}/bias')
+
+    for pl in plot_file:
+        canvas.SaveAs(f"{outDir}/bias/bias_test.{pl}")

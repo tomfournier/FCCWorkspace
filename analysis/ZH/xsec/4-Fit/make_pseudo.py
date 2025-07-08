@@ -16,7 +16,8 @@ parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 Ge
 parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
-parser.add_argument('--vis', help='Add E_vis', action='store_true')
+parser.add_argument('--vis', help='Add E_vis cut', action='store_true')
+parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
 
 parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
 
@@ -33,7 +34,7 @@ parser.add_argument("--ILC", help="Scale to ILC luminosity", action='store_true'
 arg = parser.parse_args()
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
 
 if arg.ILC: ## change fit to ASIMOV -t -1 !!!
     proc_scales  = {"ZH": 1.048, "WW": 0.971, "ZZ": 0.939, "Zgamma": 0.919,}
@@ -45,7 +46,7 @@ else:
     proc_scales = {}
 
 inputDir = get_loc(loc.HIST_PREPROCESSED, final_state, ecm, sel)
-outDir   = get_loc(loc.BIAS_DATACARD, final_state, ecm, sel)
+outDir   = get_loc(loc.BIAS_DATACARD,     final_state, ecm, sel)
 
 rebin, hists = 1, []
 hName = f'{final_state}_recoil_m_mva'
@@ -93,11 +94,12 @@ if not arg.combine:
     make_datacard(outDir, procs, final_state, arg.target, 1.01, 
                 freezeBackgrounds=arg.freezeBackgrounds, floatBackgrounds=arg.floatBackgrounds, plot_dc=arg.plot_dc)
 
-cat, comb        = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
-mis, bdt, recoil = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
+cat, comb         = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
+mis, bdt, recoil  = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
+leading, vis, sep = '--leading' if arg.leading else '', '--vis' if arg.vis else '', '--sep' if arg.sep else ''
 
 if arg.run:
-    cmd = f"python3 4-Fit/fit.py {cat} --bias --target {arg.target} --pert {arg.pert} {comb} {recoil} {mis} {bdt}"
+    cmd = f"python3 4-Fit/fit.py {cat} --bias --target {arg.target} --pert {arg.pert} {comb} {recoil} {mis} {bdt} {leading} {vis} {sep}"
     os.system(cmd)
 else:
     print('\n\n------------------------------------\n')

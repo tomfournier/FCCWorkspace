@@ -31,17 +31,17 @@ if arg.cat=='' and not arg.combine:
 userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, h_decays
 
-cat, comb = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
+cat, comb        = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
 mis, bdt, recoil = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
-lead, vis = '--leading' if arg.leading else '', '--vis' if arg.vis else ''
+lead, vis, sep   = '--leading' if arg.leading else '', '--vis' if arg.vis else '', '--sep' if arg.sep else ''
 if arg.combine: arg.cat = 'combined'
 
 sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
 inputdir   = get_loc(loc.BIAS_FIT_RESULT, arg.cat, arg.ecm, sel)
-loc_result = get_loc(loc.BIAS_RESULT, arg.cat, arg.ecm, sel)
+loc_result = get_loc(loc.BIAS_RESULT,     arg.cat, arg.ecm, sel)
 
 def run_fit(target, pert, extraArgs=""):
-    cmd = f"python3 4-Fit/make_pseudo.py {cat} --target {target} --pert {pert} --run {comb} {recoil} {lead} {mis} {bdt} {vis} {extraArgs}"
+    cmd = f"python3 4-Fit/make_pseudo.py {cat} --target {target} --pert {pert} --run {comb} {recoil} {lead} {mis} {bdt} {vis} {sep} {extraArgs}"
     os.system(cmd)
     mu, err = np.loadtxt(f'{inputdir}/results_{target}.txt')
     return mu, err
@@ -75,18 +75,14 @@ with open(f"{loc_result}/bias_results.txt", 'w') as f:
     print(formatted_row.format(*(["Decay modes"]+h_decays)))
     print(formatted_row.format(*(["----------"]*(len(h_decays)+1))))
 
-    # row1 = ["Result"]
-    # for i in res:
-    #     row1.append("%.5f" % i)
-    # print(formatted_row.format(*row1))
+    row1 = ["Bias"]
+    for i in bias:
+        row1.append("%.3f" % i)
+    print(formatted_row.format(*row1))
     row2 = ["Bias"]
     for i in bias:
-        row2.append("%.3f" % i)
+        row2.append("%.2f" % i)
     print(formatted_row.format(*row2))
-    row3 = ["Bias"]
-    for i in bias:
-        row3.append("%.2f" % i)
-    print(formatted_row.format(*row3))
 sys.stdout = out_orig
 print(f'----->[Info] Bias saved at {loc_result}/bias_results.txt\n')
 

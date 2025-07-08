@@ -29,7 +29,7 @@ intLumi = lumi * 1e6 # in pb-1
 
 # Process samples
 samples_bkg = [
-    f"p8_ee_WW_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",
+    f"p8_ee_WW_ecm{ecm}",              f"p8_ee_ZZ_ecm{ecm}",
     f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}",      f"wzp6_ee_tautau_ecm{ecm}",
     f"wzp6_gaga_ee_60_ecm{ecm}",       f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
     f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',  f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
@@ -221,6 +221,10 @@ def build_graph_ll(df, hists, dataset, final_state):
         df = df.Filter(f"zll_recoil_m < 150 && zll_recoil_m > 100")
     hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut5"))
 
+    df_vis, df_inv   = df.Filter('visibleEnergy > 100'),  df.Filter('visibleEnergy <= 100')
+    df_mvis, df_minv = df.Filter('cosTheta_miss < 0.98'), df.Filter('cosTheta_miss >= 0.98')
+    df_VIS, df_INV   = df.Filter('visibleEnergy > 130'),  df.Filter('visibleEnergy <= 130')
+
     #########
     ### CUT 5bis: p_leading and p_subleading cut
     #########
@@ -245,6 +249,16 @@ def build_graph_ll(df, hists, dataset, final_state):
         df = df.Filter("cosTheta_miss < 0.98")
         cut = 'cut7' if userConfig.vis else 'cut6'
         hists.append(df.Histo1D((f"{final_state}_cutFlow",       "", *bins_count), cut))
+
+    ############
+    ### CUT TEST
+    ############
+    if userConfig.sep:
+        sel_vis = '(visibleEnergy > 100 && cosTheta_miss < 0.995)'
+        sel_inv = '(visibleEnergy <= 100 && zll_theta < 2.85 && zll_theta > 0.25 && acoplanarity > 0.05 && cosTheta_miss < 0.998)'
+        df = df.Filter(sel_vis+' || '+sel_inv)
+        # df = df.Filter('leading_p < 80 && subleading_p < 53 && subleading_p > 23')
+        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut6"))
 
     ##########
     ### MVA
@@ -283,7 +297,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo2D(model, "zll_recoil_m", "BDTscore"))
 
     # final histograms
-    for ind, DF in zip(['', '_high', '_low'], [df, df_high, df_low]):
+    for ind, DF in zip(['', '_high', '_low', '_vis', '_inv', '_mvis', '_minv', '_VIS', '_INV'], [df, df_high, df_low, df_vis, df_inv, df_mvis, df_minv, df_VIS, df_INV]):
 
         hists.append(DF.Histo1D((f"{final_state}_leps_p{ind}",     "", *bins_p_mu),   "leps_p"))
         hists.append(DF.Histo1D((f"{final_state}_zll_p{ind}",      "", *bins_p_mu),   "zll_p"))

@@ -10,6 +10,7 @@ parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action=
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add a cut on visible energy', action='store_true')
+parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
 
 parser.add_argument('--sign', help='Make significance plots', action='store_true')
 arg = parser.parse_args()
@@ -30,6 +31,9 @@ m_dw, m_up = '120' if arg.recoil120 else '100', '140' if arg.recoil120 else '150
 cuts = ["cut0", "cut1", "cut2", "cut3", "cut4", "cut5"]
 cut_labels = ["All events", "#geq 1 #ell^{#pm} + ISO", "#geq 2 #ell^{#pm} + OS", "86 < m_{#ell^{+}#ell^{#minus}} < 96", 
               "20 < p_{#ell^{+}#ell^{#minus}} < 70", m_dw+" < m_{rec} < "+m_up]
+if arg.sep:
+     cuts.append('cut6')
+     cut_labels.append('E_{vis} separation')
 if arg.vis:
         cuts.append('cut6')
         cut_labels.append("E_{vis} > 10")
@@ -76,7 +80,7 @@ argument = {
 
     'zll_m': {
         'lim':   [86, 96, 1e1, -1],
-        'limH':  [86, 96, 1e-5, 1],
+        'limH':  [86, 96, 1e-4, 1],
         'label': ['m_{ll} [GeV]', 'Events'],
         'logY':  True, 'rebin': 1,
         'hl':    True
@@ -84,19 +88,19 @@ argument = {
 
     'zll_p': {
         'lim':   [20, 70, 1e1, -1],
-        'limH':  [20, 70, 1e-5, 1],
+        'limH':  [20, 70, 1e-4, 1],
         'label': ['p_{ll} [GeV]', 'Events'],
         'logY':  True, 'rebin': 1,
         'hl':    True
     },
 
-    # 'zll_theta': {
-    #     'lim':   [0, 3.2, 0, -1],
-    #     'limH':  [0, 3.2, 1e-5, 1],
-    #     'label': ['#theta_{ll}', 'Events'],
-    #     'logY':  False, 'rebin': 1,
-    #     'sign':  True,  'hl': True
-    # },
+    'zll_theta': {
+        'lim':   [0, 3.2, 1e1, -1],
+        'limH':  [0, 3.2, 1e-5, 1],
+        'label': ['#theta_{ll}', 'Events'],
+        'logY':  True, 'rebin': 2,
+        'sign':  True,  'hl': True
+    },
 
 
 
@@ -138,7 +142,7 @@ argument = {
 
     'leading_theta': {
         'lim':   [0, 3.2, 1e1, 1e7],
-        'limH':  [0, 3.2, 1e-5, 1],
+        'limH':  [0, 3.2, 1e-4, 1],
         'label': ['#theta_{leading}', 'Events'],
         'logY':  True, 'rebin': 4,
         'hl':    True, 'sign':  True
@@ -146,7 +150,7 @@ argument = {
 
     'subleading_theta': {
         'lim':   [0, 3.2, 1e1, 1e6],
-        'limH':  [0, 3.2, 1e-5, 1],
+        'limH':  [0, 3.2, 1e-4, 1],
         'label': ['#theta_{subleading}', 'Events'],
         'logY':  True, 'rebin': 4,
         'hl':    True, 'sign':  True
@@ -168,22 +172,20 @@ argument = {
 
     'zll_recoil': {
         'lim':   [int(m_dw), int(m_up), 0, -1],
-        'limH':  [int(m_dw), int(m_up), 1e-5, 1],
+        'limH':  [int(m_dw), int(m_up), 1e-4, 1],
         'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 4,
+        'logY':  False, 'rebin': 8,
         'hl':    True
     },
 
     'zll_recoil_cut3': {
-        'lim':   [40, 160, 0, -1],
-        'limH':  [40, 160, 1e-5, 1],
+        'lim':   [40, 160, 0, 40e3],
         'label': ['m_{recoil} [GeV]', 'Events'],
         'logY':  False, 'rebin': 8
     },
 
     'zll_recoil_cut4': {
-        'lim':   [40, 160, 0, -1],
-        'limH':  [40, 160, 1e-5, 1],
+        'lim':   [40, 160, 0, 1e4],
         'label': ['m_{recoil} [GeV]', 'Events'],
         'logY':  False, 'rebin': 8
     },
@@ -206,7 +208,7 @@ argument = {
         'lim':   [int(m_dw), int(m_up), 0, -1],
         'limH':  [int(m_dw), int(m_up), 1e-5, 1],
         'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 2
+        'logY':  False, 'rebin': 4
     },
 
     'zll_recoil_m_mva_high': {
@@ -222,21 +224,21 @@ argument = {
     ### Visible and invisible information ###
     #########################################
 
-    # 'visibleEnergy_nOne': {
-    #     'lim':   [0, 160, 1e-1, -1],
-    #     'limH':  [0, 160, 1e-5, 1], 
-    #     'label': ['E_{vis} [GeV]', 'Events'],
-    #     'logY':  True, 'rebin': 16,
-    #     'sign':  True
-    # },    
+    'visibleEnergy_nOne': {
+        'lim':   [0, 160, 1e-1, -1],
+        'limH':  [0, 160, 1e-5, 1], 
+        'label': ['E_{vis} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 16,
+        'sign':  True
+    },    
 
-    # 'visibleEnergy': {
-    #     'lim':   [10, 160, 1e-2, -1],
-    #     'limH':  [10, 160, 1e-5, 1],
-    #     'label': ['E_{vis} [GeV]', 'Events'],
-    #     'logY':  True, 'rebin': 2,
-    #     'hl':    True, 'sign':  True
-    # },    
+    'visibleEnergy': {
+        'lim':   [0, 160, 1e-2, -1],
+        'limH':  [0, 160, 1e-5, 1],
+        'label': ['E_{vis} [GeV]', 'Events'],
+        'logY':  True, 'rebin': 4,
+        'hl':    True, 'sign':  True
+    },    
 
     'cosThetaMiss_nOne': {
         'lim':   [0.9, 1, 1e1, 1e7],
@@ -286,7 +288,7 @@ argument = {
 
      'leps_p': {
         'lim':   [20, 100, 1e-2, 1e9],
-        'limH':  [10, 90, 1e-5, 1], 
+        'limH':  [20, 90, 1e-5, 1], 
         'label': ['p_{leptons} [GeV]', 'Events'],
         'logY':  True, 'rebin': 4,
         'hl':    True, 'sign':  True
@@ -298,11 +300,11 @@ argument = {
 for cat in ['mumu', 'ee']:
     print(f'\n----->[Info] Making plots for {cat} channel\n')
 
-    sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.vis)
+    sel      = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
     inputDir = get_loc(loc.HIST_PREPROCESSED, cat, ecm, sel)
     outDir   = get_loc(loc.PLOTS_MEASUREMENT, cat, ecm, sel)
 
-    procs = [f"Z{cat}H", "WW", "ZZ", "Zgamma", "Rare"] # first must be signal
+    procs = [f"ZH", "WW", "ZZ", "Zgamma", "Rare"] # first must be signal
 
     lep = 'e' if cat=='ee' else '#mu'
     for i, cut in enumerate(cut_labels): cut_labels[i] = cut.replace('#ell', lep)
@@ -316,16 +318,22 @@ for cat in ['mumu', 'ee']:
                   yMin=40, yMax=150, miss=arg.miss)
 
     for hName, kwarg in argument.items():
-        if arg.sign and 'sign' in kwarg and kwarg['sign']:
-            significance(f'{cat}_{hName}', *args, *kwarg['lim'][:2], reverse=True)
-            significance(f'{cat}_{hName}', *args, *kwarg['lim'][:2], reverse=False)
-
-        for ind in ['', '_high', '_low']:
+        print(f'\n----->[Info] Making plots for {hName}')
+        for ind in ['', '_high', '_low', '_vis', '_inv', '_mvis', '_minv']:
             if ind!='' and not 'hl' in kwarg: continue
-            if 'limH' in kwarg: PlotDecays(f'{cat}_{hName}{ind}', *args1, *kwarg['limH'], *kwarg['label'], 
-                                             outName=hName, rebin=kwarg['rebin']) 
-            if 'lim' in kwarg: makePlot(f'{cat}_{hName}{ind}', *args, *kwarg['lim'], *kwarg['label'], 
-                                          outName=hName, logY=kwarg['logY'], rebin=kwarg['rebin'])
+            if arg.sign and 'sign' in kwarg and kwarg['sign']:
+                significance(f'{cat}_{hName}{ind}', *args, *kwarg['lim'][:2], outName=hName, reverse=True)
+                significance(f'{cat}_{hName}{ind}', *args, *kwarg['lim'][:2], outName=hName, reverse=False)
+
+            i, cond = ind if ind!='' else '_nominal', (ind=='') or (ind=='_high') or (ind=='_low') or (ind=='_vis')
+            reb = kwarg['rebin'] if cond else 8
+            print(f'\n----->[Info] Making plots for {i[1:]}')
+            if 'limH' in kwarg: 
+                 PlotDecays(f'{cat}_{hName}{ind}', *args1, *kwarg['limH'], *kwarg['label'], 
+                            outName=hName, rebin=reb) 
+            if 'lim' in kwarg: 
+                 makePlot(f'{cat}_{hName}{ind}', *args, *kwarg['lim'], *kwarg['label'], 
+                          outName=hName, logY=kwarg['logY'], rebin=kwarg['rebin'])
 
 
 print('\n\n------------------------------------\n')
