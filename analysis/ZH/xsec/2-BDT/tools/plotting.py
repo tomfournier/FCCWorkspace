@@ -1,4 +1,4 @@
-import joblib
+import joblib, os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -9,6 +9,8 @@ from tqdm import tqdm
 from matplotlib import rc
 from sklearn.metrics import roc_curve, auc
 import sklearn.metrics as metrics
+import xgboost as xgb
+import graphviz
 from . import utils as ut
 
 rc('font', **{'family': 'serif', 'serif': ['Roman']})
@@ -414,4 +416,107 @@ def efficiency(df, mode_names, Label, label, outDir, plot_file):
     print("------>Plotting efficiency")
     plt.savefig(f"{outDir}/efficiency.{plot_file}", bbox_inches='tight')
     print(f"------>Saved Efficiency to {outDir}/efficiency.{plot_file}")
+    plt.close()
+
+#__________________________________________________________
+def tree_plot(bdt, inputBDT, outDir, epochs, n, plot_file, rankdir='LR'):
+
+    print(f"------>Plotting structure of BDT")
+    if not os.path.exists(f'{outDir}/feature'): os.system(f'mkdir -p {outDir}/structure')
+
+    if n>epochs:
+        n = epochs
+        print(f'You have chosen n>epochs. To avoid redundancy, n was put equal to epochs')
+    num_trees = np.linspace(0, epochs-1, n, dtype=int)
+    for num_tree in tqdm(num_trees):
+        dot = xgb.to_graphviz(bdt, num_trees=num_tree, fmap=f'{inputBDT}/feature.txt', rankdir=rankdir)
+        dot.save(f'{inputBDT}/bdt.dot')
+
+        with open(f'{inputBDT}/bdt.dot') as f: dot_graph = f.read()
+        graph = graphviz.Source(dot_graph)
+        graph.render(f'{outDir}/tmp/BDT_{num_tree}', format=plot_file)
+    os.system(f'mv {outDir}/tmp/*.png {outDir}/structure/')
+    os.system(f'rm -rf {outDir}/tmp')
+    print(f"------>Plotted structure of BDT in {outDir}/structure folder")
+
+#__________________________________________________________
+def hist_check(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path, vars_list, var, xmin, xmax, Bins, xlabel, all=False, unity=False, lumi=10.8):
+    print("------>Plotting checking histograms ")
+    if not os.path.isdir(f'{outDir}/check'):
+            os.system(f'mkdir -p {outDir}/check')
+    
+    fig, ax = plt.subplots(figsize=(12,8))
+
+    htype = "step"
+
+    xsec = ut.get_xsec(mode_names)
+    
+    for line,valid in zip(['solid', 'dashed'], ['valid==False', 'valid==True']):
+
+        hists, lab_list, weight_list, modes_color_list = [], [], [], []
+
+        for w in ['isSignal==1', 'isSignal!=1']:
+            for cur_mode in mode_names:
+                if 'H' in cur_mode: continue 
+                if not all and 'ga' in cur_mode: continue
+                if 'isSignal==1' in w and not 'H' in cur_mode: continue
+                if 'isSignal!=1' in w and 'H' in cur_mode: continue
+                df_tmp = df[(df['sample']==cur_mode)]
+                files = ut.get_data_paths(cur_mode, data_path, mode_names)
+                N_events, DF, eff = ut.counts_and_efficiencies(cur_mode, files, vars_list)
+                weight = xsec[cur_mode] * eff * lumi * 1e6 / len(df_tmp)
+
+                df_instance = df_tmp.query(valid+' & '+w)
+                hists.append(df_instance[var])
+                weight_list.append(weight*np.ones_like(df_instance[var]))
+                modes_color_list.append(modes_color[cur_mode])
+                if 'valid==False' in valid: 
+                    lab_list.append(Label[cur_mode])
+        lab_list = lab_list if 'valid==False' in valid else None
+        ax.hist(hists, density=unity, bins=Bins, range=[xmin, xmax], histtype=htype, 
+                label=lab_list, linestyle=line, color=modes_color_list, linewidth=1.5,
+                weights=weight_list, stacked=True)
+        
+        hists, lab_list, weight_list, modes_color_list = [], [], [], []
+
+        for w in ['isSignal==1', 'isSignal!=1']:
+            for cur_mode in mode_names:
+                if 'H' in cur_mode: 
+                    if not all and 'ga' in cur_mode: continue
+                    if 'isSignal!=1' in w : continue
+                    df_tmp = df[(df['sample']==cur_mode)]
+                    files = ut.get_data_paths(cur_mode, data_path, mode_names)
+                    N_events, DF, eff = ut.counts_and_efficiencies(cur_mode, files, vars_list)
+                    weight = xsec[cur_mode] * eff * lumi * 1e6 / len(df_tmp)
+                    df_instance = df_tmp.query(valid+' & '+w)
+                    hists.append(df_instance[var])
+                    weight_list.append(weight*np.ones_like(df_instance[var]))
+                    modes_color_list.append(modes_color[cur_mode])
+                    if 'valid==False' in valid: 
+                        lab_list.append(Label[cur_mode])
+        ax.hist(hists, density=unity, bins=Bins, range=[xmin, xmax], histtype=htype, 
+                label=lab_list, linestyle=line, color=modes_color_list, linewidth=1.5,
+                weights=weight_list, stacked=False)
+        
+    ncols = 4
+    plt.yscale('log')
+    ax.legend(loc="upper center", shadow=False, fontsize=12, ncols=ncols)
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
+    ax.set_title(label, fontsize=20, loc='right')
+
+    ylabel = "Normalized to Unity" if unity else 'Events'
+    ax.tick_params(axis='both', which='major', labelsize=25)
+    ax.set_xlabel(xlabel, fontsize=30, loc='right', weight='bold')  
+    ax.set_ylabel(ylabel, fontsize=30, loc='top', weight='bold')  
+        
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+        
+    if unity: ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
+    ax.set_xlim(left=xmin, right=xmax)
+    ax.grid()
+
+    print("------>Plotting Histograms to check")
+    plt.savefig(f"{outDir}/check/{var}_check.{plot_file}", bbox_inches='tight')
+    print(f"Saved Check Histograms to {outDir}/check/{var}_check.{plot_file}")
     plt.close()

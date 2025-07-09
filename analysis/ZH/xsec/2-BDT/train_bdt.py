@@ -49,17 +49,28 @@ print_stats(df, modes)
 X_train, y_train, X_valid, y_valid = split_data(df, vars_list)
 
 config_dict = {
-        'n_estimators': 350, 'learning_rate': 0.20,
-        'max_depth': 3, 'subsample': 0.5,
-        'gamma': 3, 'min_child_weight': 10,
-        'max_delta_step': 0, 'colsample_bytree': 0.5,
+        'n_estimators': 500, 'learning_rate': 0.10,
+        'max_depth': 3, 'subsample': 0.3,
+        'gamma': 7, 'min_child_weight': 20,
+        'max_delta_step': 0, 'colsample_bytree': 1,
 }
+if arg.bdt: config_dict['max_depth'] += 3
+if arg.visbdt: config_dict['max_depth'] += 1
+                           
 early_stopping_round = 25
 
 bdt = train_model(X_train, y_train, X_valid, y_valid, 
                   config_dict, early_stopping_round)
 
 save_model(bdt, vars_list, outDir)
+
+print('----->[Info] Writing variable inputs in a .txt file for evaluation')
+q = list('q' * len(vars_list))
+fmap = {'vars':vars_list, 'Q':q}
+fmap = pd.DataFrame(fmap)
+fmap.to_csv(f'{outDir}/feature.txt', sep='\t', header=False)
+print(f'----->[Info] Wrote variable input in {outDir}/feature.txt')
+
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

@@ -5,12 +5,12 @@ import os
 ######################
 
 plot_file = 'png'
-frac, nb  = 1, 10
+frac, nb  = 0.1, 10
 treemaker = True
 
 ecm, lumi = 240, 10.8
-recoil120, miss, bdt = False, False, False
-leading, vis, visbdt = True, False, True
+recoil120, miss, bdt = False, False, True
+leading, vis, visbdt = True, False, False
 
 _120, _miss, _bdt = '_120' if recoil120 else '', '_miss' if miss else '', '_missBDT' if bdt else ''
 _vis, _leading, _visbdt = '_vis' if vis else '', '_leading' if leading else '', '_visBDT' if visbdt else ''
@@ -136,6 +136,21 @@ latex_mapping = {
     'visibleEnergy':    r'$E_{visible}$'
 }
 
+latex_label = {
+    'leading_p':        r'$p_{\ell,leading}$ [GeV]',
+    'leading_theta':    r'$\theta_{\ell,leading}$ [GeV]',
+    'subleading_p':     r'$p_{\ell,subleading}$ [GeV]',
+    'subleading_theta': r'$\theta_{\ell,subleading}$',
+    'acolinearity':     r'$|\Delta\theta_{\ell\ell}|$',
+    'acoplanarity':     r'$|\Delta\phi_{\ell\ell}|$',
+    'zll_m':            r'$m_{\ell\ell}$ [GeV]',
+    'zll_p':            r'$p_{\ell\ell}$ [GeV]',
+    'zll_theta':        r'$\theta_{\ell\ell}$',
+    'cosTheta_miss':    r'$cos\theta_{miss}$',
+    'H':                r'$H$',
+    'visibleEnergy':    r'$E_{visible}$  [GeV]'
+}
+
 Label = {}
 Label = {
     f"mumuH":       r"$e^+e^-\rightarrow Z(\mu^+\mu^-)H$",
@@ -153,6 +168,62 @@ Label = {
     f"gammae_ee":   r"$e^+\gamma\rightarrow e^+Z(e^+e^-)$",
     f"gaga_ee":     r"$\gamma\gamma\rightarrow e^+e^-$"
 }
+
+histoList = {
+    "leading_p":        {"name":"leading_p",
+                         "title":"p_{l,leading} [GeV]",
+                         "bin":120, "xmin":40, "xmax":100},
+
+    "leading_theta":    {"name":"leading_theta",
+                         "title":r"#theta_{l,leading}",
+                         "bin":128, "xmin":0,  "xmax":3.2},
+
+    "subleading_p":     {"name":"subleading_p",
+                         "title":"p_{l,subleading} [GeV]",
+                         "bin":80, "xmin":20, "xmax":60},
+
+    "subleading_theta": {"name":"subleading_theta",
+                         "title":"#theta_{l,subleading}",
+                         "bin":128, "xmin":0,  "xmax":3.2},
+    
+    # Zed
+    "zll_m":            {"name":"zll_m",
+                         "title":"m_{l^{+}l^{-}} [GeV]",
+                         "bin":100,"xmin":86,"xmax":96},
+
+    "zll_p":            {"name":"zll_p",
+                         "title":"p_{l^{+}l^{-}} [GeV]",
+                         "bin":100,"xmin":20,"xmax":70},
+
+    "zll_theta":        {"name":"zll_theta",
+                         "title":"#theta_{l^{+}l^{-}}",
+                         "bin":128,"xmin":0,"xmax":3.2},
+
+    "zll_phi":          {"name":"zll_phi",
+                         "title":"#phi_{l^{+}l^{-}}",
+                         "bin":64,"xmin":-3.2,"xmax":3.2},
+    
+    "acolinearity":     {"name":"acolinearity",
+                         "title":"#Delta#theta_{l^{+}l^{-}}",
+                         "bin":120,"xmin":0,"xmax":3},
+
+    "acoplanarity":     {"name":"acoplanarity",
+                         "title":"#Delta#phi_{l^{+}l^{-}}",
+                         "bin":128,"xmin":0,"xmax":3.2},
+    
+    "cosTheta_miss":    {"name":"cosTheta_miss",
+                         "title":"|cos#theta_{miss}|",
+                         "bin":100,"xmin":0.9,"xmax":1},
+    
+    "H":                {"name":"H",
+                         "title":"Higgsstrahlungness",
+                         "bin":110,"xmin":0,"xmax":110},
+
+    "visibleEnergy":    {"name":"visibleEnergy",
+                         "title":"visibleEnergy",
+                         "bin":320,"xmin":0,"xmax":160},
+}
+
 
 
 
