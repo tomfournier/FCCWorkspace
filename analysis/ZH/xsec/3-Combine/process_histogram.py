@@ -12,13 +12,14 @@ parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training varia
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
 parser.add_argument('--visbdt', help='Add E_vis > 10 GeV cut in the training variables for the BDT', action='store_true')
+parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
 
 arg = parser.parse_args()
 
 userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, z_decays, h_decays
 
-ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt)
+ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt, arg.sep)
 
 samples_bkg = [
     f"p8_ee_WW_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",

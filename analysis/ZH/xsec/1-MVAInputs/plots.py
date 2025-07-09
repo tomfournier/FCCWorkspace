@@ -41,16 +41,23 @@ variables = [
 # Dictonnary with the analysis name as a key, and the list of selections to be plotted for this analysis. The name of the selections should be the same than in the final selection
 _120 = '_120' if userConfig.recoil120 else ''
 selections = {}
-selections['ZH'] = [sel]
+selections['ZH'] = [sel, 'inv', 'invdemo', 'tot', 'mass', 'miss', 'vis']
 
 _miss, _120 = ' and cos#theta_{miss} cut' if userConfig.miss else '', ' and 120 < m_{recoil} < 140 GeV' if userConfig.recoil120 else ''
 _bdt, _vis = ' and cos#theta_{miss} as input' if userConfig.bdt else '', ' and E_{vis} cut' if userConfig.vis else ''
-_leading, _visbdt =   ' and p_{leading}, p_{sub} cuts' if userConfig.leading else '', '_visBDT' if userConfig.visbdt else ''
+_leading, _visbdt =   ' and p_{leading}, p_{sub} cuts' if userConfig.leading else '', 'and E_{vis} as input' if userConfig.visbdt else ''
+_sep = ' and E_{vis} separation' if userConfig.sep else ''
 
-selection = 'Baseline'+_leading+_vis+_visbdt+_120+_miss+_bdt
+selection = 'Baseline'+_sep+_leading+_vis+_visbdt+_120+_miss+_bdt
 
 extralabel = {}
 extralabel[sel] = selection
+extralabel['inv'] = 'Invisible decay'
+extralabel['invdemo'] = 'Invisible decay'
+extralabel['tot'] = 'Visible and invisible'
+extralabel['mass'] = 'E_{vis} and cos#theta_{miss} cut'
+extralabel['miss'] = 'cos#theta_{miss} cut'
+extralabel['vis'] = 'E_{vis} > 100 GeV'
 
 
 colors = {}

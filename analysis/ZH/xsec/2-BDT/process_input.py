@@ -13,6 +13,7 @@ parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training varia
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
 parser.add_argument('--visbdt', help='Add E_vis in the training variables for the BDT', action='store_true')
+parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
 arg = parser.parse_args()
 
 if arg.cat=='':
@@ -29,7 +30,7 @@ userConfig = importlib.import_module('userConfig')
 from userConfig import loc, get_loc, select, train_vars
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt, arg.sep)
 
 # Decay modes used in first stage training and their respective file names
 ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"

@@ -256,6 +256,16 @@ def build_graph_ll(df, hists, dataset, final_state):
         df = df.Filter("zll_recoil_m < 150 && zll_recoil_m > 100")
     hists.append(df.Histo1D((f"{final_state}_cutFlow",         "", *bins_count),  "cut6"))
 
+
+    ############
+    ### CUT TEST
+    ############
+    if userConfig.sep:
+        sel_vis = '(visibleEnergy > 100 && cosTheta_miss < 0.995)'
+        sel_inv = '(visibleEnergy <= 100 && zll_theta < 2.85 && zll_theta > 0.25 && acoplanarity > 0.05 && cosTheta_miss < 0.998)'
+        df = df.Filter(sel_vis+' || '+sel_inv)
+        # df = df.Filter('leading_p < 80 && subleading_p < 53 && subleading_p > 23')
+
     ############
     ### CUT 5bis: visible energy cut
     ############

@@ -12,6 +12,8 @@ parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training varia
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
 parser.add_argument('--visbdt', help='Add E_vis > 10 GeV cut in the training variables for the BDT', action='store_true')
+parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
+
 arg = parser.parse_args()
 
 if arg.cat=='':
@@ -32,7 +34,7 @@ from userConfig import loc, get_loc, select
 from userConfig import plot_file, Label, train_vars, latex_mapping, latex_label, histoList
 
 final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt, arg.sep)
 
 inputDir = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
 inputBDT = get_loc(loc.BDT,           final_state, ecm, sel)
@@ -73,16 +75,16 @@ def plot_metrics(df, bdt, vars_list, results, x_axis, mode_names, final_state, o
     else: exit("ERROR: Invalid final state")
 
     ut.create_dir(f"{outDir}")
-    # log_loss(results, x_axis, label, outDir, plot_file)
-    # classification_error(results, x_axis, label, outDir, plot_file)
-    # AUC(results, x_axis, label, outDir, plot_file)
-    # roc(df, label, outDir, plot_file)
-    # bdt_score(df, label, outDir, mode_names, plot_file, data_path=get_loc(loc.MVA_INPUTS,    final_state, ecm, sel), vars_list=vars_list,  unity=False, Bins=100, lumi=10.8)
-    # mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path=get_loc(loc.MVA_INPUTS,    final_state, ecm, sel), vars_list=vars_list, all=False, unity=False, Bins=100, lumi=10.8)
-    # importance(bdt, vars_list, latex_mapping, label, outDir, plot_file)
-    # significance(df, label, outDir, inputBDT, plot_file)
-    # efficiency(df, mode_names, Label, label, outDir, plot_file)
-    # tree_plot(bdt, inputBDT, outDir, epochs, 10, plot_file)
+    log_loss(results, x_axis, label, outDir, plot_file)
+    classification_error(results, x_axis, label, outDir, plot_file)
+    AUC(results, x_axis, label, outDir, plot_file)
+    roc(df, label, outDir, plot_file)
+    bdt_score(df, label, outDir, mode_names, plot_file, data_path=get_loc(loc.MVA_INPUTS,    final_state, ecm, sel), vars_list=vars_list,  unity=False, Bins=100, lumi=10.8)
+    mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path=get_loc(loc.MVA_INPUTS,    final_state, ecm, sel), vars_list=vars_list, all=False, unity=False, Bins=100, lumi=10.8)
+    importance(bdt, vars_list, latex_mapping, label, outDir, plot_file)
+    significance(df, label, outDir, inputBDT, plot_file)
+    efficiency(df, mode_names, Label, label, outDir, plot_file)
+    tree_plot(bdt, inputBDT, outDir, epochs, 10, plot_file)
     for key, value in histoList.items():  
       if key not in vars_list: continue
       var, xmin, xmax, Bins, xlabel = key, value["xmin"], value["xmax"], value["bin"], latex_label[key]

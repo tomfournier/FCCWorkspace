@@ -5,21 +5,23 @@ import os
 ######################
 
 plot_file = 'png'
-frac, nb  = 0.1, 10
+frac, nb  = 1, 10
 treemaker = True
 
 ecm, lumi = 240, 10.8
-recoil120, miss, bdt = False, False, True
+recoil120, miss, bdt = False, False, False
 leading, vis, visbdt = True, False, False
+sep = True
 
 _120, _miss, _bdt = '_120' if recoil120 else '', '_miss' if miss else '', '_missBDT' if bdt else ''
 _vis, _leading, _visbdt = '_vis' if vis else '', '_leading' if leading else '', '_visBDT' if visbdt else ''
+_sep = '_sep' if sep else ''
 
-sel = 'Baseline'+_leading+_vis+_visbdt+_120+_miss+_bdt
+sel = 'Baseline'+_sep+_leading+_vis+_visbdt+_120+_miss+_bdt
 
 #############################
 ##### LOCATION OF FILES #####
-#############################
+#############################gtfccw
 
 eos, ZH = True, False
 if eos:
@@ -98,8 +100,9 @@ def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
     path = path.replace('selection', sel)
     return path
 
-def select(recoil120: bool = False, miss: bool = False, bdt: bool = False, leading: bool = False, vis: bool = False, visbdt: bool = False) -> str:
+def select(recoil120: bool = False, miss: bool = False, bdt: bool = False, leading: bool = False, vis: bool = False, visbdt: bool = False, sep: bool = False) -> str:
     sel = 'Baseline'
+    if sep:       sel += '_sep'
     if leading:   sel += '_leading'
     if vis:       sel += '_vis'
     if visbdt:    sel += '_visBDT'

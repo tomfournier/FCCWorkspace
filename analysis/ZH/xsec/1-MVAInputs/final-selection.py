@@ -56,13 +56,24 @@ else:
 baselineCut = f"zll_p > 20 && zll_p < 70 && zll_m > 86 && zll_m < 96 && zll_recoil_m > {recoil_dw} && zll_recoil_m < {recoil_up}"
 cosTheta_missCut, E_visCut, leading_pCut = "cosTheta_miss < 0.98", 'visibleEnergy > 10', "leading_p < 80 && leading_p > 50"
 
+visCut = 'visibleEnergy > 100 && cosTheta_miss < 0.995'
+invCut = 'visibleEnergy <= 100 && zll_theta < 2.85 && zll_theta > 0.25 && acoplanarity > 0.05 && cosTheta_miss < 0.998'
+
+
 selection = baselineCut + ' && ' + cosTheta_missCut if userConfig.miss else baselineCut
 selection = selection + ' && ' + leading_pCut if userConfig.leading else selection
 selection = selection + ' && ' + E_visCut if userConfig.vis else selection
+selection = selection + f' && (({visCut}) || ({invCut}))' if userConfig.sep else selection
 
 
-
-cutList = { sel: selection }
+cutList = { sel: selection, 
+            'tot': '((' + baselineCut + ' && ' + visCut +') || (' + invCut + '))',
+            'inv': baselineCut + ' && ' + invCut,
+            'vis': baselineCut + ' && ' + 'visibleEnergy > 100',
+            'miss': baselineCut + ' && ' + 'cosTheta_miss < 0.98',
+            'invdemo': baselineCut + ' && ' + 'visibleEnergy < 100',
+            'mass': baselineCut + ' && ' + 'visibleEnergy > 100 && cosTheta_miss < 0.98'
+            }
 
 # Dictionary for the ouput variable/hitograms. 
 histoList = {

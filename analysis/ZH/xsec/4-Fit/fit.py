@@ -14,6 +14,8 @@ parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action=
 parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
 parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
 parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
+parser.add_argument('--visbdt', help='Add E_vis in the training variables for the BDT', action='store_true')
+parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
 
 parser.add_argument("--bias", help="Nominal fit or bias test", action='store_true')
 parser.add_argument("--pert", type=float, help="Target pseudodata size", default=1.0)
@@ -28,7 +30,7 @@ if arg.cat=='' and not arg.combine:
     exit(0)
 if arg.combine: arg.cat = 'combined'
 
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis)
+sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.visbdt, arg.sep)
 if not arg.bias:
     dir, dc = get_loc(loc.COMBINE_NOMINAL, arg.cat, arg.ecm, sel), get_loc(loc.NOMINAL_DATACARD, arg.cat, arg.ecm, sel)
     tp      = "nominal"
