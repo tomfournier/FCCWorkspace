@@ -261,7 +261,9 @@ def build_graph_ll(df, hists, dataset, final_state):
     if userConfig.sep:
         sel_vis = '(visibleEnergy > 100 && cosTheta_miss < 0.995)'
         sel_inv = '(visibleEnergy <= 100 && zll_theta < 2.85 && zll_theta > 0.25 && acoplanarity > 0.05 && cosTheta_miss < 0.998)'
-        df = df.Filter(sel_vis+' || '+sel_inv)
+        df1, df2 = df.Filter(sel_vis), df.Filter(sel_inv)
+        # df = df.Filter(sel_vis+' || '+sel_inv)
+        df = df.Filter(df1, df2)
         # df = df.Filter('leading_p < 80 && subleading_p < 53 && subleading_p > 23')
 
     ############

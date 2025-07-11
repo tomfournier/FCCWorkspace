@@ -36,7 +36,7 @@ samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
 samples = samples_sig + samples_bkg
 procs = samples
 
-hName = ['recoil_m_mva', 'zll_recoil_m_mva_high', 'zll_recoil_m_mva_low', 'zll_recoil']
+hName = ['recoil_m_mva', 'zll_recoil_m_mva_high', 'zll_recoil_m_mva_low', 'zll_recoil_m_mva_high_tot', 'zll_recoil_m_mva_low_tot', 'zll_recoil']
 
 
 

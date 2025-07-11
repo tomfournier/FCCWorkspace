@@ -64,15 +64,15 @@ argument = {
 
     'zll_m_nOne': {
         'lim':   [50, 120, 1e2, 1e8],
-        'limH':  [15, 130, 1e-5, 1],
+        'limH':  [15, 130, 1e-5, 1e1],
         'label': ['m_{ll} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 1,
+        'logY':  True, 'rebin': 2,
         'sign':  True
     },
 
     'zll_p_nOne': {
         'lim':   [0, 120, 1e1, 1e8],
-        'limH':  [0, 80, 1e-5, 1],
+        'limH':  [0, 80, 1e-5, 1e1],
         'label': ['p_{ll} [GeV]', 'Events'],
         'logY':  True, 'rebin': 2,
         'sign':  True
@@ -87,15 +87,15 @@ argument = {
     },
 
     'zll_p': {
-        'lim':   [20, 70, 1e1, -1],
-        'limH':  [20, 70, 1e-4, 1],
+        'lim':   [20, 70, 1e-1, -1],
+        'limH':  [20, 70, 1e-4, 1e1],
         'label': ['p_{ll} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 1,
-        'hl':    True
+        'logY':  True, 'rebin': 2,
+        'hl':    True, 'sign': True
     },
 
     'zll_theta': {
-        'lim':   [0, 3.2, 1e1, -1],
+        'lim':   [0, 3.2, 1e-1, -1],
         'limH':  [0, 3.2, 1e-5, 1],
         'label': ['#theta_{ll}', 'Events'],
         'logY':  True, 'rebin': 2,
@@ -128,7 +128,7 @@ argument = {
         'lim':   [40, 100, 1, -1],
         'limH':  [40, 90, 1e-5, 1e1],
         'label': ['p_{leading} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 1,
+        'logY':  True, 'rebin': 2,
         'hl':    True, 'sign':  True
     },
 
@@ -136,15 +136,15 @@ argument = {
         'lim':   [10, 70, 1, -1],
         'limH':  [20, 60, 1e-5, 1e1],
         'label': ['p_{subleading} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 4,
+        'logY':  True, 'rebin': 2,
         'hl':    True, 'sign':  True
     },
 
     'leading_theta': {
-        'lim':   [0, 3.2, 1e1, 1e7],
+        'lim':   [0, 3.2, 1e0, 1e7],
         'limH':  [0, 3.2, 1e-4, 1],
         'label': ['#theta_{leading}', 'Events'],
-        'logY':  True, 'rebin': 4,
+        'logY':  True, 'rebin': 2,
         'hl':    True, 'sign':  True
     },
 
@@ -152,7 +152,7 @@ argument = {
         'lim':   [0, 3.2, 1e1, 1e6],
         'limH':  [0, 3.2, 1e-4, 1],
         'label': ['#theta_{subleading}', 'Events'],
-        'logY':  True, 'rebin': 4,
+        'logY':  True, 'rebin': 2,
         'hl':    True, 'sign':  True
     }, 
 
@@ -164,30 +164,30 @@ argument = {
 
     'zll_recoil_nOne': {
         'lim':   [100, 150, 1, 1e6],
-        'limH':  [100, 150, 1e-5, 1],
+        'limH':  [100, 150, 1e-5, 1e1],
         'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 8,
+        'logY':  True, 'rebin': 16,
         'sign':  True
     },
 
     'zll_recoil': {
         'lim':   [int(m_dw), int(m_up), 0, -1],
-        'limH':  [int(m_dw), int(m_up), 1e-4, 1],
+        'limH':  [int(m_dw), int(m_up), 1e-4, 1e1],
         'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 8,
+        'logY':  False, 'rebin': 16,
         'hl':    True
     },
 
     'zll_recoil_cut3': {
         'lim':   [40, 160, 0, 40e3],
         'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 8
+        'logY':  False, 'rebin': 16
     },
 
     'zll_recoil_cut4': {
         'lim':   [40, 160, 0, 1e4],
         'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 8
+        'logY':  False, 'rebin': 16
     },
 
 
@@ -198,7 +198,7 @@ argument = {
 
     'mva_score': {
         'lim':   [0, 1, 1e-1, -1],
-        'limH':  [0, 1, 1e-4, 1],
+        'limH':  [0, 1, 1e-5, 1],
         'label': ['MVA score', 'Events'],
         'logY':  True, 'rebin': 10,
         'sign':  True
@@ -206,12 +206,26 @@ argument = {
 
     'zll_recoil_m_mva_low': {
         'lim':   [int(m_dw), int(m_up), 0, -1],
-        'limH':  [int(m_dw), int(m_up), 1e-5, 1],
+        'limH':  [int(m_dw), int(m_up), 1e-5, 1e1],
         'label': ['m_{recoil} [GeV]', 'Events'],
-        'logY':  False, 'rebin': 4
+        'logY':  False, 'rebin': 2
     },
 
     'zll_recoil_m_mva_high': {
+        'lim':   [122, 134, 0, -1],
+        'limH':  [122, 134, 1e-5, 1e1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 1
+    },
+
+    'zll_recoil_m_mva_low_tot': {
+        'lim':   [int(m_dw), int(m_up), 0, -1],
+        'limH':  [int(m_dw), int(m_up), 1e-5, 1e1],
+        'label': ['m_{recoil} [GeV]', 'Events'],
+        'logY':  False, 'rebin': 2
+    },
+
+    'zll_recoil_m_mva_high_tot': {
         'lim':   [122, 134, 0, -1],
         'limH':  [122, 134, 1e-5, 1e1],
         'label': ['m_{recoil} [GeV]', 'Events'],
@@ -226,17 +240,17 @@ argument = {
 
     'visibleEnergy_nOne': {
         'lim':   [0, 160, 1e-1, -1],
-        'limH':  [0, 160, 1e-5, 1], 
+        'limH':  [0, 160, 1e-5, 1e1], 
         'label': ['E_{vis} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 16,
+        'logY':  True, 'rebin': 8,
         'sign':  True
     },    
 
     'visibleEnergy': {
         'lim':   [0, 160, 1e-2, -1],
-        'limH':  [0, 160, 1e-5, 1],
+        'limH':  [0, 160, 1e-5, 1e1],
         'label': ['E_{vis} [GeV]', 'Events'],
-        'logY':  True, 'rebin': 4,
+        'logY':  True, 'rebin': 8,
         'hl':    True, 'sign':  True
     },    
 
@@ -266,7 +280,7 @@ argument = {
         'lim':   [0, 5, 1e-1, -1],
         'limH':  [0, 4, 1e-5, 1],
         'label': ['Cone Isolation', 'Events'],
-        'logY':  True, 'rebin': 1,
+        'logY':  True, 'rebin': 2,
         'sign':  True
     },
 
@@ -319,22 +333,23 @@ for cat in ['mumu', 'ee']:
 
     for hName, kwarg in argument.items():
         print(f'\n----->[Info] Making plots for {hName}')
-        for ind in ['', '_high', '_low', '_vis', '_inv', '_mvis', '_minv']:
+        for ind in ['', '_high', '_low', '_vis', '_inv', '_tot']:
             if ind!='' and not 'hl' in kwarg: continue
-            if arg.sign and 'sign' in kwarg and kwarg['sign']:
-                significance(f'{cat}_{hName}{ind}', *args, *kwarg['lim'][:2], outName=hName, reverse=True)
-                significance(f'{cat}_{hName}{ind}', *args, *kwarg['lim'][:2], outName=hName, reverse=False)
 
-            i, cond = ind if ind!='' else '_nominal', (ind=='') or (ind=='_high') or (ind=='_low') or (ind=='_vis')
-            reb = kwarg['rebin'] if cond else 8
+            i = ind if ind!='' else '_nominal'
             print(f'\n----->[Info] Making plots for {i[1:]}')
+
+            if arg.sign and 'sign' in kwarg and kwarg['sign']:
+                significance(f'{cat}_{hName}{ind}', *args, *kwarg['lim'][:2], sel=ind, outName=hName, reverse=True)
+                significance(f'{cat}_{hName}{ind}', *args, *kwarg['lim'][:2], sel=ind, outName=hName, reverse=False)
+
+            reb = kwarg['rebin'] * 2 if ind=='_inv' else kwarg['rebin']
             if 'limH' in kwarg: 
                  PlotDecays(f'{cat}_{hName}{ind}', *args1, *kwarg['limH'], *kwarg['label'], 
-                            outName=hName, rebin=reb) 
+                            sel=ind, outName=hName, rebin=reb) 
             if 'lim' in kwarg: 
                  makePlot(f'{cat}_{hName}{ind}', *args, *kwarg['lim'], *kwarg['label'], 
-                          outName=hName, logY=kwarg['logY'], rebin=kwarg['rebin'])
-
+                          sel=ind, outName=hName, logY=kwarg['logY'], rebin=kwarg['rebin'])
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

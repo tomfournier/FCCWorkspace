@@ -1,5 +1,5 @@
 import ROOT
-import array
+from array import array
 import importlib
 import numpy as np
 
@@ -200,6 +200,8 @@ def build_graph_ll(df, hists, dataset, final_state):
     df = df.Filter("zll_m > 86 && zll_m < 96")
     hists.append(df.Histo1D((f"{final_state}_cutFlow",    "", *bins_count), "cut3"))
 
+    df_cut = df.copy()
+
     #########
     ### CUT 4: Z momentum
     #########
@@ -222,8 +224,6 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut5"))
 
     df_vis, df_inv   = df.Filter('visibleEnergy > 100'),  df.Filter('visibleEnergy <= 100')
-    df_mvis, df_minv = df.Filter('cosTheta_miss < 0.98'), df.Filter('cosTheta_miss >= 0.98')
-    df_VIS, df_INV   = df.Filter('visibleEnergy > 130'),  df.Filter('visibleEnergy <= 130')
 
     #########
     ### CUT 5bis: p_leading and p_subleading cut
@@ -254,11 +254,18 @@ def build_graph_ll(df, hists, dataset, final_state):
     ### CUT TEST
     ############
     if userConfig.sep:
-        sel_vis = '(visibleEnergy > 100 && cosTheta_miss < 0.995)'
-        sel_inv = '(visibleEnergy <= 100 && zll_theta < 2.85 && zll_theta > 0.25 && acoplanarity > 0.05 && cosTheta_miss < 0.998)'
-        df = df.Filter(sel_vis+' || '+sel_inv)
-        # df = df.Filter('leading_p < 80 && subleading_p < 53 && subleading_p > 23')
+        sel_vis  = '(visibleEnergy > 100 && cosTheta_miss < 0.995)'
+        sel_inv  = '(visibleEnergy <= 100 && zll_theta < 2.8 && zll_theta > 0.3 && acoplanarity > 0.38 && acolinearity < 2.3 && cosTheta_miss < 0.998'
+        sel_inv1 = ' && leading_theta > 0.5 && leading_theta < 2.6'
+
+        sel_bas = sel_inv + ')'
+        sel_tot = sel_inv + sel_inv1 + ')'
+        df      = df.Filter(sel_vis+' || '+sel_bas)
+        df_cut  = df.Filter(sel_vis+' || '+sel_bas)
+        df_tot  = df.Filter(sel_vis+' || '+sel_tot)
         hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut6"))
+
+    hists.append(df_cut.Histo1D((f"{final_state}_zll_recoil_cut", "", *bins_recoil), "zll_recoil_m"))
 
     ##########
     ### MVA
@@ -275,29 +282,44 @@ def build_graph_ll(df, hists, dataset, final_state):
         df = df.Define("BDTscore",  "mva_score.at(0)")
     hists.append(df.Histo1D((f"{final_state}_mva_score", "", *(1000, 0, 1)), "BDTscore"))
 
+    if final_state == "mumu":
+        df_tot = df_tot.Define("MVAVec",    f"ROOT::VecOps::RVec<float>{{{vars_str}}}")
+        df_tot = df_tot.Define("mva_score", tmva_mumu.tmva_helper, ["MVAVec"])
+        df_tot = df_tot.Define("BDTscore",  "mva_score.at(0)")
+    elif final_state == "ee":
+        df_tot = df_tot.Define("MVAVec",    f"ROOT::VecOps::RVec<float>{{{vars_str}}}")
+        df_tot = df_tot.Define("mva_score", tmva_ee.tmva_helper, ["MVAVec"])
+        df_tot = df_tot.Define("BDTscore",  "mva_score.at(0)")
+    hists.append(df_tot.Histo1D((f"{final_state}_mva_score_tot", "", *(1000, 0, 1)), "BDTscore"))
+
     # MVA cut
     mva_sign = mva_mumu if final_state=='mumu' else mva_ee
 
     # separate recoil plots
     df_low = df.Filter(f"BDTscore < {mva_sign}")
     hists.append(df_low.Histo1D((f"{final_state}_zll_recoil_m_mva_low",   "", *(bins_recoil_fine)), "zll_recoil_m"))
+    df_tot_low = df_tot.Filter(f"BDTscore < {mva_sign}")
+    hists.append(df_tot_low.Histo1D((f"{final_state}_zll_recoil_m_mva_low_tot",   "", *(bins_recoil_fine)), "zll_recoil_m"))
 
     df_high = df.Filter(f"BDTscore > {mva_sign}")
     hists.append(df_high.Histo1D((f"{final_state}_zll_recoil_m_mva_high", "", *(bins_recoil_fine)), "zll_recoil_m"))
+    df_tot_high = df_tot.Filter(f"BDTscore > {mva_sign}")
+    hists.append(df_tot_high.Histo1D((f"{final_state}_zll_recoil_m_mva_high_tot",   "", *(bins_recoil_fine)), "zll_recoil_m"))
 
     ##########
     # Final
     ##########
 
-    bins_mva_ = [0, mva_sign, 1]
-    bins_mrec_ = list(np.arange(100, 150.5, 0.5))
-    bins_mva = array.array('d', bins_mva_)
-    bins_mrec = array.array('d', bins_mrec_)
-    model = ROOT.RDF.TH2DModel(f"{final_state}_recoil_m_mva", "", len(bins_mrec_)-1, bins_mrec, len(bins_mva_)-1, bins_mva)
+    bin_mva,  bin_mrec  = [0, mva_sign, 1], list(np.arange(100, 150.5, 0.5))
+    bins_mva, bins_mrec = array('d', bin_mva), array('d', bin_mrec)
+    model = ROOT.RDF.TH2DModel(f"{final_state}_recoil_m_mva", "", len(bin_mrec)-1, bins_mrec, len(bin_mva)-1, bins_mva)
     hists.append(df.Histo2D(model, "zll_recoil_m", "BDTscore"))
 
+    _sel = ['', '_high', '_low', '_vis', '_inv', '_tot']
+    _df  = [df, df_high, df_low, df_vis, df_inv, df_tot]
+
     # final histograms
-    for ind, DF in zip(['', '_high', '_low', '_vis', '_inv', '_mvis', '_minv', '_VIS', '_INV'], [df, df_high, df_low, df_vis, df_inv, df_mvis, df_minv, df_VIS, df_INV]):
+    for ind, DF in zip(_sel, _df):
 
         hists.append(DF.Histo1D((f"{final_state}_leps_p{ind}",     "", *bins_p_mu),   "leps_p"))
         hists.append(DF.Histo1D((f"{final_state}_zll_p{ind}",      "", *bins_p_mu),   "zll_p"))
@@ -306,6 +328,8 @@ def build_graph_ll(df, hists, dataset, final_state):
         hists.append(DF.Histo1D((f"{final_state}_zll_recoil{ind}", "", *bins_recoil), "zll_recoil_m"))
 
         hists.append(DF.Histo1D((f"{final_state}_cosThetaMiss{ind}", "", *bins_miss), "cosTheta_miss"))
+        hists.append(DF.Histo1D((f"{final_state}_visibleEnergy{ind}", "", *bins_p_mu), "visibleEnergy"))
+
         hists.append(DF.Histo1D((f"{final_state}_acoplanarity{ind}", "", *bins_aco),  "acoplanarity"))
         hists.append(DF.Histo1D((f"{final_state}_acolinearity{ind}", "", *bins_aco),  "acolinearity"))
 
@@ -313,8 +337,6 @@ def build_graph_ll(df, hists, dataset, final_state):
         hists.append(DF.Histo1D((f"{final_state}_leading_theta{ind}",    "", *bins_theta), "leading_theta"))
         hists.append(DF.Histo1D((f"{final_state}_subleading_p{ind}",     "", *bins_p_mu),  "subleading_p"))
         hists.append(DF.Histo1D((f"{final_state}_subleading_theta{ind}", "", *bins_theta), "subleading_theta"))
-
-        hists.append(DF.Histo1D((f"{final_state}_visibleEnergy{ind}", "", *bins_p_mu), "visibleEnergy"))
 
     return hists
 

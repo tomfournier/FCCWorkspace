@@ -86,7 +86,7 @@ else:
 
 for cur_mode in modes:
     files[cur_mode] = get_data_paths(cur_mode, data_path, modes)
-    N_events[cur_mode], df[cur_mode], eff[cur_mode] = counts_and_efficiencies(cur_mode, files[cur_mode], vars_list)
+    N_events[cur_mode], df[cur_mode], eff[cur_mode] = counts_and_efficiencies(files[cur_mode], vars_list)
     print(f"Number of events in {cur_mode} = {N_events[cur_mode]}")
     print(f"Efficiency of {cur_mode} = {eff[cur_mode]*100:.3f}%")
     df[cur_mode] = additional_info(df[cur_mode], cur_mode, sig)
@@ -96,7 +96,7 @@ for cur_mode in modes:
     print(f"Number of BDT inputs for {cur_mode:{' '}{'<'}{10}} = {N_BDT_inputs[cur_mode]}")
 
 for cur_mode in modes:
-    df[cur_mode] = df_split_data(df[cur_mode], N_BDT_inputs, xsec, N_events, cur_mode)
+    df[cur_mode] = df_split_data(df[cur_mode], N_BDT_inputs, eff, xsec, N_events, cur_mode)
 
 dfsum = pd.concat([df[cur_mode] for cur_mode in modes])
 

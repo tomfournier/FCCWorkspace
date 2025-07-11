@@ -445,7 +445,7 @@ def CutFlowDecays(inputDir, outDir, z_decays, h_decays, final_state, plot_file=[
         canvas.SaveAs(f"{outDir}/cutflow/selection_efficiency.{pl}")
 
 #__________________________________________________________
-def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, xMin, xMax, yMin, yMax, xLabel, yLabel, 
+def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, xMin, xMax, yMin, yMax, xLabel, yLabel, sel='', 
                ecm=240, lumi=10.8, outName="", plot_file=['png'], logX=False, logY=True, rebin=1, xLabels=[]):
 
     if outName == "":
@@ -514,14 +514,8 @@ def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, xMin, xMax, yMin, yM
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
     
-    name = hName.split('_')[-1]
-    if   'low'  in name: out = f'{outDir}/higgsDecays/low'
-    elif 'high' in name: out = f'{outDir}/higgsDecays/high'
-    elif 'mvis' in name: out = f'{outDir}/higgsDecays/mvis'
-    elif 'minv' in name: out = f'{outDir}/higgsDecays/minv'
-    elif 'vis'  in name: out = f'{outDir}/higgsDecays/vis'
-    elif 'inv'  in name: out = f'{outDir}/higgsDecays/inv'
-    else :               out = f'{outDir}/higgsDecays/nominal'
+    if sel=='': out = f'{outDir}/higgsDecays/nominal'
+    else:       out = f'{outDir}/higgsDecays/{sel[1:]}'
 
     if not os.path.isdir(out):
             os.system(f'mkdir -p {out}')
@@ -615,7 +609,7 @@ def SignalRatios(hName, inputDir, outDir, z_decays, h_decays, ecm=240, lumi=10.8
     canvas.Close()
 
 #__________________________________________________________
-def makePlot(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, yMin, yMax, xLabel, yLabel, 
+def makePlot(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, yMin, yMax, xLabel, yLabel, sel='',
              ecm=240, lumi=10.8, outName="", logX=False, logY=True, rebin=-1, sig_scale=1, xLabels=[], 
              plot_file=['png'], stack=False):
 
@@ -713,14 +707,8 @@ def makePlot(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, yMin, yMax, 
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
-    name = hName.split('_')[-1]
-    if   'low'  in name: out = f'{outDir}/makePlot/low'
-    elif 'high' in name: out = f'{outDir}/makePlot/high'
-    elif 'mvis' in name: out = f'{outDir}/makePlot/mvis'
-    elif 'minv' in name: out = f'{outDir}/makePlot/minv'
-    elif 'vis'  in name: out = f'{outDir}/makePlot/vis'
-    elif 'inv'  in name: out = f'{outDir}/makePlot/inv'
-    else :               out = f'{outDir}/makePlot/nominal'
+    if sel=='': out = f'{outDir}/makePlot/nominal'
+    else:       out = f'{outDir}/makePlot/{sel[1:]}'
 
     if not os.path.isdir(out):
             os.system(f'mkdir -p {out}')
@@ -730,7 +718,7 @@ def makePlot(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, yMin, yMax, 
     canvas.Close()
 
 #__________________________________________________________
-def significance(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, outName="", reverse=False, plot_file=['png']):
+def significance(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, sel='', outName="", reverse=False, plot_file=['png']):
 
     if outName == "": outName = hName
 
@@ -834,14 +822,8 @@ def significance(hName, inputDir, outDir, procs, procs_cfg, xMin, xMax, outName=
 
     canvas.Update()
 
-    name = hName.split('_')[-1]
-    if   'low'  in name: out = f'{outDir}/significance/low'
-    elif 'high' in name: out = f'{outDir}/significance/high'
-    elif 'mvis' in name: out = f'{outDir}/significance/mvis'
-    elif 'minv' in name: out = f'{outDir}/significance/minv'
-    elif 'vis'  in name: out = f'{outDir}/significance/vis'
-    elif 'inv'  in name: out = f'{outDir}/significance/inv'
-    else :               out = f'{outDir}/significance/nominal'
+    if sel=='': out = f'{outDir}/significance/nominal'
+    else:       out = f'{outDir}/significance/{sel[1:]}'
 
     if not os.path.isdir(out):
             os.system(f'mkdir -p {out}')

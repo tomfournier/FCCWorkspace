@@ -103,15 +103,11 @@ def thres_opt(df, score_column = 'BDTscore', func=Z0, n_spliter=2, score_range=(
 
 #__________________________________________________________
 def dir_exist(mydir):
-    import os.path
-    if os.path.exists(mydir): return True
-    else: return False
+    return os.path.exists(mydir)
 
 #__________________________________________________________
 def create_dir(mydir):
-    if not dir_exist(mydir):
-        import os
-        os.system('mkdir -p {}'.format(mydir))
+    if not os.path.exists(mydir): os.system(f'mkdir -p {mydir}')
 
 #__________________________________________________________
 def get_procDict(procFile):
@@ -124,7 +120,7 @@ def get_procDict(procFile):
     else:
         if not ('eos' in procFile):
             procFile = os.path.join(os.getenv('FCCDICTSDIR').split(':')[0], '') + procFile 
-            print(f"procFile is {procFile}")
+            # print(f"procFile is {procFile}")
         if not os.path.isfile(procFile):
             print ('----> No procDict found: ==={}===, exit'.format(procFile))
             sys.exit(3)
@@ -158,37 +154,34 @@ def get_data_paths(cur_mode, data_path, mode_names):
     return glob.glob(f"{path}.root")
 
 #__________________________________________________________
-def counts_and_efficiencies(cur_mode, files, vars_list):
+def counts_and_efficiencies(files, vars_list, only_eff=False):
     N_events = sum([uproot.open(f)["eventsProcessed"].value for f in files])
     df = pd.concat((get_df(f, vars_list) for f in files), ignore_index=True)
     eff = len(df) / N_events
-    return N_events, df, eff
+    if only_eff: return eff
+    else: return N_events, df, eff
 
 #__________________________________________________________
 def additional_info(df, cur_mode, sig):
-    df['sample'] = cur_mode
-    df['isSignal'] = int(cur_mode == sig)
+    df['sample'], df['isSignal'] = cur_mode, int(cur_mode == sig)
     return df
 
 #__________________________________________________________
 def BDT_input_numbers(mode_names, sig, df, eff, xsec, frac):
     N_BDT_inputs = {}
-    # print(f"eff = {eff*100:.3f}%")
-    # print(f"xsec = {xsec}")
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in mode_names if mode != sig)
     for cur_mode in mode_names:
-        # print(f"Calculating number of BDT inputs for {cur_mode}")
         N_BDT_inputs[cur_mode] = (int(frac[cur_mode] * len(df[cur_mode])) if cur_mode == sig else
                                   int(frac[cur_mode] * len(df[sig]) * (eff[cur_mode] * xsec[cur_mode] / xsec_tot_bkg)))
     return N_BDT_inputs
 
 #__________________________________________________________
-def df_split_data(df, N_BDT_inputs, xsec, N_events, cur_mode):
+def df_split_data(df, N_BDT_inputs, eff, xsec, N_events, cur_mode):
     df = df.sample(n=N_BDT_inputs[cur_mode], random_state=1)
     df0, df1 = train_test_split(df, test_size=0.5, random_state=7)
     df.loc[df0.index, "valid"] = False
     df.loc[df1.index, "valid"] = True
-    df.loc[df.index, "norm_weight"] = xsec[cur_mode] / N_events[cur_mode]
+    df.loc[df.index, "norm_weight"] = eff[cur_mode] * xsec[cur_mode] / N_events[cur_mode]
     return df
 
 #__________________________________________________________
@@ -203,7 +196,7 @@ def print_stats(df, modes):
     print("__________________________________________________________")
     print("Input number of events:")
     for cur_mode in modes:
-        print(f"Number of training {cur_mode}: {int(len(df[(df['sample'] == cur_mode) & (df['valid'] == False)]))}")
+        print(f"Number of training   {cur_mode}: {int(len(df[(df['sample'] == cur_mode) & (df['valid'] == False)]))}")
         print(f"Number of validation {cur_mode}: {int(len(df[(df['sample'] == cur_mode) & (df['valid'] == True)]))}")
     print("__________________________________________________________")
 
@@ -220,7 +213,7 @@ def train_model(X_train, y_train, X_valid, y_valid, config_dict, early_stopping_
     bdt = xgb.XGBClassifier(**config_dict, eval_metric=["error", "logloss", "auc"], 
                             early_stopping_rounds=early_stopping_round)
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
-    print("Training model")
+    print("Beginning the training")
     bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True)
     return bdt
 
@@ -232,8 +225,7 @@ def save_model(bdt, vars_list, output_path):
     ROOT.TMVA.Experimental.SaveXGBoost(bdt, "ZH_Recoil_BDT", f"{output_path}/xgb_bdt.root", num_inputs=len(vars_list))
 
     variables = ROOT.TList()
-    for var in vars_list:
-        variables.Add(ROOT.TObjString(var))
+    for var in vars_list: variables.Add(ROOT.TObjString(var))
     fOut = ROOT.TFile(f"{output_path}/xgb_bdt.root", "UPDATE")
     fOut.WriteObject(variables, "variables")
 

@@ -234,7 +234,7 @@ def bdt_score(df, label, outDir, mode_names, plot_file, data_path, vars_list, un
     xsec = ut.get_xsec(mode_names)
     for cur_mode in mode_names:
         files = ut.get_data_paths(cur_mode, data_path, mode_names)
-        N_events, DF, eff = ut.counts_and_efficiencies(cur_mode, files, vars_list)
+        eff = ut.counts_and_efficiencies(files, vars_list, only_eff=True)
         N = len(df.loc[df['sample']==cur_mode])
         df.loc[df['sample']==cur_mode, 'weights'] = xsec[cur_mode] * eff * lumi * 1e6 / N
 
@@ -286,7 +286,7 @@ def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data
             if 'isSignal!=1' in w and 'H' in cur_mode: continue
             df_tmp = df[(df['sample']==cur_mode)]
             files = ut.get_data_paths(cur_mode, data_path, mode_names)
-            N_events, DF, eff = ut.counts_and_efficiencies(cur_mode, files, vars_list)
+            eff = ut.counts_and_efficiencies(files, vars_list, only_eff=True)
             weight = xsec[cur_mode] * eff * lumi * 1e6 / len(df_tmp)
             df_instance = df_tmp.query(w)
             lab = Label[cur_mode] if 'valid==False' in w else None
