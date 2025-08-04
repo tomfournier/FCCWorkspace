@@ -18,27 +18,25 @@ sig_procs = {'sig': samples_sig}
 
 bkg_procs = {
     'ZZ':    [f'p8_ee_ZZ_ecm{ecm}'],
-    'WW':    [f'p8_ee_WW_ecm{ecm}'],
+    'WW':    [f'p8_ee_WW_ecm{ecm}', f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}'],
     'Zgamma':[f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',         f'wzp6_ee_mumu_ecm{ecm}', f'wzp6_ee_tautau_ecm{ecm}'],
     'Rare':  [f'wzp6_egamma_eZ_Z{final_state}_ecm{ecm}', f'wzp6_gammae_eZ_Z{final_state}_ecm{ecm}',
               f'wzp6_gaga_{final_state}_60_ecm{ecm}',    f'wzp6_gaga_tautau_60_ecm{ecm}',
               f'wzp6_ee_nuenueZ_ecm{ecm}']
 }
 
-categories = [f'z_{final_state}']
 hName = [
-    f'{final_state}_recoil_m_mva',          f'{final_state}_zll_recoil', 
-    f'{final_state}_zll_recoil_m_mva_high', f'{final_state}_zll_recoil_m_mva_low'
+    f'{final_state}_recoil_m_mva',
+    f'{final_state}_recoil_m_mva_vis', f'{final_state}_recoil_m_mva_inv'
 ]
-hist_names = [hName[0]]
+if not userConfig.sep:
+    categories = [f'z_{final_state}']
+    hist_names = [hName[0]]
+else:
+    categories = [f'z_{final_state}_vis', f'z_{final_state}_inv']
+    hist_names = [hName[1], hName[2]]
 
 systs = {}
-# systs['bkg_norm'] = {
-#     'type':  'lnN',
-#     'value': 1.01,
-#     'procs': ['ZZ', 'WW', 'Zgamma', 'Rare']
-# }
-
 for i in ['Rare', 'WW', 'ZZ', 'Zgamma']:
     systs[f'{i}_norm'] = {
         'type':  'lnN',

@@ -206,33 +206,36 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
     print(f'\tDifference: {np.abs(xsec_tot-xsec_tot_new)*1e6:.2f}')
     return hist_pseudo
 
-def make_datacard(outDir, procs, final_state, target, bkg_unc, 
+def make_datacard(outDir, procs, target, bkg_unc, categories, 
                   freezeBackgrounds=False, floatBackgrounds=False, plot_dc=False):
     
     p = -1 if floatBackgrounds else 1
     procs_idx = [0, p*1, p*2, p*3, p*4]
 
-    procs_str = "".join([f"{proc:{' '}{'<'}{12}}" for proc in procs])
-    cats_procs_str = "".join([f"{final_state:{' '}{'<'}{12}}" for _ in range(len(procs))])
-    cats_procs_idx_str = "".join([f"{str(proc_idx):{' '}{'<'}{12}}" for proc_idx in procs_idx])
-    rates_procs = "".join([f"{'-1':{' '}{'<'}{12}}"]*len(procs))
+    cats_str           = "".join([f"{cat:{' '}{'<'}{12}}"  for cat  in categories])
+    procs_str          = "".join([f"{proc:{' '}{'<'}{12}}" for proc in procs] * len(categories))
+    cats_procs_str     = "".join([f"{cat:{' '}{'<'}{12}}"  for cat  in categories for _ in range(len(procs))])
+    cats_procs_idx_str = "".join([f"{str(proc_idx):{' '}{'<'}{12}}" for proc_idx in procs_idx] * len(categories))
+    rates_cats         = "".join([f"{'-1':{' '}{'<'}{12}}"]*(len(categories)))
+    rates_procs        = "".join([f"{'-1':{' '}{'<'}{12}}"]*(len(categories)*len(procs)))
 
+    ## datacard header
     dc = ""
-    dc += "imax *\n"
-    dc += "jmax *\n"
+    dc += f"imax *\n"
+    dc += f"jmax *\n"
     dc += "kmax *\n"
-    dc += "##########################################################################\n"
-    dc += f"shapes *        * datacard_{target}.root $CHANNEL_$PROCESS\n"
+    dc += "#########################################################################################\n"
+    dc += f"shapes *        * datacard_{target}.root $CHANNEL_$PROCESS\n" # $CHANNEL_$PROCESS_$SYSTEMATIC\n"
     dc += f"shapes data_obs * datacard_{target}.root $CHANNEL_data_{target}\n"
-    dc += "##########################################################################\n"
-    dc += f"bin                   {final_state}\n"
-    dc += "observation            -1\n"
-    dc += "##########################################################################\n"
-    dc += f"bin                   {cats_procs_str}\n"
-    dc += f"process               {procs_str}\n"
-    dc += f"process               {cats_procs_idx_str}\n"
-    dc += f"rate                  {rates_procs}\n"
-    dc += "##########################################################################\n"
+    dc += "#########################################################################################\n"
+    dc += f"bin                        {cats_str}\n"
+    dc += f"observation                {rates_cats}\n"
+    dc += f"########################################################################################\n"
+    dc += f"bin                        {cats_procs_str}\n"
+    dc += f"process                    {procs_str}\n"
+    dc += f"process                    {cats_procs_idx_str}\n"
+    dc += f"rate                       {rates_procs}\n"
+    dc += f"########################################################################################\n"
 
     if not freezeBackgrounds and not floatBackgrounds:
         if False:
@@ -242,26 +245,21 @@ def make_datacard(outDir, procs, final_state, target, bkg_unc,
             dc += dc_tmp
         else:
             for i, proc in enumerate(procs):
-                if i == 0: continue # no signal
-
-                dc_tmp = f"{f'norm_{proc}':{' '}{'<'}{15}} {'lnN':{' '}{'<'}{5}} "
-                for proc1 in procs:
-                    if proc==proc1:
-                        val = str(bkg_unc)
-                    else:
-                        val = '-'
-                    dc_tmp += f"{val:{' '}{'<'}{12}}"
-                dc += f'{dc_tmp}\n'
+                if i==0: continue # no signal
+                dc_tmp = f"{f'norm_{proc}':{' '}{'<'}{15}} {'lnN':{' '}{'<'}{10}} "
+                for cat in categories:
+                    for proc1 in procs:
+                        val = str(bkg_unc) if proc==proc1 else "-"
+                        dc_tmp += f"{val:{' '}{'<'}{12}}"
+                dc += f"{dc_tmp}\n"
 
     else:
         for proc in procs:
             dc_tmp = f"{f'norm_{proc}':{' '}{'<'}{15}} {'lnN':{' '}{'<'}{10}} "
-            for proc1 in procs:
-                if proc1==procs[0]:
-                    val = str(1.000000005)
-                else:
-                    val = '-'
-                dc_tmp += f"{val:{' '}{'<'}{12}}"
+            for cat in categories:
+                for proc1 in procs:
+                    val = str(1.000000005) if proc1==procs[0] else '-'
+                    dc_tmp += f"{val:{' '}{'<'}{12}}"
         dc += dc_tmp
 
     print('----->[Info] Saving datacard')

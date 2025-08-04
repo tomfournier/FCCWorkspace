@@ -29,7 +29,8 @@ if arg.cat=='' and not arg.combine:
     exit(0)
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, select, h_decays
+from userConfig import loc, get_loc, select, h_decays, plot_file
+# from tools.plotting import Bias
 
 cat, comb        = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
 mis, bdt, recoil = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
@@ -39,6 +40,7 @@ if arg.combine: arg.cat = 'combined'
 sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
 inputdir   = get_loc(loc.BIAS_FIT_RESULT, arg.cat, arg.ecm, sel)
 loc_result = get_loc(loc.BIAS_RESULT,     arg.cat, arg.ecm, sel)
+nomDir     = get_loc(loc.NOMINAL_RESULT,  arg.cat, arg.ecm, sel)
 
 def run_fit(target, pert, extraArgs=""):
     cmd = f"python3 4-Fit/make_pseudo.py {cat} --target {target} --pert {pert} --run {comb} {recoil} {lead} {mis} {bdt} {vis} {sep} {extraArgs}"
@@ -85,6 +87,10 @@ with open(f"{loc_result}/bias_results.txt", 'w') as f:
     print(formatted_row.format(*row2))
 sys.stdout = out_orig
 print(f'----->[Info] Bias saved at {loc_result}/bias_results.txt\n')
+
+# print(f'----->[Info] Saving Bias plot\n')
+# Bias(loc_result, nomDir, loc_result, h_decays[:-1], plot_file=plot_file)
+# print(f'----->[Info] Bias plot saved at {loc_result}/bias_results.{plot_file}\n')
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

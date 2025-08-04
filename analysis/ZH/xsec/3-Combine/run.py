@@ -4,9 +4,8 @@ import numpy as np
 
 from importlib import import_module
 userConfig = import_module('userConfig')
-from userConfig import loc, argument, extra_arg, timer
+from userConfig import loc, argument, extra_arg, dump_json, timer
 
-arg = argument()
 arg = argument(lumi=True, run=True)
 cats = [arg.cat] if arg.cat=='ee' or arg.cat=='mumu' else ['mumu', 'ee']
 ecms, sels = [240, 365] if arg.ecm==-1 else [arg.ecm], []
@@ -30,20 +29,24 @@ if arg.full and np.any(ind):
 
 for sel in sels:
     for ecm in ecms:
+        if arg.lumi==-1: lumi = 10.8 if ecm==240 else 3.1
+        else:            lumi = arg.lumi
         for cat in cats:
-            cmd = ''
+            cmd, arg = '', {'cat': cat, 'ecm': ecm, 'sel': sel, 'lumi':lumi}
+            dump_json(f'{loc.JSON}/Combine_config.json', arg)
+
             if arg.full:
-                cmd += f'python 2-BDT/process_input.py --cat {cat} --ecm {ecm} {sel}\n'
-                cmd += f'python 2-BDT/train_bdt.py --cat {cat} --ecm {ecm} {sel}\n'
-                cmd += f'python 2-BDT/evaluation.py --cat {cat} --ecm {ecm} {sel}\n'
+                cmd += f'python 3-Combine/pre-selection.py\n'
+                cmd += f'python 3-Combine/final-selection.py\n'
+                cmd += f'python 3-Combine/plots.py\n'
             else:
-                if arg.input: cmd += f'python 2-BDT/process_input.py --cat {cat} --ecm {ecm} {sel}\n'
-                if arg.train: cmd += f'python 2-BDT/train_bdt.py --cat {cat} --ecm {ecm} {sel}\n'
-                if arg.eval:  cmd += f'python 2-BDT/evaluation.py --cat {cat} --ecm {ecm} {sel}\n'
+                if arg.sel:     cmd += f'python 3-Combine/selection.py\n'
+                if arg.process: cmd += f'python 3-Combine/process_histogram.py\n'
+                if arg.plots:   cmd += f'python 3-Combine/plots.py\n'
+                if arg.comb:    cmd += f'python 3-Combine/combine.py\n'
             
             if sel==' ': selection = 'Baseline'
             print(f'\nRunning the code for {cat} channel at ecm = {arg.ecm} GeV for the selection {sel}\n')
             os.system(cmd)
 
 timer(t)
-

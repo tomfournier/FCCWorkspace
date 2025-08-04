@@ -52,12 +52,16 @@ procs_colors = {
 
 sign_name = {
     'cosThetaMiss':         '|cos#theta_{miss}|',
+    'cosTheta_vis_nOne':    '|cos#theta_{miss}|',
+    'cosTheta_inv_nOne':    '|cos#theta_{miss}|',
     'mva':                  'MVA', 
-    'zll_m':                'm_{ll}', 
-    'zll_p':                'p_{ll}',
+    'zll_m':                'm_{l^{+}l^{-}}', 
+    'zll_p':                'p_{l^{+}l^{-}}',
     'recoil':               'm_{recoil}',
-    'acolinearity':         '#Delta#theta_{ll}',
-    'acoplanarity':         '#pi-#Delta#phi_{ll}',
+    'acolinearity':         '#Delta#theta_{l^{+}l^{-}}',
+    'acoplanarity':         '#pi-#Delta#phi_{l^{+}l^{-}}',
+    'acolinearity_nOne':    '#Delta#theta_{l^{+}l^{-}}',
+    'acoplanarity_nOne':    '#pi-#Delta#phi_{l^{+}l^{-}}',
     'leading_p':            'p_{l,leading}',
     'subleading_p':         'p_{l,subleading}',
     'leading_theta':        '#theta_{l,leading}',
@@ -66,18 +70,32 @@ sign_name = {
     'leps_all_p_noSel':     'p_{lepton} no sel',
     'leps_all_theta_noSel': '#theta_{lepton} no sel',
     'leps_iso_noSel':       'I_{rel}',
+    'leps_iso_no':          'n_{lep}',
+    'leps_all_no_noSel':    'n_{lep}',
+    'leps_no_noSel':        'n_{lep}',
     'visibleEnergy':        'E_{vis}',
-    'zll_theta':            '#theta_{ll}'
+    'zll_theta':            '#theta_{l^{+}l^{-}}',
+    'zll_theta_nOne':       '#theta_{l^{+}l^{-}}',
+    'zll_cosTheta_nOne':    'cos#theta_{l^{+}l^{-}}',
+    'zll_abscosTheta_nOne': '|cos#theta_{l^{+}l^{-}}|',
+    'zll_cosTheta':         'cos#theta_{l^{+}l^{-}}',
+    'zll_abscosTheta':      '|cos#theta_{l^{+}l^{-}}|',
+    'deltaR':               '#Delta R',
+    'missingMass':          'm_{miss}'
 }
 
 sign_label = {
     'cosThetaMiss':         '|cos#theta_{miss}|',
+    'cosTheta_vis_nOne':    '|cos#theta_{miss}|',
+    'cosTheta_inv_nOne':    '|cos#theta_{miss}|',
     'mva':                  'MVA Score', 
-    'zll_m':                'm_{ll} [GeV]', 
-    'zll_p':                'p_{ll} [GeV]',
+    'zll_m':                'm_{l^{+}l^{-}} [GeV]', 
+    'zll_p':                'p_{l^{+}l^{-}} [GeV]',
     'recoil':               'm_{recoil} [GeV]',
-    'acolinearity':         '#Delta#theta_{ll}',
-    'acoplanarity':         '#pi-#Delta#phi_{ll}',
+    'acolinearity':         '#Delta#theta_{l^{+}l^{-}}',
+    'acoplanarity':         '#pi-#Delta#phi_{l^{+}l^{-}}',
+    'acolinearity_nOne':    '#Delta#theta_{l^{+}l^{-}}',
+    'acoplanarity_nOne':    '#pi-#Delta#phi_{l^{+}l^{-}}',
     'leading_p':            'p_{l,leading} [GeV]',
     'subleading_p':         'p_{l,subleading} [GeV]',
     'leading_theta':        '#theta_{l,leading}',
@@ -86,8 +104,19 @@ sign_label = {
     'leps_all_p_noSel':     'p_{lepton} no sel [GeV]',
     'leps_all_theta_noSel': '#theta_{lepton} no sel',
     'leps_iso_noSel':       'I_{rel}',
+    'leps_iso_no':          'n_{lep} isolated',
+    'leps_all_no_noSel':    'n_{lep}',
+    'leps_no_noSel':        'n_{lep}',
     'visibleEnergy':        'E_{vis} [GeV]',
-    'zll_theta':            '#theta_{ll}'
+    'zll_theta':            '#theta_{l^{+}l^{-}}',
+    'zll_theta':            '#theta_{l^{+}l^{-}}',
+    'zll_theta_nOne':       '#theta_{l^{+}l^{-}}',
+    'zll_cosTheta_nOne':    'cos#theta_{l^{+}l^{-}}',
+    'zll_abscosTheta_nOne': '|cos#theta_{l^{+}l^{-}}|',
+    'zll_cosTheta':         'cos#theta_{l^{+}l^{-}}',
+    'zll_abscosTheta':      '|cos#theta_{l^{+}l^{-}}|',
+    'deltaR':               '#Delta R',
+    'missingMass':          'm_{miss} [GeV]'
 }
 
 #__________________________________________________________
@@ -116,7 +145,7 @@ def getHist(hName, procs, inputDir, rebin=-1):
 
 #__________________________________________________________
 def CutFlow(inputDir, outDir, procs, procs_cfg, plot_file=['png'], ecm=240, lumi=10.8,
-            outName="cutFlow", hName="cutFlow", cuts=[], labels=[], sig_scale=1.0, yMin=1e6, yMax=1e10):
+            outName="cutFlow", hName="cutFlow", cuts=[], labels=[], sig_scale=1.0, yMin=1e4, yMax=1e10):
     
     if outName=="":
         outName = hName
@@ -237,8 +266,8 @@ def CutFlow(inputDir, outDir, procs, procs_cfg, plot_file=['png'], ecm=240, lumi
     sys.stdout = out_orig
 
 #__________________________________________________________
-def CutFlowDecays(inputDir, outDir, z_decays, h_decays, final_state, plot_file=['png'], ecm=240, lumi=10.8, 
-                  hName="cutFlow", outName="cutFlow", cuts=[], cut_labels=[], yMin=0, yMax=150, miss=False):
+def CutFlowDecays(inputDir, outDir, z_decays, h_decays, plot_file=['png'], suffix='', ecm=240, lumi=10.8, 
+                  hName="cutFlow", outName="cutFlow", cuts=[], cut_labels=[], yMin=0, yMax=150):
 
     if outName == "":
         outName = hName
@@ -334,7 +363,6 @@ def CutFlowDecays(inputDir, outDir, z_decays, h_decays, final_state, plot_file=[
         canvas.SaveAs(f"{outDir}/cutflow/{outName}_decays.{pl}")
 
     out_orig = sys.stdout
-    
     with open(f"{outDir}/cutflow/{outName}_decays.txt", 'w') as f:
         sys.stdout = f
 
@@ -440,9 +468,8 @@ def CutFlowDecays(inputDir, outDir, z_decays, h_decays, final_state, plot_file=[
 
     if not os.path.isdir(f'{outDir}/cutflow'):
             os.system(f'mkdir -p {outDir}/cutflow')
-
     for pl in plot_file:
-        canvas.SaveAs(f"{outDir}/cutflow/selection_efficiency.{pl}")
+        canvas.SaveAs(f"{outDir}/cutflow/selection_efficiency{suffix}.{pl}")
 
 #__________________________________________________________
 def PlotDecays(hName, inputDir, outDir, z_decays, h_decays, xMin, xMax, yMin, yMax, xLabel, yLabel, sel='', 

@@ -29,7 +29,8 @@ intLumi = lumi * 1e6 # in pb-1
 
 # Process samples
 samples_bkg = [
-    f"p8_ee_WW_ecm{ecm}",              f"p8_ee_ZZ_ecm{ecm}",
+    f"p8_ee_ZZ_ecm{ecm}",
+    f"p8_ee_WW_ecm{ecm}",              f"p8_ee_WW_ee_ecm{ecm}",       f"p8_ee_WW_mumu_ecm{ecm}",
     f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}",      f"wzp6_ee_tautau_ecm{ecm}",
     f"wzp6_gaga_ee_60_ecm{ecm}",       f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
     f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',  f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
@@ -41,25 +42,27 @@ for i in ['ee', 'mumu']:
     samples_sig.append(f"wzp6_ee_{i}H_ecm{ecm}")
 samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
 
-samples = samples_sig + samples_bkg
+samples = samples_bkg # + samples_bkg
 processList = {i:param for i in samples}
 
 
 
 # define histograms
-bins_p_mu        = (2000,  0,   200) # 100 MeV bins
-bins_m_ll        = (2000,  0,   200) # 100 MeV bins
-bins_p_ll        = (200,   0,   200) # 1   GeV bins
-bins_recoil      = (20000, 0,   200) # 10  MeV bins 
-bins_recoil_fine = (500,   100, 150) # 100 MeV bins 
-bins_miss        = (10000, 0,   1)
+bins_p_mu        = (2000,   0,   200) # 100 MeV bins
+bins_m_ll        = (2000,   0,   200) # 100 MeV bins
+bins_p_ll        = (200,    0,   200) # 1   GeV bins
+bins_recoil      = (20000,  0,   200) # 10  MeV bins 
+bins_recoil_fine = (500,    100, 150) # 100 MeV bins 
+bins_miss        = (10000,  0,   1)
+bins_cos         = (20000, -1,   1)
 
 bins_theta = (400,  0, 4)
 bins_phi   = (400, -4, 4)
 bins_aco   = (400,  0, 4)
 
-bins_iso   = (500, 0, 5)
-bins_count = (50,  0, 50)
+bins_dr    = (1000, 0, 10)
+bins_iso   = (500,  0, 5)
+bins_count = (50,   0, 50)
 
 vars_list = train_vars.copy()
 if userConfig.bdt: vars_list.append("cosTheta_miss")
@@ -72,6 +75,19 @@ tmva_ee   = TMVAHelperXGB(f"{get_loc(loc.BDT, 'ee',   ecm, sel)}/xgb_bdt.root", 
 
 mva_mumu = float(np.loadtxt(f"{get_loc(loc.BDT, 'mumu', ecm, sel)}/BDT_cut.txt"))
 mva_ee   = float(np.loadtxt(f"{get_loc(loc.BDT, 'ee',   ecm, sel)}/BDT_cut.txt"))
+
+def mva_score(df, final_state, vars_str):
+    if final_state == "mumu":
+        df = df.Define("MVAVec",    f"ROOT::VecOps::RVec<float>{{{vars_str}}}")
+        df = df.Define("mva_score", tmva_mumu.tmva_helper, ["MVAVec"])
+        df = df.Define("BDTscore",  "mva_score.at(0)")
+    elif final_state == "ee":
+        df = df.Define("MVAVec",    f"ROOT::VecOps::RVec<float>{{{vars_str}}}")
+        df = df.Define("mva_score", tmva_ee.tmva_helper, ["MVAVec"])
+        df = df.Define("BDTscore",  "mva_score.at(0)")
+    return df
+
+
 
 def build_graph_ll(df, hists, dataset, final_state):
 
@@ -90,6 +106,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     # Missing ET
     df = df.Define("missingEnergy", f"FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)")
     df = df.Define("cosTheta_miss", "FCCAnalyses::get_cosTheta_miss(missingEnergy)")
+    df = df.Define("missingMass",   f"FCCAnalyses::missingMass({ecm}, ReconstructedParticles)")
 
     # all leptons (bare)
     df = df.Define("leps_all",       "FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)")
@@ -101,14 +118,15 @@ def build_graph_ll(df, hists, dataset, final_state):
     df = df.Define("leps_all_iso",   "FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)") 
     
     # cuts on leptons
-    df = df.Define("leps",         "FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_all)")
-    df = df.Define("leps_p",       "FCCAnalyses::ReconstructedParticle::get_p(leps)")
-    df = df.Define("leps_theta",   "FCCAnalyses::ReconstructedParticle::get_theta(leps)")
-    df = df.Define("leps_phi",     "FCCAnalyses::ReconstructedParticle::get_phi(leps)")
-    df = df.Define("leps_q",       "FCCAnalyses::ReconstructedParticle::get_charge(leps)")
-    df = df.Define("leps_no",      "FCCAnalyses::ReconstructedParticle::get_n(leps)")
-    df = df.Define("leps_iso",     "FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)")
-    df = df.Define("leps_sel_iso", "FCCAnalyses::sel_isol(0.25)(leps, leps_iso)")
+    df = df.Define("leps",            "FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_all)")
+    df = df.Define("leps_p",          "FCCAnalyses::ReconstructedParticle::get_p(leps)")
+    df = df.Define("leps_theta",      "FCCAnalyses::ReconstructedParticle::get_theta(leps)")
+    df = df.Define("leps_phi",        "FCCAnalyses::ReconstructedParticle::get_phi(leps)")
+    df = df.Define("leps_q",          "FCCAnalyses::ReconstructedParticle::get_charge(leps)")
+    df = df.Define("leps_no",         "FCCAnalyses::ReconstructedParticle::get_n(leps)")
+    df = df.Define("leps_iso",        "FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)")
+    df = df.Define("leps_sel_iso",    "FCCAnalyses::sel_isol(0.25)(leps, leps_iso)")
+    df = df.Define("leps_sel_iso_no", "leps_sel_iso.size()")
 
     # baseline selections and histograms
     hists.append(df.Histo1D((f"{final_state}_leps_all_p_noSel",     "", *bins_p_mu),  "leps_all_p"))
@@ -122,23 +140,30 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_leps_phi_noSel",   "", *bins_phi),   "leps_phi"))
     hists.append(df.Histo1D((f"{final_state}_leps_no_noSel",    "", *bins_count), "leps_no"))
     hists.append(df.Histo1D((f"{final_state}_leps_iso_noSel",   "", *bins_iso),   "leps_iso"))
+    hists.append(df.Histo1D((f"{final_state}_leps_iso_no",      "", *bins_count), "leps_sel_iso_no"))
 
     #########
     ### CUT 0 all events
     #########
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut0"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_vis", "", *bins_count), "cut0"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_inv", "", *bins_count), "cut0"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow",     "", *bins_count), "cut0"))
 
     #########
     ### CUT 1: at least a lepton and at least 1 one lepton isolated (I_rel < 0.25)
     #########
     df = df.Filter("leps_no >= 1 && leps_sel_iso.size() > 0")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut1"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_vis", "", *bins_count), "cut1"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_inv", "", *bins_count), "cut1"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow",     "", *bins_count), "cut1"))
 
     #########
     ### CUT 2 :at least 2 OS leptons, and build the resonance
     #########
     df = df.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut2"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_vis", "", *bins_count), "cut2"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_inv", "", *bins_count), "cut2"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow",     "", *bins_count), "cut2"))
 
     # remove H->mumu/ee candidate leptons
     df = df.Define("zbuilder_Hll",   f"FCCAnalyses::resonanceBuilder_mass_recoil(125, 91.2, 0.4, {ecm}, false)"
@@ -162,6 +187,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     df = df.Define("zll_p",           "FCCAnalyses::ReconstructedParticle::get_p(zll)[0]")
     df = df.Define("zll_theta",       "FCCAnalyses::ReconstructedParticle::get_theta(zll)[0]")
     df = df.Define("zll_phi",         "FCCAnalyses::ReconstructedParticle::get_phi(zll)[0]")
+    df = df.Define("zll_deltaR",      "FCCAnalyses::deltaR(zll_leps)")
 
     # recoil
     df = df.Define("zll_recoil",   f"FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)")
@@ -189,7 +215,7 @@ def build_graph_ll(df, hists, dataset, final_state):
     df = df.Define("H", "FCCAnalyses::Higgsstrahlungness(zll_m, zll_recoil_m)")
 
     # Visible energy
-    df = df.Define("rps_no_leps", "FCCAnalyses::ReconstructedParticle::remove(ReconstructedParticles, zll_leps)")
+    df = df.Define("rps_no_leps",   "FCCAnalyses::ReconstructedParticle::remove(ReconstructedParticles, zll_leps)")
     df = df.Define("visibleEnergy", "FCCAnalyses::visibleEnergy(rps_no_leps)")
 
     #########
@@ -197,21 +223,23 @@ def build_graph_ll(df, hists, dataset, final_state):
     #########
     hists.append(df.Histo1D((f"{final_state}_zll_m_nOne",      "", *bins_m_ll),   "zll_m"))
     hists.append(df.Histo1D((f"{final_state}_zll_recoil_cut3", "", *bins_recoil), "zll_recoil_m"))
-    df = df.Filter("zll_m > 86 && zll_m < 96")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow",    "", *bins_count), "cut3"))
-
-    df_cut = df.copy()
+    df, df_cut = df.Filter("zll_m > 86 && zll_m < 96"), df.Filter("zll_m > 86 && zll_m < 96")
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_vis",     "", *bins_count),  "cut3"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_inv",     "", *bins_count),  "cut3"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow",         "", *bins_count),  "cut3"))
 
     #########
     ### CUT 4: Z momentum
     #########
-    hists.append(df.Histo1D((f"{final_state}_zll_p_nOne", "", *bins_p_mu), "zll_p"))
+    hists.append(df.Histo1D((f"{final_state}_zll_p_nOne",      "", *bins_p_mu),   "zll_p"))
     hists.append(df.Histo1D((f"{final_state}_zll_recoil_cut4", "", *bins_recoil), "zll_recoil_m"))
     if ecm == 240:
         df = df.Filter("zll_p > 20 && zll_p < 70")
     if ecm == 365:
         df = df.Filter("zll_p > 50 && zll_p < 150")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow",    "", *bins_count), "cut4"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_vis", "", *bins_count), "cut4"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_inv", "", *bins_count), "cut4"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow",     "", *bins_count), "cut4"))
 
     #########
     ### CUT 5: recoil cut
@@ -221,25 +249,9 @@ def build_graph_ll(df, hists, dataset, final_state):
         df = df.Filter(f"zll_recoil_m < 140 && zll_recoil_m > 120")
     else:
         df = df.Filter(f"zll_recoil_m < 150 && zll_recoil_m > 100")
-    hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut5"))
-
-    df_vis, df_inv   = df.Filter('visibleEnergy > 100'),  df.Filter('visibleEnergy <= 100')
-
-    #########
-    ### CUT 5bis: p_leading and p_subleading cut
-    #########
-    hists.append(df.Histo1D((f"{final_state}_leading_p_nOne", "", *bins_p_mu), "leading_p"))
-    if userConfig.leading:
-        df = df.Filter("leading_p < 80 && leading_p > 50 && subleading_p < 53")
-        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count), "cut6"))
-
-    ############
-    ### CUT 5ter: visible energy cut
-    ############
-    hists.append(df.Histo1D((f"{final_state}_visibleEnergy_nOne", "", *bins_p_mu), "visibleEnergy"))
-    if userConfig.vis:
-        df = df.Filter("visibleEnergy > 10")
-        hists.append(df.Histo1D((f"{final_state}_cutFlow",        "", *bins_count),  "cut6"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_vis", "", *bins_count), "cut5"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow_inv", "", *bins_count), "cut5"))
+    hists.append(df.Histo1D((f"{final_state}_cutFlow",     "", *bins_count), "cut5"))
 
     #########
     ### CUT 6: cosThetaMiss cut
@@ -247,23 +259,56 @@ def build_graph_ll(df, hists, dataset, final_state):
     hists.append(df.Histo1D((f"{final_state}_cosThetaMiss_nOne", "", *bins_miss), "cosTheta_miss"))
     if userConfig.miss:
         df = df.Filter("cosTheta_miss < 0.98")
-        cut = 'cut7' if userConfig.vis else 'cut6'
-        hists.append(df.Histo1D((f"{final_state}_cutFlow",       "", *bins_count), cut))
+        hists.append(df.Histo1D((f"{final_state}_cutFlow_vis", "", *bins_count), "cut6"))
+        hists.append(df.Histo1D((f"{final_state}_cutFlow_inv", "", *bins_count), "cut6"))
+        hists.append(df.Histo1D((f"{final_state}_cutFlow",     "", *bins_count), "cut6"))
 
     ############
     ### CUT TEST
     ############
+    i, j, k = 7 if userConfig.miss else 6, 7 if userConfig.miss else 6, 7 if userConfig.miss else 6
+    hists.append(df.Histo1D((f"{final_state}_visibleEnergy_nOne", "", *bins_p_mu), "visibleEnergy"))
+    hists.append(df.Histo1D((f"{final_state}_zll_deltaR_nOne",    "", *bins_dr),   "zll_deltaR"))
+    hists.append(df.Histo1D((f"{final_state}_missingMass_nOne",   "", *bins_p_mu), "missingMass"))
     if userConfig.sep:
-        sel_vis  = '(visibleEnergy > 100 && cosTheta_miss < 0.995)'
-        sel_inv  = '(visibleEnergy <= 100 && zll_theta < 2.8 && zll_theta > 0.3 && acoplanarity > 0.38 && acolinearity < 2.3 && cosTheta_miss < 0.998'
-        sel_inv1 = ' && leading_theta > 0.5 && leading_theta < 2.6'
 
-        sel_bas = sel_inv + ')'
-        sel_tot = sel_inv + sel_inv1 + ')'
-        df      = df.Filter(sel_vis+' || '+sel_bas)
-        df_cut  = df.Filter(sel_vis+' || '+sel_bas)
-        df_tot  = df.Filter(sel_vis+' || '+sel_tot)
-        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut6"))
+        df_vis, df_inv = df.Filter('visibleEnergy > 100'), df.Filter('visibleEnergy < 100')
+        hists.append(df_vis.Histo1D((f"{final_state}_cutFlow_vis", "", *bins_count), "cut"+str(i)))
+        hists.append(df_inv.Histo1D((f"{final_state}_cutFlow_inv", "", *bins_count), "cut"+str(i)))
+        i, j = i+1, j+1
+
+        hists.append(df_inv.Histo1D((f"{final_state}_zll_theta_nOne",       "", *bins_theta), "zll_theta"))
+        df_inv =     df_inv.Filter('zll_theta < 2.85 && zll_theta > 0.25')
+        hists.append(df_inv.Histo1D((f"{final_state}_cutFlow_inv",          "", *bins_count), "cut"+str(i)))
+        i += 1
+
+        hists.append(df_inv.Histo1D((f"{final_state}_acoplanarity_nOne",    "", *bins_aco),   "acoplanarity"))
+        df_inv =     df_inv.Filter('acoplanarity > 0.05')
+        hists.append(df_inv.Histo1D((f"{final_state}_cutFlow_inv",          "", *bins_count), "cut"+str(i)))
+        i += 1
+
+        hists.append(df_inv.Histo1D((f"{final_state}_cosTheta_inv_nOne",    "", *bins_miss),   "cosTheta_miss"))
+        df_inv =     df_inv.Filter('cosTheta_miss < 0.998')
+        hists.append(df_inv.Histo1D((f"{final_state}_cutFlow_inv",          "", *bins_count), "cut"+str(i)))
+        i += 1
+
+        hists.append(df_inv.Histo1D((f"{final_state}_acolinearity_nOne",    "", *bins_aco),   "acolinearity"))
+        # df_inv =     df_inv.Filter('acolinearity < 2.3')
+        # hists.append(df_inv.Histo1D((f"{final_state}_cutFlow_inv",          "", *bins_count), "cut"+str(i)))
+        # i += 1
+
+        hists.append(df_vis.Histo1D((f"{final_state}_cosTheta_vis_nOne",    "", *bins_miss),   "cosTheta_miss"))
+        df_vis =     df_vis.Filter('cosTheta_miss < 0.995')
+        hists.append(df_vis.Histo1D((f"{final_state}_cutFlow_vis",          "", *bins_count),  "cut"+str(j)))
+        j += 1
+
+        cut_vis = '(visibleEnergy > 100 && cosTheta_miss < 0.995)'
+        cut_inv = '(visibleEnergy < 100 && zll_theta < 2.85 && zll_theta > 0.25 && acoplanarity > 0.05 && cosTheta_miss < 0.998)'
+        
+        df = df.Filter(cut_vis+' || '+cut_inv)
+        hists.append(df.Histo1D((f"{final_state}_cutFlow", "", *bins_count),  "cut"+str(k)))
+        
+        df_cut = df_cut.Filter(cut_inv)
 
     hists.append(df_cut.Histo1D((f"{final_state}_zll_recoil_cut", "", *bins_recoil), "zll_recoil_m"))
 
@@ -272,71 +317,66 @@ def build_graph_ll(df, hists, dataset, final_state):
     ##########
 
     vars_str = ', (float)'.join(train_vars)
-    if final_state == "mumu":
-        df = df.Define("MVAVec",    f"ROOT::VecOps::RVec<float>{{{vars_str}}}")
-        df = df.Define("mva_score", tmva_mumu.tmva_helper, ["MVAVec"])
-        df = df.Define("BDTscore",  "mva_score.at(0)")
-    elif final_state == "ee":
-        df = df.Define("MVAVec",    f"ROOT::VecOps::RVec<float>{{{vars_str}}}")
-        df = df.Define("mva_score", tmva_ee.tmva_helper, ["MVAVec"])
-        df = df.Define("BDTscore",  "mva_score.at(0)")
-    hists.append(df.Histo1D((f"{final_state}_mva_score", "", *(1000, 0, 1)), "BDTscore"))
-
-    if final_state == "mumu":
-        df_tot = df_tot.Define("MVAVec",    f"ROOT::VecOps::RVec<float>{{{vars_str}}}")
-        df_tot = df_tot.Define("mva_score", tmva_mumu.tmva_helper, ["MVAVec"])
-        df_tot = df_tot.Define("BDTscore",  "mva_score.at(0)")
-    elif final_state == "ee":
-        df_tot = df_tot.Define("MVAVec",    f"ROOT::VecOps::RVec<float>{{{vars_str}}}")
-        df_tot = df_tot.Define("mva_score", tmva_ee.tmva_helper, ["MVAVec"])
-        df_tot = df_tot.Define("BDTscore",  "mva_score.at(0)")
-    hists.append(df_tot.Histo1D((f"{final_state}_mva_score_tot", "", *(1000, 0, 1)), "BDTscore"))
-
-    # MVA cut
     mva_sign = mva_mumu if final_state=='mumu' else mva_ee
-
-    # separate recoil plots
-    df_low = df.Filter(f"BDTscore < {mva_sign}")
-    hists.append(df_low.Histo1D((f"{final_state}_zll_recoil_m_mva_low",   "", *(bins_recoil_fine)), "zll_recoil_m"))
-    df_tot_low = df_tot.Filter(f"BDTscore < {mva_sign}")
-    hists.append(df_tot_low.Histo1D((f"{final_state}_zll_recoil_m_mva_low_tot",   "", *(bins_recoil_fine)), "zll_recoil_m"))
-
-    df_high = df.Filter(f"BDTscore > {mva_sign}")
-    hists.append(df_high.Histo1D((f"{final_state}_zll_recoil_m_mva_high", "", *(bins_recoil_fine)), "zll_recoil_m"))
-    df_tot_high = df_tot.Filter(f"BDTscore > {mva_sign}")
-    hists.append(df_tot_high.Histo1D((f"{final_state}_zll_recoil_m_mva_high_tot",   "", *(bins_recoil_fine)), "zll_recoil_m"))
-
-    ##########
-    # Final
-    ##########
-
     bin_mva,  bin_mrec  = [0, mva_sign, 1], list(np.arange(100, 150.5, 0.5))
     bins_mva, bins_mrec = array('d', bin_mva), array('d', bin_mrec)
-    model = ROOT.RDF.TH2DModel(f"{final_state}_recoil_m_mva", "", len(bin_mrec)-1, bins_mrec, len(bin_mva)-1, bins_mva)
-    hists.append(df.Histo2D(model, "zll_recoil_m", "BDTscore"))
 
-    _sel = ['', '_high', '_low', '_vis', '_inv', '_tot']
-    _df  = [df, df_high, df_low, df_vis, df_inv, df_tot]
+    for ind, DF in zip(['', '_vis', '_inv'], [df, df_vis, df_inv]):
+        DF = mva_score(DF, final_state, vars_str)
+        hists.append(DF.Histo1D((f"{final_state}_mva_score{ind}", "", *(1000, 0, 1)), "BDTscore"))
 
-    # final histograms
+        df_low  = DF.Filter(f"BDTscore < {mva_sign}")
+        df_high = DF.Filter(f"BDTscore > {mva_sign}")
+
+        hists.append(df_low.Histo1D((f"{final_state}_zll_recoil_m_mva_low{ind}",   "", *(bins_recoil_fine)), "zll_recoil_m"))
+        hists.append(df_high.Histo1D((f"{final_state}_zll_recoil_m_mva_high{ind}", "", *(bins_recoil_fine)), "zll_recoil_m"))
+
+        ##########
+        # Final
+        ##########
+
+        bin_mva,  bin_mrec  = [0, mva_sign, 1],    list(np.arange(100, 150.5, 0.5))
+        bins_mva, bins_mrec = array('d', bin_mva), array('d', bin_mrec)
+        model = ROOT.RDF.TH2DModel(f"{final_state}_recoil_m_mva{ind}", "", len(bin_mrec)-1, bins_mrec, len(bin_mva)-1, bins_mva)
+        hists.append(DF.Histo2D(model, "zll_recoil_m", "BDTscore"))
+
+    df                       = mva_score(df, final_state, vars_str)
+    df_high,     df_low      = df.Filter(f'BDTscore > {mva_sign}'),      df.Filter(f'BDTscore < {mva_sign}')
+    df_vis,      df_inv      = mva_score(df_vis, final_state, vars_str), mva_score(df_inv, final_state, vars_str)
+    df_high_vis, df_high_inv = df_vis.Filter(f"BDTscore > {mva_sign}"),  df_inv.Filter(f"BDTscore > {mva_sign}")
+    df_low_vis,  df_low_inv  = df_vis.Filter(f"BDTscore < {mva_sign}"),  df_inv.Filter(f"BDTscore < {mva_sign}")
+
+    _sel = ['', '_high', '_low', '_vis', '_inv', '_high_vis', '_high_inv', '_low_vis', '_low_inv']
+    _df  = [df, df_high, df_low, df_vis, df_inv, df_high_vis, df_high_inv, df_low_vis, df_low_inv]
+
+    # Final histograms
     for ind, DF in zip(_sel, _df):
 
-        hists.append(DF.Histo1D((f"{final_state}_leps_p{ind}",     "", *bins_p_mu),   "leps_p"))
-        hists.append(DF.Histo1D((f"{final_state}_zll_p{ind}",      "", *bins_p_mu),   "zll_p"))
-        hists.append(DF.Histo1D((f"{final_state}_zll_m{ind}",      "", *bins_m_ll),   "zll_m"))
-        hists.append(DF.Histo1D((f"{final_state}_zll_theta{ind}",  "", *bins_theta),  "zll_theta"))
-        hists.append(DF.Histo1D((f"{final_state}_zll_recoil{ind}", "", *bins_recoil), "zll_recoil_m"))
+        # Z informations
+        hists.append(DF.Histo1D((f"{final_state}_zll_p{ind}",           "", *bins_p_mu), "zll_p"))
+        hists.append(DF.Histo1D((f"{final_state}_zll_m{ind}",           "", *bins_m_ll), "zll_m"))
+        hists.append(DF.Histo1D((f"{final_state}_zll_theta{ind}",       "", *bins_theta),  "zll_theta"))
+        hists.append(DF.Histo1D((f"{final_state}_zll_deltaR{ind}",      "", *bins_dr),   "zll_deltaR"))
 
-        hists.append(DF.Histo1D((f"{final_state}_cosThetaMiss{ind}", "", *bins_miss), "cosTheta_miss"))
-        hists.append(DF.Histo1D((f"{final_state}_visibleEnergy{ind}", "", *bins_p_mu), "visibleEnergy"))
-
-        hists.append(DF.Histo1D((f"{final_state}_acoplanarity{ind}", "", *bins_aco),  "acoplanarity"))
-        hists.append(DF.Histo1D((f"{final_state}_acolinearity{ind}", "", *bins_aco),  "acolinearity"))
-
+        # Z leptons informations
         hists.append(DF.Histo1D((f"{final_state}_leading_p{ind}",        "", *bins_p_mu),  "leading_p"))
         hists.append(DF.Histo1D((f"{final_state}_leading_theta{ind}",    "", *bins_theta), "leading_theta"))
         hists.append(DF.Histo1D((f"{final_state}_subleading_p{ind}",     "", *bins_p_mu),  "subleading_p"))
         hists.append(DF.Histo1D((f"{final_state}_subleading_theta{ind}", "", *bins_theta), "subleading_theta"))
+
+        hists.append(DF.Histo1D((f"{final_state}_acoplanarity{ind}", "", *bins_aco),  "acoplanarity"))
+        hists.append(DF.Histo1D((f"{final_state}_acolinearity{ind}", "", *bins_aco),  "acolinearity"))
+
+        # Visible and missing informations
+        hists.append(DF.Histo1D((f"{final_state}_cosThetaMiss{ind}",  "", *bins_miss), "cosTheta_miss"))
+        hists.append(DF.Histo1D((f"{final_state}_visibleEnergy{ind}", "", *bins_p_mu), "visibleEnergy"))
+        hists.append(DF.Histo1D((f"{final_state}_missingMass{ind}",   "", *bins_p_mu), "missingMass"))
+
+        # Recoil mass distribution
+        hists.append(DF.Histo1D((f"{final_state}_zll_recoil{ind}",      "", *bins_recoil), "zll_recoil_m"))
+
+        # Leptons informations
+        hists.append(DF.Histo1D((f"{final_state}_leps_p{ind}",          "", *bins_p_mu),   "leps_p"))
 
     return hists
 
@@ -345,18 +385,10 @@ def build_graph_ll(df, hists, dataset, final_state):
 def build_graph(df, dataset):
 
     hists = []
-
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
 
-    df = df.Define("cut0", "0")
-    df = df.Define("cut1", "1")
-    df = df.Define("cut2", "2")
-    df = df.Define("cut3", "3")
-    df = df.Define("cut4", "4")
-    df = df.Define("cut5", "5")
-    df = df.Define("cut6", "6")
-    df = df.Define("cut7", "7")
+    for i in range(30): df = df.Define("cut"+str(i), str(i))
 
     df = df.Alias("MCRecoAssociations0", "MCRecoAssociations#0.index")
     df = df.Alias("MCRecoAssociations1", "MCRecoAssociations#1.index")
@@ -366,9 +398,9 @@ def build_graph(df, dataset):
     if 'HZZ' in dataset:
         df = df.Define('hzz_invisible', 'FCCAnalyses::is_hzz_invisible(Particle, Particle1)')
         df = df.Filter('!hzz_invisible')
-    # if 'p8_ee_WW_ecm' in dataset:
-    #     df = df.Define('ww_leptonic', 'FCCAnalyses:is_ww_leptonic(Particle, Particle1)')
-    #     df = df.Filter('!ww_leptonic')
+    if 'p8_ee_WW_ecm' in dataset:
+        df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
+        df = df.Filter('!ww_leptonic')
 
     build_graph_ll(df, hists, dataset, 'mumu')
     build_graph_ll(df, hists, dataset, 'ee')

@@ -21,7 +21,7 @@ from userConfig import loc, get_loc, select, z_decays, h_decays
 ecm, sel = arg.ecm, select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
 
 samples_bkg = [
-    f"p8_ee_WW_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",
+    f"p8_ee_WW_ecm{ecm}", f"p8_ee_WW_ee_ecm{ecm}", f"p8_ee_WW_mumu_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",
     f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}", f"wzp6_ee_tautau_ecm{ecm}",
     f"wzp6_gaga_ee_60_ecm{ecm}",       f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
     f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',  f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
@@ -36,7 +36,7 @@ samples_sig.append(f'wzp6_ee_ZH_Hinv_ecm{ecm}')
 samples = samples_sig + samples_bkg
 procs = samples
 
-hName = ['recoil_m_mva', 'zll_recoil_m_mva_high', 'zll_recoil_m_mva_low', 'zll_recoil_m_mva_high_tot', 'zll_recoil_m_mva_low_tot', 'zll_recoil']
+hName = ['recoil_m_mva', 'recoil_m_mva_vis', 'recoil_m_mva_inv']
 
 
 
@@ -57,6 +57,10 @@ def get_hist(hName, proc):
     if 'HZZ' in proc: 
         xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
         h.Scale((xsec-xsec_inv)/xsec)
+    if 'p8_ee_WW_ecm' in proc:
+        xsec_ee = getMetaInfo(proc.replace('WW_ecm', 'WW_ee_ecm'))
+        xsec_mumu = getMetaInfo(proc.replace('WW_ecm', 'WW_mumu_ecm'))
+        h.Scale((xsec-xsec_ee-xsec_mumu)/xsec)
     f.Close()
     return h
 
@@ -100,7 +104,7 @@ for proc in procs:
     for cat in ['ee', 'mumu']:
         for histo in hName:
             h = get_hist(f'{cat}_{histo}', proc)
-            if histo=='recoil_m_mva': h = unroll(h, f'{cat}_{histo}')
+            h = unroll(h, f'{cat}_{histo}')
             hists.append(h)
         print(f'----->[Info] {proc} histograms for {cat} channel processed')
 

@@ -43,16 +43,17 @@ elif arg.polL:
 elif arg.polR:
     procs_scales = {"ZH": 1.047, "WW": 0.219, "ZZ": 1.011, "Zgamma": 1.018,}
 else:
-    proc_scales = {}
+    proc_scales  = {}
 
 inputDir = get_loc(loc.HIST_PREPROCESSED, final_state, ecm, sel)
 outDir   = get_loc(loc.BIAS_DATACARD,     final_state, ecm, sel)
 
-rebin, hists = 1, []
-hName = f'{final_state}_recoil_m_mva'
+rebin, hists      = 1, []
+# hName, categories = [f'{final_state}_recoil_m_mva_vis', f'{final_state}_recoil_m_mva_inv'], ['vis', 'inv']
+hName, categories = [f'{final_state}_recoil_m_mva'], [f'{final_state}']
 
 # first must be signal
-procs = [f"ZH", "WW", "ZZ", "Zgamma", "Rare"]
+procs     = [f"ZH", "WW", "ZZ", "Zgamma", "Rare"]
 procs_cfg = {
 "ZH"        : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_decays for y in h_decays],
 "ZmumuH"    : [f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_decays],
@@ -67,18 +68,20 @@ procs_cfg = {
                f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'],
 }
 
-if not arg.combine:
-    for proc in procs:
-        h = getHists(inputDir, hName, proc, procs_cfg)
-        h = unroll(h, rebin=rebin)
-        h.SetName(f"{final_state}_{proc}")
-        hists.append(h)
 
-    hist_pseudo = make_pseudodata(inputDir, procs, procs_cfg, hName, arg.target, 
-                                  z_decays, h_decays, ecm=ecm, variation=arg.pert)
-    hist_pseudo = unroll(hist_pseudo, rebin=rebin)
-    hist_pseudo.SetName(f"{final_state}_data_{arg.target}")
-    hists.append(hist_pseudo)
+if not arg.combine:
+    for i, categorie in enumerate(categories):
+        for proc in procs:
+            h = getHists(inputDir, hName[i], proc, procs_cfg)
+            h = unroll(h, rebin=rebin)
+            h.SetName(f"{categorie}_{proc}")
+            hists.append(h)
+
+        args = [inputDir, procs, procs_cfg, hName[i], arg.target, z_decays, h_decays]
+        hist_pseudo = make_pseudodata(*args, ecm=ecm, variation=arg.pert)
+        hist_pseudo = unroll(hist_pseudo, rebin=rebin)
+        hist_pseudo.SetName(f"{categorie}_data_{arg.target}")
+        hists.append(hist_pseudo)
 
     if not os.path.isdir(outDir):
         os.system(f'mkdir -p {outDir}')
@@ -91,15 +94,15 @@ if not arg.combine:
     print(f'----->[Info] Histograms saved in {outDir}/datacard_{arg.target}.root')
 
     print('----->[Info] Making datacard')
-    make_datacard(outDir, procs, final_state, arg.target, 1.01, 
+    make_datacard(outDir, procs, arg.target, 1.01, categories,
                 freezeBackgrounds=arg.freezeBackgrounds, floatBackgrounds=arg.floatBackgrounds, plot_dc=arg.plot_dc)
 
-cat, comb         = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
-mis, bdt, recoil  = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
-leading, vis, sep = '--leading' if arg.leading else '', '--vis' if arg.vis else '', '--sep' if arg.sep else ''
+cat,  comb     = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
+mis,  bdt, rec = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
+lead, vis, sep = '--leading' if arg.leading else '', '--vis' if arg.vis else '', '--sep' if arg.sep else ''
 
 if arg.run:
-    cmd = f"python3 4-Fit/fit.py {cat} --bias --target {arg.target} --pert {arg.pert} {comb} {recoil} {mis} {bdt} {leading} {vis} {sep}"
+    cmd = f"python3 4-Fit/fit.py {cat} --bias --target {arg.target} --pert {arg.pert} {comb} {rec} {mis} {bdt} {lead} {vis} {sep}"
     os.system(cmd)
 else:
     print('\n\n------------------------------------\n')
