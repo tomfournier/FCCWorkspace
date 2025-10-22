@@ -1,109 +1,103 @@
 import os, sys, json
 import uproot, glob
-import pandas as pd
-from tqdm import tqdm
+import ROOT, joblib
+
 import numpy as np
 import xgboost as xgb
-import ROOT
-import joblib
+import pandas as pd
+
+from tqdm import tqdm
 from matplotlib import rc
 from sklearn.model_selection import train_test_split
-
-from math import sqrt, log
 
 rc('font', **{'family': 'serif', 'serif': ['Roman']})
 rc('text', usetex=True)
 
 #__________________________________________________________
 def get_df(root_file_name, branches):
-  file = uproot.open(root_file_name)
-  tree = file['events']
+	file = uproot.open(root_file_name)
+	tree = file['events']
 
-  if len(file) == 0:
-    return pd.DataFrame()
-  df = tree.arrays(library="pd", how="zip", filter_name=branches)
-  return df
+	if len(file) == 0: return pd.DataFrame()
+	df = tree.arrays(library="pd", how="zip", filter_name=branches)
+	return df
 
 #__________________________________________________________
 def Z0(S, B):
-  if B<=0:
-    return -100
-  return sqrt(2*((S+B)*log(1+S/B)-S))
+	if B<=0: return -100
+	return np.sqrt(2*((S+B)*np.log(1+S/B)-S))
 
 #__________________________________________________________
 def Zmu(S, B):
-  if B<=0:
-    return -100
-  return sqrt(2*(S-B*log(1+S/B)))
+	if B<=0: return -100
+	return np.sqrt(2*(S-B*np.log(1+S/B)))
 
 #__________________________________________________________
 def Z(S, B):
-  if B<=0:
-    return -100
-  return S/sqrt(S+B)
+	if B<=0: return -100
+	return S/np.sqrt(S+B)
 
 #__________________________________________________________
 def Significance(df_s, df_b, score_column='BDTscore', func=Z0, score_range=(0, 1), nbins=50):
-  S0 = np.sum(df_s.loc[df_s.index,'norm_weight'])
-  B0 = np.sum(df_b.loc[df_b.index,'norm_weight']) 
-  print('initial: S0 = {:.2f}, B0 = {:.2f}'.format(S0, B0))
-  print('inclusive Z: {:.2f}'.format(func(S0, B0)))
+	S0 = np.sum(df_s.loc[df_s.index,'norm_weight'])
+	B0 = np.sum(df_b.loc[df_b.index,'norm_weight']) 
+	print('initial: S0 = {:.2f}, B0 = {:.2f}'.format(S0, B0))
+	print('inclusive Z: {:.2f}'.format(func(S0, B0)))
 
-  wid = (score_range[1]-score_range[0])/nbins
-  arr_x = np.round(np.array([score_range[0]+i*wid for i in range(nbins)]), decimals=2)
-  arr_Z=np.zeros([nbins])
+	wid = (score_range[1]-score_range[0])/nbins
+	arr_x = np.round(np.arange(score_range[0], score_range[1]+wid, wid), decimals=2)
+	arr_Z = np.zeros([nbins])
 
-  for i in tqdm(range(nbins)):
-    xi = score_range[0]+i*wid
-    Si = np.sum(df_s.loc[df_s.query(f'{score_column} >= {str(xi)}').index,'norm_weight'])
-    Bi = np.sum(df_b.loc[df_b.query(f'{score_column} >= {str(xi)}').index,'norm_weight'])
-    Zi = func(Si, Bi)
-    if Bi<0: continue
-    if Zi<0: continue
-    arr_Z[i]=Zi
+	for i in tqdm(range(nbins)):
+		xi = score_range[0]+i*wid
+		Si = np.sum(df_s.loc[df_s.query(f'{score_column} >= {str(xi)}').index,'norm_weight'])
+		Bi = np.sum(df_b.loc[df_b.query(f'{score_column} >= {str(xi)}').index,'norm_weight'])
+		Zi = func(Si, Bi)
+		if Bi<0: continue
+		if Zi<0: continue
+		arr_Z[i]=Zi
           
-  df_Z = pd.DataFrame(data=arr_Z, index=arr_x, columns=["Z"])
+	df_Z = pd.DataFrame(data=arr_Z, index=arr_x, columns=["Z"])
   
-  return df_Z
+	return df_Z
 
 #__________________________________________________________
 def thres_opt(df, score_column = 'BDTscore', func=Z0, n_spliter=2, score_range=(0, 1), nbins=50, precut='test==True',b_scale=1.):
-  df_s = df.query(precut+' & isSignal==1')
-  df_b = df.query(precut+' & isSignal==0')
-  S0 = len(df_s.index)
-  B0 = b_scale*len(df_b.index)
-  print('initial: S0={:.2f}, B0={:.2f}'.format(S0, B0))
-  print('inclusive Z: {:.2f}'.format(func(S0, B0)))
+	df_s = df.query(precut+' & isSignal==1')
+	df_b = df.query(precut+' & isSignal==0')
+	S0 = len(df_s.index)
+	B0 = b_scale*len(df_b.index)
+	print('initial: S0={:.2f}, B0={:.2f}'.format(S0, B0))
+	print('inclusive Z: {:.2f}'.format(func(S0, B0)))
 
-  wid = (score_range[1]-score_range[0])/nbins
-  arr_x = np.round(np.array([score_range[0]+i*wid for i in range(nbins)]), decimals=2)
-  arr_Ztot=np.zeros([nbins, nbins])
+	wid = (score_range[1]-score_range[0])/nbins
+	arr_x = np.round(np.array([score_range[0]+i*wid for i in range(nbins)]), decimals=2)
+	arr_Ztot=np.zeros([nbins, nbins])
 
-  for i in tqdm(range(nbins)):
-    xi = score_range[0]+i*wid
-    Si = len(df_s.query(f'{score_column} >= {str(xi)}').index)
-    Bi = b_scale*len(df_b.query(f'{score_column} >= {str(xi)}').index)
-    Zi = func(Si, Bi)
-    if Bi<=11: continue
-    if Zi<0: continue
+	for i in tqdm(range(nbins)):
+		xi = score_range[0]+i*wid
+		Si = len(df_s.query(f'{score_column} >= {str(xi)}').index)
+		Bi = b_scale*len(df_b.query(f'{score_column} >= {str(xi)}').index)
+		Zi = func(Si, Bi)
+		if Bi<=11: continue
+		if Zi<0: continue
 
-    for j in range(i):
-      xj = score_range[0]+j*wid
-      Sj = len(df_s.query(f'{score_column} >= {str(xj)} & {score_column} < {str(xi)}').index)
-      Bj = b_scale*len(df_b.query(f'{score_column} >= {str(xj)} & {score_column} < {str(xi)}').index)
-      Zj = func(Sj, Bj)
-      if Bj<=11: continue
-      if Zj<0: continue
-      Ztot = sqrt(Zi**2+Zj**2)
-      arr_Ztot[i][j] = Ztot
+	for j in range(i):
+		xj = score_range[0]+j*wid
+		Sj = len(df_s.query(f'{score_column} >= {str(xj)} & {score_column} < {str(xi)}').index)
+		Bj = b_scale*len(df_b.query(f'{score_column} >= {str(xj)} & {score_column} < {str(xi)}').index)
+		Zj = func(Sj, Bj)
+		if Bj<=11: continue
+		if Zj<0: continue
+		Ztot = np.sqrt(Zi**2+Zj**2)
+		arr_Ztot[i][j] = Ztot
 
-  df_Z = pd.DataFrame(data=arr_Ztot, index=arr_x, columns=arr_x)
+	df_Z = pd.DataFrame(data=arr_Ztot, index=arr_x, columns=arr_x)
 
-  return df_Z
+	return df_Z
 
 #__________________________________________________________
-def dir_exist(mydir):
-    return os.path.exists(mydir)
+def dir_exist(mydir): return os.path.exists(mydir)
 
 #__________________________________________________________
 def create_dir(mydir):
@@ -138,6 +132,7 @@ def update_keys(procDict, mode_names):
         updated_dict[new_key] = value
     return updated_dict
 
+#__________________________________________________________
 def get_xsec(mode_names):
     procFile = "FCCee_procDict_winter2023_training_IDEA.json"
     proc_dict = get_procDict(procFile)
@@ -149,9 +144,9 @@ def get_xsec(mode_names):
     return xsec
 
 #__________________________________________________________
-def get_data_paths(cur_mode, data_path, mode_names, suffix=''):
+def get_data_paths(cur_mode, data_path, mode_names):
     path = f"{data_path}/{mode_names[cur_mode]}"
-    return glob.glob(f"{path}{suffix}.root")
+    return glob.glob(f"{path}.root")
 
 #__________________________________________________________
 def counts_and_efficiencies(files, vars_list, only_eff=False):
@@ -179,8 +174,8 @@ def BDT_input_numbers(mode_names, sig, df, eff, xsec, frac):
 def df_split_data(df, N_BDT_inputs, eff, xsec, N_events, cur_mode):
     df = df.sample(n=N_BDT_inputs[cur_mode], random_state=1)
     df0, df1 = train_test_split(df, test_size=0.5, random_state=7)
-    df.loc[df0.index, "valid"] = False
-    df.loc[df1.index, "valid"] = True
+    df.loc[df0.index, "valid"]      = False
+    df.loc[df1.index, "valid"]      = True
     df.loc[df.index, "norm_weight"] = eff[cur_mode] * xsec[cur_mode] / N_events[cur_mode]
     return df
 
@@ -204,8 +199,8 @@ def print_stats(df, modes):
 def split_data(df, vars_list):
     X_train = df.loc[df['valid'] == False, vars_list].to_numpy()
     y_train = df.loc[df['valid'] == False, ['isSignal']].to_numpy()
-    X_valid = df.loc[df['valid'] == True, vars_list].to_numpy()
-    y_valid = df.loc[df['valid'] == True, ['isSignal']].to_numpy()
+    X_valid = df.loc[df['valid'] == True,  vars_list].to_numpy()
+    y_valid = df.loc[df['valid'] == True,  ['isSignal']].to_numpy()
     return X_train, y_train, X_valid, y_valid
 
 #__________________________________________________________

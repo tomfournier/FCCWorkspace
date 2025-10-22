@@ -1,19 +1,19 @@
-import importlib
+import ROOT, importlib
 
 # Load userConfig 
 userConfig = importlib.import_module("userConfig")
-from userConfig import loc, get_loc, ecm, lumi, param
+from userConfig import loc, get_loc, event, ecm, lumi, param, z_decays, h_decays, train_vars, frac, nb
 
 cat = input('Select a channel [ee, mumu]: ')
 
 # Input directory where the files produced at the pre-selection level are
-inputDir  = get_loc(loc.EVENTS_TRAINING, cat, ecm, '')
+inputDir  = get_loc(loc.EVENTS,            cat, ecm, '')
 # Output directory where the files produced at the final selection level will be put
-outputDir = get_loc(loc.HIST_MVA,   cat, ecm, '')
+outputDir = get_loc(loc.HIST_PREPROCESSED, cat, ecm, '')
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
-procDict = "FCCee_procDict_winter2023_training_IDEA.json"
+procDict = "FCCee_procDict_winter2023_IDEA.json"
 # procDictAdd = userConfig.procDictAdd
 
 # Number of CPUs to use
@@ -27,27 +27,55 @@ doTree = False
 doScale = True
 intLumi = lumi * 1e6 # in pb-1
 
-# Process list that should match the produced files.
-ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if cat=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
-
-# Process samples for BDT
-samples_BDT = [
-    #signal
-    f"wzp6_ee_{cat}H_ecm{ecm}",
-    #background: 
-    f"p8_ee_ZZ_ecm{ecm}", f"p8_ee_WW_{cat}_ecm{ecm}", ee_ll,
-    #rare backgrounds:
-    f"wzp6_egamma_eZ_Z{cat}_ecm{ecm}", f"wzp6_gammae_eZ_Z{cat}_ecm{ecm}",
-    f"wzp6_gaga_{cat}_60_ecm{ecm}"
+# Process samples
+samples_bkg = [
+    f"p8_ee_ZZ_ecm{ecm}",
+    f"p8_ee_WW_ecm{ecm}",              f"p8_ee_WW_ee_ecm{ecm}",       f"p8_ee_WW_mumu_ecm{ecm}",
+    f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}",      f"wzp6_ee_tautau_ecm{ecm}",
+    f"wzp6_gaga_ee_60_ecm{ecm}",       f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',  f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}',    f'wzp6_gammae_eZ_Zee_ecm{ecm}',
+    f"wzp6_ee_nuenueZ_ecm{ecm}"
 ]
+samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
+samples_sig.extend([f"wzp6_ee_eeH_ecm{ecm}", f"wzp6_ee_mumuH_ecm{ecm}", f'wzp6_ee_ZH_Hinv_ecm{ecm}'])
 
-# Mandatory: List of processes
-processList = {i:param for i in samples_BDT}
+samples = event(samples_sig + samples_bkg, inputDir+'/')
+big_sample = [
+    f'p8_ee_ZZ_ecm{ecm}', f'p8_ee_WW_ecm{ecm}', f'p8_ee_WW_{cat}_ecm{ecm}',
+    f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu' else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
+    f'wzp6_gaga_{cat}_60_ecm{ecm}'
+]
+samples = [f"wzp6_ee_tautauH_Htautau_ecm{ecm}"]
+processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1}  for i in samples}
+processList = {i:param for i in samples}
 
-# Dictionnay of the list of cuts. The key is the name of the selection that will be added to the output file
-cutList = { 
-    'sel0': 'return true;',
+
+
+sel_BDT = 'Baseline'
+ROOT.gInterpreter.ProcessLine(f'''
+  TMVA::Experimental::RBDT<> tmva("ZH_Recoil_BDT", "{get_loc(loc.BDT, cat, ecm, sel_BDT)}/xgb_bdt.root");
+''')
+var_list = ', (float)'.join(train_vars)
+defineList = {
+    'MVAVec':    f'ROOT::VecOps::RVec<float>{{{var_list}}}',
+    'mva_score': 'tmva.Compute(MVAVec)', 'BDTscore':  'mva_score.at(0)'
 }
+
+
+bdt = 0.91 if cat=='mumu' else 0.92
+Baseline_Cut = 'zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p < 70 && zll_recoil_m > 100 && zll_recoil_m < 150'
+cutList = { 
+    # 'sel0':              'return true;',
+    # 'Baseline':          Baseline_Cut,
+    # 'Baseline_vis':      Baseline_Cut +  ' && visibleEnergy > 100',
+    # 'Baseline_inv':      Baseline_Cut +  ' && visibleEnergy < 100',
+    'Baseline_high':     Baseline_Cut + f' && BDTscore > {bdt}',
+    'Baseline_low':      Baseline_Cut + f' && BDTscore < {bdt}'
+}
+
+
 
 # Dictionary for the ouput variable/histograms. 
 histoList = {
@@ -72,7 +100,7 @@ histoList = {
     "subleading_theta": {"name":"subleading_theta",
                          "title":"#theta_{l,subleading}",
                          "bin":128, "xmin":0,  "xmax":3.2},
-    
+
     "subleading_phi":   {"name":"subleading_phi",
                          "title":"#phi_{l,subleading}",
                          "bin":64,"xmin":-3.2,"xmax":3.2},
@@ -97,7 +125,7 @@ histoList = {
 
     "zll_p":            {"name":"zll_p",
                          "title":"p_{l^{+}l^{-}} [GeV]",
-                         "bin":100,"xmin":20,"xmax":70},
+                         "bin":500,"xmin":20,"xmax":70},
 
     "zll_theta":        {"name":"zll_theta",
                          "title":"#theta_{l^{+}l^{-}}",
@@ -122,11 +150,16 @@ histoList = {
 
     "missingMass":      {"name":"missingMass",
                          "title":"m_{miss} [GeV]",
-                         "bin":1600,"xmin":0,"xmax":160},
+                         "bin":500,"xmin":0,"xmax":250},
     
     # Higgsstrahlungness
     "H":                {"name":"H",
                          "title":"Higgsstrahlungness",
                          "bin":110,"xmin":0,"xmax":110},
 
+    # BDT score
+    "BDTscore":         {"name":"BDTscore",
+                         "title":"BDT score",
+                         "bin":500,"xmin":0,"xmax":1}
+                         
 }

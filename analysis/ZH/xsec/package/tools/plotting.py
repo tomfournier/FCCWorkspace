@@ -1,16 +1,19 @@
+import graphviz
 import joblib, os
+
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import pandas as pd
 import awkward as ak
+import xgboost as xgb
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import sklearn.metrics as metrics
+
 from tqdm import tqdm
 from matplotlib import rc
+from matplotlib.patches import Rectangle
 from sklearn.metrics import roc_curve, auc
-import sklearn.metrics as metrics
-import xgboost as xgb
-import graphviz
+
 from . import utils as ut
 
 rc('font', **{'family': 'serif', 'serif': ['Roman']})
@@ -18,12 +21,11 @@ rc('text', usetex=True)
 
 #__________________________________________________________
 def errorbar_hist(P, var, P_name, title, units, low, high, bins, outDir):
-    fig, ax = plt.subplots(figsize=(8,8))
+    fig, ax = plt.subplots(figsize=(8, 8))
     #Number of events, use this to determine bins and thus bin width
-    n = np.sum(ak.num(P).tolist())
     bin_w = (high - low)/bins
 
-    counts, bin_edges = np.histogram(ak.to_list(ak.flatten(P[var])), bins, range=(low,high))
+    counts, bin_edges = np.histogram(ak.to_list(ak.flatten(P[var])), bins, range=(low, high))
     bin_centres = (bin_edges[:-1] + bin_edges[1:])/2.
     err = np.sqrt(counts)
     plt.errorbar(bin_centres, counts, yerr=err, fmt='o', color='k')
@@ -31,16 +33,16 @@ def errorbar_hist(P, var, P_name, title, units, low, high, bins, outDir):
     plt.ylabel("Candidates / (%.4f %s)" % (bin_w, units), fontsize=30)
     plt.xlim(low,high)
     ax.tick_params(axis='both', which='major', labelsize=25)
-    ymin, ymax = plt.ylim()
+    ymax = plt.ylim()[1]
     plt.ylim(0.,ymax*1.1)
     plt.tight_layout()
-    fig.savefig(f"{outDir}/{P_name}_{var}.pdf")
+    fig.savefig(f"{outDir}/{P_name}_{var}.png")
 
 #__________________________________________________________
 def errorbar_plot(x_vals, y_vals, x_name, y_name, x_title, y_title, 
                   x_range, y_range, outDir, x_err=None, y_err=None):
-    fig, ax = plt.subplots(figsize=(8,8))
-    plt.errorbar(x_vals, y_vals, xerr=x_err, yerr=y_err, fmt='o', color='k')
+    fig, ax = plt.subplots(figsize=(8, 8))
+    plt.errorbar(x_vals, y_vals, xerr=x_err, yerr=y_err, linestyle='None', marker='o', color='k')
     plt.xlabel(x_title,fontsize=30)
     plt.xlim(x_range[0],x_range[1])
     plt.ylabel(y_title,fontsize=30)
@@ -54,9 +56,9 @@ def hist_plot(X, X_name, title, low, high, bins, outDir):
     fig, ax = plt.subplots(figsize=(8,8))
     plt.hist(X,bins=bins,range=(low,high),histtype='step',color='k')
     plt.xlabel(title,fontsize=30)
-    plt.xlim(low,high)
+    plt.xlim(low, high)
     ax.tick_params(axis='both', which='major', labelsize=25)
-    ymin, ymax = plt.ylim()
+    ymax = plt.ylim()[1]
     plt.ylim(0.,ymax*1.1)
     plt.tight_layout()
     fig.savefig(f"{outDir}/{X_name}.pdf")
@@ -66,10 +68,8 @@ def hist_plot_2d(X, X_name, X_title, Y, Y_name, Y_title,
                  X_low, X_high, Y_low, Y_high, X_bins, Y_bins, 
                  log, outDir):
     fig, ax = plt.subplots(figsize=(8,8))
-    if(log==True):
-        norm_opt = mpl.colors.LogNorm()
-    else:
-        norm_opt = mpl.colors.Normalize()
+    if(log==True): norm_opt = mpl.colors.LogNorm()
+    else: norm_opt = mpl.colors.Normalize()
     plt.hist2d(X.tolist(),Y.tolist(),bins=[X_bins,Y_bins],range=[[X_low, X_high], [Y_low, Y_high]], norm=norm_opt)
     plt.xlabel(X_title,fontsize=30)
     plt.xlim(X_low,X_high)
@@ -219,7 +219,7 @@ def roc(df, label, outDir, plot_file):
     plt.close()
 
 #__________________________________________________________
-def bdt_score(df, label, outDir, mode_names, plot_file, data_path, vars_list, sel, unity=True, Bins=100, lumi=10.8):
+def bdt_score(df, label, outDir, mode_names, plot_file, data_path, vars_list, unity=True, Bins=100, lumi=10.8):
     print("------>Plotting BDT score")
     
     fig, ax = plt.subplots(figsize=(12,8))
@@ -233,7 +233,7 @@ def bdt_score(df, label, outDir, mode_names, plot_file, data_path, vars_list, se
     
     xsec = ut.get_xsec(mode_names)
     for cur_mode in mode_names:
-        files = ut.get_data_paths(cur_mode, data_path, mode_names, f'_{sel}')
+        files = ut.get_data_paths(cur_mode, data_path, mode_names)
         eff = ut.counts_and_efficiencies(files, vars_list, only_eff=True)
         N = len(df.loc[df['sample']==cur_mode])
         df.loc[df['sample']==cur_mode, 'weights'] = xsec[cur_mode] * eff * lumi * 1e6 / N
@@ -267,7 +267,7 @@ def bdt_score(df, label, outDir, mode_names, plot_file, data_path, vars_list, se
     plt.close()
 
 #__________________________________________________________
-def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path, vars_list, sel, 
+def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path, vars_list, 
               all=False, unity=True, Bins=100, lumi=10.8):
     print("------>Plotting MVA score")
     
@@ -285,7 +285,7 @@ def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data
             if 'isSignal==1' in w and not 'H' in cur_mode: continue
             if 'isSignal!=1' in w and 'H' in cur_mode: continue
             df_tmp = df[(df['sample']==cur_mode)]
-            files = ut.get_data_paths(cur_mode, data_path, mode_names, f'_{sel}')
+            files = ut.get_data_paths(cur_mode, data_path, mode_names)
             eff = ut.counts_and_efficiencies(files, vars_list, only_eff=True)
             weight = xsec[cur_mode] * eff * lumi * 1e6 / len(df_tmp)
             df_instance = df_tmp.query(w)

@@ -1,24 +1,22 @@
-import os
-import sys
-import time
-import importlib
-import argparse
+import os, sys, time, argparse, importlib
 import numpy as np
 import pandas as pd
 
 t1 = time.time()
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
+                    choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+                    choices=[240, 365],     type=int, default=240)
+parser.add_argument('--sel', help='Selection with which you fit the histograms', 
+                    type=str, default='Baseline')
 
-parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
-parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
-parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
-parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
-parser.add_argument('--vis', help='Add E_vis cut', action='store_true')
-parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
-
+parser.add_argument('--pert',    help='Prior uncertainty on ZH cross-section used for the bias test', 
+                    type=float, default=1.05)
+parser.add_argument('--extra',   help='Extra argument for the fit', 
+                    choices=['freezeBackgrounds', 'floatBackgrounds', 'plot_dc', 'polL', 'polR', 'ILC'], 
+                    type=str, default='')
 parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
 arg = parser.parse_args()
 
@@ -29,31 +27,30 @@ if arg.cat=='' and not arg.combine:
     exit(0)
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, select, h_decays, plot_file
-# from tools.plotting import Bias
+from userConfig import loc, get_loc, h_decays
 
-cat, comb        = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
-mis, bdt, recoil = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
-lead, vis, sep   = '--leading' if arg.leading else '', '--vis' if arg.vis else '', '--sep' if arg.sep else ''
-if arg.combine: arg.cat = 'combined'
+cat, ecm, sel, pert = arg.cat, arg.ecm, arg.sel, arg.pert
+arg_cat, comb, arg_sel = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else '', f'--sel {sel}'
+if arg.combine: cat = 'combined'
+if arg.extra!='':
+    extra = arg.extra.split('-')
+    extraArgs = ' '.join('--'+ext for ext in extra)
+else: extraArgs=''
 
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
-inputdir   = get_loc(loc.BIAS_FIT_RESULT, arg.cat, arg.ecm, sel)
-loc_result = get_loc(loc.BIAS_RESULT,     arg.cat, arg.ecm, sel)
-nomDir     = get_loc(loc.NOMINAL_RESULT,  arg.cat, arg.ecm, sel)
+inputdir   = get_loc(loc.BIAS_FIT_RESULT, cat, ecm, sel)
+loc_result = get_loc(loc.BIAS_RESULT,     cat, ecm, sel)
+nomDir     = get_loc(loc.NOMINAL_RESULT,  cat, ecm, sel)
 
 def run_fit(target, pert, extraArgs=""):
-    cmd = f"python3 4-Fit/make_pseudo.py {cat} --target {target} --pert {pert} --run {comb} {recoil} {lead} {mis} {bdt} {vis} {sep} {extraArgs}"
+    cmd = f"python3 5-Fit/make_pseudo.py {arg_cat} --target {target} --pert {pert} --run {comb} {arg_sel} {extraArgs}"
     os.system(cmd)
     mu, err = np.loadtxt(f'{inputdir}/results_{target}.txt')
     return mu, err
 
-pert = 1.05
-
 res, bias = [], []
 for i, h_decay in enumerate(h_decays):
     print(f'----->[Info] Running fit for {h_decay} channel')
-    mu, err = run_fit(h_decay, pert)
+    mu, err = run_fit(h_decay, pert, extraArgs)
     b = 100*(mu - pert)
     res.append(mu)
     bias.append(b)
@@ -87,10 +84,6 @@ with open(f"{loc_result}/bias_results.txt", 'w') as f:
     print(formatted_row.format(*row2))
 sys.stdout = out_orig
 print(f'----->[Info] Bias saved at {loc_result}/bias_results.txt\n')
-
-# print(f'----->[Info] Saving Bias plot\n')
-# Bias(loc_result, nomDir, loc_result, h_decays[:-1], plot_file=plot_file)
-# print(f'----->[Info] Bias plot saved at {loc_result}/bias_results.{plot_file}\n')
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

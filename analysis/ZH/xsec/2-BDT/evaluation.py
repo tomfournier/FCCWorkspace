@@ -7,13 +7,6 @@ t1 = time.time()
 parser = argparse.ArgumentParser()
 parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
-
-parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
-parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
-parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
-parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
-parser.add_argument('--vis', help='Add E_vis > 10 GeV cut', action='store_true')
-parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
 arg = parser.parse_args()
 
 if arg.cat=='':
@@ -30,49 +23,42 @@ from tools.plotting import load_data, load_model, evaluate_bdt, tree_plot
 from tools.plotting import print_input_summary, get_metrics, mva_score
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, select
+from userConfig import loc, get_loc, selections
 from userConfig import plot_file, Label, train_vars, latex_mapping
 
-final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
-
-inputDir  = get_loc(loc.MVA_PROCESSED, final_state, ecm, sel)
-inputBDT  = get_loc(loc.BDT,           final_state, ecm, sel)
-outDir    = get_loc(loc.PLOTS_BDT,     final_state, ecm, sel)
-data_path = get_loc(loc.MVA_INPUTS,    final_state, ecm, sel)
+cat, ecm = arg.cat, arg.ecm
 
 # Decay modes used in first stage training and their respective file names
-ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if final_state=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
+ee_ll = f"wzp6_ee_ee_Mee_30_150_ecm{ecm}" if cat=='ee' else f"wzp6_ee_mumu_ecm{ecm}"
 modes = {
-  f"{final_state}H":       f"wzp6_ee_{final_state}H_ecm{ecm}",
-  f"ZZ":                   f"p8_ee_ZZ_ecm{ecm}", 
-  f'Z{final_state}':       ee_ll,
-  f"WW{final_state}":      f"p8_ee_WW_{final_state}_ecm{ecm}",
-  f"egamma_{final_state}": f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
-  f"gammae_{final_state}": f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
-  f"gammae_{final_state}": f"wzp6_gammae_eZ_Z{final_state}_ecm{ecm}",
-  f"egamma_{final_state}": f"wzp6_egamma_eZ_Z{final_state}_ecm{ecm}",
-  f"gaga_{final_state}":   f"wzp6_gaga_{final_state}_60_ecm{ecm}"
+  f"{cat}H":       f"wzp6_ee_{cat}H_ecm{ecm}",
+  f"ZZ":           f"p8_ee_ZZ_ecm{ecm}", 
+  f'Z{cat}':       ee_ll,
+  f"WW{cat}":      f"p8_ee_WW_{cat}_ecm{ecm}",
+  f"egamma_{cat}": f"wzp6_egamma_eZ_Z{cat}_ecm{ecm}",
+  f"gammae_{cat}": f"wzp6_gammae_eZ_Z{cat}_ecm{ecm}",
+  f"gammae_{cat}": f"wzp6_gammae_eZ_Z{cat}_ecm{ecm}",
+  f"egamma_{cat}": f"wzp6_egamma_eZ_Z{cat}_ecm{ecm}",
+  f"gaga_{cat}":   f"wzp6_gaga_{cat}_60_ecm{ecm}"
 }
 
 modes_color = {
-  f"{final_state}H":       "tab:blue",
-  f"ZZ":                   "tab:orange", 
-  f'Z{final_state}':       "tab:green",
-  f"WW{final_state}":      "tab:red",
-  f"egamma_{final_state}": "tab:purple",
-  f"gammae_{final_state}": "tab:brown",
-  f"gammae_{final_state}": "tab:pink",
-  f"egamma_{final_state}": "tab:gray",
-  f"gaga_{final_state}":   "tab:olive"
+  f"{cat}H":       "tab:blue",
+  f"ZZ":           "tab:orange", 
+  f'Z{cat}':       "tab:green",
+  f"WW{cat}":      "tab:red",
+  f"egamma_{cat}": "tab:purple",
+  f"gammae_{cat}": "tab:brown",
+  f"gammae_{cat}": "tab:pink",
+  f"egamma_{cat}": "tab:gray",
+  f"gaga_{cat}":   "tab:olive"
 }
 
 vars_list = train_vars.copy()
-if arg.bdt: vars_list.append("cosTheta_miss")
 
-def plot_metrics(df, bdt, vars_list, results, x_axis, mode_names, final_state, outDir):    
-    if final_state == "mumu": label = r"$Z(\mu^+\mu^-)H$"
-    elif final_state == "ee": label = r"$Z(e^+e^-)H$"
+def plot_metrics(df, bdt, vars_list, results, x_axis, mode_names, cat, outDir):    
+    if cat == "mumu": label = r"$Z(\mu^+\mu^-)H$"
+    elif cat == "ee": label = r"$Z(e^+e^-)H$"
     else: exit("ERROR: Invalid final state")
 
     ut.create_dir(f"{outDir}")
@@ -87,12 +73,18 @@ def plot_metrics(df, bdt, vars_list, results, x_axis, mode_names, final_state, o
     efficiency(df, mode_names, Label, label, outDir, plot_file)
     tree_plot(bdt, inputBDT, outDir, epochs, 20, plot_file)
 
-df = load_data(inputDir)
-# print_input_summary(df, modes)
-bdt = load_model(inputBDT)
-df = evaluate_bdt(df, bdt, vars_list)
-results, epochs, x_axis, best_iteration = get_metrics(bdt)
-plot_metrics(df, bdt, vars_list, results, x_axis, modes, final_state, outDir)
+for sel in selections:
+    inputDir  = get_loc(loc.MVA_INPUTS, cat, ecm, sel)
+    inputBDT  = get_loc(loc.BDT,        cat, ecm, sel)
+    outDir    = get_loc(loc.PLOTS_BDT,  cat, ecm, sel)
+    data_path = get_loc(loc.MVA_INPUTS, cat, ecm, sel)
+
+    df = load_data(inputDir)
+    # print_input_summary(df, modes)
+    bdt = load_model(inputBDT)
+    df = evaluate_bdt(df, bdt, vars_list)
+    results, epochs, x_axis, best_iteration = get_metrics(bdt)
+    plot_metrics(df, bdt, vars_list, results, x_axis, modes, cat, outDir)
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

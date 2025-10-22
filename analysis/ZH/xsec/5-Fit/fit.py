@@ -1,25 +1,23 @@
-import os
-import importlib
+import os, argparse, importlib
 import numpy as np
-import argparse
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, select
+from userConfig import loc, get_loc
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
+                    choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+                    choices=[240, 365], type=int, default=240)
+parser.add_argument('--sel', help='Selection with which you fit the histograms', 
+                    type=str, default='Baseline')
 
-parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
-parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
-parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
-parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
-parser.add_argument('--vis', help='Add E_vis cut', action='store_true')
-parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
+parser.add_argument("--pert",   help="Target pseudodata size", 
+                    type=float, default=1.0)
+parser.add_argument("--target", help="Target pseudodata", 
+                    type=str, default="")
 
-parser.add_argument("--bias", help="Nominal fit or bias test", action='store_true')
-parser.add_argument("--pert", type=float, help="Target pseudodata size", default=1.0)
-parser.add_argument("--target", type=str, help="Target pseudodata", default="")
+parser.add_argument("--bias",    help="Nominal fit or bias test", action='store_true')
 parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
 arg = parser.parse_args()
 
@@ -29,21 +27,19 @@ if arg.cat=='' and not arg.combine:
     print('\n----------------------------------------------------------------------------\n')
     exit(0)
 if arg.combine: arg.cat = 'combined'
+args = [arg.cat, arg.ecm, arg.sel]
 
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
 if not arg.bias:
-    dir, dc = get_loc(loc.COMBINE_NOMINAL, arg.cat, arg.ecm, sel), get_loc(loc.NOMINAL_DATACARD, arg.cat, arg.ecm, sel)
-    tp      = "nominal"
-    ws, log = get_loc(loc.NOMINAL_WS, arg.cat, arg.ecm, sel), get_loc(loc.NOMINAL_LOG, arg.cat, arg.ecm, sel)
-    res     = get_loc(loc.NOMINAL_RESULT, arg.cat, arg.ecm, sel)
+    dir, dc = get_loc(loc.COMBINE_NOMINAL, *args), get_loc(loc.NOMINAL_DATACARD, *args)
+    ws, log = get_loc(loc.NOMINAL_WS, *args),      get_loc(loc.NOMINAL_LOG, *args)
+    res, tp = get_loc(loc.NOMINAL_RESULT, *args),  "nominal"
 else:
-    dir, dc = get_loc(loc.COMBINE_BIAS, arg.cat, arg.ecm, sel), get_loc(loc.BIAS_DATACARD, arg.cat, arg.ecm, sel)
-    tp      = "bias"
-    ws, log = get_loc(loc.BIAS_WS, arg.cat, arg.ecm, sel), get_loc(loc.BIAS_LOG, arg.cat, arg.ecm, sel)
-    res     = get_loc(loc.BIAS_FIT_RESULT, arg.cat, arg.ecm, sel)
+    dir, dc = get_loc(loc.COMBINE_BIAS, *args),    get_loc(loc.BIAS_DATACARD, *args)
+    ws, log = get_loc(loc.BIAS_WS, *args),         get_loc(loc.BIAS_LOG, *args)
+    res, tp = get_loc(loc.BIAS_FIT_RESULT, *args), "bias"
 
 comb, tar   = "_combined" if arg.combine else "", f"_{arg.target}" if arg.bias else ""
-dc_comb = get_loc(loc.COMBINE, '', arg.ecm, sel)
+dc_comb = get_loc(loc.COMBINE, '', arg.ecm, arg.sel)
 
 cmd = f"cd {dir};"
 if arg.combine:

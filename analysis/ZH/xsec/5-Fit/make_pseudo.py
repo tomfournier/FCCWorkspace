@@ -6,35 +6,34 @@ import importlib, time
 t1 = time.time()
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, select, z_decays, h_decays
-from tools.bias import getHists, unroll, make_pseudodata, make_datacard
+from userConfig import loc, get_loc, z_decays, h_decays
+from tools.bias import getHists, make_pseudodata, make_datacard
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
-parser.add_argument('--recoil120', help='Cut with 120 GeV < recoil mass < 140 GeV instead of 100 GeV < recoil mass < 150 GeV', action='store_true')
-parser.add_argument('--miss', help='Add the cos(theta_miss) < 0.98 cut', action='store_true')
-parser.add_argument('--bdt', help='Add cos(theta_miss) cut in the training variables of the BDT', action='store_true')
-parser.add_argument('--leading', help='Add the p_leading and p_subleading cuts', action='store_true')
-parser.add_argument('--vis', help='Add E_vis cut', action='store_true')
-parser.add_argument('--sep', help='Separate events by using E_vis', action='store_true')
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
+                    choices=['ee', 'mumu'], type=str, default='')
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+                    choices=[240, 365], type=int, default=240)
+parser.add_argument('--sel', help='Selection with which you fit the histograms', 
+                    type=str, default='Baseline')
 
 parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
 
-parser.add_argument("--target", type=str, help="Target pseudodata", default="bb")
-parser.add_argument("--run", help="Run combine", action='store_true')
-parser.add_argument("--pert", type=float, help="Target pseudodata size", default=1.0)
+parser.add_argument("--target",            help="Target pseudodata", 
+                    type=str, default="bb")
+parser.add_argument("--pert",              help="Target pseudodata size", 
+                    type=float, default=1.0)
+parser.add_argument("--run",               help="Run combine", action='store_true')
 parser.add_argument("--freezeBackgrounds", help="Freeze backgrounds", action='store_true')
-parser.add_argument("--floatBackgrounds", help="Float backgrounds", action='store_true')
-parser.add_argument("--plot_dc", help="Plot datacard", action='store_true')
+parser.add_argument("--floatBackgrounds",  help="Float backgrounds", action='store_true')
+parser.add_argument("--plot_dc",           help="Plot datacard", action='store_true')
 
-parser.add_argument("--polL", help="Scale to left polarization", action='store_true')
+parser.add_argument("--polL", help="Scale to left polarization",  action='store_true')
 parser.add_argument("--polR", help="Scale to right polarization", action='store_true')
-parser.add_argument("--ILC", help="Scale to ILC luminosity", action='store_true')
+parser.add_argument("--ILC",  help="Scale to ILC luminosity",     action='store_true')
 arg = parser.parse_args()
 
-final_state, ecm = arg.cat, arg.ecm
-sel = select(arg.recoil120, arg.miss, arg.bdt, arg.leading, arg.vis, arg.sep)
+cat, ecm, sel = arg.cat, arg.ecm, arg.sel
 
 if arg.ILC: ## change fit to ASIMOV -t -1 !!!
     proc_scales  = {"ZH": 1.048, "WW": 0.971, "ZZ": 0.939, "Zgamma": 0.919,}
@@ -45,12 +44,12 @@ elif arg.polR:
 else:
     proc_scales  = {}
 
-inputDir = get_loc(loc.HIST_PREPROCESSED, final_state, ecm, sel)
-outDir   = get_loc(loc.BIAS_DATACARD,     final_state, ecm, sel)
+inputDir = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
+outDir   = get_loc(loc.BIAS_DATACARD,  cat, ecm, sel)
 
 rebin, hists      = 1, []
-# hName, categories = [f'{final_state}_recoil_m_mva_vis', f'{final_state}_recoil_m_mva_inv'], ['vis', 'inv']
-hName, categories = [f'{final_state}_recoil_m_mva'], [f'{final_state}']
+# hName, categories = [f'{cat}_recoil_m_mva_vis', f'{cat}_recoil_m_mva_inv'], ['vis', 'inv']
+hName, categories = [f'zll_recoil_m'], [f'z_{cat}']
 
 # first must be signal
 procs     = [f"ZH", "WW", "ZZ", "Zgamma", "Rare"]
@@ -73,13 +72,11 @@ if not arg.combine:
     for i, categorie in enumerate(categories):
         for proc in procs:
             h = getHists(inputDir, hName[i], proc, procs_cfg)
-            h = unroll(h, rebin=rebin)
             h.SetName(f"{categorie}_{proc}")
             hists.append(h)
 
         args = [inputDir, procs, procs_cfg, hName[i], arg.target, z_decays, h_decays]
         hist_pseudo = make_pseudodata(*args, ecm=ecm, variation=arg.pert)
-        hist_pseudo = unroll(hist_pseudo, rebin=rebin)
         hist_pseudo.SetName(f"{categorie}_data_{arg.target}")
         hists.append(hist_pseudo)
 
@@ -97,12 +94,10 @@ if not arg.combine:
     make_datacard(outDir, procs, arg.target, 1.01, categories,
                 freezeBackgrounds=arg.freezeBackgrounds, floatBackgrounds=arg.floatBackgrounds, plot_dc=arg.plot_dc)
 
-cat,  comb     = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else ''
-mis,  bdt, rec = '--miss' if arg.miss else '', '--bdt' if arg.bdt else '', '--recoil120' if arg.recoil120 else ''
-lead, vis, sep = '--leading' if arg.leading else '', '--vis' if arg.vis else '', '--sep' if arg.sep else ''
+arg_cat, comb, arg_sel = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else '', f'--sel {arg.sel}'
 
 if arg.run:
-    cmd = f"python3 4-Fit/fit.py {cat} --bias --target {arg.target} --pert {arg.pert} {comb} {rec} {mis} {bdt} {lead} {vis} {sep}"
+    cmd = f"python3 5-Fit/fit.py {arg_cat} --bias --target {arg.target} --pert {arg.pert} {comb} {arg_sel}"
     os.system(cmd)
 else:
     print('\n\n------------------------------------\n')

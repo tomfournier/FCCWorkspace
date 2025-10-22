@@ -1,27 +1,30 @@
+import os, json, ROOT
 import numpy as np
-import ROOT
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
 ROOT.gStyle.SetOptTitle(0)
 
 #__________________________________________________________
-def getMetaInfo(proc, inputDir, ecm):
-
-    # if 'tautauH_Hinv' in proc: xsec = 7.065e-6
-    # elif 'eeH_Hinv'   in proc: xsec = 7.507e-6
-    # elif 'qqH_Hinv'   in proc: xsec = 5.587e-5
-    # elif 'ssH_Hinv'   in proc: xsec = 3.139e-5
-    # elif 'ccH_Hinv'   in proc: xsec = 2.445e-5
-    # elif 'bbH_Hinv'   in proc: xsec = 3.113e-5
-    # elif 'nunuH_Hinv' in proc: xsec = 4.840e-5
-    # else:
-    fIn = ROOT.TFile(f"{inputDir}/{proc}.root")
-    xsec = fIn.Get("crossSection").GetVal()
-    
-    if "HZZ" in proc: # HZZ contains invisible, remove xsec
-        xsec_inv = getMetaInfo(proc.replace("HZZ", "Hinv"), inputDir, ecm)
-        xsec = xsec - xsec_inv
+def getMetaInfo(proc, info='crossSection', remove=True, 
+                fcc='/cvmfs/fcc.cern.ch/FCCDicts',
+                procFile="FCCee_procDict_winter2023_IDEA.json"):
+    if not ('eos' in procFile):
+        if os.getenv('FCCDICTSDIR') is None: fccdict = fcc
+        else:
+            fccdict = os.getenv('FCCDICTSDIR').split(':')[0]
+        procFile = os.path.join(fccdict, '') + procFile 
+    with open(procFile, 'r') as f:
+        procDict=json.load(f)
+    xsec = procDict[proc][info]
+    if remove:
+        if 'HZZ' in proc: 
+            xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
+            xsec = xsec - xsec_inv
+        if 'p8_ee_WW_ecm' in proc:
+            xsec_ee   = getMetaInfo(proc.replace('WW_ecm', 'WW_ee_ecm'))
+            xsec_mumu = getMetaInfo(proc.replace('WW_ecm', 'WW_mumu_ecm'))
+            xsec = xsec-xsec_ee-xsec_mumu
     return xsec
 
 #__________________________________________________________
@@ -50,20 +53,33 @@ def removeNegativeBins(hist):
     return hist
 
 #__________________________________________________________
-def getSingleHist(hName, proc, inputDir):
-    fIn = ROOT.TFile(f"{inputDir}/{proc}.root")
+def getSingleHist(hName, proc, inputDir, suffix='', lazy=True):
+    fIn = ROOT.TFile(f"{inputDir}/{proc}{suffix}.root")
     h = fIn.Get(hName)
     h.SetDirectory(0)
     fIn.Close()
     h = removeNegativeBins(h)
+    if 'HZZ' in proc: 
+        xsec     = getMetaInfo(proc, remove=False)
+        xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'), 
+                               remove=False)
+        h.Scale((xsec-xsec_inv)/xsec)
+    if 'p8_ee_WW_ecm' in proc:
+        xsec      = getMetaInfo(proc, remove=False)
+        xsec_ee   = getMetaInfo(proc.replace('WW_ecm', 'WW_ee_ecm'), 
+                                remove=False)
+        xsec_mumu = getMetaInfo(proc.replace('WW_ecm', 'WW_mumu_ecm'), 
+                                remove=False)
+        h.Scale((xsec-xsec_ee-xsec_mumu)/xsec)
     return h
 
 #__________________________________________________________
-def getHists(inputDir, hName, procName, procs_cfg, proc_scales={}):
+def getHists(inputDir, hName, procName, procs_cfg, suffix='', proc_scales={}):
     hist = None
     procs = procs_cfg[procName]
     for proc in procs:
-        h = getSingleHist(hName, proc, inputDir)
+        if not os.path.exists(f"{inputDir}/{proc}{suffix}.root"): continue
+        h = getSingleHist(hName, proc, inputDir, suffix=suffix)
         if hist == None:
             hist = h
         else:
@@ -73,70 +89,9 @@ def getHists(inputDir, hName, procName, procs_cfg, proc_scales={}):
         print(f"SCALE {procName} with factor {proc_scales[procName]}")
     return hist
 
-#__________________________________________________________
-def unroll(hist, rebin=1):
-    if "TH1" in hist.ClassName():
-        hist = hist.Rebin(rebin)
-        hist = removeNegativeBins(hist)
-        return hist
 
-    elif "TH2" in hist.ClassName():
-        # Get the number of bins in X and Y
-        n_bins_x = hist.GetNbinsX()
-        n_bins_y = hist.GetNbinsY()
-
-        # Create a 1D histogram to hold the unrolled data
-        n_bins_1d = n_bins_x * n_bins_y
-        h1 = ROOT.TH1D("h1", "1D Unrolled Histogram", n_bins_1d, 0.5, n_bins_1d + 0.5)
-
-        # Loop over all bins in the 2D histogram
-        for bin_x in range(1, n_bins_x + 1):  # Bin indexing starts at 1
-            for bin_y in range(1, n_bins_y + 1):
-                # Calculate the global bin number for the 1D histogram
-                bin_1d = (bin_y - 1) * n_bins_x + bin_x
-
-                # Get the content and error from the 2D histogram
-                content = hist.GetBinContent(bin_x, bin_y)
-                error = hist.GetBinError(bin_x, bin_y)
-
-                # Set the content and error in the 1D histogram
-                h1.SetBinContent(bin_1d, content)
-                h1.SetBinError(bin_1d, error)
-        return h1
-
-    elif "TH3" in hist.ClassName():
-        # Get binning information
-        nbinsX = hist.GetNbinsX()
-        nbinsY = hist.GetNbinsY()
-        nbinsZ = hist.GetNbinsZ()
-        nbins1D = nbinsX * nbinsY * nbinsZ
-
-        # Create a 1D histogram with the correct number of bins
-        h1 = ROOT.TH1D("h1_unrolled", "Unrolled 3D Histogram", nbins1D, 0, nbins1D)
-
-        # Fill the 1D histogram by unrolling the 3D histogram
-        bin1D = 1  # ROOT bins are 1-based
-        for x in range(1, nbinsX + 1):
-            for y in range(1, nbinsY + 1):
-                for z in range(1, nbinsZ + 1):
-                    content = hist.GetBinContent(x, y, z)
-                    error = hist.GetBinError(x, y, z)  # Retrieve bin error
-                    
-                    if content < 0:
-                        print("WARNING NEGATIVE CONTENT", content, hist.GetName())
-                        content = 0
-                        error = 0
-
-                    h1.SetBinContent(bin1D, content)
-                    h1.SetBinError(bin1D, error)  # Set the bin error
-                    bin1D += 1  # Increment the 1D bin index
-        return h1
-
-    else:
-        return hist
-
-def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
-                    z_decays, h_decays, proc_scales={}, ecm=240, variation=1.0):
+def make_pseudodata(inputDir, procs, procs_cfg, hName, target, z_decays, h_decays, 
+                    suffix='', proc_scales={}, ecm=240, variation=1.0):
 
     print(f'----->[Info] Making pseudo data for {target} channel')
     print(f'----->[Info] Perturbation of the cross-section: {(variation-1)*100:.2f} %')
@@ -152,7 +107,7 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
             proc = f'wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}'
             if not proc in sigProcs:
                 continue
-            xsec += getMetaInfo(proc, inputDir, ecm)
+            xsec += getMetaInfo(proc)
             # print(f'xsec for {proc}: {getMetaInfo(proc, inputDir, ecm):.3e}')
         xsec_tot += xsec
         if h_decay != target:
@@ -174,7 +129,8 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
 
     hist_pseudo = None # start with all backgrounds
     for proc in procs[1:]:
-        h = getHists(inputDir, hName, proc, procs_cfg, proc_scales)
+        h = getHists(inputDir, hName, proc, procs_cfg, 
+                     suffix=suffix, proc_scales=proc_scales)
         if hist_pseudo == None:
             hist_pseudo = h
         else:
@@ -186,10 +142,11 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target,
         hist = None
         for z_decay in z_decays:
             proc = f'wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}'
-            if not proc in sigProcs:
-                continue
-            xsec += getMetaInfo(proc, inputDir, ecm)
-            h = getSingleHist(hName, proc, inputDir)
+            if not proc in sigProcs: continue
+            if not os.path.exists(f"{inputDir}/{proc}{suffix}.root"): continue
+            xsec += getMetaInfo(proc)
+            h = getSingleHist(hName, proc, inputDir, 
+                              suffix=suffix)
             if hist == None:
                 hist = h
             else:
