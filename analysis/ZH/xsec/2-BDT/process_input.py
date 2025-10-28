@@ -14,12 +14,15 @@ if arg.cat=='':
     print('\n----------------------------------------------------------------\n')
     exit(0)
 
+userConfig = importlib.import_module('userConfig')
+from userConfig import loc, add, get_loc, train_vars
+add()
+
 from tools.utils import get_procDict, update_keys, get_data_paths, BDT_input_numbers
 from tools.utils import counts_and_efficiencies, save_to_pickle
 from tools.utils import additional_info, df_split_data
 
-userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, train_vars
+
 
 cat, ecm = arg.cat, arg.ecm
 

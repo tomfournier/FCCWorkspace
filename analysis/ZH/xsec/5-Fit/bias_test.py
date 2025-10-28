@@ -15,7 +15,7 @@ parser.add_argument('--sel', help='Selection with which you fit the histograms',
 parser.add_argument('--pert',    help='Prior uncertainty on ZH cross-section used for the bias test', 
                     type=float, default=1.05)
 parser.add_argument('--extra',   help='Extra argument for the fit', 
-                    choices=['freezeBackgrounds', 'floatBackgrounds', 'plot_dc', 'polL', 'polR', 'ILC'], 
+                    choices=['freeze', 'float', 'plot_dc', 'polL', 'polR', 'ILC', 'tot'], 
                     type=str, default='')
 parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
 arg = parser.parse_args()

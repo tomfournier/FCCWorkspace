@@ -1,168 +1,115 @@
-import os, json, ROOT
-import numpy as np
+import os, sys, json, copy, ROOT
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
 ROOT.gStyle.SetOptTitle(0)
 
 #__________________________________________________________
-def getMetaInfo(proc, info='crossSection', remove=True, 
+def getMetaInfo(proc, info='crossSection', remove=False,
                 fcc='/cvmfs/fcc.cern.ch/FCCDicts',
                 procFile="FCCee_procDict_winter2023_IDEA.json"):
-    if not ('eos' in procFile):
-        if os.getenv('FCCDICTSDIR') is None: fccdict = fcc
-        else:
-            fccdict = os.getenv('FCCDICTSDIR').split(':')[0]
-        procFile = os.path.join(fccdict, '') + procFile 
+    if os.getenv('FCCDICTSDIR') is None: fccdict = fcc
+    else: fccdict = os.getenv('FCCDICTSDIR').split(':')[0]
+    procFile = os.path.join(fccdict, '') + procFile 
     with open(procFile, 'r') as f:
         procDict=json.load(f)
     xsec = procDict[proc][info]
     if remove:
-        if 'HZZ' in proc: 
+        if 'HZZ' in proc:
             xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
-            xsec = xsec - xsec_inv
+            xsec     = getMetaInfo(proc) - xsec_inv
         if 'p8_ee_WW_ecm' in proc:
-            xsec_ee   = getMetaInfo(proc.replace('WW_ecm', 'WW_ee_ecm'))
-            xsec_mumu = getMetaInfo(proc.replace('WW_ecm', 'WW_mumu_ecm'))
-            xsec = xsec-xsec_ee-xsec_mumu
+            xsec_ee   = getMetaInfo(proc.replace('WW', 'WW_ee'))
+            xsec_mumu = getMetaInfo(proc.replace('WW', 'WW_mumu'))
+            xsec      = getMetaInfo(proc) - xsec_ee - xsec_mumu
     return xsec
 
 #__________________________________________________________
-def removeNegativeBins(hist):
-    totNeg, tot = 0., 0.
-    if "TH1" in hist.ClassName():
-        pass
-    elif "TH2" in hist.ClassName():
-        pass
-
-    elif "TH3" in hist.ClassName():
-        nbinsX = hist.GetNbinsX()
-        nbinsY = hist.GetNbinsY()
-        nbinsZ = hist.GetNbinsZ()
-        for x in range(1, nbinsX + 1):
-            for y in range(1, nbinsY + 1):
-                for z in range(1, nbinsZ + 1):
-                    content = hist.GetBinContent(x, y, z)
-                    tot += content
-                    if content < 0:
-                        totNeg += content
-                        hist.SetBinContent(x, y, z, 0)
-                        hist.SetBinError(x, y, z, 0)
-    if totNeg != 0:
-        print(f"WARNING: TOTAL {tot}, NEGATIVE {totNeg}, FRACTION {totNeg/tot}")
-    return hist
-
-#__________________________________________________________
-def getSingleHist(hName, proc, inputDir, suffix='', lazy=True):
-    fIn = ROOT.TFile(f"{inputDir}/{proc}{suffix}.root")
-    h = fIn.Get(hName)
-    h.SetDirectory(0)
-    fIn.Close()
-    h = removeNegativeBins(h)
-    if 'HZZ' in proc: 
-        xsec     = getMetaInfo(proc, remove=False)
-        xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'), 
-                               remove=False)
-        h.Scale((xsec-xsec_inv)/xsec)
-    if 'p8_ee_WW_ecm' in proc:
-        xsec      = getMetaInfo(proc, remove=False)
-        xsec_ee   = getMetaInfo(proc.replace('WW_ecm', 'WW_ee_ecm'), 
-                                remove=False)
-        xsec_mumu = getMetaInfo(proc.replace('WW_ecm', 'WW_mumu_ecm'), 
-                                remove=False)
-        h.Scale((xsec-xsec_ee-xsec_mumu)/xsec)
-    return h
-
-#__________________________________________________________
-def getHists(inputDir, hName, procName, procs_cfg, suffix='', proc_scales={}):
+def getHist(hName, procs, inputDir, suffix='', rebin=1, lazy=True, proc_scales=1):
     hist = None
-    procs = procs_cfg[procName]
     for proc in procs:
-        if not os.path.exists(f"{inputDir}/{proc}{suffix}.root"): continue
-        h = getSingleHist(hName, proc, inputDir, suffix=suffix)
-        if hist == None:
-            hist = h
+        fInName = f"{inputDir}/{proc}{suffix}.root"
+        if os.path.exists(fInName): fIn = ROOT.TFile(fInName)
         else:
-            hist.Add(h)
-    if procName in proc_scales:
-        hist.Scale(proc_scales[procName])
-        print(f"SCALE {procName} with factor {proc_scales[procName]}")
+            if lazy: continue
+            else: sys.exit(f"ERROR: input file {fInName} not found")
+        h = fIn.Get(hName)
+        h.SetDirectory(0)
+        if 'HZZ' in proc:
+            xsec_old = getMetaInfo(proc)
+            xsec_new = getMetaInfo(proc, remove=True)
+            h.Scale( xsec_new/xsec_old )
+        if 'p8_ee_WW_ecm' in proc:
+            xsec_old = getMetaInfo(proc)
+            xsec_new = getMetaInfo(proc, remove=True)
+            h.Scale( xsec_new/xsec_old )
+        if hist == None: hist = h
+        else: hist.Add(h)
+        fIn.Close()
+    hist.Rebin(rebin)
+    hist.Scale(proc_scales)
     return hist
 
-
-def make_pseudodata(inputDir, procs, procs_cfg, hName, target, z_decays, h_decays, 
-                    suffix='', proc_scales={}, ecm=240, variation=1.0):
+#__________________________________________________________
+def make_pseudodata(inputDir, procs, procs_cfg, hName, target, cat, z_decays, h_decays, 
+                    suffix='', proc_scales={}, ecm=240, variation=1.05, tot=True):
 
     print(f'----->[Info] Making pseudo data for {target} channel')
     print(f'----->[Info] Perturbation of the cross-section: {(variation-1)*100:.2f} %')
 
-    xsec_tot = 0 # total cross-section
-    xsec_target = 0  # nominal cross-section of the target process
-    xsec_rest = 0 # cross-section of the rest
+    xsec_tot, xsec_target, xsec_rest = 0, 0, 0
 
-    sigProcs = procs_cfg[procs[0]] # get all signal processes
-    for h_decay in h_decays:
-        xsec = 0.
-        for z_decay in z_decays:
-            proc = f'wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}'
-            if not proc in sigProcs:
-                continue
-            xsec += getMetaInfo(proc)
-            # print(f'xsec for {proc}: {getMetaInfo(proc, inputDir, ecm):.3e}')
+    if tot: sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays]
+    else:   sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in [cat]]    for y in h_decays]
+
+    for h_decay, sig in zip(h_decays, sigs):
+        xsec = sum([getMetaInfo(s, remove=True) for s in sig])
         xsec_tot += xsec
-        if h_decay != target:
-            xsec_rest += xsec
-        else:
+        if h_decay==target: 
             xsec_target += xsec
+        else:               
+            xsec_rest   += xsec
 
-    xsec_new = variation*xsec_tot
-    xsec_delta = xsec_new - xsec_tot # difference in cross-section
-    print(f'----->[Info] Cross-section of {target} channel: {xsec_target*1e6:.1f} fb')
+    xsec_new = variation * xsec_tot
+    xsec_delta = xsec_new - xsec_tot
     scale_target = (xsec_target + xsec_delta)/xsec_target
-    scale_rest = (xsec_rest - xsec_delta)/xsec_rest
-
-    # print(f"----->[Info] Total cross-section of the signal: {xsec_tot*1e6:.1f} fb")
-    # print(f"----->[Info] New cross-section: {xsec_new*1e6:.1f} fb")
-    # print(f"----->[Info] Difference between new and previous cross-section: {xsec_delta*1e6:.1f} fb")
     print(f"----->[Info] Scale of the {target} channel: {scale_target:.3f}")
-    # print(f"----->[Info] Scale of the rest: {scale_rest:.3f}")
 
-    hist_pseudo = None # start with all backgrounds
+    hist_pseudo = None
     for proc in procs[1:]:
-        h = getHists(inputDir, hName, proc, procs_cfg, 
-                     suffix=suffix, proc_scales=proc_scales)
-        if hist_pseudo == None:
-            hist_pseudo = h
-        else:
-            hist_pseudo.Add(h)
+        if proc not in proc_scales:proc_scales[proc] = 1
+        h = getHist(hName, procs_cfg[proc], inputDir, 
+                    suffix=suffix, proc_scales=proc_scales[proc])
+        if hist_pseudo==None: hist_pseudo = h
+        else: hist_pseudo.Add(h)
+        
+    xsec_tot_new, hist_old, hist_new = 0, None, None
+    for h_decay, sig in zip(h_decays, sigs):
+        xsec = sum([getMetaInfo(s, remove=True) for s in sig])
+        if 'ZH' not in proc_scales:proc_scales['ZH'] = 1
+        h = getHist(hName, sig, inputDir, 
+                    suffix=suffix, proc_scales=proc_scales['ZH'])
+        # Old signal
+        if hist_old==None: hist_old = copy.deepcopy(h)
+        else: hist_old.Add(h)
 
-    xsec_tot_new = 0
-    for h_decay in h_decays:
-        xsec = 0.
-        hist = None
-        for z_decay in z_decays:
-            proc = f'wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}'
-            if not proc in sigProcs: continue
-            if not os.path.exists(f"{inputDir}/{proc}{suffix}.root"): continue
-            xsec += getMetaInfo(proc)
-            h = getSingleHist(hName, proc, inputDir, 
-                              suffix=suffix)
-            if hist == None:
-                hist = h
-            else:
-                hist.Add(h)
-        if h_decay == target:
-            hist.Scale(scale_target)
-            xsec_tot_new += xsec*scale_target
-        else:
-            # hist.Scale(scale_rest)
-            xsec_tot_new += xsec*scale_rest
-        hist_pseudo.Add(hist)
+        if h_decay==target:
+            h.Scale(scale_target)
+            xsec_tot_new   += scale_target * xsec
+        else: xsec_tot_new += xsec
+        # New signal
+        if hist_new==None: hist_new = copy.deepcopy(h)
+        else: hist_new.Add(h)
+        hist_pseudo.Add(h)
+
+    old, new = hist_old.Integral(0, -1), hist_new.Integral(0, -1)
+    print(f'----->[Info] Added {(new/old-1)*100:.2f} % of signal to ZH production cross-section')
     
-    print(f'----->[CROSS-CHECK] This quantity {xsec_tot*1e6:.2f} must be equal to this one {xsec_tot_new*1e6:.2f}')
-    print(f'\tDifference: {np.abs(xsec_tot-xsec_tot_new)*1e6:.2f}')
+    print(f'\n----->[CROSS-CHECK] This quantity {xsec_tot_new/xsec_tot:.2f} should be equal to {variation}\n')
     return hist_pseudo
 
+
+#__________________________________________________________
 def make_datacard(outDir, procs, target, bkg_unc, categories, 
                   freezeBackgrounds=False, floatBackgrounds=False, plot_dc=False):
     
@@ -225,5 +172,4 @@ def make_datacard(outDir, procs, target, bkg_unc, categories,
     f.close()
     print(f'----->[Info] Saved datacard in {outDir}/datacard_{target}.txt')
 
-    if plot_dc:
-        print(f'\n{dc}\n')
+    if plot_dc: print(f'\n{dc}\n')

@@ -47,7 +47,6 @@ big_sample = [
     f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
     f'wzp6_gaga_{cat}_60_ecm{ecm}'
 ]
-samples = [f"wzp6_ee_tautauH_Htautau_ecm{ecm}"]
 processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1}  for i in samples}
 processList = {i:param for i in samples}
 
@@ -68,9 +67,9 @@ bdt = 0.91 if cat=='mumu' else 0.92
 Baseline_Cut = 'zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p < 70 && zll_recoil_m > 100 && zll_recoil_m < 150'
 cutList = { 
     # 'sel0':              'return true;',
-    # 'Baseline':          Baseline_Cut,
-    # 'Baseline_vis':      Baseline_Cut +  ' && visibleEnergy > 100',
-    # 'Baseline_inv':      Baseline_Cut +  ' && visibleEnergy < 100',
+    'Baseline':          Baseline_Cut,
+    'Baseline_vis':      Baseline_Cut +  ' && visibleEnergy > 100',
+    'Baseline_inv':      Baseline_Cut +  ' && visibleEnergy < 100',
     'Baseline_high':     Baseline_Cut + f' && BDTscore > {bdt}',
     'Baseline_low':      Baseline_Cut + f' && BDTscore < {bdt}'
 }

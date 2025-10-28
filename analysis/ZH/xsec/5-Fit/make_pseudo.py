@@ -6,8 +6,8 @@ import importlib, time
 t1 = time.time()
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, z_decays, h_decays
-from tools.bias import getHists, make_pseudodata, make_datacard
+from userConfig import loc, get_loc, event, z_decays, h_decays
+from tools.bias import getHist, make_pseudodata, make_datacard
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
@@ -19,14 +19,16 @@ parser.add_argument('--sel', help='Selection with which you fit the histograms',
 
 parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
 
-parser.add_argument("--target",            help="Target pseudodata", 
+parser.add_argument("--target",  help="Target pseudodata", 
                     type=str, default="bb")
-parser.add_argument("--pert",              help="Target pseudodata size", 
+parser.add_argument("--pert",    help="Target pseudodata size", 
                     type=float, default=1.0)
-parser.add_argument("--run",               help="Run combine", action='store_true')
-parser.add_argument("--freezeBackgrounds", help="Freeze backgrounds", action='store_true')
-parser.add_argument("--floatBackgrounds",  help="Float backgrounds", action='store_true')
-parser.add_argument("--plot_dc",           help="Plot datacard", action='store_true')
+parser.add_argument("--tot",     help="Do not consider all Z decays for making cross-section",
+                    action='store_true')
+parser.add_argument("--run",     help="Run combine",        action='store_true')
+parser.add_argument("--freeze",  help="Freeze backgrounds", action='store_true')
+parser.add_argument("--float",   help="Float backgrounds",  action='store_true')
+parser.add_argument("--plot_dc", help="Plot datacard",      action='store_true')
 
 parser.add_argument("--polL", help="Scale to left polarization",  action='store_true')
 parser.add_argument("--polR", help="Scale to right polarization", action='store_true')
@@ -47,36 +49,37 @@ else:
 inputDir = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
 outDir   = get_loc(loc.BIAS_DATACARD,  cat, ecm, sel)
 
-rebin, hists      = 1, []
+rebin, hists, tot = 1, [], not arg.tot
 # hName, categories = [f'{cat}_recoil_m_mva_vis', f'{cat}_recoil_m_mva_inv'], ['vis', 'inv']
 hName, categories = [f'zll_recoil_m'], [f'z_{cat}']
 
 # first must be signal
 procs     = [f"ZH", "WW", "ZZ", "Zgamma", "Rare"]
+inDir = get_loc(loc.EVENTS, cat, ecm, '')+'/'
 procs_cfg = {
-"ZH"        : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_decays for y in h_decays],
-"ZmumuH"    : [f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_decays],
-"ZeeH"      : [f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_decays],
-"WW"        : [f'p8_ee_WW_ecm{ecm}'],
+"ZH"        : event([f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_decays for y in h_decays], inDir),
+"ZmumuH"    : event([f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_decays], inDir),
+"ZeeH"      : event([f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_decays], inDir),
+"WW"        : event([f'p8_ee_WW_ecm{ecm}', f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}'], inDir),
 "ZZ"        : [f'p8_ee_ZZ_ecm{ecm}'],
-"Zgamma"    : [f'wzp6_ee_tautau_ecm{ecm}',       f'wzp6_ee_mumu_ecm{ecm}',
-               f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'],
-"Rare"      : [f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}', 
+"Zgamma"    : event([f'wzp6_ee_tautau_ecm{ecm}',       f'wzp6_ee_mumu_ecm{ecm}',
+               f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'], inDir),
+"Rare"      : event([f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}', 
                f'wzp6_gaga_mumu_60_ecm{ecm}',    f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
                f'wzp6_gammae_eZ_Zee_ecm{ecm}',   f'wzp6_gaga_ee_60_ecm{ecm}', 
-               f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'],
+               f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'], inDir)
 }
-
 
 if not arg.combine:
     for i, categorie in enumerate(categories):
         for proc in procs:
-            h = getHists(inputDir, hName[i], proc, procs_cfg)
+            h = getHist(hName[i], procs_cfg[proc], inputDir)
             h.SetName(f"{categorie}_{proc}")
             hists.append(h)
 
-        args = [inputDir, procs, procs_cfg, hName[i], arg.target, z_decays, h_decays]
-        hist_pseudo = make_pseudodata(*args, ecm=ecm, variation=arg.pert)
+        args = [inputDir, procs, procs_cfg, hName[i], arg.target, cat, z_decays, h_decays]
+        hist_pseudo = make_pseudodata(*args, ecm=ecm, variation=arg.pert, 
+                                      tot=tot, proc_scales=proc_scales)
         hist_pseudo.SetName(f"{categorie}_data_{arg.target}")
         hists.append(hist_pseudo)
 
@@ -92,7 +95,7 @@ if not arg.combine:
 
     print('----->[Info] Making datacard')
     make_datacard(outDir, procs, arg.target, 1.01, categories,
-                freezeBackgrounds=arg.freezeBackgrounds, floatBackgrounds=arg.floatBackgrounds, plot_dc=arg.plot_dc)
+                freezeBackgrounds=arg.freeze, floatBackgrounds=arg.float, plot_dc=arg.plot_dc)
 
 arg_cat, comb, arg_sel = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else '', f'--sel {arg.sel}'
 

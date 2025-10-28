@@ -1,5 +1,6 @@
-import os, uproot
+import os, sys, uproot
 from glob import glob
+
 
 
 ######################
@@ -9,13 +10,11 @@ from glob import glob
 plot_file, fitting = ['png'], False
 frac, nb  = 1, 10
 inv, ww   = False, True
+
 # Precaution to not have the two variables set to True
 if inv and ww: ww = False 
 
 ecm, lumi = 240, 10.8
-selections = [
-    'sel0'
-]
 
 
 
@@ -99,7 +98,7 @@ def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
     path = path.replace('sel', sel)
     return path
 
-def event(procs: list, path: str = '', end='.root'):
+def event(procs: list, path: str = '', end='.root') -> list:
     newprocs = []
     for proc in procs:
         if os.path.exists(f'{path}{proc}{end}'):
@@ -114,6 +113,12 @@ def event(procs: list, path: str = '', end='.root'):
         if len(isTTree)==len(filenames):
             newprocs.append(proc)
     return newprocs
+
+def add(names: list = []) -> None:
+    sys.path.append(loc.PACKAGE)
+    if names!=[]:
+        for name in names:
+            sys.path.append(name)
 
 
 

@@ -23,7 +23,7 @@ nCPUS = 20
 doScale = True
 intLumi = lumi * 1e6 # in pb-1
 
-if not inv: h_decays.remove('inv')
+if not inv: h_decays.remove('ZZ')
 # Process samples
 samples_bkg = [
     f"p8_ee_ZZ_ecm{ecm}",
@@ -39,7 +39,7 @@ samples_sig.extend([f"wzp6_ee_eeH_ecm{ecm}", f"wzp6_ee_mumuH_ecm{ecm}", f'wzp6_e
 
 if inv:  samples = [f'wzp6_ee_{x}H_HZZ_ecm{ecm}' for x in z_decays]
 elif ww: samples = [f'p8_ee_WW_ecm{ecm}']
-else:    samples = samples_sig + samples_bkg
+else:    samples = samples_bkg# + samples_bkg
 
 big_sample = [
     f'p8_ee_ZZ_ecm{ecm}', f'p8_ee_WW_ecm{ecm}', f'p8_ee_WW_{cat}_ecm{ecm}',
@@ -49,6 +49,12 @@ big_sample = [
 ]
 processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1}  for i in samples}
 
+
+
+def cutflow(df, cut: int):
+    n  = df.Count().GetValue()
+    df = df.Define(f"cut{cut}", str(n))
+    return df
 
 
 def build_graph_ll(df, cat):
@@ -104,16 +110,22 @@ def build_graph_ll(df, cat):
     #########
     ### CUT 0 all events
     #########
+    # df = df.Define("cut0", "0")
+    df = cutflow(df, 0)
 
     #########
     ### CUT 1: at least a lepton and at least 1 one lepton isolated (I_rel < 0.25)
     #########
-    df = df.Filter("leps_no >= 1 && leps_sel_iso.size() > 0")
+    df = df.Filter("leps_no >= 1 && leps_sel_iso.size() > 0", "cut1")
+    # df = df.Define("cut1", "1")
+    df = cutflow(df, 1)
 
     #########
     ### CUT 2 :at least 2 OS leptons, and build the resonance
     #########
-    df = df.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()")
+    df = df.Filter("leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()", "cut2")
+    # df = df.Define("cut2", "2")
+    df = cutflow(df, 2)
 
     # remove H->mumu/ee candidate leptons
     df = df.Define("zbuilder_Hll",   f"FCCAnalyses::resonanceBuilder_mass_recoil(125, 91.2, 0.4, {ecm}, false)"
@@ -172,24 +184,27 @@ def build_graph_ll(df, cat):
     ### CUT 3: Z mass window
     #########
     # df = df.Filter("zll_m > 86 && zll_m < 96")
+    # df = df.Define("cut3", "3")
 
     #########
     ### CUT 4: Z momentum
     #########
-    # if ecm == 240:
-    #     df = df.Filter("zll_p > 20 && zll_p < 70")
-    # if ecm == 365:
-    #     df = df.Filter("zll_p > 50 && zll_p < 150")
+    # if   ecm == 240: df = df.Filter("zll_p > 20 && zll_p < 70")
+    # elif ecm == 365: df = df.Filter("zll_p > 50 && zll_p < 150")
+    # df = df.Define("cut4", "4")
+
 
     #########
     ### CUT 5: recoil cut
     #########
     # df = df.Filter(f"zll_recoil_m < 150 && zll_recoil_m > 100")
+    # df = df.Define("cut5", "4")
 
     #########
     ### CUT 6: cosThetaMiss cut
     #########
     # df = df.Filter("cosTheta_miss < 0.98")
+    # df = df.Define("cut6", "6")
 
     ############
     ### CUT TEST
@@ -199,7 +214,6 @@ def build_graph_ll(df, cat):
     # df_inv =     df_inv.Filter('acoplanarity > 0.05')
     # df_inv =     df_inv.Filter('cosTheta_miss < 0.998')
     # df_vis =     df_vis.Filter('cosTheta_miss < 0.995')
-
     return df
 
 
@@ -229,6 +243,8 @@ class RDFanalysis():
             # missing Information
             "visibleEnergy", "cosTheta_miss", "missingMass",
             # Higgsstrahlungness
-            "H"
+            "H",
+            # Cutflow
+            "cut0", "cut1", "cut2"
         ]
         return branchList

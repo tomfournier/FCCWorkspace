@@ -9,10 +9,11 @@ parser.add_argument('--ecm',  help='Center of mass energy (240, 365)',
 parser.add_argument('--lumi', help='Integrated luminosity in attobarns', 
                     choices=[10.8, 3.1], type=float, default=10.8)
 
-parser.add_argument('--yields', help='Do not make yields plots',              action='store_true')
-parser.add_argument('--decay',  help='Do not make Higgs decays only plots',   action='store_true')
-parser.add_argument('--make',   help='Do not make distribution plots',        action='store_true')
-parser.add_argument('--sign',   help='Make significance scan plots',          action='store_true')
+parser.add_argument('--yields',  help='Do not make yields plots',            action='store_true')
+parser.add_argument('--decay',   help='Do not make Higgs decays only plots', action='store_true')
+parser.add_argument('--make',    help='Do not make distribution plots',      action='store_true')
+parser.add_argument('--sign',    help='Make significance scan plots',        action='store_true')
+parser.add_argument('--cutflow', help='Make cutflow plots',                  action='store_true')
 
 parser.add_argument('--tot',    help='Include all the Z decays in the plots', action='store_true')
 arg = parser.parse_args()
@@ -27,6 +28,7 @@ ROOT.gStyle.SetOptStat(0)
 ROOT.gStyle.SetOptTitle(0)
 
 from tools.plotting import makePlot, PlotDecays, significance, AAAyields
+from tools.cutflow import get_cutflow
 
 ecm, lumi = arg.ecm, arg.lumi
 categories = [arg.cat] if arg.cat!='' else ['ee', 'mumu']
@@ -43,6 +45,11 @@ def run(categories, selections, variables, procs_cfg, colors, legend, sign, tot)
             inputDir = get_loc(loc.HIST_PREPROCESSED, cat, ecm, '')
             outDir   = get_loc(loc.PLOTS_MEASUREMENT, cat, ecm, sel)
 
+            if arg.cutflow and sel in cuts:
+                inDir = get_loc(loc.EVENTS, cat, ecm, '')
+                get_cutflow(inDir, outDir, cat, sel, procs, procs_cfg, colors, legend, cuts[sel], cuts_label[sel], 
+                            z_decays, h_decays, sig_scale=1, defineList=defineList, tot=arg.tot)
+
             if not arg.yields: AAAyields('zll_recoil_m', inputDir, outDir, plots, legend, colors, cat, sel)
             if not arg.make and not arg.decay:
                 for variable in variables:
@@ -56,7 +63,9 @@ def run(categories, selections, variables, procs_cfg, colors, legend, sign, tot)
                     if not arg.make:  makePlot(variable,   variables, inputDir, outDir, procs, procs_cfg, colors, legend, sel=sel)
 
 selections = [
-    'Baseline', 'Baseline_vis', 'Baseline_inv'
+    'Baseline', 
+    # 'Baseline_vis', 'Baseline_inv', 
+    # 'Baseline_high', 'Baseline_low'
 ]
 
 procs_cfg = {
@@ -66,15 +75,14 @@ procs_cfg = {
 "WW"        : [f'p8_ee_WW_ecm{ecm}',             f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ee_ecm{ecm}'],
 "ZZ"        : [f'p8_ee_ZZ_ecm{ecm}'],
 "Zgamma"    : [f'wzp6_ee_tautau_ecm{ecm}',       f'wzp6_ee_mumu_ecm{ecm}',
-                f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'],
+               f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'],
 "Rare"      : [f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}', 
-                f'wzp6_gaga_mumu_60_ecm{ecm}',    f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
-                f'wzp6_gammae_eZ_Zee_ecm{ecm}',   f'wzp6_gaga_ee_60_ecm{ecm}', 
-                f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'],
+               f'wzp6_gaga_mumu_60_ecm{ecm}',    f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
+               f'wzp6_gammae_eZ_Zee_ecm{ecm}',   f'wzp6_gaga_ee_60_ecm{ecm}', 
+               f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'],
 }
 
 plots = {}
-
 plots['signal'] = {
     'ZH':[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
 }
@@ -88,7 +96,6 @@ plots['backgrounds'] = {
               f"wzp6_gaga_ee_60_ecm{ecm}",       f"wzp6_gaga_mumu_60_ecm{ecm}",
               f"wzp6_gaga_tautau_ecm{ecm}",      f"wzp6_ee_nuenueZ_ecm{ecm}"]
 }
-
 
 # colors from https://github.com/mpetroff/accessible-color-cycles
 colors = {}
@@ -108,6 +115,25 @@ legend['ZZ']       = 'ZZ'
 legend['WW']       = 'W^{+}W^{-}'
 legend['Zgamma']   = 'Z/#gamma^{*} #rightarrow f#bar{f}+#gamma(#gamma)'
 legend['Rare']     = 'Rare'
+
+cuts = {}
+cuts['Baseline'] =  {
+    'cut0': 'return true;',
+    'cut1': 'leps_no >= 1 && leps_sel_iso.size() > 0',
+    'cut2': 'leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()',
+    'cut3': 'zll_m > 86 && zll_m < 96',
+    'cut4': 'zll_p > 20 && zll_p < 70'
+}
+cuts_label = {}
+cuts_label['Baseline'] = {
+    'cut0': 'No cut',
+    'cut1': '#geq 1#ell^{#pm} + ISO',
+    'cut2': '#geq 2 #ell^{#pm} + OS',
+    'cut3': '86 < m_{#ell^{+}#ell^{-}} < 96 GeV',
+    'cut4': '20 < p_{#ell^{+}#ell^{-}} < 70 GeV'
+}
+
+defineList = {}
 
 
 
@@ -183,7 +209,7 @@ variables = {
     
     # Recoil
     "zll_recoil_m": {"lim": [100, 150, 1, -1],
-                     "limH": [100, 150, 1e-5, 0.06],
+                     "limH": [100, 150, 1e-5, 0.2],
                      "xlabel": "m_{recoil} [GeV]",
                      "logY": False},
 
