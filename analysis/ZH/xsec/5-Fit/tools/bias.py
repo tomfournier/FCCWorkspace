@@ -102,10 +102,60 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target, cat, z_decays, h_
         else: hist_new.Add(h)
         hist_pseudo.Add(h)
 
-    old, new = hist_old.Integral(0, -1), hist_new.Integral(0, -1)
+    old, new = hist_old.Integral(), hist_new.Integral()
     print(f'----->[Info] Added {(new/old-1)*100:.2f} % of signal to ZH production cross-section')
-    
     print(f'\n----->[CROSS-CHECK] This quantity {xsec_tot_new/xsec_tot:.2f} should be equal to {variation}\n')
+    return hist_pseudo
+
+
+#__________________________________________________________
+def make_pseudosignal(inputDir, hName, target, cat, z_decays, h_decays, v= False,
+                      suffix='', proc_scales={}, ecm=240, variation=1.05, tot=True):
+
+    if v:
+        print(f'----->[Info] Making pseudo data for {target} channel')
+        print(f'----->[Info] Perturbation of the cross-section: {(variation-1)*100:.2f} %')
+
+    xsec_tot, xsec_target, xsec_rest = 0, 0, 0
+
+    if tot: sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays]
+    else:   sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in [cat]]    for y in h_decays]
+
+    for h_decay, sig in zip(h_decays, sigs):
+        xsec = sum([getMetaInfo(s, remove=True) for s in sig])
+        xsec_tot += xsec
+        if h_decay==target: 
+            xsec_target += xsec
+        else:               
+            xsec_rest   += xsec
+
+    xsec_new = variation * xsec_tot
+    xsec_delta = xsec_new - xsec_tot
+    scale_target = (xsec_target + xsec_delta)/xsec_target
+    if v: print(f"----->[Info] Scale of the {target} channel: {scale_target:.3f}")
+
+    hist_pseudo = None 
+    xsec_tot_new, hist_old = 0, None
+    for h_decay, sig in zip(h_decays, sigs):
+        xsec = sum([getMetaInfo(s, remove=True) for s in sig])
+        if 'ZH' not in proc_scales:proc_scales['ZH'] = 1
+        h = getHist(hName, sig, inputDir, 
+                    suffix=suffix, proc_scales=proc_scales['ZH'])
+        # Old signal
+        if hist_old==None: hist_old = copy.deepcopy(h)
+        else: hist_old.Add(h)
+
+        if h_decay==target:
+            h.Scale(scale_target)
+            xsec_tot_new   += scale_target * xsec
+        else: xsec_tot_new += xsec
+        if hist_pseudo==None: hist_pseudo = copy.deepcopy(h)
+        else: hist_pseudo.Add(h)
+
+    old, new = hist_old.Integral(), hist_pseudo.Integral()
+    if v:
+        print(f'----->[Info] Added {(new/old-1)*100:.2f} % of signal to ZH production cross-section')
+        print(f'\n----->[CROSS-CHECK] This quantity {xsec_tot_new/xsec_tot:.2f} should be equal to {variation}\n')
     return hist_pseudo
 
 

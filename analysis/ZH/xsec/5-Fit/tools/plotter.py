@@ -140,7 +140,7 @@ def auxRatio():
     latex.DrawLatex(0.15, 0.975, cfg['topLeft'])
 
 #__________________________________________________________
-def dummyRatio(nbins = 1, rline=1):
+def dummyRatio(nbins = 1, rline=1, rline1=None):
 
     if cfg['logx']:
         xmin = 0.999*float(cfg['xmin']) # hack to display lower/upper ticks on axis
@@ -199,7 +199,7 @@ def dummyRatio(nbins = 1, rline=1):
     dummyT.GetYaxis().SetLabelFont(43)
     dummyT.GetYaxis().SetLabelSize(28)
 
-    dummyT.GetYaxis().SetTitleOffset(1.3) # 1.7*dummyT.GetYaxis().GetTitleOffset()
+    dummyT.GetYaxis().SetTitleOffset(1.7*dummyT.GetYaxis().GetTitleOffset())
     dummyT.GetYaxis().SetLabelOffset(1.4*dummyT.GetYaxis().GetLabelOffset())
 
     dummyB.GetYaxis().SetTitleFont(43)
@@ -212,8 +212,14 @@ def dummyRatio(nbins = 1, rline=1):
     dummyB.GetYaxis().SetNdivisions(505)
     
     line = ROOT.TLine(float(cfg['xmin']), rline, float(cfg['xmax']), rline)
-    line.SetLineColor(ROOT.kRed)
+    line.SetLineColor(ROOT.kBlack)
     line.SetLineWidth(2)
+
+    if rline1!=None:
+        line1 = ROOT.TLine(float(cfg['xmin']), rline1, float(cfg['xmax']), rline1)
+        line1.SetLineColor(ROOT.kRed)
+        line1.SetLineWidth(2)
+        return dummyT, dummyB, line, line1
 
     return dummyT, dummyB, line
 

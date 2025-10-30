@@ -1,14 +1,14 @@
-import os
+import os, json
 import numpy as np
 import pandas as pd
 
-import ROOT as root
-root.gROOT.SetBatch(True)
-root.gStyle.SetOptStat(0)
-root.gStyle.SetOptTitle(0)
+import ROOT
+ROOT.gROOT.SetBatch(True)
+ROOT.gStyle.SetOptStat(0)
+ROOT.gStyle.SetOptTitle(0)
 
 from . import plotter
-import atlasplots as aplt
+from .bias import make_pseudosignal
 
 h_decays_labels = {
     "bb": "H#rightarrow b#bar{b}", "cc": "H#rightarrow c#bar{c}", "ss": "H#rightarrow s#bar{s}", 
@@ -17,17 +17,10 @@ h_decays_labels = {
     "aa": "H#rightarrow#gamma#gamma", "inv": "H#rightarrow Inv"
 }
 
-h_decays_labels_pyplot = {
-    "bb": r"$H\rightarrow b\bar{b}$", "cc": r"$H\rightarrow c\bar{c}$", "ss": r"$H\rightarrow s\bar{s}$", 
-    "gg": r"$H\rightarrow gg$", "mumu": r"$H\rightarrow\mu^{+}\mu^{-}$", "tautau": r"$H\rightarrow\tau^{+}\tau^{-}$", 
-    "ZZ": r"$H\rightarrow ZZ*$", "WW": r"$H\rightarrow WW^*$", "Za": r"$H\rightarrow Z\gamma$", 
-    "aa": r"$H\rightarrow\gamma\gamma$", "inv": r"$H\rightarrow$ Inv"
-}
-
 h_decays_colors = {
-    "bb": root.kBlack, "cc": root.kBlue , "ss": root.kRed, "gg": root.kGreen+1, "mumu": root.kOrange, 
-    "tautau": root.kCyan, "ZZ": root.kGray, "WW": root.kGray+2, "Za": root.kGreen+2, "aa": root.kRed+2, 
-    "inv": root.kBlue+2
+    "bb": ROOT.kViolet, "cc": ROOT.kBlue , "ss": ROOT.kRed, "gg": ROOT.kGreen+1, "mumu": ROOT.kOrange, 
+    "tautau": ROOT.kCyan, "ZZ": ROOT.kGray, "WW": ROOT.kGray+2, "Za": ROOT.kGreen+2, "aa": ROOT.kRed+2, 
+    "inv": ROOT.kBlue+2
 }
 
 procs_labels = {
@@ -42,265 +35,138 @@ procs_labels = {
 
 # colors from https://github.com/mpetroff/accessible-color-cycles
 procs_colors = {
-    "ZH"        : root.TColor.GetColor("#e42536"),
-    "ZqqH"      : root.TColor.GetColor("#e42536"),
-    "ZmumuH"    : root.TColor.GetColor("#e42536"),
-    "ZnunuH"    : root.TColor.GetColor("#e42536"),
-    "ZeeH"      : root.TColor.GetColor("#e42536"),
-    "WW"        : root.TColor.GetColor("#f89c20"),
-    "ZZ"        : root.TColor.GetColor("#5790fc"),
-    "Zgamma"    : root.TColor.GetColor("#964a8b"),
-    "Zqqgamma"  : root.TColor.GetColor("#964a8b"),
-    "Rare"      : root.TColor.GetColor("#9c9ca1")
+    "ZH"        : ROOT.TColor.GetColor("#e42536"),
+    "ZqqH"      : ROOT.TColor.GetColor("#e42536"),
+    "ZmumuH"    : ROOT.TColor.GetColor("#e42536"),
+    "ZnunuH"    : ROOT.TColor.GetColor("#e42536"),
+    "ZeeH"      : ROOT.TColor.GetColor("#e42536"),
+    "WW"        : ROOT.TColor.GetColor("#f89c20"),
+    "ZZ"        : ROOT.TColor.GetColor("#5790fc"),
+    "Zgamma"    : ROOT.TColor.GetColor("#964a8b"),
+    "Zqqgamma"  : ROOT.TColor.GetColor("#964a8b"),
+    "Rare"      : ROOT.TColor.GetColor("#9c9ca1")
 }
 
 #__________________________________________________________
-def getHist(hName, inputDir, target='', rebin=-1):
+def get_range(hists: list, logY=False, strict=False,
+              xmin=None, xmax=None, ymin=None, ymax=None):
     
-    tar = f'_{target}' if target!='' else ''
-    fInName = f"{inputDir}/datacard{tar}.root"
-    if os.path.exists(fInName):
-        fIn = root.TFile(fInName)
-    elif os.path.exists(fInName.replace("wzp6", "wz3p6")):
-        fIn = root.TFile(fInName.replace("wzp6", "wz3p6"))
-    else:
-        print(f"ERROR: input file {fInName} not found")
-        quit()
-    h = fIn.Get(hName)
-    h.SetDirectory(0)
-    fIn.Close()
-    if rebin!=-1:
-        h.Rebin(rebin)
-    return h
+    hist = hists[0].Clone()
+    if len(hists)>1:
+        for h in hists[1:]: hist.Add(h)
 
-#__________________________________________________________
-def range_hist(hist_original, x_min, x_max):
+    vals_min, vals_max = [], []
+    if xmin==None:
+        xmin = hist.GetBinLowEdge(0)
+    if xmax==None:
+        xmax = hist.GetBinLowEdge(hist.GetNbinsX()+1)
+    for i in range(hist.GetNbinsX()+1):
+        if  (hist.GetBinLowEdge(i) > xmin) or (hist.GetBinLowEdge(i+1) < xmax):
+            if not strict:
+                if hist.GetBinContent(i) !=0:
+                    vals_min.append(hist.GetBinLowEdge(i))
+                    vals_max.append(hist.GetBinLowEdge(i+1))
+            else: 
+                vals_min.append(hist.GetBinLowEdge(i))
+                vals_max.append(hist.GetBinLowEdge(i+1))
+    xMin, xMax = min(vals_min), max(vals_max)
 
-    # Get the bin numbers corresponding to the range
-    bin_min = hist_original.FindBin(x_min)
-    bin_max = hist_original.FindBin(x_max)
-    
+    if logY:
+        yMin = min( [h.GetMinimum() for h in hists] )*1e-1
+        yMax = max( [h.GetMaximum() for h in hists] )*1e4
+    else: 
+        yMin = 0
+        yMax = max( [h.GetMaximum() for h in hists] )*1.6
 
-    hist_selected = root.TH1D(hist_original.GetName()+"new", "", bin_max - bin_min, x_min, x_max)
+    if (ymin!=None) and ymin>yMin: yMin = ymin
+    if (ymax!=None) and ymax<yMax: yMax = ymax
 
-    for bin in range(bin_min, bin_max + 1):
-        new_bin = bin - bin_min + 1  # Adjust for new histogram bin indexing
-        hist_selected.SetBinContent(new_bin, hist_original.GetBinContent(bin))
-        hist_selected.SetBinError(new_bin, hist_original.GetBinError(bin))  # Preserve errors
-
-    # print(bin_min, bin_max, hist_original.Integral(), hist_selected.Integral())
-    return hist_selected
-
-#__________________________________________________________
-def PlotDecays(hName, inputDir, outDir, h_decays, ecm=240, lumi=10.8, outName="", xMin=0, xMax=200, 
-               yMin=0, yMax=-1, plot_file=['png'], xLabel="", yLabel="Events", logX=False, logY=True, rebin=-1, xLabels=[]):
-
-    if outName == "": outName = hName
-
-    leg = root.TLegend(.2, .925-(len(h_decays)/4+1)*0.07, .95, .925)
-    leg.SetBorderSize(0)
-    leg.SetFillStyle(0)
-    leg.SetTextSize(0.03)
-    leg.SetMargin(0.25)
-    leg.SetNColumns(4)
-
-    hists = []
-    h_base = getHist(f'{hName}_{h_decays[0]}', inputDir, target=h_decays[0], rebin=rebin)
-    if rebin!=-1:
-        h_base.Rebin(rebin)
-    if xMin!=0 or xMax!=200:
-        h_base = range_hist(h_base, xMin, xMax)
-    if h_base.Integral() > 0:
-        h_base.Scale(1./h_base.Integral())
-    
-    for h_decay in h_decays:
-        h_sig = getHist(f'{hName}_{h_decay}', inputDir, target=h_decay, rebin=rebin)
-        if rebin!=-1:
-            h_sig.Rebin(rebin)
-        if xMin!=0 or xMax!=200:
-            h_sig = range_hist(h_sig, xMin, xMax)
-        if h_sig.Integral() > 0:
-            h_sig.Scale(1./h_sig.Integral())
-        
-        h_sig.Divide(h_base)
-
-        h_sig.SetLineColor(h_decays_colors[h_decay])
-        h_sig.SetLineWidth(2)
-        h_sig.SetLineStyle(1)
-    
-        leg.AddEntry(h_sig, h_decays_labels[h_decay], "L")
-        hists.append(h_sig)
-
-    cfg = {
-
-        'logy'              : logY,
-        'logx'              : logX,
-        
-        'xmin'              : xMin,
-        'xmax'              : xMax,
-        'ymin'              : yMin,
-        'ymax'              : yMax,
-            
-        'xtitle'            : xLabel,
-        'ytitle'            : yLabel,
-            
-        'topRight'          : f"#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}",
-        'topLeft'           : "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}",
-
-    }
-
-    plotter.cfg = cfg
-    canvas = plotter.canvas()
-    dummy = plotter.dummy(1 if len(xLabels) == 0 else len(xLabels))
-    if len(xLabels) > 0:
-        dummy.GetXaxis().SetLabelSize(0.8*dummy.GetXaxis().GetLabelSize())
-        dummy.GetXaxis().SetLabelOffset(1.3*dummy.GetXaxis().GetLabelOffset())
-        for i,label in enumerate(xLabels): dummy.GetXaxis().SetBinLabel(i+1, label)
-        dummy.GetXaxis().LabelsOption("u")
-    dummy.Draw("HIST") 
-
-    for i,hist in enumerate(hists):
-        hist.Draw("SAME HIST")
-    leg.Draw("SAME")
-    
-    canvas.SetGrid()
-    canvas.Modify()
-    canvas.Update()
-
-    plotter.aux()
-    root.gPad.SetTicks()
-    root.gPad.RedrawAxis()
-
-    if 'High-mass'  in xLabel: out = f'{outDir}/higgsDecays/high'
-    elif 'Low-mass' in xLabel: out = f'{outDir}/higgsDecays/low'
-    else :                     out = f'{outDir}/higgsDecays/nominal'
-
-    if not os.path.isdir(out):
-            os.system(f'mkdir -p {out}')
-
-    for pl in plot_file:
-        canvas.SaveAs(f"{out}/{outName}.{pl}")
-
+    return xMin, xMax, yMin, yMax
 
 
 #__________________________________________________________
-def makePlot(inputDir, outDir, cat, procs, target, sig='ZH', ecm=240, lumi=10.8, outName="", xMin=None, xMax=None, yMin=None, yMax=None, 
-             ymin=0.9, ymax=1.1, xLabel="xlabel", yLabel="Events", logX=False, logY=True, rebin=-1, xLabels=[], plot_file=['png']):
-
-    # aplt.set_atlas_style()
-
-    fig, (ax1, ax2) = aplt.ratio_plot(figsize=(1000, 1000), hspace=0.05)
-    ax1.set_pad_margins(left=0.15, right=0.05, top=0.055)
-    ax2.set_pad_margins(left=0.15, right=0.05, bottom=0.25)
-    leg = ax1.legend(loc=(.75, .99-len(procs)*0.06, .99, .90))
-    leg.SetBorderSize(0)
-    leg.SetFillStyle(0)
-    leg.SetTextSize(0.03)
-    leg.SetMargin(0.2)
-
-    h_sig = getHist(f'{cat}_{sig}', inputDir, target=target, rebin=rebin)
-    h_sig.SetLineColor(procs_colors[procs[0]])
-    h_sig.SetLineWidth(3)
-    h_sig.SetLineStyle(1)
-    leg.AddEntry(h_sig, procs_labels[procs[0]], "L")
-
-    h_asi = getHist(f'{cat}_data_{target}', inputDir, target=target, rebin=rebin)
-    h_asi.SetMarkerStyle(8)
-    h_asi.SetMarkerColor(root.kBlack)
-    h_asi.SetMarkerSize(1)
-    leg.AddEntry(h_asi, "Pseudo-data", "EP")
-
-    st = root.THStack()
-    st.SetName("stack")
-    h_bkg_tot = None
-    for bkg in procs[1:]:
-        h_bkg = getHist(f'{cat}_{bkg}', inputDir, target=target, rebin=rebin)
-
-        if h_bkg_tot == None: h_bkg_tot = h_bkg.Clone("h_bkg_tot")
-        else: h_bkg_tot.Add(h_bkg)
-        
-        h_bkg.SetFillColor(procs_colors[bkg])
-        h_bkg.SetLineColor(root.kBlack)
-        h_bkg.SetLineWidth(1)
-        h_bkg.SetLineStyle(1)
-        leg.AddEntry(h_bkg, procs_labels[bkg], "F")
-
-        st.Add(h_bkg)
-
-    h_bkg_tot.Add(h_sig)
-    h_bkg_tot.SetLineColor(root.kRed)
-    h_bkg_tot.SetFillColor(0)
-    h_bkg_tot.SetLineWidth(2)
-
-    ax1.plot(st)
-    asi = aplt.root_helpers.hist_to_graph(h_asi)
-    ax1.plot(h_bkg_tot, "HIST")
-    ax1.plot(asi, "EP", markerstyle=8)
-    ax1.add_margins(top=0.20)
-
-    ax1.set_xlim(xMin, xMax)
-    ax1.set_ylim(yMin, yMax)
-
-    line = root.TLine(ax1.get_xlim()[0], 1, ax1.get_xlim()[1], 1)
-    ax2.plot(line)
-
-    ratio = h_asi.Clone('ratio')
-    ratio.Divide(h_bkg_tot)
-    ratio_graph = aplt.root_helpers.hist_to_graph(ratio)
-    ax2.plot(ratio_graph, "P0", markerstyle=8)
-
-    # ax2.add_margins(top=0.1, bottom=0.1)
-    ax2.set_xlim(xMin, xMax)
-    ax2.set_ylim(ymin, ymax)
-
-    ax2.set_xlabel(xLabel, titlesize=40, titlefont=43, labelfont=43, labelsize=35)
-    ax1.set_ylabel(yLabel, titlesize=40, titlefont=43, labelfont=43, labelsize=35)
-    ax2.set_ylabel('Data / MC', loc='centre', titlesize=40, titlefont=43, labelfont=43, labelsize=35)
-    
-    if logX: ax1.set_xscale('log')
-    if logY: ax1.set_yscale('log')
-
-    ax1.text(0.95, 0.945, f"#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}", size=0.04, font=42, align=30)
-    ax1.text(0.15, 0.95, "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}", size=0.04, font=42, align=10)
-
-    root.gPad.RedrawAxis("g")
-
-    if   'High-mass' in xLabel: out = f'{outDir}/makePlot/high'
-    elif 'Low-mass'  in xLabel: out = f'{outDir}/makePlot/low'
-    else :                      out = f'{outDir}/makePlot/nominal'
-
-    if not os.path.isdir(out):
-            os.system(f'mkdir -p {out}')
-
-    for pl in plot_file:
-        fig.savefig(f"{out}/{outName}.{pl}")
+def getMetaInfo(proc, info='crossSection', remove=False,
+                fcc='/cvmfs/fcc.cern.ch/FCCDicts',
+                procFile="FCCee_procDict_winter2023_IDEA.json"):
+    procFile = os.path.join(fcc, '') + procFile 
+    with open(procFile, 'r') as f:
+        procDict=json.load(f)
+    xsec = procDict[proc][info]
+    if remove:
+        if 'HZZ' in proc:
+            xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
+            xsec = getMetaInfo(proc) - xsec_inv
+        if 'p8_ee_WW_ecm' in proc:
+            xsec_ee   = getMetaInfo(proc.replace('WW', 'WW_ee'))
+            xsec_mumu = getMetaInfo(proc.replace('WW', 'WW_mumu'))
+            xsec      = getMetaInfo(proc) - xsec_ee - xsec_mumu
+    return xsec
 
 #__________________________________________________________
-def Bias(biasDir, nomDir, outDir, h_decays, plot_file=['png'], ecm=240, lumi=10.8):
+def getHist(hName, procs, inputDir, suffix='', rebin=1, lazy=True):
+    hist = None
+    for proc in procs:
+        fInName = f"{inputDir}/{proc}{suffix}.root"
+        if os.path.exists(fInName):
+            fIn = ROOT.TFile(fInName)
+        else:
+            if lazy: continue
+            else:
+                print(f"ERROR: input file {fInName} not found")
+                quit()
+        h = fIn.Get(hName)
+        h.SetDirectory(0)
+        if 'HZZ' in proc:
+            xsec_old = getMetaInfo(proc)
+            xsec_new = getMetaInfo(proc, remove=True)
+            h.Scale( xsec_new/xsec_old )
+        if 'p8_ee_WW_ecm' in proc:
+            xsec_old = getMetaInfo(proc)
+            xsec_new = getMetaInfo(proc, remove=True)
+            h.Scale( xsec_new/xsec_old )
+        if hist == None: hist = h
+        else: hist.Add(h)
+        fIn.Close()
+    hist.Rebin(rebin)
+    return hist
+
+#__________________________________________________________
+def Bias(biasDir, nomDir, outDir, h_decays, suffix='', ecm=240, lumi=10.8, 
+         outName="Bias", plot_file=['png']):
 
     df = pd.read_csv(f'{biasDir}/bias_results.csv')
-    mode, bias = df['mode'], df['bias'] * 100
-    unc = np.loadtxt(f'{nomDir}/results.txt')[-1] * 10000
+    mode, bias = df['mode'], df['bias']*100
+    unc = float(np.loadtxt(f'{nomDir}/results.txt')[-1]*1e4)
 
-    leg = root.TLegend(.2, .925-(len(h_decays)/4+1)*0.07, .95, .925)
+    leg = ROOT.TLegend(.2, .925-(len(h_decays)/4+1)*0.07, .95, .925)
     leg.SetBorderSize(0)
     leg.SetFillStyle(0)
     leg.SetTextSize(0.03)
     leg.SetMargin(0.25)
     leg.SetNColumns(4)
 
-    if unc>bias.max(): xMin, xMax = -int(unc*1.2), int(unc*1.2)
-    else:              xMin, xMax = -int(bias.max()*1.2), int(bias.max()*1.2)
+    if unc> bias.max(): xMin, xMax = -int(unc*1.2), int(unc*1.2)
+    else:               xMin, xMax = -int(bias.max()*1.2), int(bias.max()*1.2)
 
-    h_pulls = root.TH2F("pulls", "pulls", (xMax-xMin)*10, xMin, xMax, len(h_decays), 0, len(h_decays))
-    g_pulls = root.TGraphErrors(len(h_decays))
+    In, Out = bias < unc, bias >= unc
+    In, Out = int(In.astype(int).sum()), int(Out.astype(int).sum())
 
-    for i, h_decay in enumerate(h_decays):
-        b = bias[np.where((mode==h_decay))[0]]
-        g_pulls.SetPoint(i, b, float(i) + 0.5)
-        h_pulls.GetYaxis().SetBinLabel(i+1, h_decays_labels[h_decay])
+    h_pulls = ROOT.TH2F("pulls", "pulls", (xMax-xMin)*10, xMin, xMax, len(h_decays), 0, len(h_decays))
+    g_in, g_out = ROOT.TGraphErrors(In), ROOT.TGraphErrors(Out)
 
-    canvas = root.TCanvas("c", "c", 800, 800)
+    i, j = 0, 0
+    for k, h_decay in enumerate(h_decays):
+        b = float(bias.loc[mode==h_decay].iloc[0])
+        if b < unc: 
+            g_in.SetPoint(i, b, float(k) + 0.5)
+            h_pulls.GetYaxis().SetBinLabel(k+1, h_decays_labels[h_decay])
+            i += 1
+        else:
+            g_out.SetPoint(j, b, float(k) + 0.5)
+            h_pulls.GetYaxis().SetBinLabel(k+1, h_decays_labels[h_decay])
+            j += 1
+
+    canvas = ROOT.TCanvas("c", "c", 800, 800)
     canvas.SetTopMargin(0.08)
     canvas.SetBottomMargin(0.1)
     canvas.SetLeftMargin(0.15)
@@ -309,7 +175,7 @@ def Bias(biasDir, nomDir, outDir, h_decays, plot_file=['png'], ecm=240, lumi=10.
     canvas.SetGrid(1, 0)
     canvas.SetTickx(1)
 
-    xTitle = "Bias [%] (#times 100)"
+    xTitle = "Bias (#times 100) [%]"
 
     h_pulls.GetXaxis().SetTitleSize(0.04)
     h_pulls.GetXaxis().SetLabelSize(0.035)
@@ -322,28 +188,34 @@ def Bias(biasDir, nomDir, outDir, h_decays, plot_file=['png'], ecm=240, lumi=10.
     h_pulls.Draw("HIST 0")
 
     maxx = len(h_decays)
-
-    lineup = root.TLine(unc, 0, unc, maxx)
-    lineup.SetLineColor(root.kBlack)
+    lineup = ROOT.TLine(unc, 0, unc, maxx)
+    lineup.SetLineColor(ROOT.kBlack)
     lineup.SetLineWidth(3)
     lineup.Draw("SAME")
 
-    line = root.TLine(0, 0, 0, maxx)
-    line.SetLineColor(root.kGray)
-    line.SetLineWidth(2)
-    line.Draw("SAME")
-
-    linedw = root.TLine(-unc, 0, -unc, maxx)
-    linedw.SetLineColor(root.kBlack)
+    linedw = ROOT.TLine(-unc, 0, -unc, maxx)
+    linedw.SetLineColor(ROOT.kBlack)
     linedw.SetLineWidth(3)
     linedw.Draw("SAME")
 
-    g_pulls.SetMarkerSize(1.2)
-    g_pulls.SetMarkerStyle(20)
-    g_pulls.SetLineWidth(2)
-    g_pulls.Draw('P0 SAME')
+    line = ROOT.TLine(0, 0, 0, maxx)
+    line.SetLineColor(ROOT.kGray)
+    line.SetLineWidth(2)
+    line.Draw("SAME")
 
-    latex = root.TLatex()
+    g_in.SetMarkerSize(1.2)
+    g_in.SetMarkerStyle(20)
+    g_in.SetLineWidth(2)
+    g_in.SetMarkerColor(ROOT.kBlack)
+    g_in.Draw('P0 SAME')
+
+    g_out.SetMarkerSize(1.2)
+    g_out.SetMarkerStyle(20)
+    g_out.SetLineWidth(2)
+    g_out.SetMarkerColor(ROOT.kRed)
+    g_out.Draw('P0 SAME')
+
+    latex = ROOT.TLatex()
     latex.SetNDC()
     latex.SetTextSize(0.045)
     latex.SetTextColor(1)
@@ -356,8 +228,204 @@ def Bias(biasDir, nomDir, outDir, h_decays, plot_file=['png'], ecm=240, lumi=10.
     latex.SetTextSize(0.045)
     latex.DrawLatex(0.15, 0.96, "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}")
 
-    if not os.path.isdir(f'{outDir}/bias'):
-            os.system(f'mkdir -p {outDir}/bias')
+    if not os.path.isdir(outDir):
+        os.system(f'mkdir -p {outDir}')
+    for pl in plot_file:
+        canvas.SaveAs(f"{outDir}/bias{suffix}.{pl}")
+
+#__________________________________________________________
+def PseudoSignal(variable, inputDir, outDir, cat, target, z_decays, h_decays, pert=1.05, sel='',
+                 ecm=240, lumi=10.8, outName="", plot_file=['png'], logX=False, logY=False, rebin=1, lazy=True, 
+                 tot=True, proc_scales={}, density=False):
+
+    if outName == "": outName = "Pseudo-signal"
+    sigs, suffix = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays], f'_{sel}_histo'
+
+    leg = ROOT.TLegend(.2, .925-(2/4+1)*0.07, .95, .925)
+    leg.SetBorderSize(0)
+    leg.SetFillStyle(0)
+    leg.SetTextSize(0.03)
+    leg.SetMargin(0.25)
+    # leg.SetNColumns(4)
+
+    h_tot = None
+    for i, sig in enumerate(sigs):
+        # h_decay = h_decays[i]
+        h_sig = getHist(variable, sig, inputDir, 
+                        suffix=suffix, rebin=rebin, lazy=lazy)
+        h_sig.Rebin(rebin)
+        # if h_sig.Integral() > 0:
+        #     h_sig.Scale(1./h_sig.Integral())
+
+        # h_sig.SetLineColor(h_decays_colors[h_decay])
+        # h_sig.SetLineWidth(2)
+        # h_sig.SetLineStyle(1)
+
+        if h_tot==None: h_tot = h_sig.Clone('h_tot')
+        else: h_tot.Add(h_sig)
+
+        # leg.AddEntry(h_sig, h_decays_labels[h_decay], "L")
+
+    hist_pseudo = make_pseudosignal(inputDir, variable, target, cat, z_decays, h_decays, 
+                                    suffix=suffix, variation=pert, tot=tot, proc_scales=proc_scales)
+    hist_pseudo.Rebin(rebin)
+    # if h_tot.Integral()>0:
+    #     hist_pseudo.Scale(1./h_tot.Integral())
+    #     h_tot.Scale(1./h_tot.Integral())
+    
+    hist_pseudo.SetLineColor(ROOT.kBlack)
+    hist_pseudo.SetLineWidth(3)
+    hist_pseudo.SetLineStyle(1)
+
+    h_tot.SetLineColor(ROOT.kRed)
+    h_tot.SetLineWidth(3)
+    h_tot.SetLineStyle(1)
+
+    leg.AddEntry(hist_pseudo, "Pseudo-signal", "L")
+    leg.AddEntry(h_tot, "Signal", "L")
+
+    xMin, xMax, yMin, yMax = get_range([h_tot, hist_pseudo], logY=logY)
+    xtitle = 'm_{recoil} High [GeV]' if 'high' in sel else 'm_{recoil} Low [GeV]'
+    ytitle = 'Normalized to Unity' if density else 'Events'
+
+    cfg = {
+
+        'logx' : logX, 'logy' : logY,
+        'xmin' : xMin, 'xmax' : xMax, 'ymin' : yMin, 'ymax' : yMax,
+        'xtitle' : xtitle, 'ytitle' : ytitle,
+            
+        'topRight' : f"#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}",
+        'topLeft' : "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}",
+
+    }
+
+    plotter.cfg = cfg
+    canvas = plotter.canvas()
+    dummy = plotter.dummy(1)
+    dummy.Draw("HIST") 
+
+    for hist in [h_tot, hist_pseudo]:
+        hist.Draw("SAME HIST")
+    leg.Draw("SAME")
+    
+    canvas.SetGrid()
+    canvas.Modify()
+    canvas.Update()
+
+    plotter.aux()
+    ROOT.gPad.SetTicks()
+    ROOT.gPad.RedrawAxis()
+    
+    out = f'{outDir}/high' if 'high' in sel else f'{outDir}/low'
+    if not os.path.isdir(f'{out}/PseudoSignal'):
+        os.system(f'mkdir -p {out}/PseudoSignal')
 
     for pl in plot_file:
-        canvas.SaveAs(f"{outDir}/bias/bias_test.{pl}")
+        canvas.SaveAs(f"{out}/PseudoSignal/{outName}_{target}.{pl}")
+    canvas.Close()    
+
+#__________________________________________________________
+def PseudoRatio(variable, inputDir, outDir, cat, target, z_decays, h_decays, pert=1.05, sel='',
+                ecm=240, lumi=10.8, outName="", plot_file=['png'], logX=False, logY=False, rebin=1, lazy=True, 
+                tot=True, proc_scales={}, density=False):
+
+    if outName == "": outName = "PseudoRatio"
+    sigs, suffix = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays], f'_{sel}_histo'
+
+    leg = ROOT.TLegend(.55, 0.9-3*0.06, .99, .80)
+    leg.SetBorderSize(0)
+    leg.SetFillStyle(0)
+    leg.SetTextSize(0.03)
+    leg.SetMargin(0.25)
+    # leg.SetNColumns(4)
+
+    h_tot = None
+    for sig in sigs:
+        h_sig = getHist(variable, sig, inputDir, 
+                        suffix=suffix, rebin=rebin, lazy=lazy)
+        h_sig.Rebin(rebin)
+        if h_tot==None: h_tot = h_sig.Clone('h_tot')
+        else: h_tot.Add(h_sig)
+
+    hist_pseudo = make_pseudosignal(inputDir, variable, target, cat, z_decays, h_decays, 
+                                    suffix=suffix, variation=pert, tot=tot, proc_scales=proc_scales)
+    hist_pseudo.Rebin(rebin)
+    if density and h_tot.Integral()>0:
+        hist_pseudo.Scale(1./h_tot.Integral())
+        h_tot.Scale(1./h_tot.Integral())
+    
+    hist_pseudo.SetLineColor(ROOT.kBlack)
+    hist_pseudo.SetLineWidth(3)
+    hist_pseudo.SetLineStyle(1)
+
+    h_tot.SetLineColor(ROOT.kRed)
+    h_tot.SetLineWidth(3)
+    h_tot.SetLineStyle(1)
+
+    h_div = hist_pseudo.Clone('divide')
+    h_div.Divide(h_tot)
+    leg.AddEntry(hist_pseudo, "Pseudo-signal", "L")
+    leg.AddEntry(h_tot, "Signal", "L")
+
+    xMin, xMax, yMin, yMax = get_range([h_tot, hist_pseudo], logY=logY)
+    xtitle = 'm_{recoil} High [GeV]' if 'high' in sel else 'm_{recoil} Low [GeV]'
+    ytitle = 'Normalized to Unity' if density else 'Events'
+
+    cfg = {
+
+        'logx' : logX, 'logy' : logY,
+        'xmin' : xMin, 'xmax' : xMax, 'ymin' : yMin, 'ymax' : yMax,
+        'yminR' : 0.95, 'ymaxR' : pert*1.1,
+        'xtitle' : xtitle, 'ytitle' : ytitle,
+            
+        'topRight' : f"#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}",
+        'topLeft' : "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}",
+
+        'ratiofraction': 0.3, 'ytitleR': 'Ratio'
+
+    }
+
+    plotter.cfg = cfg
+    canvas, pad1, pad2   = plotter.canvasRatio()
+    dummyT, dummyB, line, line1 = plotter.dummyRatio(rline1=pert)
+
+    pad1.SetFillStyle(4000)
+    pad2.SetFillStyle(4000)
+
+    pad1.Draw()
+    pad2.Draw()
+
+    pad1.cd()
+    dummyT.Draw("HIST") 
+    for hist in [h_tot, hist_pseudo]:
+        hist.Draw("SAME HIST")
+    leg.Draw("SAME")
+    pad1.SetGrid()
+    pad1.Modified()
+    pad1.Update()
+    
+    pad2.cd()
+    dummyB.Draw("HIST") 
+    h_div.Draw('SAME P')
+    line.Draw('SAME')
+    line1.Draw('SAME')
+    pad2.SetGrid()
+    pad2.Modified()
+    pad2.Update()
+
+    pad1.cd()
+    plotter.auxRatio()
+    ROOT.gPad.SetTicks()
+    ROOT.gPad.RedrawAxis()
+
+    pad1.RedrawAxis()
+    pad2.RedrawAxis()
+    canvas.Update()
+    
+    out = f'{outDir}/high' if 'high' in sel else f'{outDir}/low'
+    if not os.path.isdir(f'{out}/PseudoRatio'):
+        os.system(f'mkdir -p {out}/PseudoRatio')
+
+    for pl in plot_file:
+        canvas.SaveAs(f"{out}/PseudoRatio/{outName}_{target}.{pl}")
+    canvas.Close()  

@@ -16,7 +16,7 @@ parser.add_argument('--pert',    help='Prior uncertainty on ZH cross-section use
                     type=float, default=1.05)
 parser.add_argument('--extra',   help='Extra argument for the fit', 
                     choices=['freeze', 'float', 'plot_dc', 'polL', 'polR', 'ILC', 'tot'], 
-                    type=str, default='')
+                    type=str,   default='')
 parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
 arg = parser.parse_args()
 
@@ -27,7 +27,8 @@ if arg.cat=='' and not arg.combine:
     exit(0)
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, h_decays
+from userConfig import loc, get_loc, z_decays, h_decays
+from tools.plotting import Bias, PseudoSignal, PseudoRatio
 
 cat, ecm, sel, pert = arg.cat, arg.ecm, arg.sel, arg.pert
 arg_cat, comb, arg_sel = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else '', f'--sel {sel}'
@@ -37,9 +38,10 @@ if arg.extra!='':
     extraArgs = ' '.join('--'+ext for ext in extra)
 else: extraArgs=''
 
-inputdir   = get_loc(loc.BIAS_FIT_RESULT, cat, ecm, sel)
-loc_result = get_loc(loc.BIAS_RESULT,     cat, ecm, sel)
-nomDir     = get_loc(loc.NOMINAL_RESULT,  cat, ecm, sel)
+inputdir   = get_loc(loc.BIAS_FIT_RESULT,   cat, ecm, sel)
+loc_result = get_loc(loc.BIAS_RESULT,       cat, ecm, sel)
+nomDir     = get_loc(loc.NOMINAL_RESULT,    cat, ecm, sel)
+inDir      = get_loc(loc.HIST_PREPROCESSED, cat, ecm, sel)
 
 def run_fit(target, pert, extraArgs=""):
     cmd = f"python3 5-Fit/make_pseudo.py {arg_cat} --target {target} --pert {pert} --run {comb} {arg_sel} {extraArgs}"
@@ -55,6 +57,11 @@ for i, h_decay in enumerate(h_decays):
     res.append(mu)
     bias.append(b)
     print(f"\n----->[Info] Bias obtained: {b:.3f}\n")
+    print('----->[Info] Making plots for pseudo-signal')
+    PseudoSignal('zll_recoil_m', inDir, loc_result, cat, h_decay, z_decays, h_decays, pert=pert, sel=sel+'_high')
+    PseudoSignal('zll_recoil_m', inDir, loc_result, cat, h_decay, z_decays, h_decays, pert=pert, sel=sel+'_low')
+    PseudoRatio('zll_recoil_m',  inDir, loc_result, cat, h_decay, z_decays, h_decays, pert=pert, sel=sel+'_high', density=False)
+    PseudoRatio('zll_recoil_m',  inDir, loc_result, cat, h_decay, z_decays, h_decays, pert=pert, sel=sel+'_low',  density=False)
 
 print(f'----->[Info] Saving bias in a .csv file')
 dict = {'mode':h_decays, 'bias':bias}
@@ -84,6 +91,10 @@ with open(f"{loc_result}/bias_results.txt", 'w') as f:
     print(formatted_row.format(*row2))
 sys.stdout = out_orig
 print(f'----->[Info] Bias saved at {loc_result}/bias_results.txt\n')
+
+print(f'----->[Info] Making plot of the bias')
+Bias(loc_result, nomDir, loc_result, h_decays)
+
 
 print('\n\n------------------------------------\n')
 print(f'Time taken to run the code: {time.time()-t1:.1f} s')

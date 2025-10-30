@@ -63,7 +63,8 @@ defineList = {
 }
 
 
-bdt = 0.91 if cat=='mumu' else 0.92
+bdt = 0.83 if cat=='mumu' else 0.88
+# 0.91 if cat=='mumu' else 0.92
 Baseline_Cut = 'zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p < 70 && zll_recoil_m > 100 && zll_recoil_m < 150'
 cutList = { 
     # 'sel0':              'return true;',

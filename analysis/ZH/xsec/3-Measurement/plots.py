@@ -65,7 +65,7 @@ def run(categories, selections, variables, procs_cfg, colors, legend, sign, tot)
 selections = [
     'Baseline', 
     # 'Baseline_vis', 'Baseline_inv', 
-    # 'Baseline_high', 'Baseline_low'
+    'Baseline_high', 'Baseline_low'
 ]
 
 procs_cfg = {
@@ -209,7 +209,7 @@ variables = {
     
     # Recoil
     "zll_recoil_m": {"lim": [100, 150, 1, -1],
-                     "limH": [100, 150, 1e-5, 0.2],
+                     "limH": [100, 150, 1e-5, 0.5],
                      "xlabel": "m_{recoil} [GeV]",
                      "logY": False},
 
