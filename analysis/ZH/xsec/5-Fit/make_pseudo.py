@@ -1,13 +1,20 @@
-import os
-import ROOT
-import argparse
-import importlib, time
+import os, time, argparse, importlib, subprocess, ROOT
 
-t1 = time.time()
+t = time.time()
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, event, z_decays, h_decays
-from tools.bias import getHist, make_pseudodata, make_datacard
+from userConfig import loc, get_loc
+
+from package.config import timer, warning, mk_processes, z_decays, h_decays, H_decays
+from package.tools.utils import mkdir
+from package.tools.process import getHist
+from package.func.bias import make_pseudodata, make_datacard
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
@@ -17,92 +24,142 @@ parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
 parser.add_argument('--sel', help='Selection with which you fit the histograms', 
                     type=str, default='Baseline')
 
-parser.add_argument("--combine", help='Combine the channel to do the fit', action='store_true')
+parser.add_argument('--combine', help='Combine the channel to do the fit', action='store_true')
 
-parser.add_argument("--target",  help="Target pseudodata", 
-                    type=str, default="bb")
-parser.add_argument("--pert",    help="Target pseudodata size", 
+parser.add_argument('--target',  help='Target pseudodata', 
+                    type=str, default='bb')
+parser.add_argument('--pert',    help='Target pseudodata size', 
                     type=float, default=1.0)
-parser.add_argument("--tot",     help="Do not consider all Z decays for making cross-section",
+parser.add_argument('--tot',     help='Do not consider all Z decays for making cross-section',
                     action='store_true')
-parser.add_argument("--run",     help="Run combine",        action='store_true')
-parser.add_argument("--freeze",  help="Freeze backgrounds", action='store_true')
-parser.add_argument("--float",   help="Float backgrounds",  action='store_true')
-parser.add_argument("--plot_dc", help="Plot datacard",      action='store_true')
 
-parser.add_argument("--polL", help="Scale to left polarization",  action='store_true')
-parser.add_argument("--polR", help="Scale to right polarization", action='store_true')
-parser.add_argument("--ILC",  help="Scale to ILC luminosity",     action='store_true')
+parser.add_argument('--onlyrun', help='Only run the fit',   action='store_true')
+parser.add_argument('--run',      help='Run combine',        action='store_true')
+parser.add_argument('--freeze',   help='Freeze backgrounds', action='store_true')
+parser.add_argument('--float',    help='Float backgrounds',  action='store_true')
+parser.add_argument('--plot_dc',  help='Plot datacard',      action='store_true')
+
+parser.add_argument('--polL', help='Scale to left polarization',  action='store_true')
+parser.add_argument('--polR', help='Scale to right polarization', action='store_true')
+parser.add_argument('--ILC',  help='Scale to ILC luminosity',     action='store_true')
+
+parser.add_argument('--t', help='Compute the elapsed time to run the code', action='store_true')
 arg = parser.parse_args()
 
-cat, ecm, sel = arg.cat, arg.ecm, arg.sel
+if arg.cat=='' and not arg.combine:
+    msg = 'Final state or combine were not selected, please select one to run this code'
+    warning(msg)
+
+
+
+###############################
+### CONFIGURATION AND SETUP ###
+###############################
+
+cat, ecm, sel, tot = arg.cat, arg.ecm, arg.sel, not arg.tot
 
 if arg.ILC: ## change fit to ASIMOV -t -1 !!!
-    proc_scales  = {"ZH": 1.048, "WW": 0.971, "ZZ": 0.939, "Zgamma": 0.919,}
+    proc_scales  = {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}
 elif arg.polL:
-    proc_scales  = {"ZH": 1.554, "WW": 2.166, "ZZ": 1.330, "Zgamma": 1.263,}
+    proc_scales  = {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263}
 elif arg.polR:
-    procs_scales = {"ZH": 1.047, "WW": 0.219, "ZZ": 1.011, "Zgamma": 1.018,}
+    procs_scales = {'ZH': 1.047, 'WW': 0.219, 'ZZ': 1.011, 'Zgamma': 1.018}
 else:
     proc_scales  = {}
 
-inputDir = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
-outDir   = get_loc(loc.BIAS_DATACARD,  cat, ecm, sel)
+inDir  = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
+outDir = get_loc(loc.BIAS_DATACARD,  cat, ecm, sel)
 
-rebin, hists, tot = 1, [], not arg.tot
-# hName, categories = [f'{cat}_recoil_m_mva_vis', f'{cat}_recoil_m_mva_inv'], ['vis', 'inv']
-hName, categories = [f'zll_recoil_m'], [f'z_{cat}']
+hNames, categories = (f'zll_recoil_m',), (f'z_{cat}',)
 
 # first must be signal
-procs     = [f"ZH", "WW", "ZZ", "Zgamma", "Rare"]
-inDir = get_loc(loc.EVENTS, cat, ecm, '')+'/'
-procs_cfg = {
-"ZH"        : event([f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_decays for y in h_decays], inDir),
-"ZmumuH"    : event([f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_decays], inDir),
-"ZeeH"      : event([f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_decays], inDir),
-"WW"        : event([f'p8_ee_WW_ecm{ecm}', f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}'], inDir),
-"ZZ"        : [f'p8_ee_ZZ_ecm{ecm}'],
-"Zgamma"    : event([f'wzp6_ee_tautau_ecm{ecm}',       f'wzp6_ee_mumu_ecm{ecm}',
-               f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'], inDir),
-"Rare"      : event([f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}', 
-               f'wzp6_gaga_mumu_60_ecm{ecm}',    f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
-               f'wzp6_gammae_eZ_Zee_ecm{ecm}',   f'wzp6_gaga_ee_60_ecm{ecm}', 
-               f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'], inDir)
-}
+procs = ['ZH' if tot else f'Z{cat}H', 'WW', 'ZZ', 'Zgamma', 'Rare']
+processes = mk_processes(procs, ecm=ecm)
 
-if not arg.combine:
+decays = H_decays if arg.target=='inv' else h_decays
+
+
+
+######################
+### MAIN EXECUTION ###
+######################
+
+if not arg.combine and not arg.onlyrun:
+    hists = []
+
     for i, categorie in enumerate(categories):
         for proc in procs:
-            h = getHist(hName[i], procs_cfg[proc], inputDir)
-            h.SetName(f"{categorie}_{proc}")
+            h = getHist(hNames[i], processes[proc], inDir)
+            h.SetName(f'{categorie}_{proc}')
             hists.append(h)
 
-        args = [inputDir, procs, procs_cfg, hName[i], arg.target, cat, z_decays, h_decays]
-        hist_pseudo = make_pseudodata(*args, ecm=ecm, variation=arg.pert, 
-                                      tot=tot, proc_scales=proc_scales)
-        hist_pseudo.SetName(f"{categorie}_data_{arg.target}")
+        args = [inDir, procs, processes, hNames[i], arg.target, cat, z_decays]
+        args.append(decays) if arg.target=='inv' else args.append(decays)
+
+        hist_pseudo = make_pseudodata(
+            hNames[i], inDir, procs, processes, cat, z_decays, decays,
+            arg.target, ecm=ecm, variation=arg.pert, tot=tot,
+            proc_scales=proc_scales
+        )
+        hist_pseudo.SetName(f'{categorie}_data_{arg.target}')
         hists.append(hist_pseudo)
 
-    if not os.path.isdir(outDir):
-        os.system(f'mkdir -p {outDir}')
+    mkdir(outDir)
 
     print('----->[Info] Saving pseudo histograms')
-    fOut = ROOT.TFile(f"{outDir}/datacard_{arg.target}.root", "RECREATE")
-    for hist in hists:
-        hist.Write()
-    fOut.Close()
-    print(f'----->[Info] Histograms saved in {outDir}/datacard_{arg.target}.root')
+    fOut = f'{outDir}/datacard_{arg.target}.root'
+
+    with ROOT.TFile(fOut, 'RECREATE') as f:
+        for hist in hists:
+            hist.Write()
+
+    print(f'----->[Info] Histograms saved in {fOut}')
 
     print('----->[Info] Making datacard')
     make_datacard(outDir, procs, arg.target, 1.01, categories,
-                freezeBackgrounds=arg.freeze, floatBackgrounds=arg.float, plot_dc=arg.plot_dc)
+                  freezeBkgs=arg.freeze, floatBkgs=arg.float, 
+                  plot_dc=arg.plot_dc)
 
-arg_cat, comb, arg_sel = f'--cat {arg.cat}' if arg.cat!='' else '', '--combine' if arg.combine else '', f'--sel {arg.sel}'
+
+
+#####################
+### FIT EXECUTION ###
+#####################
 
 if arg.run:
-    cmd = f"python3 5-Fit/fit.py {arg_cat} --bias --target {arg.target} --pert {arg.pert} {comb} {arg_sel}"
-    os.system(cmd)
-else:
-    print('\n\n------------------------------------\n')
-    print(f'Time taken to run the code: {time.time()-t1:.1f} s')
-    print('\n------------------------------------\n\n')
+    cmd = ['python3', '5-Fit/fit.py']
+
+    if arg.cat:
+        cmd.extend(['--cat', arg.cat])
+    
+    cmd.extend([
+        '--bias',
+        '--target', arg.target,
+        '--pert', str(arg.pert),
+        '--sel', arg.sel,
+        '--noprint'
+    ])
+
+    if arg.combine:
+        cmd.append('--combine')
+
+    try:
+        show_cmd = ' '.join(cmd)
+        print(f"----->[Info] Running fit command: {' '.join(cmd)}")
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=False,
+            text=True,
+            env=os.environ.copy()
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f'----->[Error] Fit command failed with code exit {exc.returncode}')
+        raise
+
+    except FileNotFoundError:
+        print(f'----->[Error] Could not find python or 5-Fit/fit.py')
+        raise
+
+if __name__=='__main__' and arg.t:
+    timer(t)

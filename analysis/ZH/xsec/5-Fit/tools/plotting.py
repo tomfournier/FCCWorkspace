@@ -116,10 +116,6 @@ def getHist(hName, procs, inputDir, suffix='', rebin=1, lazy=True):
                 quit()
         h = fIn.Get(hName)
         h.SetDirectory(0)
-        if 'HZZ' in proc:
-            xsec_old = getMetaInfo(proc)
-            xsec_new = getMetaInfo(proc, remove=True)
-            h.Scale( xsec_new/xsec_old )
         if 'p8_ee_WW_ecm' in proc:
             xsec_old = getMetaInfo(proc)
             xsec_new = getMetaInfo(proc, remove=True)
@@ -146,7 +142,7 @@ def Bias(biasDir, nomDir, outDir, h_decays, suffix='', ecm=240, lumi=10.8,
     leg.SetNColumns(4)
 
     if unc> bias.max(): xMin, xMax = -int(unc*1.2), int(unc*1.2)
-    else:               xMin, xMax = -int(bias.max()*1.2), int(bias.max()*1.2)
+    else:               xMin, xMax = -int(bias.abs().max()*1.2), int(bias.abs().max()*1.2)
 
     In, Out = bias < unc, bias >= unc
     In, Out = int(In.astype(int).sum()), int(Out.astype(int).sum())
@@ -157,7 +153,7 @@ def Bias(biasDir, nomDir, outDir, h_decays, suffix='', ecm=240, lumi=10.8,
     i, j = 0, 0
     for k, h_decay in enumerate(h_decays):
         b = float(bias.loc[mode==h_decay].iloc[0])
-        if b < unc: 
+        if np.abs(b) < unc: 
             g_in.SetPoint(i, b, float(k) + 0.5)
             h_pulls.GetYaxis().SetBinLabel(k+1, h_decays_labels[h_decay])
             i += 1
@@ -200,7 +196,7 @@ def Bias(biasDir, nomDir, outDir, h_decays, suffix='', ecm=240, lumi=10.8,
 
     line = ROOT.TLine(0, 0, 0, maxx)
     line.SetLineColor(ROOT.kGray)
-    line.SetLineWidth(2)
+    line.SetLineWidth(3)
     line.Draw("SAME")
 
     g_in.SetMarkerSize(1.2)
@@ -250,28 +246,16 @@ def PseudoSignal(variable, inputDir, outDir, cat, target, z_decays, h_decays, pe
 
     h_tot = None
     for i, sig in enumerate(sigs):
-        # h_decay = h_decays[i]
         h_sig = getHist(variable, sig, inputDir, 
                         suffix=suffix, rebin=rebin, lazy=lazy)
         h_sig.Rebin(rebin)
-        # if h_sig.Integral() > 0:
-        #     h_sig.Scale(1./h_sig.Integral())
-
-        # h_sig.SetLineColor(h_decays_colors[h_decay])
-        # h_sig.SetLineWidth(2)
-        # h_sig.SetLineStyle(1)
 
         if h_tot==None: h_tot = h_sig.Clone('h_tot')
         else: h_tot.Add(h_sig)
 
-        # leg.AddEntry(h_sig, h_decays_labels[h_decay], "L")
-
     hist_pseudo = make_pseudosignal(inputDir, variable, target, cat, z_decays, h_decays, 
                                     suffix=suffix, variation=pert, tot=tot, proc_scales=proc_scales)
     hist_pseudo.Rebin(rebin)
-    # if h_tot.Integral()>0:
-    #     hist_pseudo.Scale(1./h_tot.Integral())
-    #     h_tot.Scale(1./h_tot.Integral())
     
     hist_pseudo.SetLineColor(ROOT.kBlack)
     hist_pseudo.SetLineWidth(3)

@@ -13,7 +13,13 @@ import xgboost as xgb
 import graphviz
 from . import utils as ut
 
-rc('font', **{'family': 'serif', 'serif': ['Roman']})
+
+rc('font', **{'family': 'serif', 'serif': ['Roman'], 'size': 30})
+rc('figure', figsize=(12, 8))
+rc('axes', titlesize=25, labelsize=30, grid=True)
+rc('xtick', labelsize=25)
+rc('ytick', labelsize=25)
+rc('legend', fontsize=14)
 rc('text', usetex=True)
 
 #__________________________________________________________
@@ -137,24 +143,24 @@ def get_metrics(bdt):
     print("------>Retrieving performance metrics")
     results = bdt.evals_result()
     epochs = len(results['validation_0']['error'])
-    x_axis = range(0, epochs)
+    x_axis = np.arange(0, epochs, 1)
     best_iteration = bdt.best_iteration + 1
     return results, epochs, x_axis, best_iteration
 
 #__________________________________________________________
-def log_loss(results, x_axis,label, outDir, plot_file):
+def log_loss(results, x_axis,label, outDir, plot_file, best_iteration):
     print("------>Plotting log loss")
-    fig, ax = plt.subplots(figsize=(12,8))
+    fig, ax = plt.subplots()#figsize=(12,8))
     ax.plot(x_axis, results['validation_0']['logloss'], label='Training')
     ax.plot(x_axis, results['validation_1']['logloss'], label='Validation')
-    #plt.axvline(best_iteration, color="gray", label="Optimal tree number")
-    ax.legend(fontsize=14)
-    ax.tick_params(axis='both', which='major', labelsize=25)
-    plt.xlabel("Number of trees", fontsize=30)
-    plt.ylabel('Log Loss', fontsize=30)
-    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
-    ax.grid()
-    ax.set_title(label, fontsize=20, loc='right')
+    # plt.axvline(best_iteration, color="gray", label="Optimal tree number")
+    ax.legend()#fontsize=14)
+    # ax.tick_params(axis='both', which='major', labelsize=25)
+    plt.xlabel("Number of trees", loc='right')#, fontsize=30)
+    plt.ylabel('Log Loss', loc='top')#, fontsize=30)
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', loc='left')#, fontsize=20)
+    # ax.grid()
+    ax.set_title(label, loc='right')#, fontsize=20)
     plt.savefig(f"{outDir}/log_loss.{plot_file}", bbox_inches='tight')
     print(f"Saved log loss plot to {outDir}/log_loss.{plot_file}")
     plt.close()
@@ -172,7 +178,7 @@ def classification_error(results, x_axis, label, outDir, plot_file):
     plt.ylabel('Classification Error', fontsize=30)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
-    ax.grid()
+    # ax.grid()
     plt.savefig(f"{outDir}/classification_error.{plot_file}", bbox_inches='tight')
     print(f"Saved classification error plot to {outDir}/classification_error.{plot_file}")
     plt.close()
@@ -189,7 +195,7 @@ def AUC(results, x_axis, label, outDir, plot_file):
     plt.ylabel('AUC', fontsize=30)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
-    ax.grid()
+    # ax.grid()
     plt.savefig(f"{outDir}/auc.{plot_file}", bbox_inches='tight')
     print(f"Saved AUC plot to {outDir}/auc.{plot_file}")
     plt.close()
@@ -213,7 +219,7 @@ def roc(df, label, outDir, plot_file):
     ax.legend(fontsize=14)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
-    ax.grid()
+    # ax.grid()
     fig.savefig(f"{outDir}/roc.{plot_file}", bbox_inches='tight')
     print(f"Saved ROC plot to {outDir}/roc.{plot_file}")
     plt.close()
@@ -233,7 +239,7 @@ def bdt_score(df, label, outDir, mode_names, plot_file, data_path, vars_list, se
     
     xsec = ut.get_xsec(mode_names)
     for cur_mode in mode_names:
-        files = ut.get_data_paths(cur_mode, data_path, mode_names, f'_{sel}')
+        files = ut.get_data_paths(cur_mode, data_path, mode_names, suffix=f'_{sel}')
         eff = ut.counts_and_efficiencies(files, vars_list, only_eff=True)
         N = len(df.loc[df['sample']==cur_mode])
         df.loc[df['sample']==cur_mode, 'weights'] = xsec[cur_mode] * eff * lumi * 1e6 / N
@@ -259,7 +265,7 @@ def bdt_score(df, label, outDir, mode_names, plot_file, data_path, vars_list, se
     
     if unity: ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
     ax.set_xlim(left=0.0, right=1.0) 
-    ax.grid()
+    # ax.grid()
 
     print("------>Plotting BDT score")
     plt.savefig(f"{outDir}/bdt_score.{plot_file}", bbox_inches='tight')
@@ -310,7 +316,7 @@ def mva_score(df, label, outDir, mode_names, modes_color, Label, plot_file, data
     
     if unity: ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
     ax.set_xlim(left=0.0, right=1.0)
-    ax.grid()
+    # ax.grid()
 
     print("------>Plotting MVA score")
     plt.savefig(f"{outDir}/mva_score.{plot_file}", bbox_inches='tight')
@@ -374,7 +380,7 @@ def significance(df, label, outDir, out_txt, plot_file):
                fontsize=14, frameon=False)
     ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
     ax.set_title(label, fontsize=20, loc='right')
-    plt.grid()
+    # plt.grid()
     print("------>Plotting significance scan")
     plt.savefig(f"{outDir}/significance_scan.{plot_file}", bbox_inches='tight')
     print(f"------>Saved Importance to {outDir}/significance_scan.{plot_file}")
@@ -438,3 +444,87 @@ def tree_plot(bdt, inputBDT, outDir, epochs, n, plot_file, rankdir='LR'):
     os.system(f'mv {outDir}/tmp/*.png {outDir}/structure/')
     os.system(f'rm -rf {outDir}/tmp')
     print(f"------>Plotted structure of BDT in {outDir}/structure folder")
+
+
+#______
+def hist_check(df, label, outDir, mode_names, modes_color, Label, plot_file, data_path, vars_list, var, Bins, xlabel, sel, all=False, unity=False, lumi=10.8):
+    print("------>Plotting checking histograms ")
+    if not os.path.isdir(f'{outDir}/check'):
+        os.system(f'mkdir -p {outDir}/check')
+
+    print(data_path)
+
+    fig, ax = plt.subplots(figsize=(12,8))
+
+    htype = "step"
+
+    xsec = ut.get_xsec(mode_names)
+    
+    for line,valid in zip(['solid', 'dashed'], ['valid==False', 'valid==True']):
+
+        hists, lab_list, weight_list, modes_color_list = [], [], [], []
+
+        for w in ['isSignal==1', 'isSignal!=1']:
+            for cur_mode in mode_names:
+                if 'H' in cur_mode: continue 
+                if not all and 'ga' in cur_mode: continue
+                if 'isSignal==1' in w and not 'H' in cur_mode: continue
+                if 'isSignal!=1' in w and 'H' in cur_mode: continue
+                df_tmp = df[(df['sample']==cur_mode)]
+                files = ut.get_data_paths(cur_mode, data_path, mode_names, suffix=f'_{sel}')
+                N_events, DF, eff = ut.counts_and_efficiencies(files, vars_list)
+                weight = xsec[cur_mode] * eff * lumi * 1e6 / len(df_tmp)
+
+                df_instance = df_tmp.query(valid+' & '+w)
+                hists.append(df_instance[var])
+                weight_list.append(weight*np.ones_like(df_instance[var]))
+                modes_color_list.append(modes_color[cur_mode])
+                if 'valid==False' in valid: 
+                    lab_list.append(Label[cur_mode])
+        lab_list = lab_list if 'valid==False' in valid else None
+        ax.hist(hists, density=unity, bins=Bins, histtype=htype, 
+                label=lab_list, linestyle=line, color=modes_color_list, linewidth=1.5,
+                weights=weight_list, stacked=True)
+        
+        hists, lab_list, weight_list, modes_color_list = [], [], [], []
+        for w in ['isSignal==1', 'isSignal!=1']:
+            for cur_mode in mode_names:
+                if 'H' in cur_mode: 
+                    if not all and 'ga' in cur_mode: continue
+                    if 'isSignal!=1' in w : continue
+                    df_tmp = df[(df['sample']==cur_mode)]
+                    files = ut.get_data_paths(cur_mode, data_path, mode_names, suffix=f'_{sel}')
+                    N_events, DF, eff = ut.counts_and_efficiencies(files, vars_list)
+                    weight = xsec[cur_mode] * eff * lumi * 1e6 / len(df_tmp)
+                    df_instance = df_tmp.query(valid+' & '+w)
+                    hists.append(df_instance[var])
+                    weight_list.append(weight*np.ones_like(df_instance[var]))
+                    modes_color_list.append(modes_color[cur_mode])
+                    if 'valid==False' in valid: 
+                        lab_list.append(Label[cur_mode])
+        ax.hist(hists, density=unity, bins=Bins, histtype=htype, 
+                label=lab_list, linestyle=line, color=modes_color_list, linewidth=1.5,
+                weights=weight_list, stacked=False)
+        
+    ncols = 4
+    plt.yscale('log')
+    ax.legend(loc="upper center", shadow=False, fontsize=12, ncols=ncols)
+    ax.set_title(r'$\textbf{\textit{FCC-ee Simulation}}$', fontsize=20, loc='left')
+    ax.set_title(label, fontsize=20, loc='right')
+
+    ylabel = "Normalized to Unity" if unity else 'Events'
+    ax.tick_params(axis='both', which='major', labelsize=25)
+    ax.set_xlabel(xlabel, fontsize=30, loc='right', weight='bold')  
+    ax.set_ylabel(ylabel, fontsize=30, loc='top', weight='bold')  
+        
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+        
+    # if unity: ax.set_ylim(bottom=1e-3, top=3e2)  # Increase the Y-axis space
+    # ax.set_xlim(left=xmin, right=xmax)
+    ax.grid()
+
+    print("------>Plotting Histograms to check")
+    plt.savefig(f"{outDir}/check/{var}_check.{plot_file}", bbox_inches='tight')
+    print(f"Saved Check Histograms to {outDir}/check/{var}_check.{plot_file}")
+    plt.close()

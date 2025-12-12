@@ -1,228 +1,328 @@
-import os, sys, json
-import uproot, glob
-import ROOT, joblib
-
+import os, json, ROOT
 import numpy as np
-import xgboost as xgb
 import pandas as pd
 
-from tqdm import tqdm
-from matplotlib import rc
-from sklearn.model_selection import train_test_split
+from typing import Callable, Union
 
-rc('font', **{'family': 'serif', 'serif': ['Roman']})
-rc('text', usetex=True)
+#_____________________________
+def get_paths(mode: str, 
+              path: str, 
+              modes: str, 
+              suffix: str = ''
+              ) -> list:
+    from glob import glob
+    fpath = os.path.join(path, modes[mode]+suffix)
+    return glob(f'{fpath}.root')
 
-#__________________________________________________________
-def get_df(root_file_name, branches):
-	file = uproot.open(root_file_name)
-	tree = file['events']
 
-	if len(file) == 0: return pd.DataFrame()
-	df = tree.arrays(library="pd", how="zip", filter_name=branches)
-	return df
+#_____________________________
+def get_df(filename: str, 
+           branches: list[str] = []
+           ) -> pd.DataFrame:
+    from uproot import open
+    with open(filename) as file:
+        tree = file['events']
+        if tree.num_entries==0:
+            return pd.DataFrame()
+        if branches:
+            return tree.arrays(branches, library='pd')
+        return tree.arrays(library='pd')
 
-#__________________________________________________________
-def Z0(S, B):
-	if B<=0: return -100
-	return np.sqrt(2*((S+B)*np.log(1+S/B)-S))
+#___________________
+def mkdir(mydir: str
+          ) -> None:
+    os.makedirs(mydir, exist_ok=True)
 
-#__________________________________________________________
-def Zmu(S, B):
-	if B<=0: return -100
-	return np.sqrt(2*(S-B*np.log(1+S/B)))
 
-#__________________________________________________________
-def Z(S, B):
-	if B<=0: return -100
-	return S/np.sqrt(S+B)
+#________________________________________________________
+def get_procDict(procFile: str, 
+                 fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts'
+                 ) -> dict[str, 
+                           dict[str, 
+                                float]]:
+    env = os.getenv('FCCDICTSDIR')
+    base_dir = env.split(':')[0] if env else fcc
+    proc_path = os.path.join(base_dir, procFile)
 
-#__________________________________________________________
-def Significance(df_s, df_b, score_column='BDTscore', func=Z0, score_range=(0, 1), nbins=50):
-	S0 = np.sum(df_s.loc[df_s.index,'norm_weight'])
-	B0 = np.sum(df_b.loc[df_b.index,'norm_weight']) 
-	print('initial: S0 = {:.2f}, B0 = {:.2f}'.format(S0, B0))
-	print('inclusive Z: {:.2f}'.format(func(S0, B0)))
+    if not os.path.isfile(proc_path):
+        raise FileNotFoundError(f'----> No procDict found: ==={proc_path}===')
 
-	wid = (score_range[1]-score_range[0])/nbins
-	arr_x = np.round(np.arange(score_range[0], score_range[1]+wid, wid), decimals=2)
-	arr_Z = np.zeros([nbins])
-
-	for i in tqdm(range(nbins)):
-		xi = score_range[0]+i*wid
-		Si = np.sum(df_s.loc[df_s.query(f'{score_column} >= {str(xi)}').index,'norm_weight'])
-		Bi = np.sum(df_b.loc[df_b.query(f'{score_column} >= {str(xi)}').index,'norm_weight'])
-		Zi = func(Si, Bi)
-		if Bi<0: continue
-		if Zi<0: continue
-		arr_Z[i]=Zi
-          
-	df_Z = pd.DataFrame(data=arr_Z, index=arr_x, columns=["Z"])
-  
-	return df_Z
-
-#__________________________________________________________
-def thres_opt(df, score_column = 'BDTscore', func=Z0, n_spliter=2, score_range=(0, 1), nbins=50, precut='test==True',b_scale=1.):
-	df_s = df.query(precut+' & isSignal==1')
-	df_b = df.query(precut+' & isSignal==0')
-	S0 = len(df_s.index)
-	B0 = b_scale*len(df_b.index)
-	print('initial: S0={:.2f}, B0={:.2f}'.format(S0, B0))
-	print('inclusive Z: {:.2f}'.format(func(S0, B0)))
-
-	wid = (score_range[1]-score_range[0])/nbins
-	arr_x = np.round(np.array([score_range[0]+i*wid for i in range(nbins)]), decimals=2)
-	arr_Ztot=np.zeros([nbins, nbins])
-
-	for i in tqdm(range(nbins)):
-		xi = score_range[0]+i*wid
-		Si = len(df_s.query(f'{score_column} >= {str(xi)}').index)
-		Bi = b_scale*len(df_b.query(f'{score_column} >= {str(xi)}').index)
-		Zi = func(Si, Bi)
-		if Bi<=11: continue
-		if Zi<0: continue
-
-	for j in range(i):
-		xj = score_range[0]+j*wid
-		Sj = len(df_s.query(f'{score_column} >= {str(xj)} & {score_column} < {str(xi)}').index)
-		Bj = b_scale*len(df_b.query(f'{score_column} >= {str(xj)} & {score_column} < {str(xi)}').index)
-		Zj = func(Sj, Bj)
-		if Bj<=11: continue
-		if Zj<0: continue
-		Ztot = np.sqrt(Zi**2+Zj**2)
-		arr_Ztot[i][j] = Ztot
-
-	df_Z = pd.DataFrame(data=arr_Ztot, index=arr_x, columns=arr_x)
-
-	return df_Z
-
-#__________________________________________________________
-def dir_exist(mydir): return os.path.exists(mydir)
-
-#__________________________________________________________
-def create_dir(mydir):
-    if not os.path.exists(mydir): os.system(f'mkdir -p {mydir}')
-
-#__________________________________________________________
-def get_procDict(procFile):
-    procDict = None
-    if 'http://' in procFile or 'https://' in procFile:
-        print ('----> getting process dictionary from the web')
-        import urllib.request
-        req = urllib.request.urlopen(procFile).read()
-        procDict = json.loads(req.decode('utf-8'))
-    else:
-        if not ('eos' in procFile):
-            procFile = os.path.join(os.getenv('FCCDICTSDIR').split(':')[0], '') + procFile 
-            # print(f"procFile is {procFile}")
-        if not os.path.isfile(procFile):
-            print ('----> No procDict found: ==={}===, exit'.format(procFile))
-            sys.exit(3)
-        with open(procFile, 'r') as f:
-            procDict=json.load(f)
+    with open(proc_path, 'r') as f:
+        procDict = json.load(f)
     return procDict
 
-#__________________________________________________________
-def update_keys(procDict, mode_names):
-    # Reverse the mode_names dictionary
-    reversed_mode_names = {v: k for k, v in mode_names.items()}
+
+#________________________________________________
+def update_keys(procDict: dict, 
+                modes: list
+                ) -> dict[str, 
+                          dict[str, 
+                               float]]:
+
+    reversed_mode_names = {v: k for k, v in modes.items()}
+    
     updated_dict = {}
     for key, value in procDict.items():
         new_key = reversed_mode_names.get(key, key)
         updated_dict[new_key] = value
     return updated_dict
 
-#__________________________________________________________
-def get_xsec(mode_names):
-    procFile = "FCCee_procDict_winter2023_training_IDEA.json"
+
+#__________________________________
+def get_xsec(modes: list, 
+             training: bool = True
+             ) -> dict[str, 
+                       float]:
+    if training:
+        procFile = 'FCCee_procDict_winter2023_training_IDEA.json'
+    else:
+        procFile = 'FCCee_procDict_winter2023_IDEA.json'
+    
     proc_dict = get_procDict(procFile)
-    procDict = update_keys(proc_dict, mode_names)
+    procDict  = update_keys(proc_dict, modes)
 
     xsec = {}
     for key, value in procDict.items(): 
-        if key in mode_names: xsec[key] = value["crossSection"]
+        if key in modes: xsec[key] = value['crossSection']
     return xsec
 
-#__________________________________________________________
-def get_data_paths(cur_mode, data_path, mode_names):
-    path = f"{data_path}/{mode_names[cur_mode]}"
-    return glob.glob(f"{path}.root")
 
-#__________________________________________________________
-def counts_and_efficiencies(files, vars_list, only_eff=False):
-    N_events = sum([uproot.open(f)["eventsProcessed"].value for f in files])
-    df = pd.concat((get_df(f, vars_list) for f in files), ignore_index=True)
-    eff = len(df) / N_events
-    if only_eff: return eff
-    else: return N_events, df, eff
-
-#__________________________________________________________
-def additional_info(df, cur_mode, sig):
-    df['sample'], df['isSignal'] = cur_mode, int(cur_mode == sig)
+#___________________________________________
+def load_data(inDir: str, 
+              filename: str = 'preprocessed'
+              ) -> pd.DataFrame:
+    fpath = os.path.join(inDir, filename+'.pkl')
+    df = pd.read_pickle(fpath)
     return df
 
-#__________________________________________________________
-def BDT_input_numbers(mode_names, sig, df, eff, xsec, frac):
-    N_BDT_inputs = {}
-    xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in mode_names if mode != sig)
-    for cur_mode in mode_names:
-        N_BDT_inputs[cur_mode] = (int(frac[cur_mode] * len(df[cur_mode])) if cur_mode == sig else
-                                  int(frac[cur_mode] * len(df[sig]) * (eff[cur_mode] * xsec[cur_mode] / xsec_tot_bkg)))
-    return N_BDT_inputs
 
-#__________________________________________________________
-def df_split_data(df, N_BDT_inputs, eff, xsec, N_events, cur_mode):
-    df = df.sample(n=N_BDT_inputs[cur_mode], random_state=1)
-    df0, df1 = train_test_split(df, test_size=0.5, random_state=7)
-    df.loc[df0.index, "valid"]      = False
-    df.loc[df1.index, "valid"]      = True
-    df.loc[df.index, "norm_weight"] = eff[cur_mode] * xsec[cur_mode] / N_events[cur_mode]
-    return df
+#________________________________________
+def to_pkl(df: pd.DataFrame, 
+           path: str, 
+           filename: str = 'preprocessed'
+           ) -> None:
+    mkdir(path)
+    fpath = os.path.join(path, filename+'.pkl')
+    df.to_pickle(fpath)
+    print(f'--->Preprocessed saved {fpath}')
 
-#__________________________________________________________
-def save_to_pickle(dfsum, pkl_path):
-    print("Writing output to pickle file")
-    create_dir(pkl_path)
-    print(f"--->Preprocessed saved {pkl_path}/preprocessed.pkl")
-    dfsum.to_pickle(f"{pkl_path}/preprocessed.pkl")
+#____________________________
+def dump_json(arg: dict, 
+              file: str, 
+              indent: int = 4
+              ) -> None:
+    with open(file, mode='w', 
+              encoding='utf-8') as fOut:
+        json.dump(arg, fOut, indent=indent)
 
-#__________________________________________________________
-def print_stats(df, modes):
-    print("__________________________________________________________")
-    print("Input number of events:")
-    for cur_mode in modes:
-        print(f"Number of training   {cur_mode}: {int(len(df[(df['sample'] == cur_mode) & (df['valid'] == False)]))}")
-        print(f"Number of validation {cur_mode}: {int(len(df[(df['sample'] == cur_mode) & (df['valid'] == True)]))}")
-    print("__________________________________________________________")
+#_______________________
+def load_json(file: str
+              ) -> dict:
+    with open(file, mode='r', 
+              encoding='utf-8') as fIn:
+        arg = json.load(fIn)
+    return arg
 
-#__________________________________________________________
-def split_data(df, vars_list):
-    X_train = df.loc[df['valid'] == False, vars_list].to_numpy()
-    y_train = df.loc[df['valid'] == False, ['isSignal']].to_numpy()
-    X_valid = df.loc[df['valid'] == True,  vars_list].to_numpy()
-    y_valid = df.loc[df['valid'] == True,  ['isSignal']].to_numpy()
-    return X_train, y_train, X_valid, y_valid
 
-#__________________________________________________________
-def train_model(X_train, y_train, X_valid, y_valid, config_dict, early_stopping_round):
-    bdt = xgb.XGBClassifier(**config_dict, eval_metric=["error", "logloss", "auc"], 
-                            early_stopping_rounds=early_stopping_round)
-    eval_set = [(X_train, y_train), (X_valid, y_valid)]
-    print("Beginning the training")
-    bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True)
-    return bdt
+#_________________
+def Z0(S: float, 
+       B: float
+       ) -> float:
+    if B<=0:
+        return np.nan
+    return np.sqrt( 2*( (S + B)*np.log(1 + S/B) - S ) )
 
-#__________________________________________________________
-def save_model(bdt, vars_list, output_path):
-    create_dir(output_path)
-    print("--->Writing xgboost model:")
-    print(f"------>Saving BDT in a .root file at {output_path}/xgb_bdt.root")
-    ROOT.TMVA.Experimental.SaveXGBoost(bdt, "ZH_Recoil_BDT", f"{output_path}/xgb_bdt.root", num_inputs=len(vars_list))
 
-    variables = ROOT.TList()
-    for var in vars_list: variables.Add(ROOT.TObjString(var))
-    fOut = ROOT.TFile(f"{output_path}/xgb_bdt.root", "UPDATE")
-    fOut.WriteObject(variables, "variables")
+#__________________
+def Zmu(S: float, 
+        B: float
+        ) -> float:
+    if B<=0:
+        return np.nan
+    return np.sqrt( 2*( S - B*np.log(1 + S/B) ) )
 
-    print(f"------>Saving BDT in a .jotlib file at {output_path}/xgb_bdt.joblib")
-    joblib.dump(bdt, f"{output_path}/xgb_bdt.joblib")
+
+#________________
+def Z(S: float, 
+      B: float
+      ) -> float:
+    if B<0:
+        return np.nan
+    if S<=0 and B<=0:
+        return 0.0
+    return S/np.sqrt(S + B)
+
+
+#___________________________________________________________
+def Significance(df_s: pd.DataFrame, 
+                 df_b: pd.DataFrame, 
+                 column: str = 'BDTscore',
+                 weight: str = 'norm_weight',
+                 func: Callable[[float, float], float] = Z0, 
+                 score_range: tuple = (0, 1), 
+                 nbins: int = 50) -> pd.DataFrame:      
+    # prepare arrays and weighted sums
+    s_vals, s_w = df_s[column].values, df_s[weight].values
+    b_vals, b_w = df_b[column].values, df_b[weight].values
+
+    S0, B0 = s_w.sum(), b_w.sum()
+    print('initial: S0 = {:.2f}, B0 = {:.2f}'.format(S0, B0))
+    print('inclusive Z: {:.2f}'.format(func(S0, B0)))
+
+    # build weighted histograms once
+    edges     = np.linspace(*score_range, nbins + 1)
+    hist_s, _ = np.histogram(s_vals, bins=edges, weights=s_w)
+    hist_b, _ = np.histogram(b_vals, bins=edges, weights=b_w)
+
+    # cumulative sums from high score -> low score
+    S_cum = np.cumsum(hist_s[::-1])[::-1]
+    B_cum = np.cumsum(hist_b[::-1])[::-1]
+
+    Z_vals = np.array([(Si, Bi, func(Si, Bi)) for Si, Bi in zip(S_cum, B_cum)])
+    return pd.DataFrame(data=Z_vals, index=edges[:-1], columns=['S', 'B', 'Z'])
+
+#__________________________________
+def get_stack(hists: list[ROOT.TH1]
+              ) -> ROOT.TH1:
+    if not hists:
+        raise ValueError('get_stack requires at least one histogram')
+    hist = hists[0].Clone()
+    hist.SetDirectory(0)
+    hist.SetName(hist.GetName() + '_stack')
+    for h in hists[1:]: hist.Add(h)
+    return hist
+
+#___________________________________________________
+def get_xrange(hist: ROOT.TH1, 
+               strict: bool = True, 
+               xmin: Union[float, int, None] = None,
+               xmax: Union[float, int, None] = None
+               ) -> tuple[Union[float, int], 
+                          Union[float, int]]:
+    nbins = hist.GetNbinsX()
+    bin_data = [(hist.GetBinLowEdge(i+1), 
+                 hist.GetBinLowEdge(i+2), 
+                 hist.GetBinContent(i+1)) for i in range(nbins)]
+
+    mask = [(le, he) for le, he, c in bin_data 
+            if (xmin is None or le > xmin) 
+            and (xmax is None or he < xmax)
+            and (not strict or c != 0)]
+
+    if not mask:
+        # fallback to full range if nothing matched
+        return bin_data[0][0], bin_data[-1][1]
+
+    return min(m[0] for m in mask), max(m[1] for m in mask)
+
+#___________________________________________________
+def get_yrange(hist: ROOT.TH1, 
+               logY: bool,
+               ymin: Union[float, int, None] = None,
+               ymax: Union[float, int, None] = None,
+               scale_min: float = 1.,
+               scale_max: float = 1.,
+               ) -> tuple[Union[float, int], 
+                          Union[float, int]]:
+    nbins = hist.GetNbinsX()
+    contents = np.array([hist.GetBinContent(i+1) \
+                         for i in range(nbins)], dtype=float)
+
+    if logY:
+        nonzero = contents[contents != 0]
+        if nonzero.size == 0:
+            return np.nan, np.nan
+        yMin = float(nonzero.min()) * scale_min
+    else:
+        yMin = float(contents.min()) * scale_min
+
+    yMax = float(contents.max()) * scale_max
+    if (ymin is not None) and ymin > yMin: yMin = ymin
+    if (ymax is not None) and ymax < yMax: yMax = ymax
+    return yMin, yMax
+
+#__________________________________________________
+def get_range(h_sigs: list[ROOT.TH1], 
+              h_bkgs: list[ROOT.TH1],
+              logY: bool = False, 
+              strict: bool = True, 
+              stack: bool = False,
+              scale_min: float = 1., 
+              scale_max: float = 1.,
+              xmin: Union[float, int, None] = None,
+              xmax: Union[float, int, None] = None,
+              ymin: Union[float, int, None] = None,
+              ymax: Union[float, int, None] = None
+              ) -> tuple[float, 
+                         float, 
+                         float, 
+                         float]:
+    
+    h_stack = get_stack(h_sigs + h_bkgs)
+
+    xMin, xMax = get_xrange(h_stack, 
+                            strict=strict, 
+                            xmin=xmin, 
+                            xmax=xmax)
+    h_bkg = [get_stack(h_bkgs)]
+    yMin = np.array([
+        get_yrange(h, 
+                    logY=logY,
+                    ymin=ymin,
+                    ymax=ymax,
+                    scale_min=scale_min,
+                    scale_max=scale_max)[0] 
+                    for h in h_sigs + h_bkgs
+    ])
+    if stack:
+        yMax = get_yrange(h_stack, 
+                          logY=logY, 
+                          ymin=ymin, 
+                          ymax=ymax,
+                          scale_min=scale_min,
+                          scale_max=scale_max)[1]
+    else:
+        yMax = np.array([
+            get_yrange(h, 
+                       logY=logY, 
+                       ymin=ymin, 
+                       ymax=ymax,
+                       scale_min=scale_min,
+                       scale_max=scale_max)[1] 
+                       for h in h_sigs + h_bkg
+        ])
+        
+    yMin = yMin.min()
+    yMax = yMax.max()
+    return xMin, xMax, yMin, yMax
+
+#________________________________________________________
+def get_range_decay(h_sigs: list[ROOT.TH1], 
+                    logY: bool = False, 
+                    strict: bool = True,
+                    scale_min: float = 1., 
+                    scale_max: float = 1.,
+                    xmin: Union[float, int, None] = None,
+                    xmax: Union[float, int, None] = None,
+                    ymin: Union[float, int, None] = None,
+                    ymax: Union[float, int, None] = None
+                    ) -> tuple[float, 
+                               float, 
+                               float, 
+                               float]:
+    
+    h_sig = get_stack(h_sigs)
+    xMin, xMax = get_xrange(h_sig, 
+                            strict=strict, 
+                            xmin=xmin, 
+                            xmax=xmax)
+
+    y_ranges = np.array([get_yrange(h, 
+                                    logY=logY, 
+                                    ymin=ymin, 
+                                    ymax=ymax) 
+                                    for h in h_sigs])
+    yMin = y_ranges[:,0].min()*scale_min
+    yMax = y_ranges[:,1].max()*scale_max
+
+    return xMin, xMax, yMin, yMax

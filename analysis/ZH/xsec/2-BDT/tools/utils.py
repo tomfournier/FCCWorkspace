@@ -49,12 +49,11 @@ def Significance(df_s, df_b, score_column='BDTscore', func=Z0, score_range=(0, 1
   print('initial: S0 = {:.2f}, B0 = {:.2f}'.format(S0, B0))
   print('inclusive Z: {:.2f}'.format(func(S0, B0)))
 
-  wid = (score_range[1]-score_range[0])/nbins
-  arr_x = np.round(np.array([score_range[0]+i*wid for i in range(nbins)]), decimals=2)
-  arr_Z=np.zeros([nbins])
+  arr_x = np.linspace(*score_range, nbins+1)
+  arr_Z=np.zeros([nbins+1])
 
-  for i in tqdm(range(nbins)):
-    xi = score_range[0]+i*wid
+  for i in tqdm(range(nbins+1)):
+    xi = arr_x[i]
     Si = np.sum(df_s.loc[df_s.query(f'{score_column} >= {str(xi)}').index,'norm_weight'])
     Bi = np.sum(df_b.loc[df_b.query(f'{score_column} >= {str(xi)}').index,'norm_weight'])
     Zi = func(Si, Bi)
@@ -149,8 +148,8 @@ def get_xsec(mode_names):
     return xsec
 
 #__________________________________________________________
-def get_data_paths(cur_mode, data_path, mode_names, suffix=''):
-    path = f"{data_path}/{mode_names[cur_mode]}"
+def get_data_paths(mode, data_path, mode_names, suffix=''):
+    path = f"{data_path}/{mode_names[mode]}"
     return glob.glob(f"{path}{suffix}.root")
 
 #__________________________________________________________
@@ -176,12 +175,12 @@ def BDT_input_numbers(mode_names, sig, df, eff, xsec, frac):
     return N_BDT_inputs
 
 #__________________________________________________________
-def df_split_data(df, N_BDT_inputs, eff, xsec, N_events, cur_mode):
+def df_split_data(df, N_BDT_inputs, eff, xsec, N_events, cur_mode, lumi=10.8):
     df = df.sample(n=N_BDT_inputs[cur_mode], random_state=1)
     df0, df1 = train_test_split(df, test_size=0.5, random_state=7)
-    df.loc[df0.index, "valid"] = False
-    df.loc[df1.index, "valid"] = True
-    df.loc[df.index, "norm_weight"] = eff[cur_mode] * xsec[cur_mode] / N_events[cur_mode]
+    df.loc[df0.index, "valid"], df.loc[df1.index, "valid"] = False, True
+    df.loc[df.index, "norm_weight"] = xsec[cur_mode] / N_events[cur_mode]
+    df.loc[df.index, "weights"] = eff[cur_mode] * xsec[cur_mode] * lumi * 1e6 / N_events[cur_mode]
     return df
 
 #__________________________________________________________
@@ -190,6 +189,11 @@ def save_to_pickle(dfsum, pkl_path):
     create_dir(pkl_path)
     print(f"--->Preprocessed saved {pkl_path}/preprocessed.pkl")
     dfsum.to_pickle(f"{pkl_path}/preprocessed.pkl")
+
+#_________________________________________
+def load_data(inDir: str) -> pd.DataFrame:
+    df = pd.read_pickle(f"{inDir}/preprocessed.pkl")
+    return df
 
 #__________________________________________________________
 def print_stats(df, modes):

@@ -15,9 +15,9 @@ def getMetaInfo(proc, info='crossSection', remove=False,
         procDict=json.load(f)
     xsec = procDict[proc][info]
     if remove:
-        if 'HZZ' in proc:
-            xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
-            xsec     = getMetaInfo(proc) - xsec_inv
+        # if 'HZZ' in proc:
+        #     xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
+        #     xsec     = getMetaInfo(proc) - xsec_inv
         if 'p8_ee_WW_ecm' in proc:
             xsec_ee   = getMetaInfo(proc.replace('WW', 'WW_ee'))
             xsec_mumu = getMetaInfo(proc.replace('WW', 'WW_mumu'))
@@ -35,10 +35,6 @@ def getHist(hName, procs, inputDir, suffix='', rebin=1, lazy=True, proc_scales=1
             else: sys.exit(f"ERROR: input file {fInName} not found")
         h = fIn.Get(hName)
         h.SetDirectory(0)
-        if 'HZZ' in proc:
-            xsec_old = getMetaInfo(proc)
-            xsec_new = getMetaInfo(proc, remove=True)
-            h.Scale( xsec_new/xsec_old )
         if 'p8_ee_WW_ecm' in proc:
             xsec_old = getMetaInfo(proc)
             xsec_new = getMetaInfo(proc, remove=True)
@@ -59,29 +55,40 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target, cat, z_decays, h_
 
     xsec_tot, xsec_target, xsec_rest = 0, 0, 0
 
-    if tot: sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays]
-    else:   sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in [cat]]    for y in h_decays]
+    if target!='inv':
+        if tot: sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays]
+        else:   sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in [cat]]    for y in h_decays]
+    else:
+        print('----->[Info] Replacing ZZ to ZZ_noInv to avoid overcounting')
+        if tot: sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}'.replace('ZZ', 'ZZ_noInv') for x in z_decays] for y in h_decays]
+        else:   sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}'.replace('ZZ', 'ZZ_noInv') for x in [cat]]    for y in h_decays]
 
     for h_decay, sig in zip(h_decays, sigs):
         xsec = sum([getMetaInfo(s, remove=True) for s in sig])
         xsec_tot += xsec
         if h_decay==target: 
+            print(f'----->[Info] xsec for {target}: {xsec:.3e} pb-1')
             xsec_target += xsec
         else:               
             xsec_rest   += xsec
 
+    print(f'xsec_tot: {xsec_tot:.3} pb-1')
     xsec_new = variation * xsec_tot
+    print(f'xsec_new: {xsec_new:.3e} pb-1')
     xsec_delta = xsec_new - xsec_tot
+    print(f'xsec_delta: {xsec_delta:.3e} pb-1')
     scale_target = (xsec_target + xsec_delta)/xsec_target
     print(f"----->[Info] Scale of the {target} channel: {scale_target:.3f}")
 
-    hist_pseudo = None
+    hist_pseudo, h_bkg = None, None
     for proc in procs[1:]:
-        if proc not in proc_scales:proc_scales[proc] = 1
+        if proc not in proc_scales: proc_scales[proc] = 1
         h = getHist(hName, procs_cfg[proc], inputDir, 
                     suffix=suffix, proc_scales=proc_scales[proc])
-        if hist_pseudo==None: hist_pseudo = h
+        if hist_pseudo==None: hist_pseudo = h.Clone('h_pseudo')
         else: hist_pseudo.Add(h)
+        if h_bkg==None: h_bkg = h.Clone('h_bkg')
+        else: h_bkg.Add(h)
         
     xsec_tot_new, hist_old, hist_new = 0, None, None
     for h_decay, sig in zip(h_decays, sigs):
@@ -90,7 +97,7 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target, cat, z_decays, h_
         h = getHist(hName, sig, inputDir, 
                     suffix=suffix, proc_scales=proc_scales['ZH'])
         # Old signal
-        if hist_old==None: hist_old = copy.deepcopy(h)
+        if hist_old==None: hist_old = h.Clone('h_old')
         else: hist_old.Add(h)
 
         if h_decay==target:
@@ -98,13 +105,16 @@ def make_pseudodata(inputDir, procs, procs_cfg, hName, target, cat, z_decays, h_
             xsec_tot_new   += scale_target * xsec
         else: xsec_tot_new += xsec
         # New signal
-        if hist_new==None: hist_new = copy.deepcopy(h)
+        if hist_new==None: hist_new = h.Clone('h_new')
         else: hist_new.Add(h)
         hist_pseudo.Add(h)
 
-    old, new = hist_old.Integral(), hist_new.Integral()
+    test = hist_pseudo.Clone('test')
+    test.Add(h_bkg, -1)
+
+    old, new, test = hist_old.Integral(), hist_new.Integral(), test.Integral()
     print(f'----->[Info] Added {(new/old-1)*100:.2f} % of signal to ZH production cross-section')
-    print(f'\n----->[CROSS-CHECK] This quantity {xsec_tot_new/xsec_tot:.2f} should be equal to {variation}\n')
+    print(f'----->[CROSS-CHECK] This quantity {xsec_tot_new/xsec_tot:.2f} should be equal to {variation}\n')
     return hist_pseudo
 
 
@@ -120,6 +130,12 @@ def make_pseudosignal(inputDir, hName, target, cat, z_decays, h_decays, v= False
 
     if tot: sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays]
     else:   sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in [cat]]    for y in h_decays]
+
+    if target=='inv':
+        print('----->[Info] Replacing ZZ to ZZ_noInv to avoid overcounting')
+        for h in sigs: 
+            for s in h: 
+                s.replace('ZZ', 'ZZ_noInv')
 
     for h_decay, sig in zip(h_decays, sigs):
         xsec = sum([getMetaInfo(s, remove=True) for s in sig])

@@ -1,21 +1,23 @@
 import importlib
 
 # Load userConfig
-userConfig = importlib.import_module("userConfig")
-from userConfig import loc, get_loc, event, ecm, z_decays, h_decays, fitting
+userConfig = importlib.import_module('userConfig')
+from userConfig import loc, get_loc, event, ecm, fitting
+
+from package.config import z_decays, h_decays
 
 cat = input('Select a channel [ee, mumu]: ')
 sel = input('Select a selection: ')
 
 mc_stats = False
 rebin    = 1
-intLumi  = 1 # userConfig.intLumi * 1e6
+intLumi  = 1
 
 inputDir  = get_loc(loc.HIST_PROCESSED,   cat, ecm, sel)
 outputDir = get_loc(loc.NOMINAL_DATACARD, cat, ecm, sel)
 inDir     = get_loc(loc.EVENTS,           cat, ecm, '')+'/'
 
-samples_sig = event([f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays], inDir)
+samples_sig = event([f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays], inDir)
 sig_procs = {'sig': samples_sig}
 
 bkg_procs = {

@@ -1,4 +1,5 @@
-import os, math, json
+import os, json
+import numpy as np
 import matplotlib.pyplot as plt
 
 import ROOT
@@ -54,10 +55,10 @@ def getHist(hName, procs, inputDir, suffix='', rebin=1, lazy=True):
                 quit()
         h = fIn.Get(hName)
         h.SetDirectory(0)
-        if 'HZZ' in proc:
-            xsec_old = getMetaInfo(proc)
-            xsec_new = getMetaInfo(proc, remove=True)
-            h.Scale( xsec_new/xsec_old )
+        # if 'HZZ' in proc:
+        #     xsec_old = getMetaInfo(proc)
+        #     xsec_new = getMetaInfo(proc, remove=True)
+        #     h.Scale( xsec_new/xsec_old )
         if 'p8_ee_WW_ecm' in proc:
             xsec_old = getMetaInfo(proc)
             xsec_new = getMetaInfo(proc, remove=True)
@@ -69,7 +70,99 @@ def getHist(hName, procs, inputDir, suffix='', rebin=1, lazy=True):
     return hist
 
 #__________________________________________________________
-def significance(variable, variables, inputDir, outDir, procs_cfg, procs, xMin=None, xMax=None, sel='', 
+def get_min(hist, strict=True):
+    content = []
+    for i in range(hist.GetNbinsX()+1):
+        content.append(hist.GetBinContent(i+1))
+    content = np.array(content)
+    if strict:
+        if len(content[content!=0])==0:
+            return np.nan
+        mini = float(content[content!=0].min())
+    else:
+        mini = float(content.min())
+    return mini
+
+#__________________________________________________________
+def get_range(hists: list, logY=False, strict=True,
+              xmin=None, xmax=None, ymin=None, ymax=None):
+    
+    hist = hists[0].Clone()
+    if len(hists)>1:
+        for h in hists[1:]: hist.Add(h)
+
+    vals_min, vals_max = [], []
+    if xmin==None:
+        xmin = hist.GetBinLowEdge(0)
+    if xmax==None:
+        xmax = hist.GetBinLowEdge(hist.GetNbinsX()+1)
+    for i in range(hist.GetNbinsX()+1):
+        if  (hist.GetBinLowEdge(i) > xmin) or (hist.GetBinLowEdge(i+1) < xmax):
+            if strict:
+                if hist.GetBinContent(i) !=0:
+                    vals_min.append(hist.GetBinLowEdge(i))
+                    vals_max.append(hist.GetBinLowEdge(i+1))
+            else: 
+                vals_min.append(hist.GetBinLowEdge(i))
+                vals_max.append(hist.GetBinLowEdge(i+1))
+    xMin, xMax = min(vals_min), max(vals_max)
+
+    if logY:
+        yMin = min( [get_min(h) for h in hists] )*5e-1
+        yMax = max( [hists[0].GetMaximum(), hist.GetMaximum()] )*1e4
+    else: 
+        if strict:
+            yMin = min( [get_min(h) for h in hists] )
+        else:
+            yMin = min( [h.GetMinimum() for h in hists] )
+        yMax = max( [hists[0].GetMaximum(), hist.GetMaximum()] )*1.5
+
+    if (ymin!=None) and ymin>yMin: yMin = ymin
+    if (ymax!=None) and ymax<yMax: yMax = ymax
+
+    return xMin, xMax, yMin, yMax
+
+#__________________________________________________________
+def get_range_decay(hists: list, logY=False, strict=True,
+              xmin=None, xmax=None, ymin=None, ymax=None):
+    
+    hist = hists[0].Clone()
+    if len(hists)>1:
+        for h in hists[1:]: hist.Add(h)
+
+    vals_min, vals_max = [], []
+    if xmin==None:
+        xmin = hist.GetBinLowEdge(0)
+    if xmax==None:
+        xmax = hist.GetBinLowEdge(hist.GetNbinsX()+1)
+    for i in range(hist.GetNbinsX()+1):
+        if  (hist.GetBinLowEdge(i) > xmin) or (hist.GetBinLowEdge(i+1) < xmax):
+            if strict:
+                if hist.GetBinContent(i) !=0:
+                    vals_min.append(hist.GetBinLowEdge(i))
+                    vals_max.append(hist.GetBinLowEdge(i+1))
+            else: 
+                vals_min.append(hist.GetBinLowEdge(i))
+                vals_max.append(hist.GetBinLowEdge(i+1))
+    xMin, xMax = min(vals_min), max(vals_max)
+
+    if logY:
+        yMin = min( [get_min(h) for h in hists] )*5e-1
+        yMax = max( [h.GetMaximum() for h in hists] )*2e2
+    else: 
+        if strict:
+            yMin = min( [get_min(h) for h in hists] )
+        else:
+            yMin = min( [h.GetMinimum() for h in hists] )
+        yMax = max( [h.GetMaximum() for h in hists] )*1.5
+
+    if (ymin!=None) and ymin>yMin: yMin = ymin
+    if (ymax!=None) and ymax<yMax: yMax = ymax
+
+    return xMin, xMax, yMin, yMax
+
+#__________________________________________________________
+def significance(variable, inputDir, outDir, procs, procs_cfg, xMin=None, xMax=None, sel='', 
                  outName="", reverse=False, plot_file=['png'], rebin=1, lazy=True):
 
     if outName == "": outName = variable
@@ -119,9 +212,12 @@ def significance(variable, variables, inputDir, outDir, procs_cfg, procs, xMin=N
     ax1.axvline(max_x, color='black', alpha=0.8, linewidth=1)
     ax1.axhline(max_y, color='blue', alpha=0.8, linewidth=1)
 
-    gev = ' [GeV]' if '[GeV]' in variables[variable]['xlabel'] else ''
-    GeV = ' GeV'   if '[GeV]' in variables[variable]['xlabel'] else ''
-    cut = variables[variable]['xlabel'].replace(' [GeV]', '').replace('#', "\\")
+    xtitle = h_sig.GetXaxis().GetTitle()
+    gev = ' [GeV]' if '[GeV]' in xtitle else ''
+    gev = ' [GeV^{2}]' if '[Gev^{2}]' in xtitle else ''
+    GeV = ' GeV'   if '[GeV]' in xtitle else ''
+    GeV = ' GeV^{2}'   if '[GeV^{2}]' in xtitle else ''
+    cut = xtitle.replace(' [GeV]', '').replace('#', "\\").replace(' [GeV^{2}]', '')
 
     ax1.set_xlabel(f'${cut}${gev}', fontsize=22, loc='right')
     ax1.set_ylabel('Significance', fontsize=22, loc='top')
@@ -155,9 +251,9 @@ def significance(variable, variables, inputDir, outDir, procs_cfg, procs, xMin=N
     plt.close()
 
 #__________________________________________________________
-def makePlot(variable, variables, inputDir, outDir, procs, procs_cfg, 
+def makePlot(variable, inputDir, outDir, procs, procs_cfg, 
              colors, legend, sel='', ecm=240, lumi=10.8, outName="", 
-             logX=False, rebin=1, sig_scale=1, 
+             logX=False, rebin=1, sig_scale=1, logY=True,
              plot_file=['png'], stack=False, lazy=True):
 
     if outName == "": outName = variable
@@ -169,6 +265,7 @@ def makePlot(variable, variables, inputDir, outDir, procs, procs_cfg,
     leg.SetTextSize(0.03)
     leg.SetMargin(0.2)
 
+    hists = []
     h_sig = getHist(variable, procs_cfg[procs[0]], inputDir, 
                     suffix=suffix, rebin=rebin, lazy=lazy)
     h_sig.SetLineColor(colors[procs[0]])
@@ -179,6 +276,7 @@ def makePlot(variable, variables, inputDir, outDir, procs, procs_cfg,
         leg.AddEntry(h_sig, f"{legend[procs[0]]} (#times {int(sig_scale)})", "L")
     else:
         leg.AddEntry(h_sig, legend[procs[0]], "L")
+    hists.append(h_sig)
 
     st = ROOT.THStack()
     st.SetName("stack")
@@ -194,24 +292,18 @@ def makePlot(variable, variables, inputDir, outDir, procs, procs_cfg,
         h_bkg.SetLineColor(ROOT.kBlack)
         h_bkg.SetLineWidth(1)
         h_bkg.SetLineStyle(1)
-
+        hists.append(h_bkg)
         leg.AddEntry(h_bkg, legend[bkg], "F")
         st.Add(h_bkg)
 
-    
-    xMin, xMax, yMin, yMax = variables[variable]["lim"]
-
-    if yMax < 0:
-        if variables[variable]['logY']:
-            yMax = math.ceil(max([h_bkg_tot.GetMaximum(), h_sig.GetMaximum()])*10000)/10.
-        else:
-            yMax = 1.4*max([h_bkg_tot.GetMaximum(), h_sig.GetMaximum()])
+    xMin, xMax, yMin, yMax = get_range(hists, logY=logY)
+    xtitle = h_sig.GetXaxis().GetTitle()
 
     cfg = {
 
-        'logx' : logX, 'logy' : variables[variable]['logY'],
+        'logx' : logX, 'logy' : logY,
         'xmin' : xMin, 'xmax' : xMax, 'ymin' : yMin, 'ymax' : yMax,
-        'xtitle' : variables[variable]['xlabel'], 'ytitle' : 'Events',
+        'xtitle' : xtitle, 'ytitle' : 'Events',
             
         'topRight' : f"#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}",
         'topLeft'  : "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}",
@@ -249,13 +341,14 @@ def makePlot(variable, variables, inputDir, outDir, procs, procs_cfg,
     if not os.path.isdir(out):
         os.system(f'mkdir -p {out}')
 
+    linlog = '_log' if logY else '_lin'
     for pl in plot_file:
-        canvas.SaveAs(f"{out}/{outName}.{pl}")
+        canvas.SaveAs(f"{out}/{outName}{linlog}.{pl}")
     canvas.Close()
 
 
 #__________________________________________________________
-def PlotDecays(variable, variables, inputDir, outDir, z_decays, h_decays, sel='',
+def PlotDecays(variable, inputDir, outDir, z_decays, h_decays, sel='', logY=False, tot=False,
                ecm=240, lumi=10.8, outName="", plot_file=['png'], logX=False, rebin=1, lazy=True):
 
     if outName == "": outName = variable
@@ -284,13 +377,15 @@ def PlotDecays(variable, variables, inputDir, outDir, z_decays, h_decays, sel=''
         leg.AddEntry(h_sig, h_decays_labels[h_decay], "L")
         hists.append(h_sig)
 
-    xMin, xMax, yMin, yMax = variables[variable]["limH"]
+    xMin, xMax, yMin, yMax = get_range_decay(hists, logY=logY)
+    
+    xtitle = h_sig.GetXaxis().GetTitle() 
 
     cfg = {
 
-        'logx' : logX, 'logy' : variables[variable]['logY'],
+        'logx' : logX, 'logy' : logY,
         'xmin' : xMin, 'xmax' : xMax, 'ymin' : yMin, 'ymax' : yMax,
-        'xtitle' : variables[variable]['xlabel'], 'ytitle' : 'Normalized to Unity',
+        'xtitle' : xtitle, 'ytitle' : 'Normalized to Unity',
             
         'topRight' : f"#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}",
         'topLeft' : "#bf{FCC-ee} #scale[0.7]{#it{Simulation}}",
@@ -314,12 +409,13 @@ def PlotDecays(variable, variables, inputDir, outDir, z_decays, h_decays, sel=''
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
     
-    out = f'{outDir}/higgsDecays/{sel}'
+    out = f'{outDir}/higgsDecays/{sel}/tot' if tot else f'{outDir}/higgsDecays/{sel}/cat'
     if not os.path.isdir(out):
         os.system(f'mkdir -p {out}')
 
+    linlog = '_log' if logY else '_lin'
     for pl in plot_file:
-        canvas.SaveAs(f"{out}/{outName}.{pl}")
+        canvas.SaveAs(f"{out}/{outName}{linlog}.{pl}")
     canvas.Close()
 
 
@@ -367,11 +463,11 @@ def AAAyields(hName, inputdir, outputdir, plots, legend, colors, cat, sel,
     yields = {}
     for s in hsignal:
         yields[s] = [legend[s], 
-                     hsignal[s][0].Integral(0, -1),
+                     hsignal[s][0].Integral(),
                      hsignal[s][0].GetEntries()]
     for b in backgrounds:
         yields[b] = [legend[b],
-                     hbackgrounds[b][0].Integral(0, -1),
+                     hbackgrounds[b][0].Integral(),
                      hbackgrounds[b][0].GetEntries()]
 
     canvas = ROOT.TCanvas('yield', '', 800, 800)
@@ -417,10 +513,16 @@ def AAAyields(hName, inputdir, outputdir, plots, legend, colors, cat, sel,
     text = '#bf{#it{Signal Scaling = ' + f'{scale_sig:.3g}' + \
             '}}'
     latex.SetTextSize(0.04)
-    latex.DrawLatex(0.18, 0.57, text)
+    latex.DrawLatex(0.18, 0.62, text)
 
     text = '#bf{#it{Background Scaling = ' + \
         f'{scale_bkg:.3g}' + '}}'
+    latex.SetTextSize(0.04)
+    latex.DrawLatex(0.18, 0.57, text)
+
+    s_tot = int( sum( [yields[s][1] for s in signal] ) )
+    b_tot = int( sum( [yields[b][1] for b in backgrounds] ) )
+    text = '#bf{#it{Significance = ' + f'{s_tot/(s_tot+b_tot)**(0.5):.3f}' + '}}'
     latex.SetTextSize(0.04)
     latex.DrawLatex(0.18, 0.52, text)
 

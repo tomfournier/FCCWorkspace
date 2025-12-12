@@ -1,117 +1,148 @@
-import os, time, json, ROOT, argparse, importlib
+import os, time, argparse, importlib
 
-t1 = time.time()
+from ROOT import TFile
+
+t = time.time()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cat',  help='Final state (ee, mumu), qq is not available yet', 
-                    choices=['ee', 'mumu'], type=str, default='')
+                    choices=['ee', 'mumu'], type=str, default='ee-mumu')
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
                     choices=[240, 365], type=int, default=240)
+
+parser.add_argument('--polL', help='Scale to left polarization',  action='store_true')
+parser.add_argument('--polR', help='Scale to right polarization', action='store_true')
+parser.add_argument('--ILC',  help='Scale to ILC luminosity',     action='store_true')
 arg = parser.parse_args()
 
 userConfig = importlib.import_module('userConfig')
-from userConfig import loc, get_loc, event, z_decays, h_decays
+from userConfig import loc, add_package_path, get_loc
+add_package_path(loc.PACKAGE)
 
-categories, ecm = [arg.cat] if arg.cat!='' else ['ee', 'mumu'], arg.ecm
-hName = ['zll_recoil_m']
-selections = [
-    'Baseline'
+from package.config import timer, mk_processes, z_decays, H_decays
+from package.tools.utils import mkdir
+from package.tools.process import get_hist, concat
+
+cats, ecm = arg.cat.split('-'), arg.ecm
+hNames = ['zll_recoil_m']
+sels = [
+    'Baseline',
+    # 'Baseline_miss',
+    # 'Baseline_sep',
+    'Baseline_tight'
 ]
 
-#__________________________________________________________
-def getMetaInfo(proc, info='crossSection', 
-                procFile="FCCee_procDict_winter2023_IDEA.json"):
-    if not ('eos' in procFile):
-        procFile = os.path.join(os.getenv('FCCDICTSDIR').split(':')[0], '') + procFile 
-    with open(procFile, 'r') as f:
-        procDict=json.load(f)
-    xsec = procDict[proc][info]
-    return xsec
-
-#__________________________________________________________
-def get_hist(hName, proc, suffix=''):
-    print(f'----->[Info] Getting histogram from \n\t {inputdir}/{proc}{suffix}.root')
-    f = ROOT.TFile(f"{inputdir}/{proc}{suffix}.root")
-    h = f.Get(hName)
-    h.SetDirectory(0)
-
-    xsec = f.Get("crossSection").GetVal()
-    if 'HZZ' in proc: 
-        xsec_inv = getMetaInfo(proc.replace('HZZ', 'Hinv'))
-        h.Scale((xsec-xsec_inv)/xsec)
-    if 'p8_ee_WW_ecm' in proc:
-        xsec_ee   = getMetaInfo(proc.replace('WW_ecm', 'WW_ee_ecm'))
-        xsec_mumu = getMetaInfo(proc.replace('WW_ecm', 'WW_mumu_ecm'))
-        h.Scale((xsec-xsec_ee-xsec_mumu)/xsec)
-    f.Close()
-    return h
-
-#__________________________________________________________
-def concat(h_list, hName):
-    print(f'----->[Info] Concatenating {hName}')
-    # Get the total number of bins in all histograms
-    bins = sum([h.GetNbinsX() for h in h_list])
-    h_concat = ROOT.TH1D("h1", "1D Unrolled Histogram", bins, 0.5, bins + 0.5)
-
-    tot = 0
-    for hist in h_list: # Loop over all histograms
-        for bin in range(1, hist.GetNbinsX() + 1): # Bin indexing starts at 1
-            # Get the content and error from the histogram
-            content = hist.GetBinContent(bin)
-            error   = hist.GetBinError(bin)
-
-            # Set the content and error in the new histogram
-            h_concat.SetBinContent(bin+tot, content)
-            h_concat.SetBinError(bin+tot,   error)
-        tot += hist.GetNbinsX()
-    h_concat.SetName(hName)
-            
-    return h_concat
+if arg.ILC: ## change fit to ASIMOV -t -1 !!!
+    procs_scales  = {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}
+elif arg.polL:
+    procs_scales  = {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263}
+elif arg.polR:
+    procs_scales = {'ZH': 1.047, 'WW': 0.219, 'ZZ': 1.011, 'Zgamma': 1.018}
+else:
+    procs_scales  = {}
+if procs_scales!={}:
+    print(f'----->[Info] Will scale histograms to ILC cross section')
 
 
+processes = mk_processes(['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'], 
+                         H_decays=H_decays+['ZZ_noInv'], 
+                         ecm=ecm)
 
-for cat in categories:
-    print(f'----->[Info] Processing histograms for {cat}')
+samples_bkg = [
+    # ee -> WW
+    f'p8_ee_WW_ecm{ecm}', 
+    f'p8_ee_WW_ee_ecm{ecm}', 
+    f'p8_ee_WW_mumu_ecm{ecm}', 
 
-    inputdir  = get_loc(loc.HIST_PREPROCESSED, cat, ecm, '')
-    inDir     = get_loc(loc.EVENTS,            cat, ecm, '')+'/'
+    # ee -> ZZ
+    f'p8_ee_ZZ_ecm{ecm}',
 
-    samples_bkg = [
-        f"p8_ee_WW_ecm{ecm}", f"p8_ee_WW_ee_ecm{ecm}", f"p8_ee_WW_mumu_ecm{ecm}", f"p8_ee_ZZ_ecm{ecm}",
-        f"wzp6_ee_ee_Mee_30_150_ecm{ecm}", f"wzp6_ee_mumu_ecm{ecm}", f"wzp6_ee_tautau_ecm{ecm}",
-        f"wzp6_gaga_ee_60_ecm{ecm}",       f"wzp6_gaga_mumu_60_ecm{ecm}", f"wzp6_gaga_tautau_60_ecm{ecm}", 
-        f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',  f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-        f'wzp6_egamma_eZ_Zee_ecm{ecm}',    f'wzp6_gammae_eZ_Zee_ecm{ecm}',
-        f"wzp6_ee_nuenueZ_ecm{ecm}"
-    ]
-    samples_sig = [f"wzp6_ee_{x}H_H{y}_ecm{ecm}" for x in z_decays for y in h_decays]
-    samples_sig.extend([f"wzp6_ee_eeH_ecm{ecm}", f"wzp6_ee_mumuH_ecm{ecm}", f'wzp6_ee_ZH_Hinv_ecm{ecm}'])
-    procs = event(samples_sig + samples_bkg, inDir)
+    # ee -> Z/ga -> ll
+    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}', 
+    f'wzp6_ee_mumu_ecm{ecm}', 
+    f'wzp6_ee_tautau_ecm{ecm}',
 
-    for sel in selections:
-        print(f'\n----->[Info] Processing histograms for {sel}\n')
-        outputdir = get_loc(loc.HIST_PROCESSED,    cat, ecm, sel)
-        if not os.path.isdir(f'{outputdir}'):
-            os.system(f'mkdir -p {outputdir}')
+    # e ga -> e Z(ll)
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', 
+    f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}',   
+    f'wzp6_gammae_eZ_Zee_ecm{ecm}',
 
-        for proc in procs:
-            print(f'----->[Info] Processing {proc}')
-            hists = []
-            for histo in hName:
-                h_high = get_hist(histo, proc, suffix=f'_{sel}_high_histo')
-                h_low  = get_hist(histo, proc, suffix=f'_{sel}_low_histo')
-                h      = concat([h_low, h_high], histo)
-                print(f'----->[Info] Done concatenating {histo}')
-                hists.append(h)
-            print(f'----->[Info] {proc} histograms for {cat} channel processed')
+    # ga ga -> ll
+    f'wzp6_gaga_ee_60_ecm{ecm}', 
+    f'wzp6_gaga_mumu_60_ecm{ecm}', 
+    f'wzp6_gaga_tautau_60_ecm{ecm}',
 
-            f = ROOT.TFile(f"{outputdir}/{proc}.root", "RECREATE")
-            print(f'----->[Info] Saving histograms')
-            for hist in hists:
-                hist.Write()
-            f.Close()
-            print(f'----->[Info] Saved histograms in {outputdir}/{proc}.root\n')
+    # ee -> nu nu Z 
+    f'wzp6_ee_nuenueZ_ecm{ecm}'
+]
+samples_sig = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in H_decays + ['ZZ_noInv']]
+samples_sig.extend([f'wzp6_ee_eeH_ecm{ecm}', f'wzp6_ee_mumuH_ecm{ecm}', f'wzp6_ee_ZH_Hinv_ecm{ecm}'])
 
-print('\n\n------------------------------------\n')
-print(f'Time taken to run the code: {time.time()-t1:.1f} s')
-print('\n------------------------------------\n\n')
+samples = samples_sig + samples_bkg
+
+
+
+def run(cats: str, 
+        sels: str, 
+        hNames: list[str], 
+        samples: list[str]
+        ) -> None:
+    
+    for cat in cats:
+        print(f'----->[Info] Processing histograms for {cat}')
+        inDir = get_loc(loc.HIST_PREPROCESSED, cat, ecm, '')
+
+        for sel in sels:
+            print(f'\n----->[Info] Processing histograms for {sel}\n')
+            outDir = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
+            mkdir(outDir)
+
+            suffix_high = f'_{sel}_high_histo'
+            suffix_low  = f'_{sel}_low_histo'
+            suffix_base = f'_{sel}_histo'
+
+            existing_samples = []
+            for sample in samples:
+                if os.path.exists(f'{inDir}/{sample}{suffix_base}.root'):
+                    existing_samples.append(sample)
+
+            if not existing_samples:
+                print(f'----->[Warning] No sampples found for {sel} in {cat}')
+                continue
+
+            for sample in existing_samples:
+                print(f'----->[Info] Processing {sample}')
+                hists = []
+                for hName in hNames:
+                    h_high = get_hist(hName, sample, processes, inDir, 
+                                      suffix=suffix_high, 
+                                      proc_scales=procs_scales)
+                    h_low  = get_hist(hName, sample, processes, inDir,
+                                      suffix=suffix_low,
+                                      proc_scales=procs_scales)
+                    h_high.SetName(h_high.GetName()+'_high')
+                    h_low.SetName(h_low.GetName()+'_low')
+                    
+                    if h_high is None or h_low is None:
+                        continue
+
+                    has_valid_hist = True
+                    h = concat([h_low, h_high], hName)
+
+                    hists.extend([h, h_high, h_low])
+
+                if not has_valid_hist:
+                    print(f'----->[WARNING] No valid histograms found for {sample}, skipping file creation')
+                    continue
+
+                fOut = os.path.join(outDir, sample+'.root')
+                f = TFile(fOut, 'RECREATE')
+                for hist in hists:
+                    hist.Write()
+                f.Close()
+                print(f'----->[Info] Saved histograms in {fOut}\n')
+
+if __name__=='__main__':
+    run(cats, sels, hNames, samples)
+    timer(t)
