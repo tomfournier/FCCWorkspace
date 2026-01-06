@@ -1,161 +1,126 @@
-import time, ROOT
+'''Core configuration for the FCC-ee ZH cross-section analysis.
 
-z_decays = ['bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu']
-h_decays = ['bb', 'cc', 'gg', 'ss', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa']
-H_decays = ['bb', 'cc', 'gg', 'ss', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa', 'inv']
-quarks   = ['bb', 'cc', 'ss', 'qq']
+Provides:
+- Feature set for BDT training: `input_vars`.
+- Decay mode enumerations: `Z_DECAYS`, `H_DECAYS`, `H_DECAYS_WITH_INV`, `QUARKS`
+    plus lowercase aliases for backward compatibility.
+- Color palettes for ROOT and matplotlib: `colors`, `h_colors`, `modes_color`.
+- Physics and axis labels (ROOT TLatex and LaTeX): `labels`, `h_labels`,
+    `vars_label`, `vars_xlabel`, `modes_label`.
+- Process builders for sample names: `mk_processes()` with cached defaults
+    via `_default_processes()` and helpers `_build_processes()` and `_as_tuple()`.
+- Small utilities: `warning()` for formatted exceptions and `timer()` for
+    pretty end-of-code timing output.
 
-h_labels = {
-    'bb': 'H#rightarrowb#bar{b}', 
-    'cc': 'H#rightarrowc#bar{c}', 
-    'ss': 'H#rightarrows#bar{s}', 
-    'gg': 'H#rightarrowgg', 
-    'mumu': 'H#rightarrow#mu^{#plus}#mu^{#minus}', 
-    'tautau': 'H#rightarrow#tau^{#plus}#tau^{#minus}', 
-    'ZZ': 'H#rightarrowZZ*', 
-    'WW': 'H#rightarrowWW*', 
-    'Za': 'H#rightarrowZ#gamma', 
-    'aa': 'H#rightarrow#gamma#gamma', 
-    'inv': 'H#rightarrowInv'
-}
+Conventions:
+- Process naming follows FCC patterns, e.g. ``wzp6_ee_{z}H_H{h}_ecm{ecm}``,
+    ``p8_ee_WW_ecm{ecm}``.
+- Labels use ROOT TLatex syntax where applicable.
+- Units are appended in `vars_xlabel` (e.g., GeV, GeV^2).
 
-h_colors = {
-    'bb': ROOT.kViolet, 
-    'cc': ROOT.kBlue , 
-    'ss': ROOT.kRed, 
-    'gg': ROOT.kGreen+1,
-    'mumu': ROOT.kOrange, 
-    'tautau': ROOT.kCyan, 
-    'ZZ': ROOT.kGray, 
-    'WW': ROOT.kGray+2, 
-    'Za': ROOT.kGreen+2, 
-    'aa': ROOT.kRed+2, 
-    'inv': ROOT.kBlue+2
-}
+Usage:
+- Construct process maps for an energy with optional filtering:
+    ``mk_processes(procs=['ZH','WW'], ecm=365)``.
+'''
 
-labels = {
-    'ZH'     : 'ZH',
-    'ZmumuH' : 'Z(#mu^{+}#mu^{#minus})H',
-    'ZeeH'   : 'Z(e^{+}e^{#minus})H',
-    'ZqqH'   : 'Z(q#bar{q})H',
+####################################
+### IMPORT MODULES AND FUNCTIONS ###
+####################################
 
-    'zh'     : 'ZH',
-    'zmumuh' : 'Z(#mu^{+}#mu^{#minus})H',
-    'zeeh'   : 'Z(e^{+}e^{#minus})H',
-    'zqqh'   : 'Z(q#bar{q})H',
+import ROOT
+from time import time
+from functools import lru_cache
+from typing import Sequence, Union
 
-    'WW'     : 'W^{+}W^{-}',
-    'ZZ'     : 'ZZ',
-    'Zgamma' : 'Z/#gamma^{*} #rightarrow f#bar{f}+#gamma(#gamma)',
-    'Rare'   : 'Rare'
-}
 
-# colors from https://github.com/mpetroff/accessible-color-cycles
-colors = {
-    'ZH'       : ROOT.TColor.GetColor('#e42536'),
-    'ZqqH'     : ROOT.TColor.GetColor('#e42536'),
-    'ZmumuH'   : ROOT.TColor.GetColor('#e42536'),
-    'ZnunuH'   : ROOT.TColor.GetColor('#e42536'),
-    'ZeeH'     : ROOT.TColor.GetColor('#e42536'),
-    
-    'zh'       : ROOT.TColor.GetColor('#e42536'),
-    'zqqh'     : ROOT.TColor.GetColor('#e42536'),
-    'zmumuh'   : ROOT.TColor.GetColor('#e42536'),
-    'znunuh'   : ROOT.TColor.GetColor('#e42536'),
-    'zeeh'     : ROOT.TColor.GetColor('#e42536'),
-
-    'WW'       : ROOT.TColor.GetColor('#f89c20'),
-    'ZZ'       : ROOT.TColor.GetColor('#5790fc'),
-    'Zgamma'   : ROOT.TColor.GetColor('#964a8b'),
-    'Zqqgamma' : ROOT.TColor.GetColor('#964a8b'),
-    'Rare'     : ROOT.TColor.GetColor('#9c9ca1')
-}
 
 #############################
 ##### VARIABLES FOR BDT #####
 #############################
 
-#First stage BDT including event-level vars
-vars = [
-    'leading_p', 'leading_theta', 'subleading_p', 'subleading_theta',
-    'acolinearity', 'acoplanarity', 'zll_m', 'zll_p', 'zll_theta'
-]
+# Tuple of kinematic variables used as input features for BDT training
+input_vars = (
+    'leading_p',    'leading_theta', 
+    'subleading_p', 'subleading_theta',
+    'acolinearity', 'acoplanarity', 
+    'zll_m', 'zll_p', 'zll_theta'
+)
 
-# Latex mapping for importance plot
-vars_label = {
-    'leading_p':        r'$p_{\ell,leading}$',
-    'leading_theta':    r'$\theta_{\ell,leading}$',
-    'leading_phi':      r'$\phi_{\ell, leading}$',
 
-    'subleading_p':     r'$p_{\ell,subleading}$',
-    'subleading_theta': r'$\theta_{\ell,subleading}$',
-    'subleading_phi':   r'$\phi_{\ell, subleading}$',
-    
-    'acolinearity':     r'$\Delta\theta_{\ell^{+}\ell^{-}}$',
-    'acoplanarity':     r'$\pi - \Delta\phi_{\ell^{+}\ell^{-}}$',
-    'zll_deltaR':       r'$\Delta R$',
 
-    'zll_m':            r'$m_{\ell^{+}\ell^{-}}$',
-    'zll_p':            r'$p_{\ell^{+}\ell^{-}}$',
-    'zll_theta':        r'$\theta_{\ell^{+}\ell^{+}}$',
-    'zll_phi':          r'$\phi_{\ell^{+}\ell^{-}}$',
+##########################
+### Z AND HIGGS DECAYS ###
+##########################
 
-    'zll_recoil_m':     r'$m_{recoil}$',
-    'cosTheta_miss':    r'$\cos\theta_{miss}$',
+# Standard Z boson decay modes
+Z_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu')
 
-    'visibleEnergy':    r'$E_{vis}$',
-    'missingMass':      r'$m_{miss}$',
-    
-    'H':                r'$H$',
-    'BDTscore':         r'BDT Score'
+# Standard Higgs boson decay modes
+H_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa')
+
+# Higgs decay modes including invisible decays
+H_DECAYS_WITH_INV: tuple[str, ...] = H_DECAYS + ('inv',)
+
+# Quark decay channels
+QUARKS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq')
+
+# Lowercase aliases for backward compatibility
+z_decays = Z_DECAYS
+h_decays = H_DECAYS
+H_decays = H_DECAYS_WITH_INV
+quarks = QUARKS
+
+
+
+#######################
+### PROCESSES COLOR ###
+#######################
+
+# ROOT color definitions for main physics processes
+ZH_COLOR = ROOT.TColor.GetColor('#e42536')    # Red for ZH signal
+WW_COLOR = ROOT.TColor.GetColor('#f89c20')    # Orange for WW background
+ZZ_COLOR = ROOT.TColor.GetColor('#5790fc')    # Blue for ZZ background
+ZG_COLOR = ROOT.TColor.GetColor('#964a8b')    # Purple for Z/gamma
+RARE_COLOR = ROOT.TColor.GetColor('#9c9ca1')  # Gray for rare processes
+
+# Color mapping for Higgs decay channels (ROOT colors)
+h_colors = {
+    'bb'     : ROOT.kViolet, 
+    'cc'     : ROOT.kBlue , 
+    'ss'     : ROOT.kRed, 
+    'gg'     : ROOT.kGreen+1,
+    'mumu'   : ROOT.kOrange, 
+    'tautau' : ROOT.kCyan, 
+    'ZZ'     : ROOT.kGray, 
+    'WW'     : ROOT.kGray+2, 
+    'Za'     : ROOT.kGreen+2, 
+    'aa'     : ROOT.kRed+2, 
+    'inv'    : ROOT.kBlue+2
 }
 
-# Latex mapping for histcheck plot
-vars_xlabel = {
-    'leading_p':        r'$p_{\ell,leading}$ [GeV]',
-    'leading_theta':    r'$\theta_{\ell,leading}$',
-    'leading_phi':      r'$\phi_{\ell, leading}$',
+# Color mapping for physics processes
+# colors from https://github.com/mpetroff/accessible-color-cycles
+colors = {
+    'ZH'       : ZH_COLOR,
+    'ZeeH'     : ZH_COLOR,
+    'ZmumuH'   : ZH_COLOR,
+    'ZqqH'     : ZH_COLOR,
+    'ZnunuH'   : ZH_COLOR,
     
-    'subleading_p':     r'$p_{\ell,subleading}$ [GeV]',
-    'subleading_theta': r'$\theta_{\ell,subleading}$',
-    'subleading_phi':   r'$\phi_{\ell, subleading}$',
-    
-    'acolinearity':     r'$\Delta\theta_{\ell^{+}\ell^{-}}$',
-    'acoplanarity':     r'$\pi - \Delta\phi_{\ell^{+}\ell^{-}}$',
-    'zll_deltaR':       r'$\Delta R$',
+    'zh'       : ZH_COLOR,
+    'zeeh'     : ZH_COLOR,
+    'zmumuh'   : ZH_COLOR,
+    'zqqh'     : ZH_COLOR,
+    'znunuh'   : ZH_COLOR,
 
-    'zll_m':            r'$m_{\ell^{+}\ell^{-}}$ [GeV]',
-    'zll_p':            r'$p_{\ell^{+}\ell^{-}}$ [GeV]',
-    'zll_theta':        r'$\theta_{\ell^{+}\ell^{-}}$',
-    'zll_phi':          r'$\phi_{\ell^{+}\ell^{-}}$',
-    
-    'zll_recoil_m':     r'$m_{recoil}$ [GeV]',
-    
-    'cosTheta_miss':    r'$\cos\theta_{miss}$',
-    'visibleEnergy':    r'$E_{vis}$ [GeV]',
-    'missingMass':      r'$m_{miss}$ [GeV]',
-
-    'H':                r'$H$ [GeV$^{2}$]',
-    'BDTscore':         r'BDT Score'
+    'WW'       : WW_COLOR,
+    'ZZ'       : ZZ_COLOR,
+    'Zgamma'   : ZG_COLOR,
+    'Zqqgamma' : ZG_COLOR,
+    'Rare'     : RARE_COLOR
 }
 
-modes_label = {
-    f'ZmumuH':      r'$e^+e^-\rightarrow Z(\mu^+\mu^-)H$',
-    f'ZZ':          r'$e^+e^-\rightarrow ZZ$', 
-    f'Zmumu':       r'$e^+e^-\rightarrow Z/\gamma^{*}\rightarrow\mu^+\mu^-$',
-    f'WWmumu':      r'$e^+e^-\rightarrow W^{+}W^{-}[\nu_{\mu}\mu]$',
-    f'egamma_mumu': r'$e^-\gamma\rightarrow e^-Z(\mu^+\mu^-)$',
-    f'gammae_mumu': r'$e^+\gamma\rightarrow e^+Z(\mu^+\mu^-)$',
-    f'gaga_mumu':   r'$\gamma\gamma\rightarrow\mu^+\mu^-$',
-    
-    f'ZeeH':        r'$e^+e^-\rightarrow Z(e^+e^-)H$',
-    f'Zee':         r'$e^+e^-\rightarrow Z/\gamma^{*}\rightarrow e^+e^-$',
-    f'WWee':        r'$e^+e^-\rightarrow W^{+}W^{-}[\nu_{e}e]$',
-    f'egamma_ee':   r'$e^-\gamma\rightarrow e^-Z(e^+e^-)$',
-    f'gammae_ee':   r'$e^+\gamma\rightarrow e^+Z(e^+e^-)$',
-    f'gaga_ee':     r'$\gamma\gamma\rightarrow e^+e^-$'
-}
-
+# Matplotlib tab colors for different analysis modes by channel
 modes_color = {
     f'ZmumuH':      'tab:blue',
     f'ZZ':          'tab:orange',
@@ -173,30 +138,153 @@ modes_color = {
     f'gaga_ee':     'tab:pink'
 }
 
+
+
+#######################
+### PROCESSES LABEL ###
+#######################
+
+# ROOT TLatex labels for Higgs decay modes
+h_labels = {
+    'bb'     : 'H#rightarrowb#bar{b}', 
+    'cc'     : 'H#rightarrowc#bar{c}', 
+    'ss'     : 'H#rightarrows#bar{s}', 
+    'gg'     : 'H#rightarrowgg', 
+    'mumu'   : 'H#rightarrow#mu^{#plus}#mu^{#minus}', 
+    'tautau' : 'H#rightarrow#tau^{#plus}#tau^{#minus}', 
+    'ZZ'     : 'H#rightarrowZZ*', 
+    'WW'     : 'H#rightarrowWW*', 
+    'Za'     : 'H#rightarrowZ#gamma', 
+    'aa'     : 'H#rightarrow#gamma#gamma', 
+    'inv'    : 'H#rightarrowInv'
+}
+
+# ROOT TLatex labels for main physics processes
+labels = {
+    'ZH'     : 'ZH',
+    'ZmumuH' : 'Z(#mu^{+}#mu^{#minus})H',
+    'ZeeH'   : 'Z(e^{+}e^{#minus})H',
+    'ZqqH'   : 'Z(q#bar{q})H',
+
+    'zh'     : 'ZH',
+    'zmumuh' : 'Z(#mu^{+}#mu^{#minus})H',
+    'zeeh'   : 'Z(e^{+}e^{#minus})H',
+    'zqqh'   : 'Z(q#bar{q})H',
+
+    'WW'     : 'W^{+}W^{-}',
+    'ZZ'     : 'ZZ',
+    'Zgamma' : 'Z/#gamma^{*} #rightarrow f#bar{f}+#gamma(#gamma)',
+    'Rare'   : 'Rare'
+}
+
+# LaTeX labels for kinematic variables (used in matplotlib importance plots)
+vars_label = {
+    'leading_p':        r'$p_{\ell,leading}$',
+    'leading_theta':    r'$\theta_{\ell,leading}$',
+    'leading_phi':      r'$\phi_{\ell, leading}$',
+
+    'subleading_p':     r'$p_{\ell,subleading}$',
+    'subleading_theta': r'$\theta_{\ell,subleading}$',
+    'subleading_phi':   r'$\phi_{\ell, subleading}$',
+    
+    'acolinearity':     r'$\Delta\theta_{\ell^{+}\ell^{-}}$',
+    'acoplanarity':     r'$\pi - \Delta\phi_{\ell^{+}\ell^{-}}$',
+    'deltaR':           r'$\Delta R$',
+
+    'zll_m':            r'$m_{\ell^{+}\ell^{-}}$',
+    'zll_p':            r'$p_{\ell^{+}\ell^{-}}$',
+    'zll_theta':        r'$\theta_{\ell^{+}\ell^{+}}$',
+    'zll_phi':          r'$\phi_{\ell^{+}\ell^{-}}$',
+
+    'zll_recoil_m':     r'$m_{recoil}$',
+    'cosTheta_miss':    r'$\cos\theta_{miss}$',
+
+    'visibleEnergy':    r'$E_{vis}$',
+    'missingMass':      r'$m_{miss}$',
+    
+    'H':                r'$H$',
+    'BDTscore':         r'BDT Score'
+}
+
+# LaTeX x-axis labels with units (used in histogram plots)
+vars_xlabel = vars_label.copy()
+for v in ['leading_p', 'subleading_p', 'zll_m', 'zll_p', 'zll_recoil_m', 'visibleEnergy', 'missingMass']:
+    vars_xlabel[v] += ' [GeV]'
+vars_xlabel['H'] += ' [GeV$^{2}$]'
+
+# LaTeX labels for analysis modes (physics processes)
+modes_label = {
+    f'ZmumuH':      r'$e^+e^-\rightarrow Z(\mu^+\mu^-)H$',
+    f'ZZ':          r'$e^+e^-\rightarrow ZZ$', 
+    f'Zmumu':       r'$e^+e^-\rightarrow Z/\gamma^{*}\rightarrow\mu^+\mu^-$',
+    f'WWmumu':      r'$e^+e^-\rightarrow W^{+}W^{-}[\nu_{\mu}\mu]$',
+    f'egamma_mumu': r'$e^-\gamma\rightarrow e^-Z(\mu^+\mu^-)$',
+    f'gammae_mumu': r'$e^+\gamma\rightarrow e^+Z(\mu^+\mu^-)$',
+    f'gaga_mumu':   r'$\gamma\gamma\rightarrow\mu^+\mu^-$',
+    
+    f'ZeeH':        r'$e^+e^-\rightarrow Z(e^+e^-)H$',
+    f'Zee':         r'$e^+e^-\rightarrow Z/\gamma^{*}\rightarrow e^+e^-$',
+    f'WWee':        r'$e^+e^-\rightarrow W^{+}W^{-}[\nu_{e}e]$',
+    f'egamma_ee':   r'$e^-\gamma\rightarrow e^-Z(e^+e^-)$',
+    f'gammae_ee':   r'$e^+\gamma\rightarrow e^+Z(e^+e^-)$',
+    f'gaga_ee':     r'$\gamma\gamma\rightarrow e^+e^-$'
+}
+
+
+
+########################
+### CONFIG FUNCTIONS ###
+########################
+
 #______________________________
 def warning(log_msg: str, 
             lenght: int = -1, 
             abort_msg: str = ''
             ) -> None:
+    '''Print formatted error message and raise exception.
+    
+    Args:
+        log_msg: Error message to display.
+        lenght: Width of the message box. Auto-calculated if -1.
+        abort_msg: Header text for the error box. Defaults to ' ERROR CODE '.
+        
+    Raises:
+        Exception: Always raised with formatted error message.
+    '''
     if not abort_msg:
         abort_msg = ' ERROR CODE '
+    # Auto-calculate box width if not specified
     if lenght==-1:
         if len(log_msg) < len(abort_msg) + 6:
             lenght = len(abort_msg) + 6
         else:
             lenght = len(log_msg) + 6
+
+    # Format and raise exception
     msg =  f'\n{abort_msg:=^{lenght}}\n'
     msg += f'{log_msg:^{lenght}}\n'
     sep = '=' * lenght
     msg += f'{sep:^{lenght}}\n'
     raise Exception(msg)
 
-#___________________________
-def timer(t: float) -> None:
-    dt = time.time() - t
+#___________________
+def timer(t: float
+          ) -> None:
+    '''Print formatted elapsed time since timestamp.
+    
+    Calculates and displays elapsed time in human-readable format (hours, minutes,
+    seconds, milliseconds) since the provided timestamp.
+    
+    Args:
+        t: Starting timestamp from time.time().
+    '''
+    dt = time() - t
+
+    # Split time into components
     h, m  = int(dt // 3600), int(dt // 60 % 60), 
     s, ms = int(dt % 60), int((dt % 1) * 1000) 
 
+    # Build time string with non-zero components
     time_parts = []
     if h>0:
         time_parts.append(f'{h} h')
@@ -206,59 +294,152 @@ def timer(t: float) -> None:
         time_parts.append(f'{s} s')
     if ms>0:
         time_parts.append(f'{ms} ms')
+    if not time_parts:
+        time_parts.append('0 ms')
 
-    full_time = ' '.join(time_parts)
-
-    header = ' CODE ENDED '
-    elapsed = f'Elapsed time: {full_time}'
-
+    elapsed = f"Elapsed time: {' '.join(time_parts)}"
     lenght = len(elapsed) + 4
-    sep = lenght * '='
 
-    print(f'\n{header:=^{lenght}}\n{elapsed:^{lenght}}\n{sep}\n')
+    print(f'\n{" CODE ENDED ":=^{lenght}}\n{elapsed:^{lenght}}\n{"="*lenght}\n')
 
-#____________________________________________
-def mk_processes(procs:    list[str] = [],
-                 z_decays: list[str] = z_decays, 
-                 h_decays: list[str] = h_decays, 
-                 H_decays: list[str] = H_decays, 
-                 quarks:   list[str] = quarks,
-                 ecm: int = 240
-                 ) -> dict[str, list[str]]:
-    processes = {
-        'ZH'        : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_decays 
-                                                      for y in h_decays],
-        'ZmumuH'    : [f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_decays],
-        'ZeeH'      : [f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_decays],
-        'ZqqH'      : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in quarks
-                                                      for y in h_decays],
 
-        # Include H -> Inv decay
-        'zh'        : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_decays 
-                                                      for y in H_decays],
-        'zmumuh'    : [f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in H_decays],
-        'zeeh'      : [f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in H_decays],
-        'zqqh'      : [f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in quarks
-                                                      for y in H_decays],
+
+##########################
+### PROCESSES FUNCTION ###
+##########################
+
+def _as_tuple(seq: Union[Sequence[str], None], 
+              fallback: tuple[str, ...]
+              ) -> tuple[str, ...]:
+    '''Convert sequence to tuple or return fallback if None.
+    
+    Args:
+        seq: Input sequence to convert, or None.
+        fallback: Default tuple to use if seq is None.
         
+    Returns:
+        Tuple from seq if provided, otherwise fallback.
+    '''
+    return tuple(seq) if seq is not None else fallback
 
-        'WW'        : [f'p8_ee_WW_ecm{ecm}', 
-                       f'p8_ee_WW_mumu_ecm{ecm}', 
-                       f'p8_ee_WW_ee_ecm{ecm}'],
+def _build_processes(z_set: tuple[str, ...],
+                     h_set: tuple[str, ...],
+                     H_set: tuple[str, ...],
+                     q_set: tuple[str, ...],
+                     ecm: int) -> dict[str, 
+                                       tuple[str, ...]]:
+    '''Build process name dictionary from decay modes and center-of-mass energy.
+    
+    Constructs full process names following the FCC naming convention by combining
+    Z decays, Higgs decays, and center-of-mass energy.
+    
+    Args:
+        z_set: Z boson decay modes.
+        h_set: Higgs decay modes (without invisible).
+        H_set: Higgs decay modes (with invisible).
+        q_set: Quark decay channels.
+        ecm: Center-of-mass energy in GeV.
+        
+    Returns:
+        Dictionary mapping process keys to tuples of full process names.
+    '''
+    return {
+        'ZH':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set 
+                                                       for y in h_set),
+        'ZeeH':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_set),
+        'ZmumuH': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_set),
+        'ZqqH':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set 
+                                                       for y in h_set),
 
-        'ZZ'        : [f'p8_ee_ZZ_ecm{ecm}'],
+        # Lowercase variants include H -> Inv decay
+        'zh':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set 
+                                                       for y in H_set),
+        'zeeh':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in H_set),
+        'zmumuh': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in H_set),
+        'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set 
+                                                       for y in H_set),
 
-        'Zgamma'    : [f'wzp6_ee_tautau_ecm{ecm}', 
-                       f'wzp6_ee_mumu_ecm{ecm}',
-                       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'],
-
-        'Rare'      : [f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', f'wzp6_gammae_eZ_Zmumu_ecm{ecm}', 
-                       f'wzp6_gammae_eZ_Zee_ecm{ecm}',   f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
-                       f'wzp6_gaga_ee_60_ecm{ecm}',      f'wzp6_gaga_mumu_60_ecm{ecm}', 
-                       f'wzp6_gaga_tautau_60_ecm{ecm}',  f'wzp6_ee_nuenueZ_ecm{ecm}'],
+        'WW': (
+            f'p8_ee_WW_ecm{ecm}',
+            f'p8_ee_WW_mumu_ecm{ecm}',
+            f'p8_ee_WW_ee_ecm{ecm}',
+        ),
+        'ZZ': (f'p8_ee_ZZ_ecm{ecm}',),
+        'Zgamma': (
+            f'wzp6_ee_tautau_ecm{ecm}',
+            f'wzp6_ee_mumu_ecm{ecm}',
+            f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+        ),
+        'Rare': (
+            f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
+            f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
+            f'wzp6_gammae_eZ_Zee_ecm{ecm}',
+            f'wzp6_egamma_eZ_Zee_ecm{ecm}',
+            f'wzp6_gaga_ee_60_ecm{ecm}',
+            f'wzp6_gaga_mumu_60_ecm{ecm}',
+            f'wzp6_gaga_tautau_60_ecm{ecm}',
+            f'wzp6_ee_nuenueZ_ecm{ecm}',
+        ),
     }
+
+@lru_cache(maxsize=None)
+def _default_processes(ecm: int) -> dict[str, 
+                                         tuple[str, ...]]:
+    '''Generate default process dictionary with standard decay modes (cached).
+    
+    Uses default Z_DECAYS, H_DECAYS, H_DECAYS_WITH_INV, and QUARKS.
+    Results are cached for performance.
+    
+    Args:
+        ecm: Center-of-mass energy in GeV.
+        
+    Returns:
+        Dictionary of process names with default decay modes.
+    '''
+    return _build_processes(Z_DECAYS, H_DECAYS, H_DECAYS_WITH_INV, QUARKS, ecm)
+
+#____________________________________________________________
+def mk_processes(procs:    Union[Sequence[str], None] = None,
+                 z_decays: Union[Sequence[str], None] = None, 
+                 h_decays: Union[Sequence[str], None] = None, 
+                 H_decays: Union[Sequence[str], None] = None, 
+                 quarks:   Union[Sequence[str], None] = None,
+                 ecm: int = 240
+                 ) -> dict[str, 
+                           tuple[str, ...]]:
+    '''Generate process dictionary with optional filtering and custom decay modes.
+    
+    Creates a dictionary mapping process keys to full process names. Can use default
+    decay modes or custom ones. Optionally filters to specific processes.
+    
+    Args:
+        procs: Process keys to include. If None, returns all processes.
+        z_decays: Z decay modes. Uses Z_DECAYS if None.
+        h_decays: Higgs decay modes (without invisible). Uses H_DECAYS if None.
+        H_decays: Higgs decay modes (with invisible). Uses H_DECAYS_WITH_INV if None.
+        quarks: Quark channels. Uses QUARKS if None.
+        ecm: Center-of-mass energy in GeV. Default is 240.
+        
+    Returns:
+        Dictionary mapping process keys to tuples of full process names.
+        
+    Examples:
+        >>> mk_processes()  # All processes with default decays
+        >>> mk_processes(procs=['ZH', 'WW'], ecm=365)  # Specific processes
+        >>> mk_processes(h_decays=['bb', 'cc'])  # Custom Higgs decays
+    '''
+    # Use cached defaults if all decay mode parameters are None
+    use_defaults = all(val is None for val in (z_decays, h_decays, H_decays, quarks))
+    processes = _default_processes(ecm) if use_defaults else _build_processes(
+        _as_tuple(z_decays, Z_DECAYS),
+        _as_tuple(h_decays, H_DECAYS),
+        _as_tuple(H_decays, H_DECAYS_WITH_INV),
+        _as_tuple(quarks, QUARKS),
+        ecm
+    )
+    # Filter to requested processes if specified
     if procs:
-        new_processes = {proc: processes[proc] for proc in procs if proc in processes}
-        return new_processes
+        requested = tuple(procs)
+        return {proc: processes[proc] for proc in requested if proc in processes}
     return processes
             

@@ -1,5 +1,35 @@
-import os, sys, uproot
-from glob import glob
+'''User-facing configuration for the ZH cross-section analysis.
+
+Provides:
+- Global parameters: `plot_file`, `frac`, `nb`, `ww`, `ecm`, `lumi`.
+- Storage toggle and repo discovery via `eos` and `repo`.
+- Centralized filesystem layout under `loc` with template paths that use
+    placeholders: `cat` (category like 'ee' or 'mumu'), `ecm` (GeV),
+    `sel` (selection name, e.g. 'Baseline').
+- Small utilities to work with the layout and imports.
+
+Conventions:
+- `lumi` is in ab^-1 (10.8 at 240 GeV; 3.1 at 365 GeV).
+- Path templates in `loc` are expanded with `get_loc()` by replacing
+    `cat`, `ecm`, and `sel`.
+- Event files are ROOT files containing a TTree named 'events'.
+
+Helpers:
+- `get_loc(path, cat, ecm, sel)`: Expand a `loc` template into a concrete path.
+- `event(procs, path='', end='.root')`: Keep processes whose files/directories
+    all contain an 'events' TTree (supports single-file and multi-file layouts).
+- `add_package_path(names)`: Append one or more directories to `sys.path`.
+
+Notes:
+- When `eos=True`, `repo` is resolved from the current working directory; a
+    warning is printed if 'xsec' is not in the path.
+'''
+
+####################################
+### IMPORT MODULES AND FUNCTIONS ###
+####################################
+
+import os
 from typing import Union
 
 
@@ -8,14 +38,21 @@ from typing import Union
 ##### PARAMETERS #####
 ######################
 
-plot_file, fitting = ['png'], False
+# Output plot file formats
+plot_file = ['png']
+
+# Data processing parameters: 
+# fraction of data to use, number of chunks
 frac, nb  = 1, 10
-inv, ww   = True, False
 
-# Precaution to not have the two variables set to True
-if inv and ww: ww = False 
+# WW process flag
+ww = True
 
-ecm, lumi = 240, 10.8
+# Center-of-mass energy in GeV
+cat, ecm = 'mumu', 365
+
+# Integrated luminosity in ab-1 (10.8 for 240 GeV, 3.1 for 365 GeV)
+lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
 
 
 
@@ -23,111 +60,139 @@ ecm, lumi = 240, 10.8
 ##### LOCATION OF FILES #####
 #############################
 
+# Toggle between EOS and AFS storage
 eos = True
-if eos: repo = os.path.abspath(".")
-# example: "/eos/user/t/tofourni/public/FCC/FCCWorkspace/"
+if eos: repo = os.path.abspath('.')
+# example: '/eos/user/t/tofourni/FCC/FCCWorkspace/analysis/ZH/xsec'
 else: repo = os.getenv('PWD')
-# example: "/afs/cern.ch/user/t/tofourni/eos/public/FCC/FCCWorkspace"
+# example: '/afs/cern.ch/user/t/tofourni/eos/FCC/FCCWorkspace/analysis/ZH/xsec'
 
-if   "xsec"             not in repo: repo = repo+"/xsec"
-elif "ZH/xsec"          not in repo: repo = repo+"/ZH/xsec"
-elif "analysis/ZH/xsec" not in repo: repo = repo+"/analysis/ZH/xsec"
+if not 'xsec' in repo:
+    print('WARNING: You are not executing the script from the good directory')
 
 class loc : pass
 # Location of the root folder
 loc.ROOT               = repo
 
 # Location of primary folders
-loc.PACKAGE            = f"{loc.ROOT}/package"
-loc.OUT                = f"{loc.ROOT}/output"
-loc.PLOTS              = f"{loc.OUT}/plots"
-loc.DATA               = f"{loc.OUT}/data"
-loc.TMP                = f"{loc.OUT}/tmp"
+loc.PACKAGE            = f'{loc.ROOT}/package'
+loc.OUT                = f'{loc.ROOT}/output'
+loc.PLOTS              = f'{loc.OUT}/plots'
+loc.DATA               = f'{loc.OUT}/data'
+loc.TMP                = f'{loc.OUT}/tmp'
 
 # Location of files needed for configuration
-loc.JSON               = f"{loc.TMP}/config_json"
+loc.JSON               = f'{loc.TMP}/config_json'
+loc.RUN                = f'{loc.JSON}/run'
 
 # Location of events
-loc.EVENTS             = f"{loc.DATA}/events/ecm/cat/full/analysis"
-loc.EVENTS_TRAINING    = f"{loc.DATA}/events/ecm/cat/full/training"
-loc.EVENTS_TEST        = f"{loc.DATA}/events/ecm/cat/test"
+loc.EVENTS             = f'{loc.DATA}/events/ecm/cat/full/analysis'
+loc.EVENTS_TRAINING    = f'{loc.DATA}/events/ecm/cat/full/training'
+loc.EVENTS_TEST        = f'{loc.DATA}/events/ecm/cat/test'
 
 # Location of MVA related files
-loc.MVA                = f"{loc.DATA}/MVA"
-loc.MVA_INPUTS         = f"{loc.MVA}/ecm/cat/sel/MVAInputs"
-loc.BDT                = f"{loc.MVA}/ecm/cat/sel/BDT"
+loc.MVA                = f'{loc.DATA}/MVA'
+loc.MVA_INPUTS         = f'{loc.MVA}/ecm/cat/sel/MVAInputs'
+loc.BDT                = f'{loc.MVA}/ecm/cat/sel/BDT'
 
 # Location of histograms
-loc.HIST               = f"{loc.DATA}/histograms"
+loc.HIST               = f'{loc.DATA}/histograms'
 
-loc.HIST_MVA           = f"{loc.HIST}/MVAInputs/ecm/cat/"
-loc.HIST_PREPROCESSED  = f"{loc.HIST}/preprocessed/ecm/cat"
-loc.HIST_PROCESSED     = f"{loc.HIST}/processed/ecm/cat/sel"
+loc.HIST_MVA           = f'{loc.HIST}/MVAInputs/ecm/cat/'
+loc.HIST_PREPROCESSED  = f'{loc.HIST}/preprocessed/ecm/cat'
+loc.HIST_PROCESSED     = f'{loc.HIST}/processed/ecm/cat/sel'
 
 # Location of plots
-loc.PLOTS_MVA          = f"{loc.PLOTS}/MVAInputs/ecm/cat"
-loc.PLOTS_BDT          = f"{loc.PLOTS}/evaluation/ecm/cat/sel"
-loc.PLOTS_MEASUREMENT  = f"{loc.PLOTS}/measurement/ecm/cat"
+loc.PLOTS_MVA          = f'{loc.PLOTS}/MVAInputs/ecm/cat'
+loc.PLOTS_BDT          = f'{loc.PLOTS}/evaluation/ecm/cat/sel'
+loc.PLOTS_MEASUREMENT  = f'{loc.PLOTS}/measurement/ecm/cat'
 
 # Location of combine files
-loc.COMBINE            = f"{loc.DATA}/combine/sel/ecm/cat"
+loc.COMBINE            = f'{loc.DATA}/combine/sel/ecm/cat'
 
-loc.COMBINE_NOMINAL    = f"{loc.COMBINE}/nominal"
-loc.COMBINE_BIAS       = f"{loc.COMBINE}/bias"
+loc.COMBINE_NOMINAL    = f'{loc.COMBINE}/nominal'
+loc.COMBINE_BIAS       = f'{loc.COMBINE}/bias'
 
 # Location of combine files when doing nominal fit
-loc.NOMINAL_LOG        = f"{loc.COMBINE_NOMINAL}/log" 
-loc.NOMINAL_RESULT     = f"{loc.COMBINE_NOMINAL}/results"
-loc.NOMINAL_DATACARD   = f"{loc.COMBINE_NOMINAL}/datacard"
-loc.NOMINAL_WS         = f"{loc.COMBINE_NOMINAL}/WS"
+loc.NOMINAL_LOG        = f'{loc.COMBINE_NOMINAL}/log' 
+loc.NOMINAL_RESULT     = f'{loc.COMBINE_NOMINAL}/results'
+loc.NOMINAL_DATACARD   = f'{loc.COMBINE_NOMINAL}/datacard'
+loc.NOMINAL_WS         = f'{loc.COMBINE_NOMINAL}/WS'
 
 # Location of combine files when doing bias test
-loc.BIAS_LOG           = f"{loc.COMBINE_BIAS}/log" 
-loc.BIAS_FIT_RESULT    = f"{loc.COMBINE_BIAS}/results/fit"
-loc.BIAS_RESULT        = f"{loc.COMBINE_BIAS}/results/bias"
-loc.BIAS_DATACARD      = f"{loc.COMBINE_BIAS}/datacard"
-loc.BIAS_WS            = f"{loc.COMBINE_BIAS}/WS"
+loc.BIAS_LOG           = f'{loc.COMBINE_BIAS}/log' 
+loc.BIAS_FIT_RESULT    = f'{loc.COMBINE_BIAS}/results/fit'
+loc.BIAS_RESULT        = f'{loc.COMBINE_BIAS}/results/bias'
+loc.BIAS_DATACARD      = f'{loc.COMBINE_BIAS}/datacard'
+loc.BIAS_WS            = f'{loc.COMBINE_BIAS}/WS'
 
 
 
-#########################################
-##### FUNCTIONS TO EXTRACT THE PATH #####
-#########################################
+#################
+### FUNCTIONS ###
+#################
 
-def get_loc(path: str, cat: str , ecm: int, sel: str) -> str:
-    path = path.replace('cat', cat)
-    path = path.replace('ecm', str(ecm))
-    path = path.replace('sel', sel)
-    return path
+#_____________________
+def get_loc(path: str, 
+            cat: str, 
+            ecm: int, 
+            sel: str
+            ) -> str:
+    '''Replace placeholders in path template with actual values.
+    
+    Args:
+        path: Path template containing 'cat', 'ecm', 'sel' placeholders
+        cat: Category name (e.g., 'ee', 'mumu')
+        ecm: Center-of-mass energy in GeV
+        sel: Selection name (e.g., 'Baseline')
+    
+    Returns:
+        Path with substituted values
+    '''
+    return path.replace('cat', cat).replace('ecm', str(ecm)).replace('sel', sel)
 
-def event(procs: list, path: str = '', end='.root') -> list:
+#___________________________
+def event(procs: list[str], 
+          path: str = '', 
+          end: str = '.root'
+          ) -> list[str]:
+    '''Filter processes that contain valid ROOT event trees.
+    
+    Args:
+        procs: List of process names to validate
+        path: Base path where process files are located
+        end: File extension (default: '.root')
+    
+    Returns:
+        List of valid process names with 'events' TTree
+    '''
+    import uproot
+    from glob import glob
+
     newprocs = []
     for proc in procs:
-        if os.path.exists(f'{path}{proc}{end}'):
-            filenames = [f'{path}{proc}{end}']
-        else:
-            filenames = glob(f'{path}{proc}/*')
-        isTTree = []
-        for i, filename in enumerate(filenames):
-            file = uproot.open(filename)
-            if 'events' in file:
-                isTTree.append(i)
+        file = os.path.join(path, proc)
+        # Check for single file or directory with multiple files
+        filenames = [f'{file}{end}'] \
+            if os.path.exists(f'{file}{end}') \
+            else glob(f'{file}/*')
+        
+        # Verify all files contain 'events' TTree
+        isTTree = [i for i, filename in enumerate(filenames) \
+                   if 'events' in uproot.open(filename)]
         if len(isTTree)==len(filenames):
             newprocs.append(proc)
     return newprocs
 
 def add_package_path(names: Union[list[str], str]
                      ) -> None:
+    '''Add package path(s) to sys.path for module imports.
+    
+    Args:
+        names: Single path string or list of paths to add
+    '''
+    import sys
     if isinstance(names, str):
         names = [names]
-    if names:
-        for name in names:
-            sys.path.append(name)
-
-
-
-###########################
-##### OTHER VARIABLES #####
-###########################
-
-param = {'fraction': frac, 'chunks': nb} 
+    for name in names:
+        sys.path.append(name)

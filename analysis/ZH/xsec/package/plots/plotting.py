@@ -1,44 +1,135 @@
-import ROOT
+'''Plotting utilities.
 
-ROOT.gROOT.SetBatch(True)
-ROOT.gStyle.SetOptStat(0)
-ROOT.gStyle.SetOptTitle(0)
+Provides:
+- Plotting functions for histograms and distributions: `makePlot()`, `PlotDecays()`,
+  `significance()`, `PseudoRatio()`, `AAAyields()`, `Bias()`.
+- Utility functions for managing plot arguments: `get_args()`, `args_decay()`,
+  `_ensure_plt_style()`.
+- Histogram conversion utilities: `hist_to_arrays()`.
+- Integration with ROOT graphics backend for publication-quality plots.
+- Support for both ROOT and matplotlib visualization backends.
+
+Functions:
+- `significance()`: Plot running significance and signal efficiency for cut optimization.
+- `makePlot()`: Draw signal/background histograms with optional stacking.
+- `PlotDecays()`: Compare Higgs decay modes with unit normalization.
+- `PseudoRatio()`: Create ratio plots comparing nominal and pseudo-signal distributions.
+- `AAAyields()`: Render yields summary canvas with process yields and metadata.
+- `Bias()`: Plot bias distributions per Higgs decay mode with uncertainty bands.
+- `get_args()`, `args_decay()`: Manage and merge plotting configuration arguments.
+
+Conventions:
+- Uses ROOT TLatex for axis labels and LaTeX text rendering.
+- Supports both linear and logarithmic scaling on x and y axes.
+- Integrates with `config.py` for color palettes, labels, and variable definitions.
+- Output plots saved to hierarchical subdirectories by selection and category.
+
+Usage:
+- Create publication plots with automatic styling and legend management.
+- Plot signal significance as function of cut value for optimization.
+- Compare decay mode distributions across Higgs and Z decay channels.
+'''
+
+####################################
+### IMPORT MODULES AND FUNCTIONS ###
+####################################
+
+import ROOT
 
 import numpy as np
 import pandas as pd
 
 from typing import Union
 
-from ..config import h_colors, h_labels, vars_label, vars_xlabel
-
+from ..config import (
+    h_colors, 
+    h_labels, 
+    vars_label, 
+    vars_xlabel
+)
 from .root import plotter
 from .root.plotter import finalize_canvas
-
-from .root.helper import make_cfg, configure_axis, setup_latex, mk_legend
-from .root.helper import draw_latex, load_hists, style_hist
-from .root.helper import build_cfg, save_plot, savecanvas
-
-from ..tools.utils import mkdir, get_range, get_range_decay
+from .root.helper import (
+    configure_axis, 
+    mk_legend, 
+    setup_latex, 
+    draw_latex, 
+    load_hists, 
+    style_hist, 
+    build_cfg, 
+    save_plot, 
+    savecanvas
+)
+from ..tools.utils import (
+    mkdir, 
+    get_range, 
+    get_range_decay
+)
 from ..tools.process import getHist
 from ..func.bias import make_pseudosignal
 
+
+
+########################
+### CONFIG AND SETUP ###
+########################
+
+ROOT.gROOT.SetBatch(True)
+ROOT.gStyle.SetOptStat(0)
+ROOT.gStyle.SetOptTitle(0)
+
+# Tracks whether the matplotlib style has been set for this session.
 PLT_STYLE_SET = False
 
+
+
+########################
+### HELPER FUNCTIONS ###
+########################
+
 def _ensure_plt_style() -> None:
+    '''Initialize matplotlib styling once to avoid repeated setup calls.
+
+    Sets the global PLT_STYLE_SET flag after first initialization to prevent
+    redundant style configuration in subsequent calls.
+    '''
     global PLT_STYLE_SET
     if not PLT_STYLE_SET:
         from .python.plotter import set_plt_style
         set_plt_style()
         PLT_STYLE_SET = True
 
+
+
+######################
+### MAIN FUNCTIONS ###
+######################
+
 #____________________________________________________
 def get_args(var: str, 
              sel: str,
+             ecm: int,
+             lumi: float,
              args: dict[str, 
                         dict[str, 
                              Union[str, float, int]]]
              ) -> dict[str, 
                        Union[str, float, int]]:
+    '''Return plotting arguments for a variable/selection pair with defaults.
+
+    Copies user-provided options for a given variable, applies selection filters,
+    resolves the `which` flag, and fills missing keys with sensible defaults.
+
+    Args:
+        var (str): Variable name to retrieve arguments for.
+        sel (str): Selection criteria identifier.
+        ecm (int): Center-of-mass energy in GeV.
+        lumi (float): Integrated luminosity in ab^-1.
+        args (dict[str, dict[str, Union[str, float, int]]]): Nested dictionary of plotting arguments indexed by variable name.
+
+    Returns:
+        dict[str, Union[str, float, int]]: Dictionary of plotting arguments with all required keys populated.
+    '''
     
     arg = args[var].copy() if var in args else {}
     if 'which' in arg:
@@ -67,7 +158,9 @@ def get_args(var: str,
     for key in ['xmin', 'xmax', 'ymin', 'ymax']:
         arg.setdefault(key, None)
     
-    arg.setdefault('rebin',     1)
+    arg.setdefault('rebin', 1)
+    arg.setdefault('ecm',  ecm)
+    arg.setdefault('lumi', lumi)
     
     arg.setdefault('suffix',  '')
     arg.setdefault('outName', '')
@@ -84,11 +177,27 @@ def get_args(var: str,
 #______________________________________________________
 def args_decay(var: str, 
                sel: str,
+               ecm: int,
+               lumi: float,
                args: dict[str, 
                           dict[str, 
                                Union[str, float, int]]]
                ) -> dict[str, 
                          Union[str, float, int]]:
+    '''Return decay-plot arguments for a variable/selection with defaults.
+
+    Similar to get_args() but filters for decay analysis plots (excludes 'make' mode).
+
+    Args:
+        var (str): Variable name to retrieve arguments for.
+        sel (str): Selection criteria identifier.
+        ecm (int): Center-of-mass energy in GeV.
+        lumi (float): Integrated luminosity in ab^-1.
+        args (dict[str, dict[str, Union[str, float, int]]]): Nested dictionary of plotting arguments indexed by variable name.
+
+    Returns:
+        dict[str, str | float | int]: Dictionary of decay-plot arguments with all required keys populated.
+    '''
     
     arg = args[var].copy() if var in args else {}
     if 'which' in arg:
@@ -116,7 +225,9 @@ def args_decay(var: str,
     for key in ['xmin', 'xmax', 'ymin', 'ymax']:
         arg.setdefault(key, None)
     
-    arg.setdefault('rebin',     1)
+    arg.setdefault('rebin', 1)
+    arg.setdefault('ecm',  ecm)
+    arg.setdefault('lumi', lumi)
     
     arg.setdefault('suffix',  '')
     arg.setdefault('outName', '')
@@ -145,6 +256,30 @@ def significance(variable: str,
                  reverse: bool = False, 
                  lazy: bool = True, 
                  rebin: int = 1) -> None:
+    '''Plot running significance and signal efficiency for a cut variable.
+
+    Builds cumulative signal/background yields across histogram bins, computes
+    significance (s/sqrt(s+b)), and displays the optimal cut point on a dual-axis
+    matplotlib figure with significance and signal efficiency curves.
+
+    Args:
+        variable (str): Name of the variable to optimize.
+        inDir (str): Path to input directory containing histograms.
+        outDir (str): Path to output directory for saving plots.
+        sel (str): Selection tag for output organization.
+        procs (list[str]): Process names; first is signal, rest are backgrounds.
+        processes (dict[str, list[str]]): Mapping from process names to file/sample identifiers.
+        locx (str, optional): Legend horizontal position ('left', 'right'). Defaults to 'right'.
+        locy (str, optional): Legend vertical position ('top', 'bottom'). Defaults to 'top'.
+        xMin (float | int | None, optional): Range limits for variable. Defaults to None.
+        xMax (float | int | None, optional): Range limits for variable. Defaults to None.
+        outName (str, optional): Base name for output file. Defaults to variable name.
+        suffix (str, optional): Suffix to append to filename. Defaults to ''.
+        format (list[str], optional): Image formats to save ('png', 'pdf', etc.). Defaults to ['png'].
+        reverse (bool, optional): If True, compute left-to-right cumulative (v > x). Defaults to False.
+        lazy (bool, optional): Use lazy loading for histograms. Defaults to True.
+        rebin (int, optional): Rebinning factor. Defaults to 1.
+    '''
     
     from .python.plotter import set_labels, savefigs
     from matplotlib.pyplot import subplots, close
@@ -178,10 +313,12 @@ def significance(variable: str,
     if xMax is not None:
         mask &= (centers <= xMax)
     
+    # Compute cumulative sums from either left or right depending on reverse flag.
     if reverse:
         sig_cum = np.cumsum(sig_arr)
         bkg_cum = np.cumsum(bkg_arr)
     else:
+        # Right-to-left cumulative: sum from high to low bin values.
         sig_cum = np.cumsum(sig_arr[::-1])[::-1]
         bkg_cum = np.cumsum(bkg_arr[::-1])[::-1]
     
@@ -253,7 +390,11 @@ def significance(variable: str,
                       rf'Signal eff = {max_l*100:.1f} \%')
     fig.tight_layout()
 
-    out = f'{outDir}/significance/{sel}'
+    s = sel.replace('_high', '').replace('_low', '')
+    if '_high' in sel: d = 'high'
+    elif '_low' in sel: d = 'low'
+    else: d = 'nominal'
+    out = f'{outDir}/significance/{s}/{d}'
     mkdir(out)
 
     suffix = '_reverse' if reverse else ''
@@ -290,6 +431,37 @@ def makePlot(variable: str,
              logY: bool = True, 
              stack: bool = False, 
              lazy: bool = True) -> None:
+    '''Draw signal/background histogram with optional stacking.
+
+    Loads and styles histograms, applies rebinning and scaling, and renders
+    with configurable axis ranges, log scales, and stacking options.
+
+    Args:
+        variable (str): Variable name to plot.
+        inDir (str): Path to input histogram files.
+        outDir (str): Path for output plots.
+        sel (str): Selection tag for organization.
+        procs (list[str]): Process names; first is signal, rest are backgrounds.
+        processes (dict[str, list[str]]): Process name to sample/file mapping.
+        colors (dict[str, str]): Process name to color mapping (ROOT color codes).
+        legend (dict[str, str]): Process name to legend label mapping.
+        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
+        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
+        suffix (str, optional): Filename suffix. Defaults to ''.
+        outName (str, optional): Base output filename. Defaults to variable name.
+        format (list[str], optional): Image formats. Defaults to ['png'].
+        xmin (float | int | None, optional): Axis range limits. Defaults to None.
+        xmax (float | int | None, optional): Axis range limits. Defaults to None.
+        ymin (float | int | None, optional): Axis range limits. Defaults to None.
+        ymax (float | int | None, optional): Axis range limits. Defaults to None.
+        rebin (int, optional): Rebinning factor. Defaults to 1.
+        sig_scale (float, optional): Signal histogram scale factor. Defaults to 1.0.
+        strict (bool, optional): Strict axis range enforcement. Defaults to True.
+        logX (bool, optional): Use logarithmic scale. Defaults to False.
+        logY (bool, optional): Use logarithmic scale. Defaults to True.
+        stack (bool, optional): Stack backgrounds. Defaults to False.
+        lazy (bool, optional): Use lazy histogram loading. Defaults to True.
+    '''
 
     if outName == '': outName = variable
     suff = f'_{sel}_histo'
@@ -306,11 +478,13 @@ def makePlot(variable: str,
     all_hists = {proc: hist.Clone(f'{proc}_{variable}') 
                 for proc, hist in raw_hists.items() if hist}
     
+    # Extract signal histogram and initialize background stack.
     sig_key = procs[0]
     sig_hist = all_hists.get(sig_key)
     
     st, bkgs = ROOT.THStack(), []
     st.SetName('stack')
+    # Style signal separately; add backgrounds to stack.
     for proc, hist in all_hists.items():
         is_sig = proc==sig_key
         scale = f' (#times {int(sig_scale)})' if is_sig and sig_scale!=1 else ''
@@ -347,7 +521,11 @@ def makePlot(variable: str,
     leg.Draw('SAME')
 
     finalize_canvas(canvas)
-    out = f'{outDir}/makePlot/{sel}'
+    s = sel.replace('_high', '').replace('_low', '')
+    if '_high' in sel: d = 'high'
+    elif '_low' in sel: d = 'low'
+    else: d = 'nominal'
+    out = f'{outDir}/makePlot/{s}/{d}'
     linlog = '_log' if logY else '_lin'
     save_plot(canvas, out, outName, linlog+suffix, format)
     canvas.Close()
@@ -375,6 +553,34 @@ def PlotDecays(variable: str,
                lazy: bool = True, 
                strict: bool = True,
                tot: bool = False) -> None:
+    '''Plot Higgs decay modes normalized to unit integral for comparison.
+
+    Creates overlaid histograms for each Higgs decay channel, each normalized
+    to unity to enable direct shape comparison across decay modes.
+
+    Args:
+        variable (str): Variable to plot.
+        inDir (str): Path to input histogram files.
+        outDir (str): Path for output plots.
+        sel (str): Selection tag.
+        z_decays (list[str]): Z boson decay modes (e.g., ['ee', 'mumu', 'tautau']).
+        h_decays (list[str]): Higgs decay modes to compare (e.g., ['bb', 'WW', 'ZZ']).
+        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
+        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
+        rebin (int, optional): Rebinning factor. Defaults to 1.
+        outName (str, optional): Base output filename. Defaults to variable name.
+        suffix (str, optional): Filename suffix. Defaults to ''.
+        format (list[str], optional): Image formats. Defaults to ['png'].
+        xmin (float | int | None, optional): Axis limits. Defaults to None.
+        xmax (float | int | None, optional): Axis limits. Defaults to None.
+        ymin (float | int | None, optional): Axis limits. Defaults to None.
+        ymax (float | int | None, optional): Axis limits. Defaults to None.
+        logX (bool, optional): Use logarithmic scale. Defaults to False.
+        logY (bool, optional): Use logarithmic scale. Defaults to False.
+        lazy (bool, optional): Use lazy loading. Defaults to True.
+        strict (bool, optional): Strict range enforcement. Defaults to True.
+        tot (bool, optional): Save to 'tot' subdirectory if True, 'cat' otherwise. Defaults to False.
+    '''
 
     if outName == '': outName = variable
     suff = f'_{sel}_histo'
@@ -389,6 +595,7 @@ def PlotDecays(variable: str,
                     x1=0.2,  y1=0.925, 
                     x2=0.95, y2=0.925)
 
+    # Normalize each decay mode histogram to unity for shape comparison.
     for h_decay, hist in hists.items():
         integral = hist.Integral()
         norm = 1.0 / integral if integral>0 else 1.0
@@ -416,8 +623,12 @@ def PlotDecays(variable: str,
     for hist in hists.values(): hist.Draw('SAME HIST')
     leg.Draw('SAME')
     
-    out = f'{outDir}/higgsDecays/{sel}/tot' if tot \
-        else f'{outDir}/higgsDecays/{sel}/cat'
+    s = sel.replace('_high', '').replace('_low', '')
+    if '_high' in sel: d = 'high'
+    elif '_low' in sel: d = 'low'
+    else: d = 'nominal'
+    out = f'{outDir}/higgsDecays/{s}/{d}/tot' if tot \
+        else f'{outDir}/higgsDecays/{s}/{d}/cat'
     linlog = '_log' if logY else '_lin'
     finalize_canvas(canvas)
     save_plot(canvas, out, outName, linlog+suffix, format)
@@ -443,6 +654,31 @@ def AAAyields(hName: str,
               outName: str = '', 
               format: list[str] = ['png']
               ) -> None:
+    '''Render a yields summary canvas with process list and metadata.
+
+    Creates a ROOT canvas displaying process yields, scaling factors, significance,
+    and analysis metadata as formatted LaTeX text. Useful for publications.
+
+    Args:
+        hName (str): Histogram name/key to extract yields from.
+        inDir (str): Path to input histogram files.
+        outDir (str): Path for output plots.
+        plots (dict[str, list[str]]): Dictionary with 'signal' and 'backgrounds' keys, each mapping to process lists.
+        legend (dict[str, str]): Process name to display label mapping.
+        colors (dict[str, str]): Process name to fill color mapping.
+        cat (str): Category ('ee' or 'mumu') for analysis channel label.
+        sel (str): Selection criteria identifier.
+        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
+        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
+        scale_sig (float, optional): Scale factor for signal yields. Defaults to 1.0.
+        scale_bkg (float, optional): Scale factor for background yields. Defaults to 1.0.
+        lazy (bool, optional): Use lazy histogram loading. Defaults to True.
+        outName (str, optional): Base output filename. Defaults to 'AAAyields'.
+        format (list[str], optional): Image formats. Defaults to ['png'].
+
+    Raises:
+        ValueError: If cat is not 'ee' or 'mumu'.
+    '''
     
     if outName=='': outName = 'AAAyields'
     if   cat == 'mumu': 
@@ -466,6 +702,8 @@ def AAAyields(hName: str,
         hist = getHist(hName,
                        backgrounds[b], inDir,
                        suffix=suffix, lazy=lazy)
+        if hist is None:
+            print(f"----->[WARNING] Couldn't find histograms for {b}")
         integral = hist.Integral()
         entries  = hist.GetEntries()
 
@@ -522,8 +760,12 @@ def AAAyields(hName: str,
     sqrt = [('#bf{#it{#sqrt{s} = '+f'{ecm}'+' GeV}}', 0.18, 0.83, 0.04)]
     draw_latex(latex, sqrt)
 
+    # Compute total signal and background for significance calculation.
     s_tot = int( sum( [yields[s][1] for s in signal] ) )
     b_tot = int( sum( [yields[b][1] for b in backgrounds] ) )
+    # Compile analysis metadata for LaTeX rendering.
+    with np.errstate(divide='ignore', invalid='ignore'):
+        z = s_tot/(s_tot+b_tot)**(0.5) if s_tot>0 and b_tot>0 else 0
     text_data = [
         ('#bf{#it{L = '+f'{lumi}'+' ab^{#minus1}}}', 0.18, 0.78, 0.035),
         ('#bf{#it{' + ana_tex + '}}', 0.18, 0.73, 0.04),
@@ -533,7 +775,7 @@ def AAAyields(hName: str,
         ('#bf{#it{Background Scaling = ' + \
         f'{scale_bkg:.3g}' + '}}', 0.18, 0.57, 0.04),
         ('#bf{#it{Significance = ' +
-         f'{s_tot/(s_tot+b_tot)**(0.5):.3f}' + '}}', 0.18, 0.52, 0.04),
+         f'{z:.3f}' + '}}', 0.18, 0.52, 0.04),
         ('#bf{#it{Process}}', 0.18, 0.45, 0.035),
         ('#bf{#it{Yields}}', 0.5, 0.45, 0.035),
         ('#bf{#it{Raw MC}}', 0.75, 0.45, 0.035),
@@ -549,7 +791,11 @@ def AAAyields(hName: str,
         ])
     draw_latex(latex, latex_yield)
 
-    out = f'{outDir}/yield/{sel}'
+    s = sel.replace('_high', '').replace('_low', '')
+    if '_high' in sel: d = 'high'
+    elif '_low' in sel: d = 'low'
+    else: d = 'nominal'
+    out = f'{outDir}/yield/{s}/{d}'
     mkdir(out)
     savecanvas(canvas, out, outName, format=format)
     canvas.Close()
@@ -565,15 +811,34 @@ def Bias(df: pd.DataFrame,
          outName: str = 'bias', 
          format: list[str] = ['png']
          ) -> None:
+    '''Plot bias distribution per Higgs decay with uncertainty bands.
 
+    Creates a scatter plot showing bias values for each Higgs decay mode,
+    with markers inside/outside the uncertainty band to indicate compatibility.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing columns 'mode' and 'bias' with decay mode names and bias values respectively.
+        nomDir (str): Path to nominal results directory containing 'results.txt'.
+        outDir (str): Path for output plots.
+        h_decays (list[str]): Higgs decay mode names (e.g., ['bb', 'WW', 'ZZ', 'tautau']).
+        suffix (str, optional): Filename suffix. Defaults to ''.
+        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
+        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
+        outName (str, optional): Base output filename. Defaults to 'bias'.
+        format (list[str], optional): Image formats. Defaults to ['png'].
+    '''
+
+    # Load bias values and uncertainty from results file.
     bias_dict = dict(zip(df['mode'], df['bias'] * 100))
     unc = float(np.loadtxt(f'{nomDir}/results.txt')[-1] * 1e4)
 
     bias_values = list(bias_dict.values())
     max_bias = max(abs(min(bias_values)), abs(max(bias_values)))
+    # Set axis limits to accommodate uncertainty bands with 20% margin.
     xMin, xMax = (-int(unc*1.2), int(unc*1.2)) if unc > max_bias \
         else (-int(max_bias*1.2), int(max_bias*1.2))
 
+    # Count biases inside and outside the uncertainty band.
     In = sum(1 for b in bias_values if abs(b) < unc)
     Out = len(bias_values) - In
 
@@ -584,6 +849,7 @@ def Bias(df: pd.DataFrame,
                         0, len(h_decays))
     g_in, g_out = ROOT.TGraphErrors(In), ROOT.TGraphErrors(Out)
 
+    # Fill graph points, separating by whether bias is inside/outside band.
     i, j = 0, 0
     for k, h_decay in enumerate(h_decays):
         b = bias_dict[h_decay]
@@ -617,6 +883,7 @@ def Bias(df: pd.DataFrame,
     h_pulls.GetYaxis().LabelsOption('v'), h_pulls.SetNdivisions(506, 'XYZ')
     h_pulls.Draw('HIST 0')
 
+    # Draw uncertainty band lines: ±1σ and zero.
     maxx, lines = len(h_decays), []
     for l, c in zip([-1, 0, 1], [ROOT.kBlack, ROOT.kGray, ROOT.kBlack]):
         line = ROOT.TLine(unc*l, 0, unc*l, maxx)
@@ -625,6 +892,7 @@ def Bias(df: pd.DataFrame,
         line.Draw('SAME')
         lines.append(line)
 
+    # Draw markers: black for inside band, red for outside.
     g_in.SetMarkerSize(1.2), g_in.SetMarkerStyle(20)
     g_in.SetLineWidth(2), g_in.SetMarkerColor(ROOT.kBlack)
     g_in.Draw('P0 SAME')
@@ -650,7 +918,23 @@ def hist_to_arrays(hist: ROOT.TH1
                    ) -> tuple[np.ndarray, 
                               np.ndarray, 
                               np.ndarray]:
+    '''Convert a ROOT histogram into numpy arrays of counts, bin edges, and errors.
 
+    Args:
+        hist (ROOT.TH1): A ROOT histogram object to convert.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple containing:
+            - counts: Array of bin contents (histogram values).
+            - bin_edges: Array of bin edges with length = nbins + 1.
+            - errors: Array of bin errors (statistical uncertainties).
+
+    Notes:
+        The bin_edges array has one more element than counts and errors arrays,
+        as it includes both lower edge of the first bin and upper edge of the last bin.
+    '''
+
+    # Extract bin information from ROOT histogram.
     nbins = hist.GetNbinsX()
     bin_edges = np.array([hist.GetBinLowEdge(i) for i in range(1, nbins+2)])
     counts = np.array([hist.GetBinContent(i)    for i in range(1, nbins+1)])
@@ -681,6 +965,34 @@ def PseudoRatio(variable: str,
                 tot: bool = True, 
                 density: bool = False
                 ) -> None:
+    '''Compare nominal signal to pseudo-signal and plot ratio with errors.
+
+    This function creates a publication-quality plot comparing the nominal signal
+    distribution to a pseudo-signal (background-subtracted data or alternative
+    signal scenario) and displays their ratio in a two-panel figure.
+
+    Args:
+        variable (str): Name of the variable to plot (e.g., histogram key in input files).
+        inDir (str): Path to input directory containing histogram files.
+        outDir (str): Path to output directory where plots will be saved.
+        cat (str): Category identifier for pseudo-signal generation.
+        target (str): Target process or decay channel identifier.
+        z_decays (list[str]): List of Z boson decay modes (e.g., ['ee', 'mumu', 'tautau']).
+        h_decays (list[str]): List of Higgs boson decay modes (e.g., ['bb', 'WW', 'ZZ']).
+        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
+        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
+        pert (float, optional): Perturbation factor for pseudo-signal variation. Defaults to 1.05.
+        sel (str, optional): Selection criteria tag (e.g., 'high', 'low'). Defaults to ''.
+        rebin (int, optional): Rebinning factor for histograms. Defaults to 1.
+        outName (str, optional): Base name for output files. Defaults to 'PseudoRatio'.
+        format (list[str], optional): Image format(s) for saved plots. Defaults to ['png'].
+        proc_scales (dict[str, float], optional): Process-specific scaling factors. Defaults to {}.
+        logX (bool, optional): Apply logarithmic scaling to x-axis. Defaults to False.
+        logY (bool, optional): Apply logarithmic scaling to y-axis. Defaults to False.
+        lazy (bool, optional): Use lazy loading for histograms. Defaults to True.
+        tot (bool, optional): Include total contributions in pseudo-signal. Defaults to True.
+        density (bool, optional): Normalize both histograms to unit area. Defaults to False.
+    '''
     
     from matplotlib.pyplot import subplots, close
     import mplhep as hep
@@ -695,8 +1007,10 @@ def PseudoRatio(variable: str,
 
     if outName == '': outName = 'PseudoRatio'
     suffix = f'_{sel}_histo'
+    # Build process names for all requested Z and Higgs decay combinations.
     sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays]
 
+    # Sum all signal contributions into a single nominal histogram.
     h_tot = None
     for sig in sigs:
         h_sig = getHist(variable, sig, inDir, 
@@ -706,12 +1020,13 @@ def PseudoRatio(variable: str,
         else: h_tot.Add(h_sig)
 
     hist_pseudo = make_pseudosignal(
-        variable, inDir, target, cat, z_decays, h_decays, 
+        variable, inDir, target, cat, z_decays, h_decays, ecm=ecm,
         suffix=suffix, variation=pert, tot=tot, proc_scales=proc_scales
     )
     hist_pseudo.Rebin(rebin)
 
     if density and h_tot.Integral()>0:
+        # Normalize both to unit area for density comparison
         norm = 1.0 / h_tot.Integral()
         hist_pseudo.Scale(norm)
         h_tot.Scale(norm)
@@ -724,7 +1039,7 @@ def PseudoRatio(variable: str,
     sig_vals, bin, sig_err = hist_to_arrays(h_tot)
     psd_vals, _, psd_err = hist_to_arrays(hist_pseudo) 
     
-    # Compute ratio with error handling
+    # Compute ratio and propagate errors using relative uncertainties.
     with np.errstate(divide='ignore', invalid='ignore'):
         ratio_vals = np.where(sig_vals > 0, psd_vals / sig_vals, 1.0)
         psd_rel_err = np.where(psd_vals > 0, psd_err / psd_vals, 0)
@@ -750,6 +1065,7 @@ def PseudoRatio(variable: str,
     ax2.axhline(1.0, color='gray', linestyle='-', linewidth=2, alpha=0.6)
     ax2.axhline(pert, color='black', linestyle='--', linewidth=2, alpha=0.8)
 
+    # Set axis ranges for both panels.
     ax1.set_xlim(xMin, xMax)
     ax2.set_xlim(xMin, xMax)
     ax1.set_ylim(yMin, yMax)
@@ -758,10 +1074,12 @@ def PseudoRatio(variable: str,
     ax1.legend(loc='upper right', frameon=True)
     ax1.tick_params(labelbottom=False)
     
+    # Apply requested log scales.
     if logX: ax1.set_xscale('log')
     if logY: ax1.set_yscale('log')
     if logX: ax2.set_xscale('log')
 
+    # Configure axis labels with appropriate titles.
     lumi_text = rf'$\sqrt{{s}} = {ecm}$ GeV, {lumi} ab$^{{-1}}$'
     xtitle = r'm$_{\mathrm{recoil}}$ High [GeV]' if 'high' in sel \
         else r'm$_{\mathrm{recoil}}$ Low [GeV]'
