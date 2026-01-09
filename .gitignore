@@ -212,4 +212,5 @@ cython_debug/
 # Other
 output/
 test/
-logbook/
+fccphysics-data/
+
