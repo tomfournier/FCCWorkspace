@@ -2,6 +2,8 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+print('\n----->[Info] Loading modules')
+
 from time import time
 from argparse import ArgumentParser
 
@@ -9,6 +11,8 @@ import pandas as pd
 
 # Start timer for performance tracking
 t = time()
+
+print('----->[Info] Loading custom modules\n')
 
 from package.userConfig import loc, get_loc
 from package.config import (
@@ -49,7 +53,8 @@ if arg.cat=='':
 cat, ecm = arg.cat, arg.ecm
 # Selection strategies for BDT training
 sels = [
-    'Baseline'
+    'Baseline',
+    # 'test'
 ]
 
 # Process modes for training (signal vs various backgrounds)
@@ -87,31 +92,39 @@ def run(sels: list[str],
     """Train BDT models for each selection strategy."""
 
     # Display training variables
-    print('TRAINING VARS')
-    print(', '.join(var for var in vars))
+    print('----->[Info] Training variable used for the training')
+    print('\t'+', '.join(var for var in vars)+'\n')
 
     for sel in sels:
         # Define input and output directories
         inDir  = get_loc(loc.MVA_INPUTS, cat, ecm, sel)
         outDir = get_loc(loc.BDT,        cat, ecm, sel)
 
+        if 'Baseline' in sel and cat=='ee' and ecm==365:
+            if 'gaga_ee' in modes:
+                Modes = [m for m in modes if m!='gaga_ee']
+        else:
+            Modes = modes.copy()
+
         # Load preprocessed training data
         df = pd.read_pickle(f'{inDir}/preprocessed.pkl')
-        print_stats(df, modes)
+        print_stats(df, Modes)
 
         # Split data into training and validation sets
+        print('\n----->[Info] Spltting data into training and validation sample')
         X_train, y_train, X_valid, y_valid = split_data(df, vars)
 
         # Train XGBoost model with early stopping
-        bdt = train_model(X_train, y_train, 
-                          X_valid, y_valid, 
-                          config, early)
+        bdt = train_model(
+            X_train, y_train, 
+            X_valid, y_valid, 
+            config, early
+        )
         
         # Save trained model
         save_model(bdt, vars, outDir)
 
         # Write feature map file for XGBoost evaluation
-        print('----->[Info] Writing variable inputs in a .txt file for evaluation')
         fmap = pd.DataFrame({'vars':vars, 'Q':list('q' * len(vars))})
         fmap.to_csv(f'{outDir}/feature.txt', sep='\t', header=False)
         print(f'----->[Info] Wrote variable input in {outDir}/feature.txt')

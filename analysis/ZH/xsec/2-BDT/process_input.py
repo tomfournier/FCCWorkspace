@@ -2,6 +2,8 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+print('\n----->[Info] Loading modules')
+
 # Standard library imports for timing and command-line arguments
 from time import time
 from argparse import ArgumentParser
@@ -11,6 +13,8 @@ import pandas as pd
 
 # Start execution timer
 t = time()
+
+print('----->[Info] Loading custom modules')
 
 # Import configuration and utilities
 from package.userConfig import loc, get_loc
@@ -63,12 +67,13 @@ inDir = get_loc(loc.HIST_MVA, cat, ecm, '')
 
 # Selection strategies to process
 sels = [
-    'Baseline'
+    'Baseline',
+    # 'test'
 ]
 
 # Decay modes used in first stage training and their respective file names
 modes = {
-    f'Z{cat}H':       f'wzp6_ee_{cat}H_ecm{ecm}',                # Signal: ZH production
+    f'Z{cat}H':      f'wzp6_ee_{cat}H_ecm{ecm}',                 # Signal: ZH production
     f'ZZ':           f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
     f'Z{cat}':       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'  # Background: Z+jets
                      else f'wzp6_ee_mumu_ecm{ecm}',
@@ -116,30 +121,37 @@ def run(inDir: str,
         # Initialize storage for each mode
         files, df, eff, N_events = {}, {}, {}, {}
 
+        if 'Baseline' in sel and cat=='ee' and ecm==365:
+            Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}
+        else:
+            Modes = modes.copy()
+        lenght = max(len(m) for m in Modes)
+        print(f'\n----->[Info] Modes used: {" ".join(Modes.keys())}\n')
+
         # Process each decay mode
-        for mode in modes:
+        for mode in Modes:
             # Get input files
-            files[mode] = get_paths(mode, inDir, modes, f'_{sel}')
+            files[mode] = get_paths(mode, inDir, Modes, f'_{sel}')
 
             # Load data and calculate efficiencies
             df[mode], eff[mode], N_events[mode] = counts_and_effs(files[mode], vars, only_eff=False)
-            print(f'Number of events in {mode} = {N_events[mode]}')
-            print(f'Efficiency of {mode} = {eff[mode]*100:.3f}%')
+            print(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}')
+            print(f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%\n')
 
             # Add signal/background labels and weights
             df[mode] = additional_info(df[mode], mode, sig)
 
         # Calculate optimal number of BDT inputs per mode
-        N_BDT_inputs = BDT_input_numbers(df, modes, sig, eff, xsec, frac)
+        N_BDT_inputs = BDT_input_numbers(df, Modes, sig, eff, xsec, frac)
 
-        print('\n')
+        print('\n----->[Info] Printing BDT inputs number for the different modes')
         # Split data for each mode into training and validation sets
-        for mode in modes:
-            print(f'Number of BDT inputs for {mode:<{15}} = {N_BDT_inputs[mode]}')
+        for mode in Modes:
+            print(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}')
             df[mode] = df_split_data(df[mode], N_BDT_inputs, eff, xsec, N_events, mode)
 
         # Combine all modes and save to pickle file
-        dfsum = pd.concat([df[mode] for mode in modes])
+        dfsum = pd.concat([df[mode] for mode in Modes])
         to_pkl(dfsum, pkl_path)
 
 

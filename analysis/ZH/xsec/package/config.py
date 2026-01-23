@@ -27,7 +27,17 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import ROOT
+# Lazy import of ROOT - only load when colors are accessed
+_ROOT = None
+
+def _get_root():
+    """Lazily import ROOT only when needed for color definitions."""
+    global _ROOT
+    if _ROOT is None:
+        import ROOT
+        _ROOT = ROOT
+    return _ROOT
+
 from time import time
 from functools import lru_cache
 from typing import Sequence, Union
@@ -68,7 +78,7 @@ QUARKS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq')
 z_decays = Z_DECAYS
 h_decays = H_DECAYS
 H_decays = H_DECAYS_WITH_INV
-quarks = QUARKS
+quarks   = QUARKS
 
 
 
@@ -76,51 +86,128 @@ quarks = QUARKS
 ### PROCESSES COLOR ###
 #######################
 
-# ROOT color definitions for main physics processes
-ZH_COLOR = ROOT.TColor.GetColor('#e42536')    # Red for ZH signal
-WW_COLOR = ROOT.TColor.GetColor('#f89c20')    # Orange for WW background
-ZZ_COLOR = ROOT.TColor.GetColor('#5790fc')    # Blue for ZZ background
-ZG_COLOR = ROOT.TColor.GetColor('#964a8b')    # Purple for Z/gamma
-RARE_COLOR = ROOT.TColor.GetColor('#9c9ca1')  # Gray for rare processes
+# Lazy-loaded ROOT colors - these are computed on first access
+# ROOT object cache (lazily loaded if use_root=True)
+_ZH_COLOR   = None
+_WW_COLOR   = None
+_ZZ_COLOR   = None
+_ZG_COLOR   = None
+_RARE_COLOR = None
 
-# Color mapping for Higgs decay channels (ROOT colors)
-h_colors = {
-    'bb'     : ROOT.kViolet, 
-    'cc'     : ROOT.kBlue , 
-    'ss'     : ROOT.kRed, 
-    'gg'     : ROOT.kGreen+1,
-    'mumu'   : ROOT.kOrange, 
-    'tautau' : ROOT.kCyan, 
-    'ZZ'     : ROOT.kGray, 
-    'WW'     : ROOT.kGray+2, 
-    'Za'     : ROOT.kGreen+2, 
-    'aa'     : ROOT.kRed+2, 
-    'inv'    : ROOT.kBlue+2
-}
-
-# Color mapping for physics processes
-# colors from https://github.com/mpetroff/accessible-color-cycles
-colors = {
-    'ZH'       : ZH_COLOR,
-    'ZeeH'     : ZH_COLOR,
-    'ZmumuH'   : ZH_COLOR,
-    'ZqqH'     : ZH_COLOR,
-    'ZnunuH'   : ZH_COLOR,
+def _init_colors(use_root: bool = False):
+    """Initialize ROOT colors on first access.
     
-    'zh'       : ZH_COLOR,
-    'zeeh'     : ZH_COLOR,
-    'zmumuh'   : ZH_COLOR,
-    'zqqh'     : ZH_COLOR,
-    'znunuh'   : ZH_COLOR,
+    Args:
+        use_root: If True, use ROOT.TColor.GetColor(); if False, use numeric constants.
+    """
+    global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR
+    if _ZH_COLOR is None:
+        root = _get_root()
+        _ZH_COLOR   = root.TColor.GetColor('#e42536')  # Red for ZH signal
+        _WW_COLOR   = root.TColor.GetColor('#f89c20')  # Orange for WW background
+        _ZZ_COLOR   = root.TColor.GetColor('#5790fc')  # Blue for ZZ background
+        _ZG_COLOR   = root.TColor.GetColor('#964a8b')  # Purple for Z/gamma
+        _RARE_COLOR = root.TColor.GetColor('#9c9ca1')  # Gray for rare processes
 
-    'WW'       : WW_COLOR,
-    'ZZ'       : ZZ_COLOR,
-    'Zgamma'   : ZG_COLOR,
-    'Zqqgamma' : ZG_COLOR,
-    'Rare'     : RARE_COLOR
-}
+def _get_h_colors_dict(use_root: bool = False) -> dict:
+    """Lazy-load h_colors with color constants.
+    
+    Args:
+        use_root: If True, use ROOT color constants; if False, use numeric codes.
+        
+    Returns:
+        Dictionary mapping decay modes to color codes.
+    """
+    
+    root = _get_root()
+    return {
+        'bb'     : root.kViolet,
+        'cc'     : root.kBlue,
+        'ss'     : root.kRed,
+        'gg'     : root.kGreen+1,
+        'mumu'   : root.kOrange,
+        'tautau' : root.kCyan,
+        'ZZ'     : root.kGray,
+        'WW'     : root.kGray+2,
+        'Za'     : root.kGreen+2,
+        'aa'     : root.kRed+2,
+        'inv'    : root.kBlue+2 
+        }
 
-# Matplotlib tab colors for different analysis modes by channel
+def _get_colors_dict(use_root: bool = False) -> dict:
+    """Lazy-load colors dictionary with color constants.
+    
+    Args:
+        use_root: If True, use ROOT.TColor.GetColor(); if False, use numeric codes.
+        
+    Returns:
+        Dictionary mapping process names to color codes.
+    """
+    _init_colors(use_root=use_root)
+    return {
+        'ZH'       : _ZH_COLOR,
+        'ZeeH'     : _ZH_COLOR,
+        'ZmumuH'   : _ZH_COLOR,
+        'ZqqH'     : _ZH_COLOR,
+        'ZnunuH'   : _ZH_COLOR,
+        
+        'zh'       : _ZH_COLOR,
+        'zeeh'     : _ZH_COLOR,
+        'zmumuh'   : _ZH_COLOR,
+        'zqqh'     : _ZH_COLOR,
+        'znunuh'   : _ZH_COLOR,
+
+        'WW'       : _WW_COLOR,
+        'ZZ'       : _ZZ_COLOR,
+        'Zgamma'   : _ZG_COLOR,
+        'Zqqgamma' : _ZG_COLOR,
+        'Rare'     : _RARE_COLOR
+    }
+
+class LazyDict(dict):
+    """Dictionary that loads from a lazy function on first access."""
+    def __init__(self, lazy_func, use_root: bool = False):
+        super().__init__()
+        self._lazy_func = lazy_func
+        self._use_root = use_root
+        self._loaded = False
+    
+    def _ensure_loaded(self):
+        if not self._loaded:
+            data = self._lazy_func(use_root=self._use_root)
+            self.update(data)
+            self._loaded = True
+    
+    def __getitem__(self, key):
+        self._ensure_loaded()
+        return super().__getitem__(key)
+    
+    def __iter__(self):
+        self._ensure_loaded()
+        return super().__iter__()
+    
+    def __len__(self):
+        self._ensure_loaded()
+        return super().__len__()
+    
+    def items(self):
+        self._ensure_loaded()
+        return super().items()
+    
+    def keys(self):
+        self._ensure_loaded()
+        return super().keys()
+    
+    def values(self):
+        self._ensure_loaded()
+        return super().values()
+
+# Lazy-loaded color dictionaries - by default uses numeric codes (no ROOT import)
+# Set use_root=True to use ROOT color constants instead
+h_colors = LazyDict(_get_h_colors_dict, use_root=False)
+colors   = LazyDict(_get_colors_dict, use_root=False)
+
+# Matplotlib tab colors for different analysis modes by channel (no lazy loading needed)
 modes_color = {
     f'ZmumuH':      'tab:blue',
     f'ZZ':          'tab:orange',
@@ -265,7 +352,7 @@ def warning(log_msg: str,
     msg += f'{log_msg:^{lenght}}\n'
     sep = '=' * lenght
     msg += f'{sep:^{lenght}}\n'
-    raise Exception(msg)
+    print(msg)
 
 #___________________
 def timer(t: float

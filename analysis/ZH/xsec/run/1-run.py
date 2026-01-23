@@ -105,7 +105,8 @@ def run(cfg_dir: str,
     cfg_file = Path(cfg_dir) / '1-run.json'
     
     # Build configuration dictionary
-    config = {'cat': cat, 'ecm': ecm, 'lumi': 10.8 if ecm == 240 else 3.1}
+    lumi = 10.8 if ecm == 240 else (3.1 if ecm==365 else -1)
+    config = {'cat': cat, 'ecm': ecm, 'lumi': lumi}
     
     # Write configuration to temporary JSON file
     cfg_file.write_text(json.dumps(config))
@@ -117,7 +118,8 @@ def run(cfg_dir: str,
     script_path = f'{path}/{script}.py'
     
     # Display execution information for traceability
-    print(f'Running: cat = {cat}, ecm = {ecm}')
+    print('=' * 60)
+    print(f'Running: {cat = }, {ecm = }, {lumi = } for {script}')
     print('=' * 60)
     
     try:

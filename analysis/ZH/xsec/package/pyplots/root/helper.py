@@ -54,8 +54,8 @@ from functools import lru_cache
 from typing import Union
 
 from ...config import warning
-from ...tools.utils import mkdir
-from ...tools.process import getHist, get_range
+from ...tools.utils import mkdir, get_range
+from ...tools.process import getHist
 
 
 
@@ -154,17 +154,23 @@ def build_cfg(hist: ROOT.TH1,
     scale_min, scale_max = 5e-1 if logY else 1, 1e4 if logY else 1.5
     if not cutflow:
         if not decay:
-            xMin, xMax, yMin, yMax = range_func(
-                [hist], hists, logY=logY, stack=stack, strict=strict,
-                xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
-                scale_min=scale_min, scale_max=scale_max
-            )
+            xMin, xMax, yMin, yMax = range_func([hist], 
+                                                hists, 
+                                                logY=logY, 
+                                                stack=stack, 
+                                                strict=strict,
+                                                xmin=xmin, xmax=xmax, 
+                                                ymin=ymin, ymax=ymax,
+                                                scale_min=scale_min, 
+                                                scale_max=scale_max)
         else:
-            xMin, xMax, yMin, yMax = range_func(
-                hists, logY=logY,  strict=strict,
-                xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
-                scale_min=scale_min, scale_max=scale_max
-            )
+            xMin, xMax, yMin, yMax = range_func(hists, 
+                                                logY=logY,  
+                                                strict=strict,
+                                                xmin=xmin, xmax=xmax, 
+                                                ymin=ymin, ymax=ymax,
+                                                scale_min=scale_min, 
+                                                scale_max=scale_max)
     else:
         if (xmin is None) or (xmax is None) or \
             (ymin is None) or (ymax is None):
@@ -301,10 +307,12 @@ def _get_hist_cached(hName: str,
     Returns:
         ROOT.TH1: Loaded and optionally rebinned histogram.
     '''
-    return getHist(
-        hName, list(procs), inDir, 
-        suffix=suffix, rebin=rebin, lazy=lazy
-        )
+    return getHist(hName, 
+                   list(procs), 
+                   inDir, 
+                   suffix=suffix, 
+                   rebin=rebin, 
+                   lazy=lazy)
 
 #_________________________________________
 def load_hists(processes: dict[str, 
@@ -328,11 +336,12 @@ def load_hists(processes: dict[str,
     Returns:
         dict[str, ROOT.TH1]: Dictionary mapping process names to histograms.
     '''
-    return {proc: _get_hist_cached(
-                    variable, tuple(proc_list), 
-                    inDir, suffix=suffix, 
-                    rebin=rebin, lazy=lazy
-                )
+    return {proc: _get_hist_cached(variable, 
+                                   tuple(proc_list), 
+                                   inDir, 
+                                   suffix=suffix, 
+                                   rebin=rebin, 
+                                   lazy=lazy)
             for proc, proc_list in processes.items()}
 
 #_______________________________________________________
@@ -427,41 +436,6 @@ def style_hist(hist: ROOT.TH1,
         hist.SetFillColor(fill_color)
     if scale != 1.:
         hist.Scale(scale)
-
-#__________________________________________________
-def style_hists_batch(hists: list[ROOT.TH1],
-                      colors: list[int],
-                      widths: list[int] = None,
-                      scales: list[float] = None,
-                      fill_colors: list[Union[int, None]] = None
-                      ) -> None:
-    '''Apply styling to multiple histograms in batch for performance.
-    
-    Optimized version for styling many histograms at once, reducing Python
-    call overhead compared to looping with style_hist().
-    
-    Args:
-        hists (list[ROOT.TH1]): List of ROOT histograms to style.
-        colors (list[int]): Line colors for each histogram.
-        widths (list[int], optional): Line widths (default 1 for all). Defaults to None.
-        scales (list[float], optional): Scale factors (default 1 for all). Defaults to None.
-        fill_colors (list[int | None], optional): Fill colors (default None). Defaults to None.
-    
-    Returns:
-        None
-    '''
-    n = len(hists)
-    widths = widths or [1] * n
-    scales = scales or [1.] * n
-    fill_colors = fill_colors or [None] * n
-    
-    for i, hist in enumerate(hists):
-        hist.SetLineColor(colors[i])
-        hist.SetLineWidth(widths[i])
-        if fill_colors[i] is not None:
-            hist.SetFillColor(fill_colors[i])
-        if scales[i] != 1.:
-            hist.Scale(scales[i])
 
 #_______________________________________________________
 def setup_latex(text_size: float, 
@@ -567,7 +541,7 @@ def save_plot(canvas: ROOT.TCanvas,
         None
     '''
     mkdir(outDir)
-    savecanvas(
-        canvas, outDir, outName, 
-        suffix=suffix, format=format
-    )
+    savecanvas(canvas, outDir, 
+               outName, 
+               suffix=suffix,
+               format=format)

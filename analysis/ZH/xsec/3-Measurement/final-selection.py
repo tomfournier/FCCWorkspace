@@ -2,10 +2,12 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+import os
+
 # Analysis configuration and paths
 from package.userConfig import (
-    loc, get_loc, event, 
-    ecm, lumi, frac, nb
+    loc, get_loc, event, get_params,
+    frac, nb
 )
 from package.func.bdt import def_bdt, make_high_low
 from package.config import (
@@ -13,8 +15,10 @@ from package.config import (
     H_decays, 
     input_vars
 )
-# Select Z decay
-cat = input('Select a channel [ee, mumu]: ')
+
+cat, ecm, lumi = get_params(os.environ.copy(), '3-run.json', is_final=True)
+if cat not in ['ee', 'mumu']:
+    raise ValueError(f'Invalid channel: {cat}. Must be "ee" or "mumu"')
 
 
 
@@ -43,6 +47,12 @@ nCPUS = 10
 # Scale yields to integrated luminosity
 doScale = True
 intLumi = lumi * 1e6 # in pb-1
+
+# Save results in a .json file
+# saveJSON = True
+
+# Save result in LaTeX tables
+# saveTabular = True
 
 
 
@@ -91,7 +101,8 @@ big_sample = (
     f'p8_ee_WW_ecm{ecm}', 
     f'p8_ee_WW_{cat}_ecm{ecm}',
 
-    f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu' else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+    f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu' \
+        else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
 
     f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', 
     f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
@@ -118,21 +129,19 @@ p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)
 
 # Define baseline selection cuts
 vis_cut = 100 if ecm==240 else (171 if ecm==365 else 0)
-m_cut, p_cut = 'zll_m > 86 && zll_m < 96', f'zll_p > {p_dw} && zll_p < {p_up}'
-Baseline_Cut = m_cut + ' && ' + p_cut
+m_cut, p_cut = 'zll_m > 86 && zll_m < 96', f'zll_p > {p_dw} && zll_p < {p_up}', 
+rec_cut = ' && zll_recoil_m > 100 && zll_recoil_m < 150' if ecm==365 else ''
+
+Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
 vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' && visibleEnergy < {vis_cut}'
 
 # Selection cut dictionary (key = selection name used in outputs)
 cutList = { 
-    # 'sel0':              'return true;',
-    # 'Baseline':          Baseline_Cut,
-    # 'Baseline_vis':      vis,
-    # 'Baseline_inv':      inv,
-    # 'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
+    'Baseline':          Baseline_Cut,
+    'Baseline_vis':      vis,
+    'Baseline_inv':      inv,
+    'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
     'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
-    'Baseline_sep1':     '(('+vis+') || ('+inv+' && cosTheta_miss < 0.995))',
-    'Baseline_sep2':     '(('+vis+') || ('+inv+' && cosTheta_miss < 0.985))',
-    'Baseline_sep3':     '(('+vis+') || ('+inv+' && cosTheta_miss < 0.98))',
 }
 
 # List of selections to split into high/low BDT score regions
@@ -140,7 +149,6 @@ sels = [
     'Baseline',
     'Baseline_miss', 
     'Baseline_sep',
-    'Baseline_sep1', 'Baseline_sep2', 'Baseline_sep3'
 ]
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
@@ -151,33 +159,21 @@ cutList = make_high_low(cutList, bdt_cut, sels)
 ### DEFINE HISTOGRAM SETTINGS ###
 #################################
 
-P_up = 90 if ecm==240 else (200 if ecm==365 else 300)
-P_dw = 20 if ecm==240 else (0 if ecm==365 else 0)
-
-lead_up = 100 if ecm==240 else (250 if ecm==365 else 300)
-lead_dw = 40 if ecm==240 else (0 if ecm==365 else 0)
-
-sub_up = 60 if ecm==240 else (200 if ecm==365 else 300)
-sub_dw = 20 if ecm==240 else (0 if ecm==365 else 0)
-
-vis_up = 160 if ecm==240 else (350 if ecm==365 else 400)
-vis_dw = 0
-
-mis_up = 160 if ecm==240 else (365 if ecm==365 else 400)
-mis_dw = 0
-
 # Output histogram definitions (name, title, binning)
 histoList = {
 
     # Lepton kinematics: leading lepton
     'leading_p':        {'name':'leading_p',
                          'title':'p_{l,leading} [GeV]',
-                         'bin':int((lead_up-lead_dw)/0.5), 
-                         'xmin':lead_dw, 'xmax':lead_up},
+                         'bin':500,'xmin':0,'xmax':250},
+
+    'leading_pT':       {'name':'leading_pT',
+                         'title':'p_{T,l,leading} [GeV]',
+                         'bin':500,'xmin':0,'xmax':250},
 
     'leading_theta':    {'name':'leading_theta',
                          'title':'#theta_{l,leading}',
-                         'bin':128, 'xmin':0,  'xmax':3.2},
+                         'bin':128,'xmin':0,'xmax':3.2},
 
     'leading_phi':      {'name':'leading_phi',
                          'title':'#phi_{l,leading}',
@@ -186,12 +182,15 @@ histoList = {
     # Lepton kinematics: subleading lepton
     'subleading_p':     {'name':'subleading_p',
                          'title':'p_{l,subleading} [GeV]',
-                         'bin':int((sub_up-sub_dw)/0.5), 
-                         'xmin':sub_dw, 'xmax':sub_up},
+                         'bin':400,'xmin':0,'xmax':200},
+    
+    'subleading_pT':    {'name':'subleading_pT',
+                         'title':'p_{T,l,subleading} [GeV]',
+                         'bin':400,'xmin':0,'xmax':200},
 
     'subleading_theta': {'name':'subleading_theta',
                          'title':'#theta_{l,subleading}',
-                         'bin':128, 'xmin':0,  'xmax':3.2},
+                         'bin':128,'xmin':0,'xmax':3.2},
     
     'subleading_phi':   {'name':'subleading_phi',
                          'title':'#phi_{l,subleading}',
@@ -217,8 +216,11 @@ histoList = {
 
     'zll_p':            {'name':'zll_p',
                          'title':'p_{l^{+}l^{-}} [GeV]',
-                         'bin':int((P_up-P_dw)/0.5),
-                         'xmin':P_dw,'xmax':P_up},
+                         'bin':800,'xmin':0,'xmax':200},
+
+    'zll_pT':           {'name':'zll_pT',
+                         'title':'p_{T,l^{+}l^{-}} [GeV]',
+                         'bin':800,'xmin':0,'xmax':200},
 
     'zll_theta':        {'name':'zll_theta',
                          'title':'#theta_{l^{+}l^{-}}',
@@ -231,7 +233,7 @@ histoList = {
     # Recoil mass (Higgs candidate)
     'zll_recoil_m':     {'name':'zll_recoil_m',
                          'title':'m_{recoil} [GeV]',
-                         'bin':100,'xmin':100,'xmax':150},
+                         'bin':200,'xmin':100,'xmax':150},
     
     # Visible and invisible information
     'cosTheta_miss':    {'name':'cosTheta_miss',
@@ -240,13 +242,11 @@ histoList = {
     
     'visibleEnergy':    {'name':'visibleEnergy',
                          'title':'E_{vis} [GeV]',
-                         'bin':int((vis_up-vis_dw)/0.5),
-                         'xmin':vis_dw,'xmax':vis_up},
+                         'bin':700,'xmin':0,'xmax':350},
 
     'missingMass':      {'name':'missingMass',
                          'title':'m_{miss} [GeV]',
-                         'bin':int((mis_up-mis_dw)/0.5),
-                         'xmin':mis_dw,'xmax':mis_up},
+                         'bin':700,'xmin':0,'xmax':350},
     
     # Higgsstrahlungness
     'H':                {'name':'H',

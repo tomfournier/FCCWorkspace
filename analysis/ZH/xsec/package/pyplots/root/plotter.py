@@ -63,12 +63,6 @@ ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
 ROOT.gStyle.SetOptTitle(0)
 
-# Pre-warm ROOT graphics system to reduce first-plot latency
-# This forces initialization of graphics drivers, fonts, and I/O systems
-_warmup_canvas = ROOT.TCanvas('_warmup', '_warmup', 100, 100)
-_warmup_canvas.Close()
-del _warmup_canvas
-
 cfg = None  # Global configuration dictionary, populated at runtime
 
 

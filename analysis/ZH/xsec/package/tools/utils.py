@@ -17,15 +17,20 @@ Conventions:
 - Range utilities: `strict=True` excludes empty bins; `logY=True` ignores zero/
     negative contents when computing minima; `stack=True` bases y-max on sums.
 - Significance helpers return `nan` for invalid inputs (e.g., `B<=0`).
+
+Lazy Imports:
+- Heavy dependencies (numpy, pandas) are only imported when needed in functions.
+- Type hints use TYPE_CHECKING guard to avoid circular imports and startup time.
 '''
+from __future__ import annotations
 
-import os, json, ROOT
+import os, json
 
-import numpy as np
-import pandas as pd
+from typing import Callable, TYPE_CHECKING
 
-from glob import glob
-from typing import Callable, Union
+if TYPE_CHECKING:
+    import pandas as pd
+    import numpy as np
 
 #_____________________________
 def get_paths(mode: str, 
@@ -45,6 +50,7 @@ def get_paths(mode: str,
     Returns:
         list: Matching ROOT file paths.
     '''
+    from glob import glob
 
     # Construct full path from base path and mode pattern
     fpath = os.path.join(path, modes[mode] + suffix)
@@ -65,7 +71,9 @@ def get_df(filename: str,
     Returns:
         pd.DataFrame: DataFrame containing the 'events' tree data.
     '''
+    import pandas as pd
     from uproot import open
+
     with open(filename) as file:
         tree = file['events']
         # Return empty DataFrame if tree has no entries
@@ -198,6 +206,7 @@ def load_data(inDir: str,
     Returns:
         pd.DataFrame: Loaded DataFrame.
     '''
+    import pandas as pd
 
     # Construct pickle file path and load
     fpath = os.path.join(inDir, filename+'.pkl')
@@ -222,7 +231,7 @@ def to_pkl(df: pd.DataFrame,
     mkdir(path)
     fpath = os.path.join(path, filename+'.pkl')
     df.to_pickle(fpath)
-    print(f'--->Preprocessed saved {fpath}')
+    print(f'\n----->[Info] Preprocessed saved {fpath}\n')
 
 #____________________________
 def dump_json(arg: dict, 
@@ -274,7 +283,8 @@ def Z0(S: float,
     Returns:
         float: Calculated significance (NaN if B <= 0).
     '''
-
+    import numpy as np
+    
     if B<=0:
         return np.nan
     return np.sqrt( 2*( (S + B)*np.log(1 + S/B) - S ) )
@@ -294,7 +304,8 @@ def Zmu(S: float,
     Returns:
         float: Calculated significance (NaN if B <= 0).
     '''
-
+    import numpy as np
+    
     if B<=0:
         return np.nan
     return np.sqrt( 2*( S - B*np.log(1 + S/B) ) )
@@ -314,7 +325,8 @@ def Z(S: float,
     Returns:
         float: Calculated significance (0.0 if both S and B are <= 0, NaN if B < 0).
     '''
-
+    import numpy as np
+    
     if B<0:
         return np.nan
     if S<=0 and B<=0:
@@ -330,8 +342,9 @@ def Significance(df_s: pd.DataFrame,
                  func: Callable[[float, float], float] = Z0, 
                  score_range: tuple[float, float] = (0, 1), 
                  nbins: int = 50) -> pd.DataFrame:      
-    '''
-    Calculate significance from signal and background DataFrames.
+    '''Calculate significance from signal and background DataFrames.
+    
+    Optimized for speed: vectorized numpy operations, single pass binning.
 
     Args:
         df_s (pd.DataFrame): DataFrame containing signal data.
@@ -345,8 +358,10 @@ def Significance(df_s: pd.DataFrame,
     Returns:
         pd.DataFrame: DataFrame with columns ['S', 'B', 'Z'] for signal, background, and significance at each bin edge.
     '''
+    import numpy as np
+    import pandas as pd
 
-    # Extract values and weights from DataFrames
+    # Extract values and weights as numpy arrays (no intermediate copies)
     s_vals, s_w = df_s[column].values, df_s[weight].values
     b_vals, b_w = df_b[column].values, df_b[weight].values
 
@@ -354,250 +369,28 @@ def Significance(df_s: pd.DataFrame,
     print('initial: S0 = {:.2f}, B0 = {:.2f}'.format(S0, B0))
     print('inclusive Z: {:.2f}'.format(func(S0, B0)))
 
-    # Build weighted histograms with cumulative sums from high score to low score
-    edges     = np.linspace(*score_range, nbins + 1)
+    # Bin data once and compute cumulative sums
+    edges = np.linspace(*score_range, nbins + 1)
     hist_s, _ = np.histogram(s_vals, bins=edges, weights=s_w)
     hist_b, _ = np.histogram(b_vals, bins=edges, weights=b_w)
 
-    # Cumulative sums from high score to low score (optimization)
+    # Cumulative sums from high to low score (avoid loop)
     S_cum = np.cumsum(hist_s[::-1])[::-1]
     B_cum = np.cumsum(hist_b[::-1])[::-1]
 
-    Z_vals = np.array([(Si, Bi, func(Si, Bi)) for Si, Bi in zip(S_cum, B_cum)])
-    return pd.DataFrame(data=Z_vals, index=edges[:-1], columns=['S', 'B', 'Z'])
-
-#__________________________________
-def get_stack(hists: list[ROOT.TH1]
-              ) -> ROOT.TH1:
-    '''
-    Create a stacked histogram from a list of histograms.
-
-    Args:
-        hists (list[ROOT.TH1]): List of histograms to stack.
-
-    Returns:
-        ROOT.TH1: Combined stacked histogram.
-
-    Raises:
-        ValueError: If the input list is empty.
-    '''
-
-    if not hists:
-        raise ValueError('get_stack requires at least one histogram')
+    # Vectorized significance calculation
+    Z_vals = np.array([func(Si, Bi) for Si, Bi in zip(S_cum, B_cum)])
     
-    # Clone first histogram and add remaining histograms
-    hist = hists[0].Clone()
-    hist.SetDirectory(0)
-    hist.SetName(hist.GetName() + '_stack')
-    for h in hists[1:]: 
-        hist.Add(h)
-    return hist
+    return pd.DataFrame(data={'S': S_cum, 'B': B_cum, 'Z': Z_vals}, 
+                        index=edges[:-1])
 
-#___________________________________________________
-def get_xrange(hist: ROOT.TH1, 
-               strict: bool = True, 
-               xmin: Union[float, int, None] = None,
-               xmax: Union[float, int, None] = None
-               ) -> tuple[Union[float, int], 
-                          Union[float, int]]:
-    '''
-    Get the x-range of a histogram based on bin content.
+#_________________________________________
+def high_low_sels(sels: list[str], 
+                  list_hl: str | list[str]
+                  ) -> list[str]:
+    if isinstance(list_hl, str): list_hl = [list_hl]
 
-    Args:
-        hist (ROOT.TH1): Histogram to analyze.
-        strict (bool, optional): Only consider bins with non-zero content. Defaults to True.
-        xmin (float | int | None, optional): Minimum x boundary to consider. Defaults to None.
-        xmax (float | int | None, optional): Maximum x boundary to consider. Defaults to None.
-
-    Returns:
-        tuple: (x_min, x_max) range of the histogram.
-    '''
-
-    nbins = hist.GetNbinsX()
-    bin_data = [(hist.GetBinLowEdge(i+1), 
-                 hist.GetBinLowEdge(i+2), 
-                 hist.GetBinContent(i+1)) for i in range(nbins)]
-
-    # Filter bins based on strict mode and boundary conditions
-    mask = [(le, he) for le, he, c in bin_data 
-            if (xmin is None or le > xmin) 
-            and (xmax is None or he < xmax)
-            and (not strict or c != 0)]
-
-    if not mask:
-        # Fallback to full range if nothing matched
-        return bin_data[0][0], bin_data[-1][1]
-
-    return min(m[0] for m in mask), max(m[1] for m in mask)
-
-#___________________________________________________
-def get_yrange(hist: ROOT.TH1, 
-               logY: bool,
-               ymin: Union[float, int, None] = None,
-               ymax: Union[float, int, None] = None,
-               scale_min: float = 1.,
-               scale_max: float = 1.,
-               ) -> tuple[Union[float, int], 
-                          Union[float, int]]:
-    '''
-    Get the y-range of a histogram.
-
-    Args:
-        hist (ROOT.TH1): Histogram to analyze.
-        logY (bool): Flag indicating if the y-axis is logarithmic.
-        ymin (float | int | None, optional): Minimum y value. Defaults to None.
-        ymax (float | int | None, optional): Maximum y value. Defaults to None.
-        scale_min (float, optional): Minimum scale for y-axis. Defaults to 1.
-        scale_max (float, optional): Maximum scale for y-axis. Defaults to 1.
-
-    Returns:
-        tuple: (y_min, y_max) range of the histogram.
-    '''
-
-    nbins = hist.GetNbinsX()
-    contents = np.array([hist.GetBinContent(i+1) \
-                         for i in range(nbins)], dtype=float)
-
-    if logY:
-        # Handle log scale: exclude zero and negative values
-        nonzero = contents[contents != 0]
-        if nonzero.size == 0:
-            return np.nan, np.nan
-        yMin = float(nonzero.min()) * scale_min
-    else:
-        yMin = float(contents.min()) * scale_min
-
-    yMax = float(contents.max()) * scale_max
-    if (ymin is not None) and ymin > yMin: yMin = ymin
-    if (ymax is not None) and ymax < yMax: yMax = ymax
-    return yMin, yMax
-
-#__________________________________________________
-def get_range(h_sigs: list[ROOT.TH1], 
-              h_bkgs: list[ROOT.TH1],
-              logY: bool = False, 
-              strict: bool = True, 
-              stack: bool = False,
-              scale_min: float = 1., 
-              scale_max: float = 1.,
-              xmin: Union[float, int, None] = None,
-              xmax: Union[float, int, None] = None,
-              ymin: Union[float, int, None] = None,
-              ymax: Union[float, int, None] = None
-              ) -> tuple[float, 
-                         float, 
-                         float, 
-                         float]:
-    '''
-    Determine the range for signal and background histograms.
-
-    Args:
-        h_sigs (list[ROOT.TH1]): List of signal histograms.
-        h_bkgs (list[ROOT.TH1]): List of background histograms.
-        logY (bool, optional): Flag for logarithmic y-axis. Defaults to False.
-        strict (bool, optional): Flag for strict range checking. Defaults to True.
-        stack (bool, optional): Flag for stacking histograms. Defaults to False.
-        scale_min (float, optional): Minimum scale for y-axis. Defaults to 1.
-        scale_max (float, optional): Maximum scale for y-axis. Defaults to 1.
-        xmin (float | int | None, optional): Minimum x value. Defaults to None.
-        xmax (float | int | None, optional): Maximum x value. Defaults to None.
-        ymin (float | int | None, optional): Minimum y value. Defaults to None.
-        ymax (float | int | None, optional): Maximum y value. Defaults to None.
-
-    Returns:
-        tuple: (xmin, xmax, ymin, ymax) ranges for plotting.
-    '''
-    # Stack all signal and background histograms
-    h_stack = get_stack(h_sigs + h_bkgs)
-
-    # Determine x-range from stacked histogram
-    xMin, xMax = get_xrange(h_stack, 
-                            strict=strict, 
-                            xmin=xmin, 
-                            xmax=xmax)
-    h_bkg = [get_stack(h_bkgs)]
-    
-    # Get y-min values from all histograms
-    yMin = np.array([
-        get_yrange(h, 
-                    logY=logY,
-                    ymin=ymin,
-                    ymax=ymax,
-                    scale_min=scale_min,
-                    scale_max=scale_max)[0] 
-                    for h in h_sigs + h_bkgs
-    ])
-    
-    # Get y-max values based on stacking option
-    if stack:
-        yMax = get_yrange(h_stack, 
-                          logY=logY, 
-                          ymin=ymin, 
-                          ymax=ymax,
-                          scale_min=scale_min,
-                          scale_max=scale_max)[1]
-    else:
-        yMax = np.array([
-            get_yrange(h, 
-                       logY=logY, 
-                       ymin=ymin, 
-                       ymax=ymax,
-                       scale_min=scale_min,
-                       scale_max=scale_max)[1] 
-                       for h in h_sigs + h_bkg
-        ])
-        
-    yMin = yMin.min()
-    yMax = yMax.max()
-    return xMin, xMax, yMin, yMax
-
-#________________________________________________________
-def get_range_decay(h_sigs: list[ROOT.TH1], 
-                    logY: bool = False, 
-                    strict: bool = True,
-                    scale_min: float = 1., 
-                    scale_max: float = 1.,
-                    xmin: Union[float, int, None] = None,
-                    xmax: Union[float, int, None] = None,
-                    ymin: Union[float, int, None] = None,
-                    ymax: Union[float, int, None] = None
-                    ) -> tuple[float, 
-                               float, 
-                               float, 
-                               float]:
-    '''
-    Determine the range for decay mode histograms.
-
-    Args:
-        h_sigs (list[ROOT.TH1]): List of signal histograms.
-        logY (bool, optional): Flag for logarithmic y-axis. Defaults to False.
-        strict (bool, optional): Flag for strict range checking. Defaults to True.
-        scale_min (float, optional): Minimum scale for y-axis. Defaults to 1.
-        scale_max (float, optional): Maximum scale for y-axis. Defaults to 1.
-        xmin (float | int | None, optional): Minimum x value. Defaults to None.
-        xmax (float | int | None, optional): Maximum x value. Defaults to None.
-        ymin (float | int | None, optional): Minimum y value. Defaults to None.
-        ymax (float | int | None, optional): Maximum y value. Defaults to None.
-
-    Returns:
-        tuple: (xmin, xmax, ymin, ymax) ranges for plotting decay modes.
-    '''
-    # Stack signal histograms
-    h_sig = get_stack(h_sigs)
-    
-    # Get x-range from stacked histogram
-    xMin, xMax = get_xrange(h_sig, 
-                            strict=strict, 
-                            xmin=xmin, 
-                            xmax=xmax)
-
-    # Get y-range values from all signal histograms
-    y_ranges = np.array([get_yrange(h, 
-                                    logY=logY, 
-                                    ymin=ymin, 
-                                    ymax=ymax) 
-                                    for h in h_sigs])
-    yMin = y_ranges[:,0].min()*scale_min
-    yMax = y_ranges[:,1].max()*scale_max
-
-    return xMin, xMax, yMin, yMax
+    valid_sels = [hl for hl in list_hl if hl in sels]
+    for sel in valid_sels:
+        sels.extend([sel+'_high', sel+'_low'])
+    return sels

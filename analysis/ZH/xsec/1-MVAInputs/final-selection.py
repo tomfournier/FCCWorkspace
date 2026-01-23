@@ -2,13 +2,17 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+import os
+
 # Analysis configuration and paths
 from package.userConfig import (
-    loc, get_loc, 
-    ecm, lumi, frac, nb
+    loc, get_loc, get_params,
+    frac, nb
 )
-# Select Z decay
-cat = input('Select a channel [ee, mumu]: ')
+
+cat, ecm, lumi = get_params(os.environ.copy(), '1-run.json', is_final=True)
+if cat not in ['ee', 'mumu']:
+    raise ValueError(f'Invalid channel: {cat}. Must be "ee" or "mumu"')
 
 
 
@@ -32,7 +36,7 @@ procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 nCPUS = 10
 
 # Produce ROOT TTrees in addition to histograms (default is False)
-# doTree = True
+doTree = True
 
 # Scale yields to integrated luminosity
 doScale = True
@@ -75,12 +79,13 @@ p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)
 
 # Define baseline selection cuts
 m_cut, p_cut = 'zll_m > 86 && zll_m < 96', f'zll_p > {p_dw} && zll_p < {p_up}'
-Baseline_Cut = m_cut + ' && ' + p_cut
+rec_cut = ' && zll_recoil_m > 100 && zll_recoil_m < 150' if ecm==365 else ''
+Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
 
 # Selection cuts dictionary (key = selection name used in outputs)
 cutList = { 
-    'sel0':     'return true;',
-    # 'Baseline': Baseline_Cut
+    # 'sel0':     'return true;',
+    'Baseline': Baseline_Cut
 }
 
 
@@ -89,26 +94,17 @@ cutList = {
 ### DEFINE HISTOGRAM SETTINGS ###
 #################################
 
-lead_up = 100 if ecm==240 else (160 if ecm==365 else 200)
-lead_dw = 40 if ecm==240 else (80 if ecm==365 else 20)
-
-sub_up = 60 if ecm==240 else (100 if ecm==365 else 120)
-sub_dw = 20 if ecm==240 else (20 if ecm==365 else 20)
-
-vis_up = 160 if ecm==240 else (260 if ecm==365 else 300)
-vis_dw = 0
-
-mis_up = 160 if ecm==240 else (250 if ecm==365 else 400)
-mis_dw = 0
-
 # Output histogram definitions (name, title, binning)
 histoList = {
 
     # Lepton kinematics: leading lepton
     'leading_p':        {'name':'leading_p',
                          'title':'p_{l,leading} [GeV]',
-                         'bin':int((lead_up-lead_dw)/0.5), 
-                         'xmin':lead_dw, 'xmax':lead_up},
+                         'bin':400,'xmin':0,'xmax':200},
+
+    'leading_pT':       {'name':'leading_pT',
+                         'title':'p_{T,l,leading} [GeV]',
+                         'bin':400,'xmin':0,'xmax':200},
 
     'leading_theta':    {'name':'leading_theta',
                          'title':'#theta_{l,leading}',
@@ -121,8 +117,11 @@ histoList = {
     # Lepton kinematics: subleading lepton
     'subleading_p':     {'name':'subleading_p',
                          'title':'p_{l,subleading} [GeV]',
-                         'bin':int((sub_up-sub_dw)/0.5), 
-                         'xmin':sub_dw, 'xmax':sub_up},
+                         'bin':400,'xmin':0,'xmax':200},
+
+    'subleading_pT':    {'name':'subleading_pT',
+                         'title':'p_{T,l,subleading} [GeV]',
+                         'bin':400,'xmin':0,'xmax':200},
 
     'subleading_theta': {'name':'subleading_theta',
                          'title':'#theta_{l,subleading}',
@@ -143,7 +142,7 @@ histoList = {
     
     'deltaR':           {'name':'deltaR',
                          'title':'#DeltaR',
-                         'bin':100,'xmin':0,'xmax':10},
+                         'bin':100,'xmin':1,'xmax':7},
     
     # Z boson properties
     'zll_m':            {'name':'zll_m',
@@ -152,8 +151,11 @@ histoList = {
 
     'zll_p':            {'name':'zll_p',
                          'title':'p_{l^{+}l^{-}} [GeV]',
-                         'bin':int((p_up-p_dw)/0.5),
-                         'xmin':p_dw,'xmax':p_up},
+                         'bin':500,'xmin':0,'xmax':250},
+
+    'zll_pT':           {'name':'zll_pT',
+                         'title':'p_{T,l^{+}l^{-}} [GeV]',
+                         'bin':500,'xmin':0,'xmax':250},
 
     'zll_theta':        {'name':'zll_theta',
                          'title':'#theta_{l^{+}l^{-}}',
@@ -175,13 +177,11 @@ histoList = {
     
     'visibleEnergy':    {'name':'visibleEnergy',
                          'title':'E_{vis} [GeV]',
-                         'bin':int((vis_up-vis_dw)/0.5),
-                         'xmin':vis_dw,'xmax':vis_up},
+                         'bin':700,'xmin':0,'xmax':350},
 
     'missingMass':      {'name':'missingMass',
                          'title':'m_{miss} [GeV]',
-                         'bin':int((mis_up-mis_dw)/0.1),
-                         'xmin':mis_dw,'xmax':mis_up},
+                         'bin':700,'xmin':0,'xmax':350},
     
     # Higgsstrahlungness
     'H':                {'name':'H',

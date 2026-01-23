@@ -6,12 +6,14 @@ Provides:
 - Centralized filesystem layout under `loc` with template paths that use
     placeholders: `cat` (category like 'ee' or 'mumu'), `ecm` (GeV),
     `sel` (selection name, e.g. 'Baseline').
+- Path helpers via `PathTemplate`: `loc.COMBINE.get(cat, ecm, sel)` to
+    expand placeholders; `loc.COMBINE.astype(Path)` to convert to
+    `pathlib.Path`.
 - Small utilities to work with the layout and imports.
 
 Conventions:
 - `lumi` is in ab^-1 (10.8 at 240 GeV; 3.1 at 365 GeV).
-- Path templates in `loc` are expanded with `get_loc()` by replacing
-    `cat`, `ecm`, and `sel`.
+- Path templates in `loc` are expanded with `.get()` or `.astype()`.
 - Event files are ROOT files containing a TTree named 'events'.
 
 Helpers:
@@ -23,6 +25,9 @@ Helpers:
 Notes:
 - When `eos=True`, `repo` is resolved from the current working directory; a
     warning is printed if 'xsec' is not in the path.
+
+Lazy Imports:
+- uproot, glob, and json are lazy-loaded only when needed in functions
 '''
 
 ####################################
@@ -30,7 +35,8 @@ Notes:
 ####################################
 
 import os
-from typing import Union
+from pathlib import Path
+from typing import overload, Type, Union
 
 
 
@@ -49,7 +55,7 @@ frac, nb  = 1, 10
 ww = True
 
 # Center-of-mass energy in GeV
-cat, ecm = 'mumu', 365
+cat, ecm = 'mumu', 240
 
 # Integrated luminosity in ab-1 (10.8 for 240 GeV, 3.1 for 365 GeV)
 lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
@@ -136,18 +142,18 @@ loc.BIAS_WS            = f'{loc.COMBINE_BIAS}/WS'
 def get_loc(path: str, 
             cat: str, 
             ecm: int, 
-            sel: str
+            sel: str,
             ) -> str:
-    '''Replace placeholders in path template with actual values.
-    
+    '''Backwards-compatible wrapper around `loc.get()`.
+
     Args:
         path: Path template containing 'cat', 'ecm', 'sel' placeholders
         cat: Category name (e.g., 'ee', 'mumu')
         ecm: Center-of-mass energy in GeV
         sel: Selection name (e.g., 'Baseline')
-    
+
     Returns:
-        Path with substituted values
+        str: Path with substituted values
     '''
     return path.replace('cat', cat).replace('ecm', str(ecm)).replace('sel', sel)
 
@@ -164,7 +170,7 @@ def event(procs: list[str],
         end: File extension (default: '.root')
     
     Returns:
-        List of valid process names with 'events' TTree
+       List[str]: List of valid process names with 'events' TTree
     '''
     import uproot
     from glob import glob
@@ -184,15 +190,75 @@ def event(procs: list[str],
             newprocs.append(proc)
     return newprocs
 
-def add_package_path(names: Union[list[str], str]
-                     ) -> None:
-    '''Add package path(s) to sys.path for module imports.
+@overload
+def get_params(
+    env: os._Environ, 
+    cfg_json: str, 
+    is_final: bool = False, 
+    is_presel3: bool = False
+    ) -> tuple[str, int]:
+    ...
+
+@overload
+def get_params(
+    env: os._Environ, 
+    cfg_json: str, 
+    is_final: bool = True, 
+    is_presel3: bool = False
+    ) -> tuple[str, int, float]:
+    ...
+
+@overload
+def get_params(
+    env: os._Environ, 
+    cfg_json: str, 
+    is_final: bool = True, 
+    is_presel3: bool = True
+    ) -> tuple[str, int, bool]:
+    ...
+
+@overload
+def get_params(
+    env: os._Environ, 
+    cfg_json: str, 
+    is_final: bool = False, 
+    is_presel3: bool = True
+    ) -> tuple[str, int, bool]:
+    ...
+
+#__________________________________________
+def get_params(
+        env: os._Environ, 
+        cfg_json: str,
+        is_final: bool = False,
+        is_presel3: bool = False,
+        ) -> Union[tuple[str, int], 
+                   tuple[str, int, float]]:
+
+    import json
+    from pathlib import Path
     
-    Args:
-        names: Single path string or list of paths to add
-    '''
-    import sys
-    if isinstance(names, str):
-        names = [names]
-    for name in names:
-        sys.path.append(name)
+    if env.get('RUN'):
+        cfg_file = Path(loc.RUN) / cfg_json
+        if cfg_file.exists():
+            cfg = json.loads(cfg_file.read_text())
+            cat, ecm, lumi = cfg['cat'], cfg['ecm'], cfg['lumi']
+            if is_presel3: ww = cfg['ww']
+        else:
+            raise FileNotFoundError(f"Couldn't find {cfg_file} file")
+    else:
+        cat = input('Select channel [ee, mumu]: ')
+        ecm = int(input('Select center-of-mass energy [240, 365]: '))
+        lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
+        if is_presel3:
+            ww = bool(input(f'Do only for p8_ee_WW_ecm{ecm}? [True, False]: '))
+
+    if is_final and is_presel3:
+        is_final = False
+
+    if is_final:
+        return cat, ecm, lumi
+    elif is_presel3:
+        return cat, ecm, ww
+    
+    return cat, ecm

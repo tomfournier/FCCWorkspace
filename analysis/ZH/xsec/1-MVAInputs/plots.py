@@ -2,16 +2,17 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import ROOT
+import os, ROOT
 
 # Plot configuration and paths
 from package.userConfig import (
-    loc, get_loc, 
-    ecm, lumi, 
+    loc, get_loc, get_params,
     plot_file
 )
-# Select Z decay
-cat = input('Select a channel [ee, mumu]: ')
+
+cat, ecm, lumi = get_params(os.environ.copy(), '1-run.json', is_final=True)
+if cat not in ['ee', 'mumu']:
+    raise ValueError(f'Invalid channel: {cat}. Must be "ee" or "mumu"')
 
 
 
@@ -36,11 +37,12 @@ outdir         = get_loc(loc.PLOTS_MVA, cat, ecm, '')
 # Variables to plot from pre-selection outputs
 variables = [
     # Leptons kinematics
-    'leading_p', 'leading_theta', 'subleading_p', 'subleading_theta',
+    'leading_p',    'leading_pT',    'leading_theta', 
+    'subleading_p', 'subleading_pT', 'subleading_theta',
     # 'leading_phi', 'subleading_phi',
 
     # Z boson properties
-    'zll_m', 'zll_p', 'zll_theta', 
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 
     # 'zll_phi',
 
     # Angular correlation
@@ -94,23 +96,13 @@ plots['ZH'] = {
 
 # Color palette for each process in the legend
 colors = {}
-
-colors['mumuH']    = ROOT.kRed
-colors['eeH']      = ROOT.kRed
-
-colors['WW']       = ROOT.kBlue+1
-colors['ZZ']       = ROOT.kGreen+2
-
-colors['Zmumu']    = ROOT.kCyan
-colors['Zee']      = ROOT.kCyan
-
-colors['eeZ']      = ROOT.kSpring+10
-
-colors['WWmumu']   = ROOT.kBlue+1
-colors['WWee']     = ROOT.kBlue+1
-
-colors['gagamumu'] = ROOT.kBlue-8
-colors['gagaee']   = ROOT.kBlue-8
+colors[f'{cat}H']    = ROOT.kRed
+colors['WW']         = ROOT.kBlue+1
+colors['ZZ']         = ROOT.kGreen+2
+colors[f'Z{cat}']    = ROOT.kCyan
+colors['eeZ']        = ROOT.kSpring+10
+colors[f'WW{cat}']   = ROOT.kBlue+1
+colors[f'gaga{cat}'] = ROOT.kBlue-8
 
 # Legend labels used in ROOT plots
 legend = {}

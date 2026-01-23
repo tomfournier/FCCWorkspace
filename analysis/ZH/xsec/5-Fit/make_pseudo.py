@@ -2,10 +2,9 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, subprocess, sys
+import os, sys, subprocess
 
 from time import time
-from ROOT import TFile
 from argparse import ArgumentParser
 
 # Start timing for performance tracking
@@ -15,13 +14,11 @@ from package.userConfig import loc, get_loc
 from package.config import (
     timer, warning, 
     mk_processes, 
-    z_decays, 
+    z_decays,
     h_decays, 
     H_decays
 )
-from package.tools.utils import mkdir
-from package.tools.process import getHist
-from package.func.bias import make_pseudodata, make_datacard
+from package.func.bias import pseudo_datacard
 
 
 
@@ -55,8 +52,11 @@ parser.add_argument('--pert',    help='Target pseudodata size',
 parser.add_argument('--tot',     help='Do not consider all Z decays for making cross-section',
                     action='store_true')
 
+# To know if make_pseudo.py is runned from bias_test.py
+parser.add_argument('--no_btest', help='Do not run froom bias_test.py', action='store_true')
+
 # Fit execution flags
-parser.add_argument('--onlyrun', help='Only run the fit',   action='store_true')
+parser.add_argument('--onlyrun',  help='Only run the fit',   action='store_true')
 parser.add_argument('--run',      help='Run combine',        action='store_true')
 parser.add_argument('--freeze',   help='Freeze backgrounds', action='store_true')
 parser.add_argument('--float',    help='Float backgrounds',  action='store_true')
@@ -85,22 +85,12 @@ if arg.cat=='' and not arg.combine:
 # Parse configuration parameters
 cat, ecm, sel, tot = arg.cat, arg.ecm, arg.sel, not arg.tot
 
-# Set process-wise scale factors based on polarization or luminosity
-if arg.ILC: ## change fit to ASIMOV -t -1 !!!
-    proc_scales  = {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}
-elif arg.polL:
-    proc_scales  = {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263}
-elif arg.polR:
-    procs_scales = {'ZH': 1.047, 'WW': 0.219, 'ZZ': 1.011, 'Zgamma': 1.018}
-else:
-    proc_scales  = {}
-
 # Set input and output directories
 inDir  = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
 outDir = get_loc(loc.BIAS_DATACARD,  cat, ecm, sel)
 
 # Define histogram names and categories
-hNames, categories = (f'zll_recoil_m',), (f'z_{cat}',)
+hNames, categories = ('zll_recoil_m',), (f'z_{cat}',)
 
 # List of processes (signal first, then backgrounds)
 procs = ['ZH' if tot else f'Z{cat}H', 'WW', 'ZZ', 'Zgamma', 'Rare']
@@ -117,45 +107,21 @@ decays = H_decays if arg.target=='inv' else h_decays
 
 # Process histograms and create pseudodata 
 # (unless only running fit or combining)
-if not arg.combine and not arg.onlyrun:
-    hists = []
-
-    # Loop over categories and processes to collect histograms
-    for i, categorie in enumerate(categories):
-        for proc in procs:
-            h = getHist(hNames[i], processes[proc], inDir)
-            h.SetName(f'{categorie}_{proc}')
-            hists.append(h)
-
-        # Generate pseudodata histogram
-        args = [inDir, procs, processes, hNames[i], arg.target, cat, z_decays]
-        args.append(decays) if arg.target=='inv' else args.append(decays)
-
-        hist_pseudo = make_pseudodata(
-            hNames[i], inDir, procs, processes, cat, z_decays, decays,
-            arg.target, ecm=ecm, variation=arg.pert, tot=tot,
-            proc_scales=proc_scales
-        )
-        hist_pseudo.SetName(f'{categorie}_data_{arg.target}')
-        hists.append(hist_pseudo)
-
-    # Create output directory and save histograms
-    mkdir(outDir)
-
-    print('----->[Info] Saving pseudo histograms')
-    fOut = f'{outDir}/datacard_{arg.target}.root'
-
-    with TFile(fOut, 'RECREATE') as f:
-        for hist in hists:
-            hist.Write()
-
-    print(f'----->[Info] Histograms saved in {fOut}')
-
-    # Generate datacard for combine fit
-    print('----->[Info] Making datacard')
-    make_datacard(outDir, procs, arg.target, 1.01, categories,
-                  freezeBkgs=arg.freeze, floatBkgs=arg.float, 
-                  plot_dc=arg.plot_dc)
+if not arg.combine and not arg.onlyrun and not arg.no_btest:
+    scales = 'ILC' if arg.ILC else \
+            ('polL' if arg.polL else \
+            ('polR' if arg.polR else ''))
+    pseudo_datacard(
+        inDir, outDir,
+        cat=cat, ecm=ecm, 
+        target=arg.target, pert=arg.pert,
+        z_decays=z_decays, h_decays=decays,
+        processes=processes,
+        tot=tot, 
+        freeze=arg.freeze, 
+        float_bkg=arg.float, 
+        plot_dc=arg.plot_dc
+    )
 
 
 

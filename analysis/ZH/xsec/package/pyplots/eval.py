@@ -41,19 +41,16 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-from __future__ import annotations
-
 import os
-from typing import TYPE_CHECKING
 
+import numpy as np
+import pandas as pd
+import xgboost as xgb
 import matplotlib.pyplot as plt
+import sklearn.metrics as metrics
 
 from tqdm import tqdm
-
-if TYPE_CHECKING:
-    import numpy as np
-    import pandas as pd
-    import xgboost as xgb
+from sklearn.metrics import auc
 
 from .python.plotter import (
     set_plt_style, 
@@ -73,11 +70,6 @@ from ..tools.utils import (
 
 # Set the font, size, etc. of the label, tick, legend, etc.
 set_plt_style()
-plt.ioff()  # Disable interactive mode for faster plotting
-
-# Cache for splits to avoid recomputation if same DataFrame used
-_splits_cache = {}
-_cache_id = None
 
 
 
@@ -85,95 +77,9 @@ _cache_id = None
 ### HELPER FUNCTIONS ###
 ########################
 
-#______________________________________
-def _make_fig(figsize: tuple = (12, 8), 
-              dpi: int = 100
-              ) -> tuple[plt.Figure, 
-                         plt.Axes]:
-    '''Create and pre-configure a matplotlib figure.
-    
-    Ensures consistent figure setup across all plotting functions.
-    
-    Args:
-        figsize (tuple, optional): Figure size (width, height). Defaults to (10, 8).
-        dpi (int, optional): Figure DPI. Defaults to 100.
-        
-    Returns:
-        Tuple of (fig, ax) ready to use
-    '''
-    return plt.subplots(figsize=figsize, dpi=dpi)
-
-#_________________________________________
-def _get_splits(df: 'pd.DataFrame'
-                ) -> dict[str, 
-                          'pd.DataFrame']:
-    '''Fast extraction of train/valid and signal/bkg splits.
-    
-    Computes boolean masks once, reused across functions.
-    Caches results if same DataFrame used multiple times.
-    
-    Args:
-        df: Input DataFrame with 'valid' and 'isSignal' columns
-        
-    Returns:
-        dict with precomputed masks and split DataFrames
-    '''
-    global _splits_cache, _cache_id
-    
-    # Use DataFrame memory address as cache key
-    df_id = id(df)
-    
-    # Return cached result if same DataFrame
-    if df_id == _cache_id and df_id in _splits_cache:
-        return _splits_cache[df_id]
-    
-    # Compute boolean masks explicitly to avoid integer bitwise quirks
-    is_valid = df['valid'].to_numpy(dtype=bool, copy=False)
-    is_sig = (df['isSignal'] == 1).to_numpy(copy=False)
-    
-    train_sig = ~is_valid & is_sig
-    train_bkg = ~is_valid & ~is_sig
-    val_sig = is_valid & is_sig
-    val_bkg = is_valid & ~is_sig
-    
-    result = {
-        'train_sig': df.loc[train_sig, :],
-        'train_bkg': df.loc[train_bkg, :],
-        'val_sig':   df.loc[val_sig, :],
-        'val_bkg':   df.loc[val_bkg, :]
-    }
-    
-    # Cache for future calls with same DataFrame
-    _cache_id = df_id
-    _splits_cache[df_id] = result
-    
-    # Keep cache small (max 3 DataFrames)
-    if len(_splits_cache) > 3:
-        _splits_cache.clear()
-    
-    return result
-
-#_____________________________________
-def _get_wts(df: 'pd.DataFrame', 
-             use_wts: bool,
-             weights: str = 'weights'
-             ) -> 'np.ndarray' | None:
-    '''Extract weights efficiently, return None if unused.
-    
-    Args:
-        df: Input DataFrame
-        use_wts: Whether to use weights
-        
-    Returns:
-        Weights array or None
-    '''
-    return df[weights].values if use_wts else None
-
-#_________________________________________________
-def _plot_metric(results: dict[str, 
-                               dict[str, 
-                                    list[float]]], 
-                 x_axis: 'np.ndarray',
+#___________________________________________________________
+def _plot_metric(results: dict[str, dict[str, list[float]]], 
+                 x_axis: np.ndarray,
                  metric_name: str,
                  ylabel: str,
                  label: str, 
@@ -182,9 +88,7 @@ def _plot_metric(results: dict[str,
                  locx: str = 'right', 
                  locy: str = 'top', 
                  suffix: str = '', 
-                 dpi: int = 100,
-                 format: list[str] = ['png']
-                 ) -> None:
+                 format: list[str] = ['png']) -> None:
     '''Plot a training and validation metric over boosting rounds.
 
     Args:
@@ -201,7 +105,7 @@ def _plot_metric(results: dict[str,
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
     print(f'----->[Info] Plotting {metric_name}')
-    fig, ax = _make_fig(dpi=dpi)
+    fig, ax = plt.subplots()
     try:
         ax.plot(x_axis, results['validation_0'][metric_name], 
                 label='Training', linewidth=2)
@@ -226,15 +130,14 @@ def _plot_metric(results: dict[str,
 
 #_______________________________________________________
 def log_loss(results: dict[str, dict[str, list[float]]], 
-             x_axis: 'np.ndarray', 
+             x_axis: np.ndarray, 
              label: str, 
              outDir: str, 
              best_iteration: int, 
              format: list[str] = ['png'], 
              locx: str = 'right', 
              locy: str = 'top', 
-             suffix: str = '',
-             dpi: int = 100) -> None:
+             suffix: str = '') -> None:
     '''Plot log-loss evolution during training and validation.
     
     Args:
@@ -247,21 +150,19 @@ def log_loss(results: dict[str, dict[str, list[float]]],
         locx (str, optional): Horizontal placement for label. Defaults to 'right'.
         locy (str, optional): Vertical placement for label. Defaults to 'top'.
         suffix (str, optional): Optional suffix for filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
     '''
     _plot_metric(results, x_axis, 'logloss', 'Log Loss', label, outDir,
-                 best_iteration, locx, locy, suffix, dpi, format)
+                 best_iteration, locx, locy, suffix, format)
 
-#___________________________________________________
+#____________________________________________________
 def classification_error(results: dict, 
-                         x_axis: 'np.ndarray', 
+                         x_axis: np.ndarray, 
                          label: str, 
                          outDir: str, 
                          best_iteration: int, 
                          locx: str = 'right', 
                          locy: str = 'top', 
                          suffix: str = '',
-                         dpi: int = 100,
                          format: list[str] = ['png']
                          ) -> None:
     '''Plot classification error progression during training and validation.
@@ -275,11 +176,10 @@ def classification_error(results: dict,
         locx (str, optional): Horizontal placement for label. Defaults to 'right'.
         locy (str, optional): Vertical placement for label. Defaults to 'top'.
         suffix (str, optional): Optional suffix for filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
     _plot_metric(results, x_axis, 'error', 'Classification Error', label, outDir,
-                 best_iteration, locx, locy, suffix, dpi, format)
+                 best_iteration, locx, locy, suffix, format)
 
 #__________________________________
 def AUC(results: dict, 
@@ -290,7 +190,6 @@ def AUC(results: dict,
         locx: str = 'right', 
         locy: str = 'top', 
         suffix: str = '', 
-        dpi: int = 100,
         format: list[str] = ['png']
         ) -> None:
     '''Plot AUC progression during training and validation.
@@ -304,14 +203,13 @@ def AUC(results: dict,
         locx (str, optional): Horizontal placement for label. Defaults to 'right'.
         locy (str, optional): Vertical placement for label. Defaults to 'top'.
         suffix (str, optional): Optional suffix for filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
     _plot_metric(results, x_axis, 'auc', 'AUC', label, outDir,
-                 best_iteration, locx, locy, suffix, dpi, format)
+                 best_iteration, locx, locy, suffix, format)
 
 #____________________________________________________
-def plot_roc_curve(df: 'pd.DataFrame', 
+def plot_roc_curve(df: pd.DataFrame, 
                    column: str, 
                    thresh: float = 0.7, 
                    ax: plt.Axes | None = None, 
@@ -329,15 +227,10 @@ def plot_roc_curve(df: 'pd.DataFrame',
         linestyle (str, optional): Line style for the curve. Defaults to '-'.
         label (str | None, optional): Legend label; defaults to the column name. Defaults to None.
     '''
-    import numpy as np
-    import sklearn.metrics as metrics
-    from sklearn.metrics import auc
-
     if ax is None: ax = plt.gca()
     if label is None: label = column
-    is_sig = df['isSignal'].to_numpy(np.int8, copy=False)
-    scores = df[column].to_numpy(np.float32, copy=False)
-    fpr, tpr = metrics.roc_curve(is_sig, scores)[0:2]
+    fpr, tpr = metrics.roc_curve(df['isSignal'], 
+                                 df[column])[0:2]
     roc_auc = auc(fpr, tpr)
     mask = tpr >= thresh
     fpr, tpr = fpr[mask], tpr[mask]
@@ -345,14 +238,13 @@ def plot_roc_curve(df: 'pd.DataFrame',
             color=color, linestyle=linestyle, linewidth=4)
 
 #__________________________________
-def roc(df: 'pd.DataFrame', 
+def roc(df: pd.DataFrame, 
         label: str, 
         outDir: str, 
         eps: float = 0, 
         locx: str = 'right', 
         locy: str = 'top', 
         suffix: str = '',
-        dpi: int = 100,
         format: list[str] = ['png']
         ) -> None:
     '''Plot ROC curves for training and validation samples.
@@ -365,20 +257,18 @@ def roc(df: 'pd.DataFrame',
         locx (str, optional): Horizontal placement for label. Defaults to 'right'.
         locy (str, optional): Vertical placement for label. Defaults to 'top'.
         suffix (str, optional): Optional suffix for filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
 
     print('------>[Info] Plotting ROC')
-    fig, ax = _make_fig(figsize=(12, 12), dpi=dpi)
+    fig, ax = plt.subplots(figsize=(12,12))
     try:
         plot_roc_curve(df[df['valid']==True],  'BDTscore', ax=ax, 
                     label='Validation Sample', thresh=eps)
         plot_roc_curve(df[df['valid']==False], 'BDTscore', ax=ax, 
                     label='Training Sample', thresh=eps,
-                    linestyle=(0, (1, 1)))
-        ax.plot([eps, 1], [eps, 1], color='r', lw=2, linestyle='--', label='Random Classifier')
-        ax.plot([eps, eps, 1], [eps, 1, 1], color='g', lw=2, linestyle='--', label='Perfect Classifier')
+                    linestyle='dotted')
+        plt.plot([eps, 1], [eps, 1], color='navy', lw=2, linestyle='--')
         ax.legend()
 
         set_labels(ax, 'False Positive Rate', 'True Positive Rate', right=label, locx=locx, locy=locy)
@@ -387,7 +277,7 @@ def roc(df: 'pd.DataFrame',
         plt.close(fig)
 
 #_______________________________________________
-def bdt_score(df: 'pd.DataFrame', 
+def bdt_score(df: pd.DataFrame, 
               label: str, 
               outDir: str, 
               htype: str = 'step', 
@@ -400,7 +290,6 @@ def bdt_score(df: 'pd.DataFrame',
               range: list[float | int] = [0, 1], 
               weight: bool = True, 
               unity: bool = True, 
-              dpi: int = 100,
               verbose: bool = False) -> None:
     '''Plot BDT score distributions for train/validation signal and background.
 
@@ -418,36 +307,47 @@ def bdt_score(df: 'pd.DataFrame',
         range (list[float | int], optional): Score range used for binning. Defaults to [0, 1].
         weight (bool, optional): Whether to apply per-event weights. Defaults to True.
         unity (bool, optional): Normalize each histogram to unit area. Defaults to True.
-        dpi (int, optional): Figure DPI. Defaults to 100.
         verbose (bool, optional): Print category sizes when True. Defaults to False.
     '''
-    print('------>[Info] Plotting BDT score')
-
-    # Get splits with single pass through data
-    splits = _get_splits(df)
-    df_len = len(df)
     
-    # Define styling: linestyle, color, valid flag, sig flag
-    params = [
-        ('Signal Training',       '-',  'r', splits['train_sig']),
-        ('Background Training',   '-',  'b', splits['train_bkg']),
-        ('Signal Validation',     '--', 'r', splits['val_sig']),
-        ('Background Validation', '--', 'b', splits['val_bkg']),
-    ]
+    print('----->[Info] Plotting BDT score')
+    # Define styling parameters (linestyle, color, validation flag, signal flag)
+    params = {
+        'Signal Training':       {'l':'-',  'c':'r', 'v': False, 's': True},
+        'Background Training':   {'l':'-',  'c':'b', 'v': False, 's': False},
+        'Signal Validation':     {'l':'--', 'c':'r', 'v': True,  's': True},
+        'Background Validation': {'l':'--', 'c':'b', 'v': True,  's': False},
+    }
 
-    fig, ax = _make_fig(dpi=dpi)
+    # Separate data by validation status and signal/background label
+    train_sig = df[(df['valid'] == False) & (df['isSignal'] == 1)]
+    train_bkg = df[(df['valid'] == False) & (df['isSignal'] != 1)]
+    valid_sig = df[(df['valid'] == True)  & (df['isSignal'] == 1)]
+    valid_bkg = df[(df['valid'] == True)  & (df['isSignal'] != 1)]
+
+    data_map = {
+        'Signal Training': train_sig,
+        'Background Training': train_bkg,
+        'Signal Validation': valid_sig,
+        'Background Validation': valid_bkg
+    }
+
+    fig, ax = plt.subplots()
     try:
-        for name, ls, c, d in params:
+        for param, args in params.items():
+            df1 = data_map[param]
             if verbose:
-                ratio = (len(d) / df_len) * 100.0
-                print(f'---------> {name:<25} {len(d):6d} Ratio: {ratio:5.2f}%')
+                ratio = (len(df1)/float(len(df))) * 100.0
+                print(f'---------> {param:<25} {len(df1)} Ratio: {ratio:.2f}')
             
-            wts = _get_wts(d, weight)
-            ax.hist(d['BDTscore'].values, 
+            # Apply event weights if requested
+            weights = df1['weights'].values if weight else None
+            ax.hist(df1['BDTscore'].values, 
                     density=unity, bins=nbins, 
                     range=range, histtype=htype, 
-                    label=name, linestyle=ls, 
-                    color=c, linewidth=1.5, weights=wts)
+                    label=param, linestyle=args['l'], 
+                    color=args['c'], 
+                    linewidth=1.5, weights=weights)
         
         ax.legend(loc='upper right', shadow=False)
         ax.set_yscale(yscale)
@@ -465,7 +365,7 @@ def bdt_score(df: 'pd.DataFrame',
         plt.close(fig)
 
 #_______________________________________________
-def mva_score(df: 'pd.DataFrame', 
+def mva_score(df: pd.DataFrame, 
               label: str, 
               outDir: str, 
               modes: list[str],
@@ -481,7 +381,6 @@ def mva_score(df: 'pd.DataFrame',
               range: list[float | int] = [0, 1],
               ncols: int = 3,
               unity: bool = True, 
-              dpi: int = 100,
               weight: bool = True) -> None:
     '''Plot stacked BDT score histograms for multiple modes.
 
@@ -502,53 +401,68 @@ def mva_score(df: 'pd.DataFrame',
         range (list[float | int], optional): Score range used for binning. Defaults to [0, 1].
         ncols (int, optional): Number of legend columns. Defaults to 3.
         unity (bool, optional): Normalize each histogram to unit area. Defaults to True.
-        dpi (int, optional): Figure DPI. Defaults to 100.
         weight (bool, optional): Whether to apply per-event weights. Defaults to True.
     '''
     print('------>[Info] Plotting MVA score')
 
-    # Get splits with single pass
-    splits = _get_splits(df)
-    sig_modes = [m for m in modes if 'H' in m]
-    bkg_modes = [m for m in modes if 'H' not in m]
+    # Separate data by validation status and signal/background label
+    train_sig = df[(df['valid'] == False) & (df['isSignal'] == 1)]
+    valid_sig = df[(df['valid'] == True)  & (df['isSignal'] == 1)]
+    train_bkg = df[(df['valid'] == False) & (df['isSignal'] != 1)]
+    valid_bkg = df[(df['valid'] == True)  & (df['isSignal'] != 1)]
 
-    fig, ax = _make_fig(dpi=dpi)
+    # Partition modes into signal-like (contain 'H') and background categories
+    sig_modes = [mode for mode in modes if 'H' in mode]
+    bkg_modes = [mode for mode in modes if 'H' not in mode]
+
+    # Training with solid lines; validation with dashed lines
+    datasets = [
+        (train_sig, train_bkg, '-', True),
+        (valid_sig, valid_bkg, '--', False)
+    ]
+
+    fig, ax = plt.subplots()
     try:
-        for linestyle, show_lbl in [('-', True), ('--', False)]:
-            sig_data = splits['train_sig'] if linestyle == '-' else splits['val_sig']
-            bkg_data = splits['train_bkg'] if linestyle == '-' else splits['val_bkg']
-            
-            # Plot signal modes
+        for sig, bkg, linestyle, show_label in datasets:
             for mode in sig_modes:
-                d = sig_data[sig_data['sample'] == mode]
-                wts = _get_wts(d, weight)
-                ax.hist(d['BDTscore'].values, 
+                df1 = sig[sig['sample']==mode]
+                weights = df1['weights'].values if weight else None
+                ax.hist(df1['BDTscore'].values, 
                         density=unity, bins=nbins, 
-                        range=range, histtype=htype, 
+                        range=range, 
+                        histtype=htype, 
                         color=modes_color[mode],
-                        label=modes_label[mode] if show_lbl else None, 
-                        linestyle=linestyle, linewidth=1.5, weights=wts)
+                        label=modes_label[mode] if show_label else None, 
+                        linestyle=linestyle, 
+                        linewidth=1.5, weights=weights)
 
-            # Stack background samples
-            bkg_arrays, bkg_wts, bkg_lbls, bkg_cols = [], [], [], []
+            # Stack background samples for overlaid histogram
+            bkg_data, bkg_weights, bkg_labels = [], [], []
+            bkg_colors = []
             for mode in bkg_modes:
-                d = bkg_data[bkg_data['sample'] == mode]
-                if len(d) > 0:
-                    bkg_arrays.append(d['BDTscore'].values)
-                    bkg_cols.append(modes_color[mode])
-                    if show_lbl:
-                        bkg_lbls.append(modes_label[mode])
-                    if weight:
-                        bkg_wts.append(d['weights'].values)
+                df1 = bkg[bkg['sample']==mode]
+                bkg_data.append(df1['BDTscore'].values)
+                bkg_colors.append(modes_color[mode])
+                if show_label:
+                    bkg_labels.append(modes_label[mode])
+                if weight:
+                    bkg_weights.append(df1['weights'].values)
 
-            if bkg_arrays:
-                wts_stacked = bkg_wts if weight else None
-                lbls_stacked = bkg_lbls if show_lbl else None
-                ax.hist(bkg_arrays, density=unity, bins=nbins, 
-                        range=range, histtype=htype, 
-                        label=lbls_stacked, color=bkg_cols,
-                        stacked=True, linestyle=linestyle, 
-                        linewidth=1.5, weights=wts_stacked)
+            # Plot stacked background histogram if data exists
+            if bkg_data:
+                weights_stacked = bkg_weights if weight else None
+                labels_stacked = bkg_labels if show_label else None
+                ax.hist(bkg_data, 
+                        density=unity, 
+                        bins=nbins, 
+                        range=range, 
+                        histtype=htype, 
+                        label=labels_stacked,
+                        color=bkg_colors,
+                        stacked=True,
+                        linestyle=linestyle, 
+                        linewidth=1.5, 
+                        weights=weights_stacked)
 
         ax.set_xlim(*range)
         ax.set_yscale(yscale)
@@ -566,7 +480,7 @@ def mva_score(df: 'pd.DataFrame',
         plt.close(fig)
 
 #____________________________________________
-def importance(bdt: 'xgb.XGBClassifier', 
+def importance(bdt: xgb.XGBClassifier, 
                vars: list[str], 
                latex_mapping: dict[str, str], 
                label: str, 
@@ -574,7 +488,6 @@ def importance(bdt: 'xgb.XGBClassifier',
                locx: str = 'right', 
                locy: str = 'top', 
                suffix: str = '', 
-               dpi: int = 100,
                format: list[str] = ['png']
                ) -> None:
     '''Plot feature importance using the XGBoost F-score (split count).
@@ -588,26 +501,25 @@ def importance(bdt: 'xgb.XGBClassifier',
         locx (str, optional): Horizontal placement for the right-side label. Defaults to 'right'.
         locy (str, optional): Vertical placement for the right-side label. Defaults to 'top'.
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
     print('------>[Info] Plotting feature importance')
 
-    import pandas as pd
-
     # Extract and sort feature importances by F-score (split count)
     importance = bdt.get_booster().get_score(importance_type='weight')
-    sorted_importance = sorted(importance.items(), key=lambda x: x[1])
-    
-    # Map feature indices to LaTeX labels and extract values in single pass
-    sorted_vars_latex = [latex_mapping[vars[int(k[1:])]] for k, _ in sorted_importance]
-    sorted_values = [v for _, v in sorted_importance]
+    sorted_importance = sorted(importance.items(), key=lambda x: x[1], reverse=False)
+    sorted_indices = [int(x[0][1:]) for x in sorted_importance]
+    sorted_vars   = [vars[i] for i in sorted_indices]
+    sorted_values = [x[1] for x in sorted_importance]
+
+    # Map feature names to LaTeX representations for display
+    sorted_vars_latex = [latex_mapping[var] for var in sorted_vars]
 
     # Build DataFrame and create horizontal bar chart
     importance_df = pd.DataFrame({'Variable': sorted_vars_latex, 
                                   'Importance': sorted_values})
     
-    fig, ax = _make_fig(dpi=dpi)
+    fig, ax = plt.subplots()
     try:
         importance_df.plot(kind='barh', x='Variable', 
                         y='Importance', legend=None, ax=ax)
@@ -620,7 +532,7 @@ def importance(bdt: 'xgb.XGBClassifier',
         plt.close(fig)
 
 #___________________________________________
-def significance(df: 'pd.DataFrame', 
+def significance(df: pd.DataFrame, 
                  label: str, 
                  outDir: str, 
                  out_txt: str, 
@@ -629,7 +541,6 @@ def significance(df: 'pd.DataFrame',
                  column: str = 'BDTscore',
                  weight: str = 'norm_weight',
                  suffix: str = '', 
-                 dpi: int = 100,
                  format: list[str] = ['png']
                  ) -> None:
     '''Scan the BDT score for maximal significance and save the cut value.
@@ -644,10 +555,8 @@ def significance(df: 'pd.DataFrame',
         column (str, optional): Score column to scan. Defaults to 'BDTscore'.
         weight (str, optional): Weight column used in the significance calculation. Defaults to 'norm_weight'.
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
-    import numpy as np
     print('------>[Info] Plotting Significance scan')
 
     # Extract validation signal and background samples
@@ -668,7 +577,7 @@ def significance(df: 'pd.DataFrame',
     np.savetxt(f'{out_txt}/BDT_cut.txt', [float(max_index)])
     print(f'----->[Info] Wrote BDT cut in {out_txt}/BDT_cut.txt')
 
-    fig, ax = _make_fig(dpi=dpi)
+    fig, ax = plt.subplots()
     try:
         ax.scatter(df_Z.index, df_Z['Z'], marker='.')
         ax.scatter(max_index, max_Z, color='r', marker='*', s=150)
@@ -685,7 +594,7 @@ def significance(df: 'pd.DataFrame',
         plt.close(fig)
 
 #________________________________________________
-def efficiency(df: 'pd.DataFrame', 
+def efficiency(df: pd.DataFrame, 
                modes: list[str], 
                modes_label: dict[str, str], 
                modes_color: dict[str, str],
@@ -696,7 +605,6 @@ def efficiency(df: 'pd.DataFrame',
                suffix: str = '',
                format: list[str] = ['png'], 
                range: list[int | float] = [0, 1], 
-               dpi: int = 100,
                incr: float = 0.01) -> None:
     '''Compute and plot efficiency vs. BDT cut for each mode.
 
@@ -712,48 +620,41 @@ def efficiency(df: 'pd.DataFrame',
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
         range (list[int | float], optional): Inclusive BDT score range to scan. Defaults to [0, 1].
-        dpi (int, optional): Figure DPI. Defaults to 100.
         incr (float, optional): Step size for BDT cut thresholds. Defaults to 0.01.
     '''
-    import numpy as np
+    
     print('------>[Info] Calculating efficiencies for each mode')
-    
-    # Create scan grid and filter valid data
-    cuts = np.arange(range[0], range[1] + incr, incr)
-    d_valid = df[df['valid'].values].copy()
-    samples = d_valid['sample'].values
-    scores = d_valid['BDTscore'].values
-    
-    # Vectorized efficiency: broadcast cuts against scores
-    # Shape: (len(modes), len(cuts))
+    # Create scan grid of BDT cut thresholds
+    BDT_cuts = np.arange(range[0], range[1]+incr, incr)
+    df_valid = df[df['valid'] == True]
+
+    # Compute efficiency (fraction passing cut) for each mode and threshold
+    eff = {}
+    for mode in tqdm(modes):
+        scores = df_valid[df_valid['sample']==mode]['BDTscore'].values
+        eff[mode] = np.array([np.mean(scores>=cut) for cut in BDT_cuts])
+
     print('------>[Info] Plotting Efficiency')
-    fig, ax = _make_fig(dpi=dpi)
+    fig, ax = plt.subplots()
     try:
-        for mode in tqdm(modes):
-            mask = samples == mode
-            s = scores[mask]
-            if len(s) > 0:
-                # Vectorized: s[:, None] has shape (n_samples, 1)
-                # cuts has shape (len(cuts),)
-                # Result: (n_samples, len(cuts)) >= (len(cuts),) 
-                eff = np.mean(s[:, None] >= cuts, axis=0)
-                ax.plot(cuts, eff, 
-                        label=modes_label[mode],
-                        color=modes_color[mode])
-        
+        for mode in modes:
+            ax.plot(BDT_cuts, eff[mode], 
+                    label=modes_label[mode],
+                    color=modes_color[mode])
         ax.legend(loc='best', ncols=4)
         ax.set_xlim(*range)
-        ax.set_ylim(None, 1.3)
+        ax.set_ylim(None,1.3)
             
         set_labels(ax, 'BDT score', 'Efficiency', 
                 right=label, locx=locx, locy=locy)
+        fig.tight_layout()
         savefigs(fig, outDir, 'efficiency', 
                 suffix=suffix, format=format)
     finally:
         plt.close(fig)
 
 #__________________________________________
-def tree_plot(bdt: 'xgb.XGBClassifier', 
+def tree_plot(bdt: xgb.XGBClassifier, 
               inDir: str, 
               outDir: str, 
               epochs: int, 
@@ -772,8 +673,6 @@ def tree_plot(bdt: 'xgb.XGBClassifier',
         rankdir (str, optional): Graphviz rank direction. Defaults to 'LR'.
     '''
     import graphviz
-    import numpy as np
-    import xgboost as xgb
 
     mkdir(f'{outDir}/feature')
     # Ensure n does not exceed total number of epochs
@@ -804,7 +703,7 @@ def tree_plot(bdt: 'xgb.XGBClassifier',
     print(f'------>[Info] Plotted structure of BDT in {outDir}/feature folder')
 
 #__________________________________________
-def hist_check(df: 'pd.DataFrame', 
+def hist_check(df: pd.DataFrame, 
                label: str, 
                outDir: str, 
                modes: list[str], 
@@ -817,12 +716,10 @@ def hist_check(df: 'pd.DataFrame',
                yscale: str = 'linear',
                locx: str = 'right',
                locy: str = 'top',
-               suff: str = 'nominal',
                suffix: str = '',
                format: list[str] = ['png'], 
                htype: str = 'step',
                unity: bool = False, 
-               dpi: int = 100,
                weight: bool = True,
                strict: bool = True
                ) -> None:
@@ -846,61 +743,75 @@ def hist_check(df: 'pd.DataFrame',
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
         htype (str, optional): Matplotlib histogram type. Defaults to 'step'.
         unity (bool, optional): Normalize each histogram to unit area. Defaults to False.
-        dpi (int, optional): Figure DPI. Defaults to 100.
         weight (bool, optional): Whether to apply per-event weights. Defaults to True.
         strict (bool, optional): If True, clamp x-limits to observed data range. Defaults to True.
     '''
     
-    out = f'{outDir}/variables/{suff}'
+    out = f'{outDir}/variables'
     mkdir(out)
 
-    # Get splits with single pass
-    splits = _get_splits(df)
-    sig_modes = [m for m in modes if 'H' in m]
-    bkg_modes = [m for m in modes if 'H' not in m]
+    # Separate data by validation status and signal/background label
+    train_sig = df[(df['valid'] == False) & (df['isSignal'] == 1)]
+    valid_sig = df[(df['valid'] == True)  & (df['isSignal'] == 1)]
+    train_bkg = df[(df['valid'] == False) & (df['isSignal'] != 1)]
+    valid_bkg = df[(df['valid'] == True)  & (df['isSignal'] != 1)]
 
-    # Get data range once
-    vdata = df[var].values
-    xmin, xmax = vdata.min(), vdata.max()
+    # Partition modes into signal-like (contain 'H') and background categories
+    sig_modes = [mode for mode in modes if 'H' in mode]
+    bkg_modes = [mode for mode in modes if 'H' not in mode]
 
-    fig, ax = _make_fig(dpi=dpi)
+    # Training with solid lines; validation with dashed lines
+    datasets = [
+        (train_sig, train_bkg, '-', True),
+        (valid_sig, valid_bkg, '--', False)
+    ]
+
+    # Determine histogram range from observed data
+    xmin, xmax = df[var].min(), df[var].max()
+
+    fig, ax = plt.subplots()
     try:
-        for linestyle, show_lbl in [('-', True), ('--', False)]:
-            sig_data = splits['train_sig'] if linestyle == '-' else splits['val_sig']
-            bkg_data = splits['train_bkg'] if linestyle == '-' else splits['val_bkg']
-            
-            # Plot signal modes
+        for sig, bkg, linestyle, show_label in datasets:
             for mode in sig_modes:
-                d = sig_data[sig_data['sample'] == mode]
-                if len(d) > 0:
-                    wts = _get_wts(d, weight)
-                    ax.hist(d[var].values, density=unity, bins=nbins, 
-                            range=[xmin, xmax], histtype=htype, 
-                            label=modes_label[mode] if show_lbl else None, 
-                            color=modes_color[mode],
-                            linestyle=linestyle, linewidth=1.5, weights=wts)
+                df1 = sig[sig['sample']==mode]
+                weights = df1['weights'].values if weight else None
+                ax.hist(df1[var].values, 
+                        density=unity, 
+                        bins=nbins, 
+                        range=[xmin, xmax], 
+                        histtype=htype, 
+                        label=modes_label[mode] if show_label else None, 
+                        color=modes_color[mode],
+                        linestyle=linestyle, 
+                        linewidth=1.5, weights=weights)
 
-            # Stack background samples
-            bkg_arrays, bkg_wts, bkg_lbls, bkg_cols = [], [], [], []
+            # Stack background samples for overlaid histogram
+            bkg_data, bkg_weights = [], []
+            bkg_labels, bkg_colors = [], []
             for mode in bkg_modes:
-                d = bkg_data[bkg_data['sample'] == mode]
-                if len(d) > 0:
-                    bkg_arrays.append(d[var].values)
-                    bkg_cols.append(modes_color[mode])
-                    if show_lbl:
-                        bkg_lbls.append(modes_label[mode])
-                    if weight:
-                        bkg_wts.append(d['weights'].values)
+                df1 = bkg[bkg['sample']==mode]
+                bkg_data.append(df1[var].values)
+                bkg_colors.append(modes_color[mode])
+                if show_label:
+                    bkg_labels.append(modes_label[mode])
+                if weight:
+                    bkg_weights.append(df1['weights'].values)
 
-            if bkg_arrays:
-                wts_stacked = bkg_wts if weight else None
-                lbls_stacked = bkg_lbls if show_lbl else None
-                ax.hist(bkg_arrays, density=unity, bins=nbins, 
-                        range=[xmin, xmax], histtype=htype, 
-                        label=lbls_stacked, color=bkg_cols,
-                        stacked=True, linestyle=linestyle, 
-                        linewidth=1.5, weights=wts_stacked)
-        
+            # Plot stacked background histogram if data exists
+            if bkg_data:
+                weights_stacked = bkg_weights if weight else None
+                labels_stacked = bkg_labels if show_label else None
+                ax.hist(bkg_data, 
+                        density=unity, 
+                        bins=nbins, 
+                        range=[xmin, xmax], 
+                        histtype=htype, 
+                        label=labels_stacked,
+                        color=bkg_colors,
+                        stacked=True,
+                        linestyle=linestyle, 
+                        linewidth=1.5, 
+                        weights=weights_stacked)
         ax.legend(loc='upper center', shadow=False, ncols=ncols)
 
         # Constrain x-limits to data range if strict mode enabled

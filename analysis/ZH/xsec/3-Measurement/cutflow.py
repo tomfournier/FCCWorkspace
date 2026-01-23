@@ -47,7 +47,7 @@ cats, ecm = arg.cat.split('-'), arg.ecm
 lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
 # Selection strategies to analyze
 sels = [
-    'Baseline', 'Baseline_miss', 'Baseline_sep'
+    'Baseline', 'Baseline_miss', 'Baseline_sep', 'test'
 ]
 
 
@@ -84,6 +84,9 @@ cuts_label['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
 vis_cut = 100 if ecm==240 else (170 if ecm==365 else 0)
 cuts['Baseline_sep']['cut5'] = f'((visibleEnergy > {vis_cut}) | (visibleEnergy < {vis_cut} & cosTheta_miss < 0.99))'
 cuts_label['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
+
+cuts['test']['cut5'] = 'zll_recoil_m > 100 & zll_recoil_m < 150'
+cuts_label['test']['cut5'] = '100 < m_{recoil} < 150 GeV'
 
 # Variables required for cutflow evaluation (must match those used in cuts)
 variables = [

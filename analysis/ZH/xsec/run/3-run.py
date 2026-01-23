@@ -44,7 +44,7 @@ parser.add_argument('--cat', type=str, default='ee-mumu',
                     help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
 # Choose center-of-mass energy; dash-separated values run multiple energies sequentially
 parser.add_argument('--ecm', type=str, default='240-365', 
-                    choices=['240', '365', '240-365'],
+                    choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
 # Select pipeline stages: 1=pre-selection, 2=final-selection, 3=plots, 4=cutflow; dash-separated runs multiple
 parser.add_argument('--run', type=str, default='2-3', 
@@ -57,11 +57,11 @@ parser.add_argument('--decay',  help='Do not make Higgs decays only plots', acti
 parser.add_argument('--make',   help='Do not make distribution plots',      action='store_true')
 parser.add_argument('--scan',   help='Make significance scan plots',        action='store_true')
 
-# Include all Z decay modes in plots; --which chooses where it applies
-parser.add_argument('--tot', help='Include all the Z decays in the plots', action='store_true')
-
-parser.add_argument('--which', help="Choose which script to apply '--tot'", 
-                    type=str, default='cutflow', choices=['cutflow', 'plots', 'both'])
+# Include all Z decay modes in plots
+parser.add_argument('--tot', help='Include all the Z decays in the plots', 
+                    action='store_true')
+parser.add_argument('--ww', help="Choose if run pre-selection for p8_ee_WW_ee_ecm", 
+                    type=str, default='both', choices=['ww', 'other', 'both'])
 arg = parser.parse_args()
 
 
@@ -93,6 +93,7 @@ def run(cfg_dir: str,
         ecm: int, 
         path: str,
         script: str,
+        ww: bool = False
         ) -> None:
     '''Execute one measurement stage with a temporary config and streamed output.
     
@@ -115,10 +116,15 @@ def run(cfg_dir: str,
     cfg_file = Path(cfg_dir) / '3-run.json'
     
     # Build configuration dictionary
-    config = {'cat': cat, 'ecm': ecm, 'lumi': 10.8 if ecm == 240 else 3.1}
+    lumi = 10.8 if ecm == 240 else (3.12 if ecm==365 else -1)
+    config = {'cat': cat, 
+              'ecm': ecm, 
+              'lumi': lumi,
+              'ww': ww}
     
     # Write configuration to temporary JSON file
     cfg_file.write_text(json.dumps(config))
+    print(f'----->[Info] Wrote config file to {cfg_file}')
     
     # Set up environment with RUN flag for automated mode detection
     env = os.environ.copy()
@@ -128,7 +134,7 @@ def run(cfg_dir: str,
     
     # Display execution information for traceability
     print('=' * 60)
-    print(f'Running: cat = {cat}, ecm = {ecm}')
+    print(f'Running: {cat = }, {ecm = }, {lumi = } for {script}')
     print('=' * 60)
 
 
@@ -139,19 +145,12 @@ def run(cfg_dir: str,
         if arg.decay:  extra_args.append('--decay')
         if arg.make:   extra_args.append('--make')
         if arg.scan:   extra_args.append('--scan')
-        if arg.tot and \
-          (arg.which=='plots' or \
-           arg.which=='both'): 
-            extra_args.append('--tot')
     elif 'cutflow' in script:
-        if arg.tot and \
-          (arg.which=='cutflow' or\
-           arg.which=='both'):
-            extra_args.append('--tot')
+        if arg.tot:    extra_args.append('--tot')
 
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
-        else ['python', script_path, extra_args]
+        else ['python', script_path] + extra_args
     
     try:
         # Execute fccanalysis with modified environment and stream output
@@ -176,16 +175,33 @@ def run(cfg_dir: str,
 if __name__ == '__main__':
     is_there_plots   = 'plots' in scripts
     is_there_cutflow = 'cutflow' in scripts
+
+    if is_there_plots:   scripts.remove('plots')
+    if is_there_cutflow: scripts.remove('cutflow')
+
     # Nested loops: iterate over energies, channels, and pipeline stages
     for ecm in ecms:
-        if is_there_plots:   scripts.remove('plots')
-        if is_there_cutflow: scripts.remove('cutflow')
         if ('pre-selection'   in scripts) or \
            ('final-selection' in scripts):
             for cat in cats:
                 for script in scripts:
-                    result = run(loc.RUN, cat, ecm, path, script)
-                    if result != 0: sys.exit(result)
+                    if 'pre-selection' in script:
+                        if arg.ww=='both':
+                            result = run(loc.RUN, cat, ecm, path, script, ww=False)
+                            if result != 0: sys.exit(result)
+                            result = run(loc.RUN, cat, ecm, path, script, ww=True)
+                            if result != 0: sys.exit(result)
+                        elif arg.ww=='ww':
+                            result = run(loc.RUN, cat, ecm, path, script, ww=True)
+                            if result != 0: sys.exit(result)
+                        elif arg.ww=='other':
+                            result = run(loc.RUN, cat, ecm, path, script, ww=False)
+                            if result != 0: sys.exit(result)
+                        else:
+                            raise ValueError('Wrong value selected for --ww')
+                    else:
+                        result = run(loc.RUN, cat, ecm, path, script)
+                        if result != 0: sys.exit(result)
 
         if is_there_plots:
             result = run(loc.RUN, arg.cat, ecm, path, 'plots')
@@ -193,4 +209,5 @@ if __name__ == '__main__':
         if is_there_cutflow:
             result = run(loc.RUN, arg.cat, ecm, path, 'cutflow')
             if result != 0: sys.exit(result)
+    
     timer(t)

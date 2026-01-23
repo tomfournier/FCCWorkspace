@@ -2,23 +2,12 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, json
+import os
 
-from package.userConfig import loc, get_loc, frac, nb
+from package.userConfig import loc, get_loc, get_params, frac, nb
 
 # Load config from temporary JSON if running automated, else prompt
-if os.environ.get('RUN'):
-    cfg_file = f'{loc.RUN}/1-run.json'
-    if cfg_file.exists():
-        cfg = json.loads(cfg_file.read_text())
-        cat, ecm = cfg['cat'], cfg['ecm']
-        print(f'Loaded config: cat={cat}, ecm={ecm}')
-    else:
-        raise FileNotFoundError(f"Couldn't find {cfg_file} file")
-else:
-    cat = input('Select channel [ee, mumu]: ')
-    from package.userConfig import ecm
-
+cat, ecm = get_params(os.environ.copy(), '1-run.json')
 if cat not in ['ee', 'mumu']:
     raise ValueError(f'Invalid channel: {cat}. Must be "ee" or "mumu"')
 
@@ -185,6 +174,7 @@ def build_graph_ll(df, cat):
     # Z boson kinematics
     df = df.Define('zll_m',           'FCCAnalyses::ReconstructedParticle::get_mass(zll)[0]')
     df = df.Define('zll_p',           'FCCAnalyses::ReconstructedParticle::get_p(zll)[0]')
+    df = df.Define('zll_pT',          'FCCAnalyses::ReconstructedParticle::get_pt(zll)[0]')
     df = df.Define('zll_theta',       'FCCAnalyses::ReconstructedParticle::get_theta(zll)[0]')
     df = df.Define('zll_phi',         'FCCAnalyses::ReconstructedParticle::get_phi(zll)[0]')
     
@@ -194,12 +184,17 @@ def build_graph_ll(df, cat):
     
     # Individual Z lepton kinematics with leading/subleading ordering
     df = df.Define('zll_leps_p',       'FCCAnalyses::ReconstructedParticle::get_p(zll_leps)')
+    df = df.Define('zll_leps_pT',      'FCCAnalyses::ReconstructedParticle::get_pt(zll_leps)')
     df = df.Define('zll_leps_theta',   'FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)')
     df = df.Define('zll_leps_phi',     'FCCAnalyses::ReconstructedParticle::get_phi(zll_leps)')
     df = df.Define('leading_p_idx',    '(zll_leps_p[0] > zll_leps_p[1]) ? 0 : 1')
     df = df.Define('subleading_p_idx', '(zll_leps_p[0] > zll_leps_p[1]) ? 1 : 0')
+
     df = df.Define('leading_p',        'zll_leps_p[leading_p_idx]')
+    df = df.Define('leading_pT',       'zll_leps_pT[leading_p_idx]')
     df = df.Define('subleading_p',     'zll_leps_p[subleading_p_idx]')
+    df = df.Define('subleading_pT',    'zll_leps_pT[subleading_p_idx]')
+
     df = df.Define('leading_theta',    'zll_leps_theta[leading_p_idx]')
     df = df.Define('subleading_theta', 'zll_leps_theta[subleading_p_idx]')
     df = df.Define('leading_phi',      'zll_leps_phi[leading_p_idx]')
@@ -254,14 +249,14 @@ class RDFanalysis():
         """Define output branches to save."""
         branchList = [
             # Lepton kinematics (leading and subleading)
-            'leading_p',    'leading_theta',    'leading_phi',
-            'subleading_p', 'subleading_theta', 'subleading_phi',
+            'leading_p',    'leading_pT',    'leading_theta',    'leading_phi',
+            'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_phi',
 
             # Angular correlation
             'acolinearity', 'acoplanarity', 'deltaR',
 
             # Z boson kinematics
-            'zll_m', 'zll_p', 'zll_theta', 'zll_phi',
+            'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_phi',
 
             # Recoil mass (Higgs candidate)
             'zll_recoil_m',

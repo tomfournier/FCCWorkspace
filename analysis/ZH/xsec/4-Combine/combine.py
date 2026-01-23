@@ -10,7 +10,7 @@ from pathlib import Path
 from package.userConfig import (
     loc, get_loc, event
 )
-from package.config import z_decays, h_decays
+from package.config import z_decays, H_decays
 
 # Load config from temporary JSON if running automated, else prompt
 if os.environ.get('RUN'):
@@ -46,7 +46,10 @@ outputDir = get_loc(loc.NOMINAL_DATACARD, cat, ecm, sel)
 inDir     = get_loc(loc.EVENTS,           cat, ecm, '')
 
 # Define signal processes: ee -> Z(ll)H with various Higgs decay modes
-samples_sig = event([f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays], inDir)
+if sel=='Jan_sample':
+    samples_sig = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in H_decays]
+else:
+    samples_sig = event([f'wzp6_ee_{x}H_H{y}_ecm{ecm}'.replace('HZZ', 'HZZ_noInv') for x in z_decays for y in H_decays], inDir)
 sig_procs = {'sig': samples_sig}
 
 # Define background processes: ZZ, WW, Z/gamma, and rare processes
@@ -67,7 +70,7 @@ bkg_procs = {
 
 # Define histogram names
 hName = [
-    'zll_recoil_m'
+    'zll_recoil_m' if sel!='Jan_sample' else f'{cat}_zll_recoil_m_mva'
 ]
 # Configure categories based on fit type: single category or visible/invisible split
 categories = [f'z_{cat}']
@@ -75,7 +78,7 @@ hist_names = [hName[0]]
 
 # Define systematic uncertainties: normalization uncertainties for backgrounds
 systs = {}
-for i in ['Rare', 'WW', 'ZZ', 'Zgamma']:
+for i in sorted(['WW', 'ZZ', 'Zgamma', 'Rare']):
     systs[f'{i}_norm'] = {
         'type':  'lnN',       # Log-normal uncertainty
         'value': 1.01,        # 1% normalization uncertainty

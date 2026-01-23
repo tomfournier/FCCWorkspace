@@ -51,11 +51,9 @@ hNames = ['zll_recoil_m']
 
 # Selection strategies to apply
 sels = [
-    # 'Baseline',
-    # 'Baseline_miss',
-    # 'Baseline_sep',
-    # 'Baseline_sep1', 'Baseline_sep2',
-    'Baseline_sep3'
+    'Baseline',
+    'Baseline_miss',
+    'Baseline_sep'
 ]
 
 # Define cross-section scaling factors based on polarization or luminosity
@@ -72,9 +70,10 @@ if procs_scales!={}:
 
 
 # Define physics processes and their Higgs decay modes
-processes = mk_processes(['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'], 
-                         H_decays=H_decays+('ZZ_noInv',), 
-                         ecm=ecm)
+processes = mk_processes(
+    ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'], 
+    H_decays=H_decays+('ZZ_noInv',), ecm=ecm
+)
 
 # Background samples: WW, ZZ, Z/gamma -> ll, photon processes, invisible decays
 samples_bkg = [
@@ -135,6 +134,7 @@ def run(cats: str,
         # Process each selection strategy
         for sel in sels:
             print(f'\n----->[Info] Processing histograms for {sel}\n')
+
             outDir = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
             mkdir(outDir)
 
@@ -142,7 +142,6 @@ def run(cats: str,
             suffix_high = f'_{sel}_high_histo'
             suffix_low  = f'_{sel}_low_histo'
             suffix_base = f'_{sel}_histo'
-
             # Filter samples to only those that exist for this selection
             existing_samples = []
             for sample in samples:
@@ -159,13 +158,20 @@ def run(cats: str,
                 hists = []
                 has_valid_hist = False
                 for hName in hNames:
+
                     # Retrieve high and low region histograms with optional scaling
-                    h_high = get_hist(hName, sample, processes, inDir, 
-                                      suffix=suffix_high, 
-                                      proc_scales=procs_scales)
-                    h_low  = get_hist(hName, sample, processes, inDir,
-                                      suffix=suffix_low,
-                                      proc_scales=procs_scales)
+                    h_high = get_hist(
+                        hName, sample, processes, inDir, 
+                        suffix=suffix_high,
+                        rebin=1, 
+                        proc_scales=procs_scales
+                    )
+                    h_low  = get_hist(
+                        hName, sample, processes, inDir,
+                        suffix=suffix_low,
+                        rebin=1,
+                        proc_scales=procs_scales
+                    )
 
                     if h_high is None or h_low is None:
                         continue

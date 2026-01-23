@@ -65,11 +65,9 @@ arg = parser.parse_args()
 cats = arg.cat.split('-')
 ecms = [int(e) for e in arg.ecm.split('-')]
 sels = [
-    # 'Baseline', 
-    # 'Baseline_miss', 
-    # 'Baseline_sep', 
-    # 'Baseline_sep1', 'Baseline_sep2', 
-    'Baseline_sep3'
+    'Baseline', 
+    'Baseline_miss', 
+    'Baseline_sep'
 ]
 
 # Map stage numbers to script names (cutflow added as stage 4)
@@ -127,7 +125,8 @@ def run(cfg_dir: str,
     script_path = f'{path}/{script}.py'
     
     # Display execution information for traceability
-    print(f'Running: cat = {cat}, ecm = {ecm}')
+    print('=' * 60)
+    print(f'Running: {cat = }, {ecm = } for {script}')
     print('=' * 60)
 
 

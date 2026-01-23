@@ -52,6 +52,7 @@ parser.add_argument('--run', type=str, default='1-2-3',
 parser.add_argument('--metric', help='Do not plot the metrics plots',        action='store_true')
 parser.add_argument('--tree',   help='Plot the Decision Trees from the BDT', action='store_true')
 parser.add_argument('--check',  help='Plot the variables distribution',      action='store_true')
+parser.add_argument('--hl',     help='Plot the variables distribution for high and low score region', action='store_true')
 arg = parser.parse_args()
 
 
@@ -104,7 +105,8 @@ def run(cat: str,
     script_path = f'{path}/{script}.py'
     
     # Display execution information for traceability
-    print(f'Running: cat = {cat}, ecm = {ecm}')
+    print('=' * 60)
+    print(f'Running: {cat = }, {ecm = } for {script}')
     print('=' * 60)
 
     # Build per-stage arguments and append optional evaluation flags when relevant
@@ -113,6 +115,7 @@ def run(cat: str,
         if arg.metric: extra_args.append('--metric')
         if arg.tree:   extra_args.append('--tree')
         if arg.check:  extra_args.append('--check')
+        if arg.hl:     extra_args.append('--hl')
     
     # Execute stage script; pipe outputs through to this terminal
     result = subprocess.run(
@@ -135,7 +138,7 @@ if __name__ == '__main__':
     for ecm in ecms:
         for cat in cats:
             for script in scripts:
-                result = run(loc.RUN, cat, ecm, path, script)
+                result = run(cat, ecm, path, script)
                 if result != 0: sys.exit(result)
 
     timer(t)
