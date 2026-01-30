@@ -25,20 +25,20 @@ cd FCCAnalyses
 git branch
 ```
 
-and verify that you see somethinglike this:
+and verify that you see something like this:
 
 ```terminal
 master
 * pre-edm4hep1
 ```
 
-If you are not you just have to do:
+If you are not in the good branch, you just have to execute this command:
 
 ```shell
 git checkout pre-edm4hep1
 ```
 
-When you are sure to be in the good branch, you can start building `FCCAnalyses`. To do this you have to source `setup_FCCAnalyses.sh` by using the following command (be sure to be in `FCCWorkspace`):
+When you are sure to be in the good branch, you can start building `FCCAnalyses`. To do this you have to source `setup_FCCAnalyses.sh` by using the following command (be sure to be in `FCCWorkspace` folder):
 
 ```shell
 source setup_FCCAnalyses.sh
@@ -69,3 +69,4 @@ When running the command, `pdm` will ask you which environment to take, you will
 ## Careful
 
 Be careful to use a different terminal to use `CombinedLimit` and `FCCAnalyses` as they are not compatible
+
