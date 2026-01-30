@@ -14,7 +14,7 @@ t = time()
 
 print('----->[Info] Loading custom modules\n')
 
-from package.userConfig import loc, get_loc
+from package.userConfig import loc
 from package.config import (
     timer, 
     warning, 
@@ -97,8 +97,8 @@ def run(sels: list[str],
 
     for sel in sels:
         # Define input and output directories
-        inDir  = get_loc(loc.MVA_INPUTS, cat, ecm, sel)
-        outDir = get_loc(loc.BDT,        cat, ecm, sel)
+        inDir  = loc.get('MVA_INPUTS', cat, ecm, sel)
+        outDir = loc.get('BDT',        cat, ecm, sel)
 
         if 'Baseline' in sel and cat=='ee' and ecm==365:
             if 'gaga_ee' in modes:

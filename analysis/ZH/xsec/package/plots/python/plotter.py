@@ -30,9 +30,9 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-from os.path import join
-from matplotlib import rc
-from matplotlib.pyplot import Figure, Axes
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import matplotlib.pyplot as plt
 
 
 
@@ -50,6 +50,8 @@ def set_plt_style() -> None:
     Returns:
         None
     '''
+    from matplotlib import rc
+
     # Font configuration: serif with 30pt size
     rc('font', **{'family': 'serif', 
                   'serif': ['Roman'], 
@@ -66,14 +68,16 @@ def set_plt_style() -> None:
     rc('legend', fontsize=14)
     rc('text', usetex=True)
 
-#_________________________________________
-def set_labels(ax: Axes, 
-               xlabel: str = '', 
-               ylabel: str = '', 
-               left: str = '', 
-               right: str = '', 
-               locx: str = 'right', 
-               locy: str = 'top') -> None:
+#_______________________
+def set_labels(
+    ax: 'plt.Axes', 
+    xlabel: str = '', 
+    ylabel: str = '', 
+    left: str = '', 
+    right: str = '', 
+    locx: str = 'right', 
+    locy: str = 'top'
+    ) -> None:
     '''Configure axis labels and titles with FCC-ee experiment branding.
     
     Args:
@@ -100,13 +104,14 @@ def set_labels(ax: Axes,
     ax.set_title(left,    loc='left')
     ax.set_title(right,   loc='right')
 
-#_______________________________________
-def savefigs(fig: Figure, 
-             outDir: str, 
-             plotname: str, 
-             suffix: str = '', 
-             format: list[str] = ['png']
-             ) -> None:
+#______________________________
+def savefigs(
+    fig: 'plt.Figure', 
+    outDir: str, 
+    plotname: str, 
+    suffix: str = '', 
+    format: list[str] = ['png']
+    ) -> None:
     '''Save figure to disk in one or multiple formats.
     
     Args:
@@ -119,6 +124,8 @@ def savefigs(fig: Figure,
     Returns:
         None
     '''
+    from os.path import join
+
     # Construct full output file path without extension
     fpath = join(outDir,f'{plotname}{suffix}')
     # Save figure in each specified format

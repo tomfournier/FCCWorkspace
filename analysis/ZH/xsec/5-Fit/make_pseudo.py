@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 # Start timing for performance tracking
 t = time()
 
-from package.userConfig import loc, get_loc
+from package.userConfig import loc
 from package.config import (
     timer, warning, 
     mk_processes, 
@@ -86,8 +86,8 @@ if arg.cat=='' and not arg.combine:
 cat, ecm, sel, tot = arg.cat, arg.ecm, arg.sel, not arg.tot
 
 # Set input and output directories
-inDir  = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
-outDir = get_loc(loc.BIAS_DATACARD,  cat, ecm, sel)
+inDir  = loc.get('HIST_PROCESSED', cat, ecm, sel)
+outDir = loc.get('BIAS_DATACARD',  cat, ecm, sel)
 
 # Define histogram names and categories
 hNames, categories = ('zll_recoil_m',), (f'z_{cat}',)

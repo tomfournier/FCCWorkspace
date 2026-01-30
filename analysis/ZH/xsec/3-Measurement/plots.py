@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 # Start timer for performance tracking
 t = time()
 
-from package.userConfig import loc, get_loc
+from package.userConfig import loc
 
 from package.config import (
     timer, mk_processes, 
@@ -73,14 +73,14 @@ processes = mk_processes(
 
 # Variables to plot
 variables = [
-    'leading_p', 'leading_theta', #'leading_phi',          # leading lepton variables
-    'subleading_p', 'subleading_theta', #'subleading_phi', # subleading lepton variables
-    'zll_m', 'zll_p', 'zll_theta', # 'zll_phi',            # Z boson properties
-    'acolinearity', 'acoplanarity', 'deltaR',              # Angular separation variables
-    'zll_recoil_m',                                        # Recoil mass (Higgs candidate)
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',       # Missing energy and mass
-    'H',                                                   # Higgsstrahlungness
-    'BDTscore'                                             # BDT score
+    'leading_p', 'leading_pT', 'leading_theta', #'leading_phi',             # leading lepton variables
+    'subleading_p', 'subleading_pT', 'subleading_theta', #'subleading_phi', # subleading lepton variables
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', # 'zll_phi',                   # Z boson properties
+    'acolinearity', 'acoplanarity', 'deltaR',                               # Angular separation variables
+    'zll_recoil_m',                                                         # Recoil mass (Higgs candidate)
+    'visibleEnergy', 'cosTheta_miss', 'missingMass',                        # Missing energy and mass
+    'H',                                                                    # Higgsstrahlungness
+    'BDTscore'                                                              # BDT score
 ]
 
 # Define signal and background samples for AAAyields
@@ -117,8 +117,8 @@ def run(cats, sels, vars, processes, colors, legend):
         procs = ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
         # Define input and output directories
-        inDir  = get_loc(loc.HIST_PREPROCESSED, cat, ecm, '')
-        outDir = get_loc(loc.PLOTS_MEASUREMENT, cat, ecm, '')
+        inDir  = loc.get('HIST_PREPROCESSED', cat, ecm)
+        outDir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
 
         for sel in sels:
             if not arg.yields or not arg.make or not arg.decay or arg.scan:

@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 # Start timer for performance tracking
 t = time()
 
-from package.userConfig import loc, get_loc
+from package.userConfig import loc
 from package.config import (
     timer, mk_processes, 
     z_decays, H_decays
@@ -129,13 +129,13 @@ def run(cats: str,
     # Process each final state category
     for cat in cats:
         print(f'----->[Info] Processing histograms for {cat}')
-        inDir = get_loc(loc.HIST_PREPROCESSED, cat, ecm, '')
+        inDir = loc.get('HIST_PREPROCESSED', cat, ecm)
 
         # Process each selection strategy
         for sel in sels:
             print(f'\n----->[Info] Processing histograms for {sel}\n')
 
-            outDir = get_loc(loc.HIST_PROCESSED, cat, ecm, sel)
+            outDir = loc.get('HIST_PROCESSED', cat, ecm, sel)
             mkdir(outDir)
 
             # Define histogram name suffixes for control regions and combined

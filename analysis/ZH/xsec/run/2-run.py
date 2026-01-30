@@ -37,11 +37,11 @@ t = time.time()
 parser = ArgumentParser(description='Run analysis pipeline with automated parameters')
 # Select lepton final states; dash-separated values run both channels
 parser.add_argument('--cat', type=str, default='ee-mumu', 
-                    choices=['ee', 'mumu', 'ee-mumu'],
+                    choices=['ee', 'mumu', 'ee-mumu', 'mumu-ee'],
                     help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
 # Choose center-of-mass energy; dash-separated values run multiple energies sequentially
 parser.add_argument('--ecm', type=str, default='240-365', 
-                    choices=['240', '365', '240-365'],
+                    choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
 # Select pipeline stages: 1=process_input, 2=train_bdt, 3=evaluation; dash-separated runs multiple
 parser.add_argument('--run', type=str, default='1-2-3', 
@@ -104,10 +104,12 @@ def run(cat: str,
 
     script_path = f'{path}/{script}.py'
     
-    # Display execution information for traceability
-    print('=' * 60)
-    print(f'Running: {cat = }, {ecm = } for {script}')
-    print('=' * 60)
+    # Display execution header with clear identification
+    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = }'
+    length = len(msg) + 2
+    print('\n' + '=' * length)
+    print(msg.center(length))
+    print('=' * length)
 
     # Build per-stage arguments and append optional evaluation flags when relevant
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
@@ -124,6 +126,13 @@ def run(cat: str,
         stdout=sys.stdout,
         stderr=sys.stderr,
     )
+    # Completion status marker
+    status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
+    msg = f'{status}: [{script}] {cat = } | {ecm = }'
+    length = len(msg) + 2
+    print('=' * length)
+    print(msg.center(length))
+    print('=' * length + '\n')
     return result.returncode
 
 
@@ -133,9 +142,15 @@ def run(cat: str,
 ######################
 
 if __name__ == '__main__':
-    exit_codes = []
     # Nested loops: iterate over energies, channels, and pipeline stages
     for ecm in ecms:
+        task_count = len(cats) * len(scripts)
+        msg = f'BATCH: Running {task_count} task(s) for {ecm = }'
+        length = len(msg) + 2
+        print('\n' + '█' * length)
+        print(msg.center(length))
+        print('█' * length)
+        
         for cat in cats:
             for script in scripts:
                 result = run(cat, ecm, path, script)

@@ -63,13 +63,15 @@ from ...tools.process import getHist, get_range
 ### MAIN FUNCITONS ###
 ######################
 
-#____________________________________________________
-def make_cfg(cfg: dict[str, 
-                       Union[str, float, int, bool]], 
-             ecm: int = 240, 
-             lumi: float = 10.8,
-             ratio_plot: bool = False
-             ) -> dict[str, Union[str, float, int, None]]:
+#___________________________________________
+def make_cfg(
+    cfg: dict[str, 
+              Union[str, float, int, bool]], 
+    ecm: int = 240, 
+    lumi: float = 10.8,
+    ratio_plot: bool = False
+    ) -> dict[str, 
+              Union[str, float, int, None]]:
     '''Complete plotting configuration with defaults and validation.
     
     Args:
@@ -107,25 +109,26 @@ def make_cfg(cfg: dict[str,
     
     return cfg
 
-#_____________________________________________
-def build_cfg(hist: ROOT.TH1, 
-              logX: bool = False, 
-              logY: bool = False,
-              xmin: Union[float, None] = None,
-              xmax: Union[float, None] = None,
-              ymin: Union[float, None] = None, 
-              ymax: Union[float, None] = None,
-              xtitle: str = '',
-              ytitle: str = 'Events',
-              ecm: int = 240, 
-              lumi: float = 10.8,
-              strict: bool = True, 
-              stack: bool = False,
-              hists: Union[list, None] = None,
-              range_func: callable = get_range,
-              cutflow: bool = False,
-              decay: bool = False
-              ) -> dict:
+#____________________________________
+def build_cfg(
+    hist: ROOT.TH1, 
+    logX: bool = False, 
+    logY: bool = False,
+    xmin: Union[float, None] = None,
+    xmax: Union[float, None] = None,
+    ymin: Union[float, None] = None, 
+    ymax: Union[float, None] = None,
+    xtitle: str = '',
+    ytitle: str = 'Events',
+    ecm: int = 240, 
+    lumi: float = 10.8,
+    strict: bool = True, 
+    stack: bool = False,
+    hists: Union[list, None] = None,
+    range_func: callable = get_range,
+    cutflow: bool = False,
+    decay: bool = False
+    ) -> dict:
     '''Build complete plotting configuration with computed axis ranges.
     
     Args:
@@ -186,13 +189,14 @@ def build_cfg(hist: ROOT.TH1,
         'ytitle': ytitle,
     }, ecm=ecm, lumi=lumi)
 
-#_____________________________________________________
-def canvas_margins(c: ROOT.TCanvas, 
-                   top:    Union[float, None] = 0.055, 
-                   bottom: Union[float, None] = 0.11,
-                   left:   Union[float, None] = 0.15, 
-                   right:  Union[float, None] = 0.05
-                   ) -> None:
+#______________________________________
+def canvas_margins(
+    c: ROOT.TCanvas, 
+    top:    Union[float, None] = 0.055, 
+    bottom: Union[float, None] = 0.11,
+    left:   Union[float, None] = 0.15, 
+    right:  Union[float, None] = 0.05
+    ) -> None:
     '''Set canvas margins with optional values.
     
     Args:
@@ -214,13 +218,14 @@ def canvas_margins(c: ROOT.TCanvas,
     if right is not None:
         c.SetRightMargin(right)
 
-#____________________________________
-def pad_margins(pad: ROOT.TPad, 
-                top:    float = 0.0, 
-                bottom: float = 0.0,
-                left:   float = 0.15,
-                right:  float = 0.05
-                ) -> None:
+#________________________
+def pad_margins(
+    pad: ROOT.TPad, 
+    top:    float = 0.0, 
+    bottom: float = 0.0,
+    left:   float = 0.15,
+    right:  float = 0.05
+    ) -> None:
     '''Set margins for a ROOT pad.
     
     Args:
@@ -238,19 +243,20 @@ def pad_margins(pad: ROOT.TPad,
     pad.SetLeftMargin(left)
     pad.SetRightMargin(right)
 
-#______________________________________
-def mk_legend(num_entries: int, 
-              columns: int = 1, 
-              x1: float = 0.55, 
-              y1: float = 0.99, 
-              x2: float = 0.99, 
-              y2: float = 0.90,
-              border_size: int = 0,
-              fill_style:  int = 0,
-              text_size:  float = 0.03,
-              set_margin: float = 0.2,
-              text_font: int = -1
-              ) -> ROOT.TLegend:
+#____________________________
+def mk_legend(
+    num_entries: int, 
+    columns: int = 1, 
+    x1: float = 0.55, 
+    y1: float = 0.99, 
+    x2: float = 0.99, 
+    y2: float = 0.90,
+    border_size: int = 0,
+    fill_style:  int = 0,
+    text_size:  float = 0.03,
+    set_margin: float = 0.2,
+    text_font: int = -1
+    ) -> ROOT.TLegend:
     '''Create configured ROOT legend with automatic sizing.
     
     Args:
@@ -282,12 +288,14 @@ def mk_legend(num_entries: int,
     return leg
 
 @lru_cache(maxsize=128)
-def _get_hist_cached(hName: str,
-                     procs: tuple,
-                     inDir: str,
-                     suffix: str,
-                     rebin: int,
-                     lazy: bool) -> ROOT.TH1:
+def _get_hist_cached(
+    hName: str,
+    procs: tuple,
+    inDir: str,
+    suffix: str,
+    rebin: int,
+    lazy: bool
+    ) -> ROOT.TH1:
     '''Load histogram with LRU caching to reduce file I/O.
     
     Args:
@@ -306,15 +314,16 @@ def _get_hist_cached(hName: str,
         suffix=suffix, rebin=rebin, lazy=lazy
         )
 
-#_________________________________________
-def load_hists(processes: dict[str, 
-                               list[str]], 
-               variable: str, 
-               inDir: str, 
-               suffix: str, 
-               rebin: int = 1, 
-               lazy: bool = True
-               ) -> dict[str, ROOT.TH1]:
+#______________________________
+def load_hists(
+    processes: dict[str, 
+                    list[str]], 
+    variable: str, 
+    inDir: str, 
+    suffix: str, 
+    rebin: int = 1, 
+    lazy: bool = True
+    ) -> dict[str, ROOT.TH1]:
     '''Load histograms for all specified processes.
     
     Args:
@@ -335,12 +344,13 @@ def load_hists(processes: dict[str,
                 )
             for proc, proc_list in processes.items()}
 
-#_______________________________________________________
-def axis_limits(cfg: dict[str, 
-                          Union[str, float, int, bool]], 
-                axis: str, 
-                ratio: str = ''
-                ) -> tuple[float, float]:
+#___________________________________________
+def axis_limits(
+    cfg: dict[str, 
+              Union[str, float, int, bool]], 
+    axis: str, 
+    ratio: str = ''
+    ) -> tuple[float, float]:
     '''Extract axis range from configuration with log scale padding.
     
     Args:
@@ -360,18 +370,19 @@ def axis_limits(cfg: dict[str,
         return 0.999 * min, 1.001 * max
     return min, max
 
-#____________________________________________
-def configure_axis(axis, 
-                   title: str, 
-                   axis_min:     float, 
-                   axis_max:     float,
-                   title_size:   int = 40, 
-                   label_size:   int = 35, 
-                   title_offset: float = 1.2, 
-                   label_offset: float = 1.2, 
-                   title_font:   int = 43,
-                   label_font:   int = 43
-                   ) -> None:
+#_____________________________
+def configure_axis(
+    axis, 
+    title: str, 
+    axis_min:     float, 
+    axis_max:     float,
+    title_size:   int = 40, 
+    label_size:   int = 35, 
+    title_offset: float = 1.2, 
+    label_offset: float = 1.2, 
+    title_font:   int = 43,
+    label_font:   int = 43
+    ) -> None:
     '''Configure axis styling, range, and typography.
     
     Args:
@@ -399,14 +410,15 @@ def configure_axis(axis,
     axis.SetTitleOffset(title_offset * axis.GetTitleOffset())
     axis.SetLabelOffset(label_offset * axis.GetLabelOffset())
 
-#__________________________________________________
-def style_hist(hist: ROOT.TH1, 
-               color: int, 
-               width: int = 1, 
-               style: int = 1, 
-               scale: float = 1., 
-               fill_color: Union[int, None] = None
-               ) -> None:
+#______________________________________
+def style_hist(
+    hist: ROOT.TH1, 
+    color: int, 
+    width: int = 1, 
+    style: int = 1, 
+    scale: float = 1., 
+    fill_color: Union[int, None] = None
+    ) -> None:
     '''Apply visual styling and optional scaling to histogram.
     
     Args:
@@ -428,13 +440,14 @@ def style_hist(hist: ROOT.TH1,
     if scale != 1.:
         hist.Scale(scale)
 
-#__________________________________________________
-def style_hists_batch(hists: list[ROOT.TH1],
-                      colors: list[int],
-                      widths: list[int] = None,
-                      scales: list[float] = None,
-                      fill_colors: list[Union[int, None]] = None
-                      ) -> None:
+#______________________________________________
+def style_hists_batch(
+    hists: list[ROOT.TH1],
+    colors: list[int],
+    widths: list[int] = None,
+    scales: list[float] = None,
+    fill_colors: list[Union[int, None]] = None
+    ) -> None:
     '''Apply styling to multiple histograms in batch for performance.
     
     Optimized version for styling many histograms at once, reducing Python
@@ -463,11 +476,13 @@ def style_hists_batch(hists: list[ROOT.TH1],
         if scales[i] != 1.:
             hist.Scale(scales[i])
 
-#_______________________________________________________
-def setup_latex(text_size: float, 
-                text_align: int, 
-                text_color: Union[int, ROOT.TColor] = 1,
-                text_font: int = 42) -> ROOT.TLatex:
+#___________________________________________
+def setup_latex(
+    text_size: float, 
+    text_align: int, 
+    text_color: Union[int, ROOT.TColor] = 1,
+    text_font: int = 42
+    ) -> ROOT.TLatex:
     '''Create TLatex object for text annotations.
     
     Args:
@@ -487,11 +502,12 @@ def setup_latex(text_size: float,
     latex.SetTextAlign(text_align)
     return latex
 
-#________________________________
-def y_offset(text: str, 
-             high: float = 0.955, 
-             low:  float = 0.945
-             ) -> float:
+#_______________________
+def y_offset(
+    text: str, 
+    high: float = 0.955, 
+    low:  float = 0.945
+    ) -> float:
     '''Compute vertical offset to prevent superscript/subscript clipping.
     
     Args:
@@ -506,11 +522,12 @@ def y_offset(text: str,
     has_caret = '^' in text
     return low if (has_underscore or has_caret) else high
 
-#__________________________________________________
-def draw_latex(latex: ROOT.TLatex, 
-               text_data: list[tuple[str, float, 
-                                     float, float]]
-                                     ) -> None:
+#_______________________________________
+def draw_latex(
+    latex: ROOT.TLatex, 
+    text_data: list[tuple[str, float, 
+                          float, float]]
+    ) -> None:
     '''Draw multiple text annotations with individual sizing.
     
     Args:
@@ -524,13 +541,14 @@ def draw_latex(latex: ROOT.TLatex,
         latex.SetTextSize(size)
         latex.DrawLatex(x, y, text)
 
-#_________________________________________
-def savecanvas(c: ROOT.TCanvas, 
-               outDir: str, 
-               plotname: str,
-               suffix: str = '', 
-               format: list[str] = ['png']
-               ) -> None:
+#______________________________
+def savecanvas(
+    c: ROOT.TCanvas, 
+    outDir: str, 
+    plotname: str,
+    suffix: str = '', 
+    format: list[str] = ['png']
+    ) -> None:
     '''Export canvas to multiple file formats.
     
     Args:
@@ -547,13 +565,14 @@ def savecanvas(c: ROOT.TCanvas,
     for f in format:
         c.SaveAs(f'{fpath}.{f}')
 
-#__________________________________
-def save_plot(canvas: ROOT.TCanvas, 
-              outDir: str, 
-              outName: str, 
-              suffix: str,
-              format: list[str], 
-              ) -> None:
+#________________________
+def save_plot(
+    canvas: ROOT.TCanvas, 
+    outDir: str, 
+    outName: str, 
+    suffix: str,
+    format: list[str], 
+    ) -> None:
     '''Save canvas with automatic directory creation.
     
     Args:

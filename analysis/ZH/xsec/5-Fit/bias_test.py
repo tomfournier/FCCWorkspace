@@ -13,7 +13,7 @@ from argparse import ArgumentParser
 # Start timer for performance tracking
 t = time()
 
-from package.userConfig import loc, get_loc
+from package.userConfig import loc
 
 from package.config import (
     timer, warning, 
@@ -96,11 +96,11 @@ if arg.extra:
 scale = 'polL' if arg.polL else ('polR' if arg.polR else ('ILC' if arg.ILC else ''))
 
 # Resolve directory paths for input/output
-inputdir   = get_loc(loc.BIAS_FIT_RESULT, cat, ecm, sel)
-loc_result = get_loc(loc.BIAS_RESULT,     cat, ecm, sel)
-nomDir     = get_loc(loc.NOMINAL_RESULT,  cat, ecm, sel)
-inDir      = get_loc(loc.BIAS_DATACARD,   cat, ecm, sel)
-h_inDir    = get_loc(loc.HIST_PROCESSED,  cat, ecm, sel)
+inputdir   = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
+loc_result = loc.get('BIAS_RESULT',     cat, ecm, sel)
+nomDir     = loc.get('NOMINAL_RESULT',  cat, ecm, sel)
+inDir      = loc.get('BIAS_DATACARD',   cat, ecm, sel)
+h_inDir    = loc.get('HIST_PROCESSED',  cat, ecm, sel)
 
 
 
@@ -172,12 +172,11 @@ def run_fit(target: str,
         sys.exit(result.returncode)
 
     # Extract and return the fitted signal strength
-    inputdir = get_loc(loc.BIAS_FIT_RESULT, cat, ecm, sel)
+    inputdir = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
     mu = np.loadtxt(f'{inputdir}/results_{target}.txt')[0]
     return mu
 
 def get_bias(inDir: str, 
-             h_inDir: str,
              outDir: str, 
              h_decays: list[str],
              cat: str,

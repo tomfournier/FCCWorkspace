@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 # Start timer for performance tracking
 t = time()
 
-from package.userConfig import loc, get_loc
+from package.userConfig import loc
 from package.config import timer, warning
 from package.tools.utils import mkdir
 
@@ -86,14 +86,14 @@ location_map = {
 # Select configuration based on fit mode
 config = location_map[arg.bias]
 # Resolve directory paths based on configuration and arguments
-dir, dc = get_loc(config['dir'], *args), get_loc(config['dc'],  *args)
-ws, log = get_loc(config['ws'],  *args), get_loc(config['log'], *args)
-res, tp = get_loc(config['res'], *args), config['tp']
+dir, dc = loc.get(config['dir'], *args), loc.get(config['dc'],  *args)
+ws, log = loc.get(config['ws'],  *args), loc.get(config['log'], *args)
+res, tp = loc.get(config['res'], *args), config['tp']
 
 # Define naming suffixes for file outputs
 comb = '_combined' if arg.combine else ''
 tar = f'_{arg.target}' if arg.bias else ''
-dc_comb = get_loc(loc.COMBINE, '', arg.ecm, arg.sel)
+dc_comb = loc.get('COMBINE', '', arg.ecm, arg.sel)
 
 # Define full file paths for workspace, logs, and results
 ws_file    = f'{ws}/ws{tar}.root'

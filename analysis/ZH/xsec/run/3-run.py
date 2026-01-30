@@ -40,7 +40,7 @@ t = time.time()
 parser = ArgumentParser(description='Run analysis pipeline with automated parameters')
 # Select lepton final states; dash-separated values run both channels
 parser.add_argument('--cat', type=str, default='ee-mumu', 
-                    choices=['ee', 'mumu', 'ee-mumu'],
+                    choices=['ee', 'mumu', 'ee-mumu', 'mumu-ee'],
                     help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
 # Choose center-of-mass energy; dash-separated values run multiple energies sequentially
 parser.add_argument('--ecm', type=str, default='240-365', 
@@ -132,11 +132,12 @@ def run(cfg_dir: str,
 
     script_path = f'{path}/{script}.py'
     
-    # Display execution information for traceability
-    print('=' * 60)
-    print(f'Running: {cat = }, {ecm = }, {lumi = } for {script}')
-    print('=' * 60)
-
+    # Display execution header with clear identification
+    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {lumi = }'
+    length = len(msg) + 2
+    print('\n' + '=' * length)
+    print(msg.center(length))
+    print('=' * length)
 
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
@@ -151,7 +152,7 @@ def run(cfg_dir: str,
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
         else ['python', script_path] + extra_args
-    
+
     try:
         # Execute fccanalysis with modified environment and stream output
         result = subprocess.run(
@@ -160,6 +161,13 @@ def run(cfg_dir: str,
             stdout=sys.stdout,
             stderr=sys.stderr,
         )
+        # Completion status marker
+        status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
+        msg = f'{status}: [{script}] {cat = } | {ecm = }'
+        length = len(msg) + 2
+        print('=' * length)
+        print(msg.center(length))
+        print('=' * length + '\n')
         return result.returncode
     finally:
         # Cleanup: remove temporary configuration file
@@ -181,20 +189,26 @@ if __name__ == '__main__':
 
     # Nested loops: iterate over energies, channels, and pipeline stages
     for ecm in ecms:
-        if ('pre-selection'   in scripts) or \
-           ('final-selection' in scripts):
+        # BATCH info for pre/final-selection
+        if ('pre-selection' in scripts) or ('final-selection' in scripts):
+            task_count = len(cats) * len([s for s in scripts if s in ['pre-selection', 'final-selection']])
+            msg = f'BATCH: Running {task_count} task(s) for ecm={ecm}'
+            length = len(msg) + 2
+            print('\n' + '█' * length)
+            print(msg.center(length))
+            print('█' * length)
             for cat in cats:
                 for script in scripts:
                     if 'pre-selection' in script:
-                        if arg.ww=='both':
+                        if arg.ww == 'both':
                             result = run(loc.RUN, cat, ecm, path, script, ww=False)
                             if result != 0: sys.exit(result)
                             result = run(loc.RUN, cat, ecm, path, script, ww=True)
                             if result != 0: sys.exit(result)
-                        elif arg.ww=='ww':
+                        elif arg.ww == 'ww':
                             result = run(loc.RUN, cat, ecm, path, script, ww=True)
                             if result != 0: sys.exit(result)
-                        elif arg.ww=='other':
+                        elif arg.ww == 'other':
                             result = run(loc.RUN, cat, ecm, path, script, ww=False)
                             if result != 0: sys.exit(result)
                         else:
@@ -203,11 +217,23 @@ if __name__ == '__main__':
                         result = run(loc.RUN, cat, ecm, path, script)
                         if result != 0: sys.exit(result)
 
+        # BATCH info for plots
         if is_there_plots:
+            msg = f'BATCH: Running plots for ecm={ecm} | cat={arg.cat}'
+            length = len(msg) + 2
+            print('\n' + '█' * length)
+            print(msg.center(length))
+            print('█' * length)
             result = run(loc.RUN, arg.cat, ecm, path, 'plots')
             if result != 0: sys.exit(result)
+        # BATCH info for cutflow
         if is_there_cutflow:
+            msg = f'BATCH: Running cutflow for ecm={ecm} | cat={arg.cat}'
+            length = len(msg) + 2
+            print('\n' + '█' * length)
+            print(msg.center(length))
+            print('█' * length)
             result = run(loc.RUN, arg.cat, ecm, path, 'cutflow')
             if result != 0: sys.exit(result)
-    
+
     timer(t)

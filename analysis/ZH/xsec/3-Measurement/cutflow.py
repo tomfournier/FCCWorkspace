@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 # Start timer for performance tracking
 t = time()
 
-from package.userConfig import loc, get_loc
+from package.userConfig import loc
 from package.config import (
     timer, mk_processes,
     z_decays, H_decays, 
@@ -118,8 +118,8 @@ def run(cats: list[str],
         procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
         # Define input and output directories
-        inDir  = get_loc(loc.EVENTS, cat, ecm, '')
-        outDir = get_loc(loc.PLOTS_MEASUREMENT, cat, ecm, '')
+        inDir  = loc.get('EVENTS', cat, ecm)
+        outDir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
 
         # Extract required branches from cuts and variables
         branches = branches_from_cuts(cuts, variables)

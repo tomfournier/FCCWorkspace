@@ -41,7 +41,6 @@ from tqdm import tqdm
 from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     import numpy as np
-    import ROOT
 
 from ..tools.utils import get_df, mkdir
 from ..tools.process import getMetaInfo
@@ -53,12 +52,11 @@ from ..config import h_colors, h_labels
 ### MAIN FUNCTIONS ###
 ######################
 
-#____________________________________________
-def branches_from_cuts(cuts: dict[str,
-                                  dict[str, 
-                                       str]], 
-                       variables: list
-                       ) -> list:
+#___________________________________
+def branches_from_cuts(
+    cuts: dict[str, dict[str, str]], 
+    variables: list
+    ) -> list:
     '''Extract variables used in cut expressions.
     
     Scans all cut expressions and identifies which variables from the provided
@@ -83,17 +81,18 @@ def branches_from_cuts(cuts: dict[str,
                     used.add(var)
     return sorted(used)
 
-#______________________________________________________
-def write_table(file_path: str,
-                file_name: str,
-                headers: list[str],
-                rows: list[list[str]],
-                first_col_width: int = 10,
-                other_col_width: int = 25,
-                header_sep: bool = True,
-                footer_lines: list[str] | None = None,
-                file_type: str = 'txt'
-                ) -> None:
+#__________________________________________
+def write_table(
+    file_path: str,
+    file_name: str,
+    headers: list[str],
+    rows: list[list[str]],
+    first_col_width: int = 10,
+    other_col_width: int = 25,
+    header_sep: bool = True,
+    footer_lines: list[str] | None = None,
+    file_type: str = 'txt'
+    ) -> None:
     '''Write a formatted text table to file.
     
     Creates a nicely aligned ASCII table with configurable column widths.
@@ -133,26 +132,27 @@ def write_table(file_path: str,
             for line in footer_lines:
                 f.write(str(line) + '\n')
 
-#____________________________________________________
-def CutFlow(flow: dict[str,
-                       dict[str, Any | dict[str,
-                                            float]]], 
-            outDir: str, 
-            cat: str, 
-            sel: str, 
-            procs: list[str], 
-            colors: dict[str, dict[str, int]], 
-            legend: dict[str, dict[str, str]], 
-            cuts: dict[str, dict[str, str]], 
-            labels: dict[str, dict[str, str]], 
-            ecm: int = 240, 
-            lumi: float = 10.8,
-            outName: str = 'cutFlow', 
-            format: list[str] = ['png'], 
-            suffix: str = '', 
-            sig_scale: float = 1.0, 
-            yMin: float = 1e4, 
-            yMax: float = 1e10) -> None:
+#______________________________________
+def CutFlow(
+    flow: dict[str, 
+               dict[str, Any | 
+                    dict[str, float]]], 
+    outDir: str, 
+    cat: str, 
+    sel: str, 
+    procs: list[str], 
+    colors: dict[str, dict[str, int]], 
+    legend: dict[str, dict[str, str]], 
+    cuts: dict[str, dict[str, str]], 
+    labels: dict[str, dict[str, str]], 
+    ecm: int = 240, 
+    lumi: float = 10.8,
+    outName: str = 'cutFlow', 
+    format: list[str] = ['png'], 
+    suffix: str = '', 
+    sig_scale: float = 1.0, 
+    yMin: float = 1e4, 
+    yMax: float = 1e10) -> None:
 
     '''Render cutflow plot with signal, backgrounds, and significance.
     
@@ -305,24 +305,25 @@ def CutFlow(flow: dict[str,
         other_col_width=25
     )
 
-#_____________________________________________________
-def CutFlowDecays(flow: dict[str,
-                             dict[str,
-                                  Any | dict[str, 
-                                             float]]], 
-                  outDir: str, 
-                  cat: str, 
-                  sel: str, 
-                  h_decays: list[str], 
-                  cuts: dict[str, dict[str, str]], 
-                  labels: dict[str, dict[str, str]], 
-                  suffix: str = '', 
-                  ecm: int = 240, 
-                  lumi: float = 10.8, 
-                  outName: str = 'cutFlow_decays', 
-                  format: list[str] = ['png'], 
-                  yMin: float | int = 0, 
-                  yMax: float | int = 150) -> None:
+#______________________________________
+def CutFlowDecays(
+    flow: dict[str, 
+               dict[str, Any | 
+                    dict[str, float]]], 
+    outDir: str, 
+    cat: str, 
+    sel: str, 
+    h_decays: list[str], 
+    cuts: dict[str, dict[str, str]], 
+    labels: dict[str, dict[str, str]], 
+    suffix: str = '', 
+    ecm: int = 240, 
+    lumi: float = 10.8, 
+    outName: str = 'cutFlow_decays', 
+    format: list[str] = ['png'], 
+    yMin: float | int = 0, 
+    yMax: float | int = 150
+    ) -> None:
 
     '''Plot selection efficiencies across Higgs decay modes.
     
@@ -393,10 +394,10 @@ def CutFlowDecays(flow: dict[str,
         eff_final_err.append(float(h_sig.GetBinError(nbins)))
 
         # Store normalized content and error arrays
-        contents.append(np.fromiter((float(h_sig.GetBinContent(i+1)) 
-                                     for i in range(nbins)), dtype=float))
-        errors.append(np.fromiter((float(h_sig.GetBinError(i+1)) 
-                                   for i in range(nbins)), dtype=float))
+        contents.append(np.fromiter((
+            float(h_sig.GetBinContent(i+1)) for i in range(nbins)), dtype=float))
+        errors.append(np.fromiter((
+            float(h_sig.GetBinError(i+1)) for i in range(nbins)), dtype=float))
         
 
     # Compute average efficiency across decay channels
@@ -470,23 +471,24 @@ def CutFlowDecays(flow: dict[str,
         nbins, suffix=suffix, format=format, ecm=ecm, lumi=lumi
     )
 
-#_________________________________________
-def Efficiency(outDir: str, 
-               contents: list['np.ndarray'], 
-               errors: list['np.ndarray'], 
-               eff_final: list[float], 
-               eff_final_err: list[float], 
-               eff_avg: float, 
-               eff_avg_err: float, 
-               eff_min: float, 
-               eff_max: float, 
-               h_decays: list[str], 
-               nbins: int, 
-               suffix: str = '', 
-               format: list[str] = ['png'], 
-               ecm: int = 240, 
-               lumi: float = 10.8, 
-               ) -> None:
+#________________________________
+def Efficiency(
+    outDir: str, 
+    contents: list['np.ndarray'], 
+    errors: list['np.ndarray'], 
+    eff_final: list[float], 
+    eff_final_err: list[float], 
+    eff_avg: float, 
+    eff_avg_err: float, 
+    eff_min: float, 
+    eff_max: float, 
+    h_decays: list[str], 
+    nbins: int, 
+    suffix: str = '', 
+    format: list[str] = ['png'], 
+    ecm: int = 240, 
+    lumi: float = 10.8
+    ) -> None:
 
     '''Produce efficiency summary plots and a compact table.
 
@@ -599,29 +601,31 @@ def Efficiency(outDir: str,
             f'Min/max: {eff_min:.3f}/{eff_max:.3f}']
         )
 
-#_____________________________________________________
-def get_cutflow(inDir: str, 
-                outDir: str, 
-                cat: str, 
-                sels: list[str], 
-                procs: list[str], 
-                procs_decays: list[str],
-                processes: dict[str, list[str]], 
-                colors: dict[str, dict[str, str]], 
-                legend: dict[str, dict[str, str]], 
-                cuts: dict[str, dict[str, str]], 
-                cuts_label: dict[str, dict[str, str]], 
-                z_decays: list[str], 
-                H_decays: list[str], 
-                format: list[str] = ['png'], 
-                ecm: int = 240, 
-                lumi: float = 10.8, 
-                sig_scale: float = 1.0, 
-                branches: list[str] = [],
-                scaled: bool = True, 
-                tot: bool = False, 
-                json_file: bool = False, 
-                loc_json: str = '') -> None:
+#_________________________________________
+def get_cutflow(
+    inDir: str, 
+    outDir: str, 
+    cat: str, 
+    sels: list[str], 
+    procs: list[str], 
+    procs_decays: list[str],
+    processes: dict[str, list[str]], 
+    colors: dict[str, dict[str, str]], 
+    legend: dict[str, dict[str, str]], 
+    cuts: dict[str, dict[str, str]], 
+    cuts_label: dict[str, dict[str, str]], 
+    z_decays: list[str], 
+    H_decays: list[str], 
+    format: list[str] = ['png'], 
+    ecm: int = 240, 
+    lumi: float = 10.8, 
+    sig_scale: float = 1.0, 
+    branches: list[str] = [],
+    scaled: bool = True, 
+    tot: bool = False, 
+    json_file: bool = False, 
+    loc_json: str = ''
+    ) -> None:
 
     '''Compute cutflows from parquet/ROOT inputs and render plots.
 

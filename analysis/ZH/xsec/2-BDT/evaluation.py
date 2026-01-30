@@ -20,7 +20,7 @@ t = time()
 print('----->[Info] Loading custom modules')
 
 # Import configuration paths and plot settings
-from package.userConfig import loc, get_loc, plot_file
+from package.userConfig import loc, plot_file
 # Import utilities and plotting configurations
 from package.config import (
     timer, warning, 
@@ -194,10 +194,10 @@ if __name__=='__main__':
     # Evaluate BDT performance for each selection strategy
     for sel in sels:
         # Define input/output directories
-        inDir  = get_loc(loc.MVA_INPUTS,  cat, ecm, sel)
-        outDir = get_loc(loc.PLOTS_BDT,   cat, ecm, sel)
-        inBDT  = get_loc(loc.BDT,         cat, ecm, sel)
-        data_path = get_loc(loc.HIST_MVA, cat, ecm, sel)
+        inDir  = loc.get('MVA_INPUTS',  cat, ecm, sel)
+        outDir = loc.get('PLOTS_BDT',   cat, ecm, sel)
+        inBDT  = loc.get('BDT',         cat, ecm, sel)
+        data_path = loc.get('HIST_MVA', cat, ecm, sel)
 
         if 'Baseline' in sel and cat=='ee' and ecm==365:
             Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}

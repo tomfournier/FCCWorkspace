@@ -17,7 +17,7 @@ t = time()
 print('----->[Info] Loading custom modules')
 
 # Import configuration and utilities
-from package.userConfig import loc, get_loc
+from package.userConfig import loc
 from package.config import (
     timer, warning, 
     input_vars
@@ -63,7 +63,7 @@ if arg.cat=='':
 
 # Set analysis category and energy from arguments
 cat, ecm = arg.cat, arg.ecm
-inDir = get_loc(loc.HIST_MVA, cat, ecm, '')
+inDir = loc.get('HIST_MVA', cat, ecm)
 
 # Selection strategies to process
 sels = [
@@ -116,7 +116,7 @@ def run(inDir: str,
 
     for sel in sels:
         # Define output path for preprocessed data
-        pkl_path = get_loc(loc.MVA_INPUTS, cat, ecm, sel)
+        outDir = loc.get('MVA_INPUTS', cat, ecm, sel)
 
         # Initialize storage for each mode
         files, df, eff, N_events = {}, {}, {}, {}
@@ -152,7 +152,7 @@ def run(inDir: str,
 
         # Combine all modes and save to pickle file
         dfsum = pd.concat([df[mode] for mode in Modes])
-        to_pkl(dfsum, pkl_path)
+        to_pkl(dfsum, outDir)
 
 
 

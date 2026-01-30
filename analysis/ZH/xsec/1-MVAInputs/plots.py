@@ -6,7 +6,7 @@ import os, ROOT
 
 # Plot configuration and paths
 from package.userConfig import (
-    loc, get_loc, get_params,
+    loc, get_params,
     plot_file
 )
 
@@ -28,11 +28,11 @@ elif cat =='ee':    ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow e^{+}e^{-} 
 delphesVersion = '3.4.2'
 energy         = ecm
 collider       = 'FCC-ee'
-inputDir       = get_loc(loc.HIST_MVA, cat, ecm, '')
+inputDir       = loc.get('HIST_MVA', cat, ecm)
 yaxis          = ['lin','log']
 stacksig       = ['nostack']
 formats        = plot_file
-outdir         = get_loc(loc.PLOTS_MVA, cat, ecm, '')
+outdir         = loc.get('PLOTS_MVA', cat, ecm)
 
 # Variables to plot from pre-selection outputs
 variables = [

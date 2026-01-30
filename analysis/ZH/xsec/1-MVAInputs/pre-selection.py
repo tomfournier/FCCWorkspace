@@ -4,7 +4,7 @@
 
 import os
 
-from package.userConfig import loc, get_loc, get_params, frac, nb
+from package.userConfig import loc, get_params, frac, nb
 
 # Load config from temporary JSON if running automated, else prompt
 cat, ecm = get_params(os.environ.copy(), '1-run.json')
@@ -18,7 +18,8 @@ if cat not in ['ee', 'mumu']:
 #############################
 
 # Output directory for training events (default is local directory)
-outputDir = get_loc(loc.EVENTS_TRAINING,  cat, ecm, '')
+# outputDir = get_loc(loc.EVENTS_TRAINING, cat, ecm, '')
+outputDir = loc.get('EVENTS_TRAINING', cat, ecm)
 
 # Include custom C++ analysis functions
 includePaths = ['../../../../functions/functions.h']

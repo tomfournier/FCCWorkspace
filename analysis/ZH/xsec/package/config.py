@@ -134,16 +134,13 @@ def _get_h_colors_dict(use_root: bool = False) -> dict:
         'inv'    : root.kBlue+2 
         }
 
-def _get_colors_dict(use_root: bool = False) -> dict:
+def _get_colors_dict() -> dict:
     """Lazy-load colors dictionary with color constants.
-    
-    Args:
-        use_root: If True, use ROOT.TColor.GetColor(); if False, use numeric codes.
-        
+
     Returns:
         Dictionary mapping process names to color codes.
     """
-    _init_colors(use_root=use_root)
+    _init_colors()
     return {
         'ZH'       : _ZH_COLOR,
         'ZeeH'     : _ZH_COLOR,
@@ -166,15 +163,14 @@ def _get_colors_dict(use_root: bool = False) -> dict:
 
 class LazyDict(dict):
     """Dictionary that loads from a lazy function on first access."""
-    def __init__(self, lazy_func, use_root: bool = False):
+    def __init__(self, lazy_func):
         super().__init__()
         self._lazy_func = lazy_func
-        self._use_root = use_root
         self._loaded = False
     
     def _ensure_loaded(self):
         if not self._loaded:
-            data = self._lazy_func(use_root=self._use_root)
+            data = self._lazy_func()
             self.update(data)
             self._loaded = True
     
@@ -204,8 +200,8 @@ class LazyDict(dict):
 
 # Lazy-loaded color dictionaries - by default uses numeric codes (no ROOT import)
 # Set use_root=True to use ROOT color constants instead
-h_colors = LazyDict(_get_h_colors_dict, use_root=False)
-colors   = LazyDict(_get_colors_dict, use_root=False)
+h_colors = LazyDict(_get_h_colors_dict)
+colors   = LazyDict(_get_colors_dict)
 
 # Matplotlib tab colors for different analysis modes by channel (no lazy loading needed)
 modes_color = {
@@ -267,10 +263,12 @@ labels = {
 # LaTeX labels for kinematic variables (used in matplotlib importance plots)
 vars_label = {
     'leading_p':        r'$p_{\ell,leading}$',
+    'leading_pT':       r'$p_{T,leading}$',
     'leading_theta':    r'$\theta_{\ell,leading}$',
     'leading_phi':      r'$\phi_{\ell, leading}$',
 
     'subleading_p':     r'$p_{\ell,subleading}$',
+    'subleading_pT':    r'$p_{T,subleading}$',
     'subleading_theta': r'$\theta_{\ell,subleading}$',
     'subleading_phi':   r'$\phi_{\ell, subleading}$',
     
@@ -280,6 +278,7 @@ vars_label = {
 
     'zll_m':            r'$m_{\ell^{+}\ell^{-}}$',
     'zll_p':            r'$p_{\ell^{+}\ell^{-}}$',
+    'zll_pT':           r'$p_{T, \ell^{+}\ell^{-}}$',
     'zll_theta':        r'$\theta_{\ell^{+}\ell^{+}}$',
     'zll_phi':          r'$\phi_{\ell^{+}\ell^{-}}$',
 
@@ -295,7 +294,8 @@ vars_label = {
 
 # LaTeX x-axis labels with units (used in histogram plots)
 vars_xlabel = vars_label.copy()
-for v in ['leading_p', 'subleading_p', 'zll_m', 'zll_p', 'zll_recoil_m', 'visibleEnergy', 'missingMass']:
+for v in ['leading_p', 'leading_pT', 'subleading_p', 'subleading_pT', 
+          'zll_m', 'zll_p', 'zll_recoil_m', 'visibleEnergy', 'missingMass']:
     vars_xlabel[v] += ' [GeV]'
 vars_xlabel['H'] += ' [GeV$^{2}$]'
 
@@ -334,9 +334,6 @@ def warning(log_msg: str,
         log_msg: Error message to display.
         lenght: Width of the message box. Auto-calculated if -1.
         abort_msg: Header text for the error box. Defaults to ' ERROR CODE '.
-        
-    Raises:
-        Exception: Always raised with formatted error message.
     '''
     if not abort_msg:
         abort_msg = ' ERROR CODE '
@@ -485,15 +482,15 @@ def _default_processes(ecm: int) -> dict[str,
     '''
     return _build_processes(Z_DECAYS, H_DECAYS, H_DECAYS_WITH_INV, QUARKS, ecm)
 
-#____________________________________________________________
-def mk_processes(procs:    Union[Sequence[str], None] = None,
-                 z_decays: Union[Sequence[str], None] = None, 
-                 h_decays: Union[Sequence[str], None] = None, 
-                 H_decays: Union[Sequence[str], None] = None, 
-                 quarks:   Union[Sequence[str], None] = None,
-                 ecm: int = 240
-                 ) -> dict[str, 
-                           tuple[str, ...]]:
+#___________________________________________________
+def mk_processes(
+        procs:    Union[Sequence[str], None] = None,
+        z_decays: Union[Sequence[str], None] = None, 
+        h_decays: Union[Sequence[str], None] = None, 
+        H_decays: Union[Sequence[str], None] = None, 
+        quarks:   Union[Sequence[str], None] = None,
+        ecm: int = 240
+        ) -> dict[str, tuple[str, ...]]:
     '''Generate process dictionary with optional filtering and custom decay modes.
     
     Creates a dictionary mapping process keys to full process names. Can use default

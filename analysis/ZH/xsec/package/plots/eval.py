@@ -85,11 +85,12 @@ _cache_id = None
 ### HELPER FUNCTIONS ###
 ########################
 
-#______________________________________
-def _make_fig(figsize: tuple = (12, 8), 
-              dpi: int = 100
-              ) -> tuple[plt.Figure, 
-                         plt.Axes]:
+#____________________________
+def _make_fig(
+    figsize: tuple = (12, 8), 
+    dpi: int = 100
+    ) -> tuple[plt.Figure, 
+               plt.Axes]:
     '''Create and pre-configure a matplotlib figure.
     
     Ensures consistent figure setup across all plotting functions.
@@ -103,10 +104,11 @@ def _make_fig(figsize: tuple = (12, 8),
     '''
     return plt.subplots(figsize=figsize, dpi=dpi)
 
-#_________________________________________
-def _get_splits(df: 'pd.DataFrame'
-                ) -> dict[str, 
-                          'pd.DataFrame']:
+#_____________________________
+def _get_splits(
+    df: 'pd.DataFrame'
+    ) -> dict[str, 
+              'pd.DataFrame']:
     '''Fast extraction of train/valid and signal/bkg splits.
     
     Computes boolean masks once, reused across functions.
@@ -153,11 +155,12 @@ def _get_splits(df: 'pd.DataFrame'
     
     return result
 
-#_____________________________________
-def _get_wts(df: 'pd.DataFrame', 
-             use_wts: bool,
-             weights: str = 'weights'
-             ) -> 'np.ndarray' | None:
+#____________________________
+def _get_wts(
+    df: 'pd.DataFrame', 
+    use_wts: bool,
+    weights: str = 'weights'
+    ) -> 'np.ndarray' | None:
     '''Extract weights efficiently, return None if unused.
     
     Args:
@@ -169,22 +172,23 @@ def _get_wts(df: 'pd.DataFrame',
     '''
     return df[weights].values if use_wts else None
 
-#_________________________________________________
-def _plot_metric(results: dict[str, 
-                               dict[str, 
-                                    list[float]]], 
-                 x_axis: 'np.ndarray',
-                 metric_name: str,
-                 ylabel: str,
-                 label: str, 
-                 outDir: str, 
-                 best_iteration: int, 
-                 locx: str = 'right', 
-                 locy: str = 'top', 
-                 suffix: str = '', 
-                 dpi: int = 100,
-                 format: list[str] = ['png']
-                 ) -> None:
+#____________________________________
+def _plot_metric(
+    results: dict[str, 
+                  dict[str, 
+                       list[float]]], 
+    x_axis: 'np.ndarray',
+    metric_name: str,
+    ylabel: str,
+    label: str, 
+    outDir: str, 
+    best_iteration: int, 
+    locx: str = 'right', 
+    locy: str = 'top', 
+    suffix: str = '', 
+    dpi: int = 100,
+    format: list[str] = ['png']
+    ) -> None:
     '''Plot a training and validation metric over boosting rounds.
 
     Args:
@@ -224,17 +228,21 @@ def _plot_metric(results: dict[str,
 ### MAIN FUNCTIONS ###
 ######################
 
-#_______________________________________________________
-def log_loss(results: dict[str, dict[str, list[float]]], 
-             x_axis: 'np.ndarray', 
-             label: str, 
-             outDir: str, 
-             best_iteration: int, 
-             format: list[str] = ['png'], 
-             locx: str = 'right', 
-             locy: str = 'top', 
-             suffix: str = '',
-             dpi: int = 100) -> None:
+#____________________________________
+def log_loss(
+    results: dict[str, 
+                  dict[str, 
+                       list[float]]], 
+    x_axis: 'np.ndarray', 
+    label: str, 
+    outDir: str, 
+    best_iteration: int, 
+    format: list[str] = ['png'], 
+    locx: str = 'right', 
+    locy: str = 'top', 
+    suffix: str = '',
+    dpi: int = 100
+    ) -> None:
     '''Plot log-loss evolution during training and validation.
     
     Args:
@@ -252,18 +260,19 @@ def log_loss(results: dict[str, dict[str, list[float]]],
     _plot_metric(results, x_axis, 'logloss', 'Log Loss', label, outDir,
                  best_iteration, locx, locy, suffix, dpi, format)
 
-#___________________________________________________
-def classification_error(results: dict, 
-                         x_axis: 'np.ndarray', 
-                         label: str, 
-                         outDir: str, 
-                         best_iteration: int, 
-                         locx: str = 'right', 
-                         locy: str = 'top', 
-                         suffix: str = '',
-                         dpi: int = 100,
-                         format: list[str] = ['png']
-                         ) -> None:
+#_______________________________
+def classification_error(
+    results: dict, 
+    x_axis: 'np.ndarray', 
+    label: str, 
+    outDir: str, 
+    best_iteration: int, 
+    locx: str = 'right', 
+    locy: str = 'top', 
+    suffix: str = '',
+    dpi: int = 100,
+    format: list[str] = ['png']
+    ) -> None:
     '''Plot classification error progression during training and validation.
     
     Args:
@@ -281,18 +290,19 @@ def classification_error(results: dict,
     _plot_metric(results, x_axis, 'error', 'Classification Error', label, outDir,
                  best_iteration, locx, locy, suffix, dpi, format)
 
-#__________________________________
-def AUC(results: dict, 
-        x_axis: np.ndarray, 
-        label: str, 
-        outDir: str, 
-        best_iteration: int, 
-        locx: str = 'right', 
-        locy: str = 'top', 
-        suffix: str = '', 
-        dpi: int = 100,
-        format: list[str] = ['png']
-        ) -> None:
+#_____________________________
+def AUC(
+    results: dict, 
+    x_axis: np.ndarray, 
+    label: str, 
+    outDir: str, 
+    best_iteration: int, 
+    locx: str = 'right', 
+    locy: str = 'top', 
+    suffix: str = '', 
+    dpi: int = 100,
+    format: list[str] = ['png']
+    ) -> None:
     '''Plot AUC progression during training and validation.
     
     Args:
@@ -310,14 +320,15 @@ def AUC(results: dict,
     _plot_metric(results, x_axis, 'auc', 'AUC', label, outDir,
                  best_iteration, locx, locy, suffix, dpi, format)
 
-#____________________________________________________
-def plot_roc_curve(df: 'pd.DataFrame', 
-                   column: str, 
-                   thresh: float = 0.7, 
-                   ax: plt.Axes | None = None, 
-                   color: str | None = None, 
-                   linestyle: str = '-', 
-                   label: str | None = None) -> None:
+#_____________________________________
+def plot_roc_curve(
+    df: 'pd.DataFrame', 
+    column: str, 
+    thresh: float = 0.7, 
+    ax: plt.Axes | None = None, 
+    color: str | None = None, 
+    linestyle: str = '-', 
+    label: str | None = None) -> None:
     '''Draw a ROC segment above a true-positive threshold.
 
     Args:
@@ -344,17 +355,18 @@ def plot_roc_curve(df: 'pd.DataFrame',
     ax.plot(fpr, tpr, label=label+f', AUC={roc_auc:.2f}', 
             color=color, linestyle=linestyle, linewidth=4)
 
-#__________________________________
-def roc(df: 'pd.DataFrame', 
-        label: str, 
-        outDir: str, 
-        eps: float = 0, 
-        locx: str = 'right', 
-        locy: str = 'top', 
-        suffix: str = '',
-        dpi: int = 100,
-        format: list[str] = ['png']
-        ) -> None:
+#______________________________
+def roc(
+    df: 'pd.DataFrame', 
+    label: str, 
+    outDir: str, 
+    eps: float = 0, 
+    locx: str = 'right', 
+    locy: str = 'top', 
+    suffix: str = '',
+    dpi: int = 100,
+    format: list[str] = ['png']
+    ) -> None:
     '''Plot ROC curves for training and validation samples.
     
     Args:
@@ -386,22 +398,23 @@ def roc(df: 'pd.DataFrame',
     finally:
         plt.close(fig)
 
-#_______________________________________________
-def bdt_score(df: 'pd.DataFrame', 
-              label: str, 
-              outDir: str, 
-              htype: str = 'step', 
-              suffix: str = '',
-              locx: str = 'right', 
-              locy: str = 'top', 
-              yscale: str = 'log', 
-              format: list[str] = ['png'],
-              nbins: int = 100, 
-              range: list[float | int] = [0, 1], 
-              weight: bool = True, 
-              unity: bool = True, 
-              dpi: int = 100,
-              verbose: bool = False) -> None:
+#_____________________________________
+def bdt_score(
+    df: 'pd.DataFrame', 
+    label: str, 
+    outDir: str, 
+    htype: str = 'step', 
+    suffix: str = '',
+    locx: str = 'right', 
+    locy: str = 'top', 
+    yscale: str = 'log', 
+    format: list[str] = ['png'],
+    nbins: int = 100, 
+    range: list[float | int] = [0, 1], 
+    weight: bool = True, 
+    unity: bool = True, 
+    dpi: int = 100,
+    verbose: bool = False) -> None:
     '''Plot BDT score distributions for train/validation signal and background.
 
     Args:
@@ -464,25 +477,27 @@ def bdt_score(df: 'pd.DataFrame',
     finally:
         plt.close(fig)
 
-#_______________________________________________
-def mva_score(df: 'pd.DataFrame', 
-              label: str, 
-              outDir: str, 
-              modes: list[str],
-              modes_label: dict[str, str], 
-              modes_color: dict[str, str],
-              locx: str = 'right', 
-              locy: str = 'top', 
-              suffix:str = '', 
-              format: list[str] = ['png'], 
-              htype: str = 'step', 
-              yscale: str = 'log',
-              nbins: int = 100, 
-              range: list[float | int] = [0, 1],
-              ncols: int = 3,
-              unity: bool = True, 
-              dpi: int = 100,
-              weight: bool = True) -> None:
+#______________________________________
+def mva_score(
+    df: 'pd.DataFrame', 
+    label: str, 
+    outDir: str, 
+    modes: list[str],
+    modes_label: dict[str, str], 
+    modes_color: dict[str, str],
+    locx: str = 'right', 
+    locy: str = 'top', 
+    suffix:str = '', 
+    format: list[str] = ['png'], 
+    htype: str = 'step', 
+    yscale: str = 'log',
+    nbins: int = 100, 
+    range: list[float | int] = [0, 1],
+    ncols: int = 3,
+    unity: bool = True, 
+    dpi: int = 100,
+    weight: bool = True
+    ) -> None:
     '''Plot stacked BDT score histograms for multiple modes.
 
     Args:
@@ -522,12 +537,17 @@ def mva_score(df: 'pd.DataFrame',
             for mode in sig_modes:
                 d = sig_data[sig_data['sample'] == mode]
                 wts = _get_wts(d, weight)
-                ax.hist(d['BDTscore'].values, 
-                        density=unity, bins=nbins, 
-                        range=range, histtype=htype, 
-                        color=modes_color[mode],
-                        label=modes_label[mode] if show_lbl else None, 
-                        linestyle=linestyle, linewidth=1.5, weights=wts)
+                ax.hist(
+                    d['BDTscore'].values, 
+                    density=unity, 
+                    bins=nbins, 
+                    range=range, 
+                    histtype=htype, 
+                    color=modes_color[mode],
+                    label=modes_label[mode] if show_lbl else None, 
+                    linestyle=linestyle, 
+                    linewidth=1.5, 
+                    weights=wts)
 
             # Stack background samples
             bkg_arrays, bkg_wts, bkg_lbls, bkg_cols = [], [], [], []
@@ -544,11 +564,18 @@ def mva_score(df: 'pd.DataFrame',
             if bkg_arrays:
                 wts_stacked = bkg_wts if weight else None
                 lbls_stacked = bkg_lbls if show_lbl else None
-                ax.hist(bkg_arrays, density=unity, bins=nbins, 
-                        range=range, histtype=htype, 
-                        label=lbls_stacked, color=bkg_cols,
-                        stacked=True, linestyle=linestyle, 
-                        linewidth=1.5, weights=wts_stacked)
+                ax.hist(
+                    bkg_arrays, 
+                    density=unity, 
+                    bins=nbins, 
+                    range=range, 
+                    histtype=htype, 
+                    label=lbls_stacked, 
+                    color=bkg_cols,
+                    stacked=True, 
+                    linestyle=linestyle, 
+                    linewidth=1.5, 
+                    weights=wts_stacked)
 
         ax.set_xlim(*range)
         ax.set_yscale(yscale)
@@ -565,18 +592,19 @@ def mva_score(df: 'pd.DataFrame',
     finally:
         plt.close(fig)
 
-#____________________________________________
-def importance(bdt: 'xgb.XGBClassifier', 
-               vars: list[str], 
-               latex_mapping: dict[str, str], 
-               label: str, 
-               outDir: str, 
-               locx: str = 'right', 
-               locy: str = 'top', 
-               suffix: str = '', 
-               dpi: int = 100,
-               format: list[str] = ['png']
-               ) -> None:
+#_________________________________
+def importance(
+    bdt: 'xgb.XGBClassifier', 
+    vars: list[str], 
+    latex_mapping: dict[str, str], 
+    label: str, 
+    outDir: str, 
+    locx: str = 'right', 
+    locy: str = 'top', 
+    suffix: str = '', 
+    dpi: int = 100,
+    format: list[str] = ['png']
+    ) -> None:
     '''Plot feature importance using the XGBoost F-score (split count).
 
     Args:
@@ -604,34 +632,43 @@ def importance(bdt: 'xgb.XGBClassifier',
     sorted_values = [v for _, v in sorted_importance]
 
     # Build DataFrame and create horizontal bar chart
-    importance_df = pd.DataFrame({'Variable': sorted_vars_latex, 
-                                  'Importance': sorted_values})
+    importance_df = pd.DataFrame(
+        {'Variable': sorted_vars_latex, 
+         'Importance': sorted_values}
+    )
     
     fig, ax = _make_fig(dpi=dpi)
     try:
-        importance_df.plot(kind='barh', x='Variable', 
-                        y='Importance', legend=None, ax=ax)
-        set_labels(ax, 'F-score', 'Variables', 
-                   right=label, locx=locx, locy=locy)
+        importance_df.plot(
+            kind='barh', x='Variable', y='Importance', 
+            legend=None, ax=ax
+        )
+        set_labels(
+            ax, 'F-score', 'Variables', 
+            right=label, locx=locx, locy=locy
+        )
         ax.grid(False, axis='y')
-        savefigs(fig, outDir, 'importance', 
-                 suffix=suffix, format=format)
+        savefigs(
+            fig, outDir, 'importance', 
+            suffix=suffix, format=format
+        )
     finally:
         plt.close(fig)
 
-#___________________________________________
-def significance(df: 'pd.DataFrame', 
-                 label: str, 
-                 outDir: str, 
-                 out_txt: str, 
-                 locx: str = 'right', 
-                 locy: str = 'top', 
-                 column: str = 'BDTscore',
-                 weight: str = 'norm_weight',
-                 suffix: str = '', 
-                 dpi: int = 100,
-                 format: list[str] = ['png']
-                 ) -> None:
+#_______________________________
+def significance(
+    df: 'pd.DataFrame', 
+    label: str, 
+    outDir: str, 
+    out_txt: str, 
+    locx: str = 'right', 
+    locy: str = 'top', 
+    column: str = 'BDTscore',
+    weight: str = 'norm_weight',
+    suffix: str = '', 
+    dpi: int = 100,
+    format: list[str] = ['png']
+    ) -> None:
     '''Scan the BDT score for maximal significance and save the cut value.
 
     Args:
@@ -677,27 +714,32 @@ def significance(df: 'pd.DataFrame',
                 label=f'max-Z: {max_Z:.3f}\ncut threshold: [{max_index:.2f}]')
         ax.legend()
 
-        set_labels(ax, 'BDT score', 'Significance', 
-                   right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, 'significance_scan', 
-                 suffix=suffix, format=format)
+        set_labels(
+            ax, 'BDT score', 'Significance', 
+            right=label, locx=locx, locy=locy
+        )
+        savefigs(
+            fig, outDir, 'significance_scan', 
+            suffix=suffix, format=format
+        )
     finally:
         plt.close(fig)
 
-#________________________________________________
-def efficiency(df: 'pd.DataFrame', 
-               modes: list[str], 
-               modes_label: dict[str, str], 
-               modes_color: dict[str, str],
-               label: str, 
-               outDir: str, 
-               locx: str = 'right', 
-               locy: str = 'top', 
-               suffix: str = '',
-               format: list[str] = ['png'], 
-               range: list[int | float] = [0, 1], 
-               dpi: int = 100,
-               incr: float = 0.01) -> None:
+#____________________________________
+def efficiency(
+    df: 'pd.DataFrame', 
+    modes: list[str], 
+    modes_label: dict[str, str], 
+    modes_color: dict[str, str],
+    label: str, 
+    outDir: str, 
+    locx: str = 'right', 
+    locy: str = 'top', 
+    suffix: str = '',
+    format: list[str] = ['png'], 
+    range: list[int | float] = [0, 1], 
+    dpi: int = 100,
+    incr: float = 0.01) -> None:
     '''Compute and plot efficiency vs. BDT cut for each mode.
 
     Args:
@@ -752,14 +794,16 @@ def efficiency(df: 'pd.DataFrame',
     finally:
         plt.close(fig)
 
-#__________________________________________
-def tree_plot(bdt: 'xgb.XGBClassifier', 
-              inDir: str, 
-              outDir: str, 
-              epochs: int, 
-              n: int, 
-              format: list[str] = ['png'], 
-              rankdir: str = 'LR') -> None:
+#_______________________________
+def tree_plot(
+    bdt: 'xgb.XGBClassifier', 
+    inDir: str, 
+    outDir: str, 
+    epochs: int, 
+    n: int, 
+    format: list[str] = ['png'], 
+    rankdir: str = 'LR'
+    ) -> None:
     '''Render a subset of boosted trees to Graphviz files.
 
     Args:
@@ -786,10 +830,11 @@ def tree_plot(bdt: 'xgb.XGBClassifier',
     num_trees = np.linspace(0, epochs-1, n, dtype=int)
     for num_tree in tqdm(num_trees):
         # Export tree to DOT format
-        dot = xgb.to_graphviz(bdt, 
-                              num_trees=num_tree, 
-                              fmap=f'{inDir}/feature.txt', 
-                              rankdir=rankdir)
+        dot = xgb.to_graphviz(
+            bdt, num_trees=num_tree, 
+            fmap=f'{inDir}/feature.txt', 
+            rankdir=rankdir
+        )
         dot.save(f'{inDir}/bdt.dot')
 
         # Render to requested formats using graphviz
@@ -803,29 +848,30 @@ def tree_plot(bdt: 'xgb.XGBClassifier',
     os.system(f'rm -rf {outDir}/tmp')
     print(f'------>[Info] Plotted structure of BDT in {outDir}/feature folder')
 
-#__________________________________________
-def hist_check(df: 'pd.DataFrame', 
-               label: str, 
-               outDir: str, 
-               modes: list[str], 
-               modes_label: dict[str, str],  
-               modes_color: dict[str, str],
-               var: str, 
-               xlabel: str, 
-               nbins: int = 100,
-               ncols: int = 3,
-               yscale: str = 'linear',
-               locx: str = 'right',
-               locy: str = 'top',
-               suff: str = 'nominal',
-               suffix: str = '',
-               format: list[str] = ['png'], 
-               htype: str = 'step',
-               unity: bool = False, 
-               dpi: int = 100,
-               weight: bool = True,
-               strict: bool = True
-               ) -> None:
+#_______________________________
+def hist_check(
+    df: 'pd.DataFrame', 
+    label: str, 
+    outDir: str, 
+    modes: list[str], 
+    modes_label: dict[str, str],  
+    modes_color: dict[str, str],
+    var: str, 
+    xlabel: str, 
+    nbins: int = 100,
+    ncols: int = 3,
+    yscale: str = 'linear',
+    locx: str = 'right',
+    locy: str = 'top',
+    suff: str = 'nominal',
+    suffix: str = '',
+    format: list[str] = ['png'], 
+    htype: str = 'step',
+    unity: bool = False, 
+    dpi: int = 100,
+    weight: bool = True,
+    strict: bool = True
+    ) -> None:
     '''Plot per-variable histograms for signal and background modes.
 
     Args:

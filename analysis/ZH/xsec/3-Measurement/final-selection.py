@@ -6,7 +6,7 @@ import os
 
 # Analysis configuration and paths
 from package.userConfig import (
-    loc, get_loc, event, get_params,
+    loc, event, get_params,
     frac, nb
 )
 from package.func.bdt import def_bdt, make_high_low
@@ -27,10 +27,10 @@ if cat not in ['ee', 'mumu']:
 #############################
 
 # Input directory for pre-selection outputs
-inputDir  = get_loc(loc.EVENTS, cat, ecm, '')
+inputDir  = loc.get('EVENTS', cat, ecm)
 
 # Output directory for final-selection histograms
-outputDir = get_loc(loc.HIST_PREPROCESSED, cat, ecm, '')
+outputDir = loc.get('HIST_PREPROCESSED', cat, ecm)
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
@@ -114,7 +114,7 @@ processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1}  for
 
 # Define BDT score from trained model and apply BDT cut
 sel_BDT = 'Baseline'
-loc_BDT = get_loc(loc.BDT, cat, ecm, sel_BDT)
+loc_BDT = loc.get('BDT', cat, ecm, sel_BDT)
 defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
 
 

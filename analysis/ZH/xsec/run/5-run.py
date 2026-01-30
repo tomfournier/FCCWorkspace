@@ -28,6 +28,9 @@ from package.config import timer
 
 t = time.time()
 
+# Reuse environment without copying for each subprocess
+ENV = os.environ
+
 ########################
 ### ARGUMENT PARSING ###
 ########################
@@ -44,7 +47,7 @@ parser.add_argument(
 # Center-of-mass energy: dash-separated for multiple energies
 parser.add_argument(
     '--ecm', type=str, default='240-365',
-    choices=['240', '365', '240-365'],
+    choices=['240', '365', '240-365', '365-240'],
     help='Center-of-mass energy in GeV (default: 240-365)'
 )
 # Pipeline stages: 1=fit, 2=bias_test
@@ -86,21 +89,34 @@ arg = parser.parse_args()
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-# Parse channel configuration
-cats = arg.cat.split('-') if arg.cat else []
-if arg.combine:
-    # Add 'comb' for combined fit or use exclusively if no channels specified
-    cats = ['comb'] if not cats or cats == [''] else cats + ['comb']
+def parse_channels(cat_arg: str, combine: bool) -> list[str]:
+    '''Return channel list from CLI values.
 
-# Parse center-of-mass energies as integers
-ecms = [int(e) for e in arg.ecm.split('-')]
+    If `combine` is requested, include the combined fit channel
+    (`comb`). With an empty category string, only `comb` is used.
+    '''
+    cats_local = cat_arg.split('-') if cat_arg else []
+    if combine:
+        return ['comb'] if not cats_local or cats_local == [''] else (
+            cats_local + ['comb']
+        )
+    return cats_local
+
+
+def parse_ecms(ecm_arg: str) -> list[int]:
+    '''Return list of center-of-mass energies as integers.'''
+    return [int(e) for e in ecm_arg.split('-')]
+
+
+# Parse channel configuration and center-of-mass energies
+cats = parse_channels(arg.cat, arg.combine)
+ecms = parse_ecms(arg.ecm)
 
 # Active selections for analysis
 sels = [
     'Baseline',
-    # 'Baseline_miss',
+    'Baseline_miss',
     'Baseline_sep',
-    # 'Jan_sample'
 ]
 
 # Map stage identifiers to script names
@@ -135,12 +151,14 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
     script_path = f'{BASE_PATH}/{script}.py'
 
     # Display execution header with clear identification
-    print('\n' + '=' * 70)
-    print(f'▶ STARTING: [{script}] {cat = } | {ecm = } | {sel = }')
-    print('=' * 70)
+    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {sel = }'
+    length = len(msg) + 2
+    print('\n' + '=' * length)
+    print(msg.center(length))
+    print('=' * length)
 
     # Build base arguments common to all stages
-    cmd = ['python3', script_path, '--ecm', str(ecm), '--sel', sel]
+    cmd = [sys.executable, script_path, '--ecm', str(ecm), '--sel', sel]
 
     # Add channel or combine flag
     if cat == 'comb':
@@ -158,18 +176,16 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
             cmd.extend(['--extra'] + arg.extra)
 
     # Execute with real-time streaming to terminal
-    result = subprocess.run(
-        cmd,
-        env=os.environ.copy(),
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-    )
+    result = subprocess.run(cmd, env=ENV, stdout=sys.stdout,
+                            stderr=sys.stderr)
 
     # Completion status marker
     status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
-    print('=' * 70)
-    print(f'{status}: [{script}] cat={cat} | ecm={ecm} | sel={sel}')
-    print('=' * 70 + '\n')
+    msg = f'{status}: [{script}] {cat = } | {ecm = } | {sel = }'
+    length = len(msg) + 2
+    print('=' * length)
+    print(msg.center(length))
+    print('=' * length + '\n')
 
     return result.returncode
 
@@ -180,42 +196,26 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
 ######################
 
 if __name__ == '__main__':
-    # Sequential execution using nested loops with batch markers
-    failed_tasks = []
-
+    '''Sequential execution using nested loops with batch markers.'''
     for sel in sels:
         for script in scripts:
-            # Build task list for current selection/script combination
-            tasks = [(cat, ecm, sel, script) for ecm in ecms for cat in cats]
-
-            # Display batch execution info
-            print('\n' + '█' * 70)
-            print(f'BATCH: Running {len(tasks)} task(s) for '
-                  f'{sel = }, {script = }')
-            print('█' * 70)
+            # Display batch execution info without allocating task list
+            task_count = len(ecms) * len(cats)
+            msg = f'BATCH: Running {task_count} task(s) for {sel = } | {script = }'
+            length = len(msg) + 2
+            print('\n' + '█' * length)
+            print(msg.center(length))
+            print('█' * length)
 
             # Nested loops: ecm -> cat for deterministic ordering
             for ecm in ecms:
                 for cat in cats:
                     ret_code = run(cat, ecm, sel, script)
                     if ret_code != 0:
-                        # Track failures but continue to collect all errors
-                        msg = (f'Failed: cat={cat}, ecm={ecm}, '
-                               f'sel={sel}, script={script}')
-                        failed_tasks.append(msg)
+                        msg = (
+                            f'Failed: {cat = } | {ecm = } | {sel = } | {script = }'
+                        )
                         print(f'*** ERROR: {msg} ***\n')
-
-    # Report summary and exit with error if any tasks failed
-    if failed_tasks:
-        print('\n' + '=' * 60)
-        print('EXECUTION SUMMARY: FAILURES DETECTED')
-        print('=' * 60)
-        for task in failed_tasks:
-            print(f'  - {task}')
-        sys.exit(1)
-    else:
-        print('\n' + '=' * 60)
-        print('EXECUTION SUMMARY: ALL TASKS COMPLETED SUCCESSFULLY')
-        print('=' * 60)
+                        exit(1)
 
     timer(t)

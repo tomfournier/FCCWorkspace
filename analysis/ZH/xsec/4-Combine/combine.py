@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Load userConfig
 from package.userConfig import (
-    loc, get_loc, event
+    loc, event
 )
 from package.config import z_decays, H_decays
 
@@ -41,9 +41,9 @@ rebin    = 1      # Histogram rebinning factor
 intLumi  = 1      # Integrated luminosity scale factor
 
 # Define input and output directories
-inputDir  = get_loc(loc.HIST_PROCESSED,   cat, ecm, sel)
-outputDir = get_loc(loc.NOMINAL_DATACARD, cat, ecm, sel)
-inDir     = get_loc(loc.EVENTS,           cat, ecm, '')
+inputDir  = loc.get('HIST_PROCESSED',   cat, ecm, sel)
+outputDir = loc.get('NOMINAL_DATACARD', cat, ecm, sel)
+inDir     = loc.get('EVENTS',           cat, ecm)
 
 # Define signal processes: ee -> Z(ll)H with various Higgs decay modes
 if sel=='Jan_sample':

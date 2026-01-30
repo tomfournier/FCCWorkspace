@@ -56,13 +56,14 @@ from ..tools.process import getMetaInfo, getHist
 ### HELPER FUNCTIONS ###
 ########################
 
-def _signal_lists(cat: str,
-                  z_decays: list[str],
-                  h_decays: list[str],
-                  target: str,
-                  ecm: int = 240,
-                  tot: bool = True
-                  ) -> list[list[str]]:
+def _signal_lists(
+    cat: str,
+    z_decays: list[str],
+    h_decays: list[str],
+    target: str,
+    ecm: int = 240,
+    tot: bool = True
+    ) -> list[list[str]]:
     '''Generate lists of signal process names for different Higgs decay channels.
     
     Args:
@@ -85,14 +86,15 @@ def _signal_lists(cat: str,
 
     return [[template.format(x, y) for x in cats] for y in h_list]
 
-def _scaling(sigs: list[list[str]], 
-             h_decays: list[str], 
-             target: str, 
-             variation: float, 
-             verbose: bool = True
-             ) -> tuple[float, 
-                        float, 
-                        float]:
+def _scaling(
+    sigs: list[list[str]], 
+    h_decays: list[str], 
+    target: str, 
+    variation: float, 
+    verbose: bool = True
+    ) -> tuple[float, 
+               float, 
+               float]:
     '''Calculate scaling factors for signal variations in bias tests.
     
     Args:
@@ -133,20 +135,21 @@ def _scaling(sigs: list[list[str]],
 ### MAIN FUNCTIONS ###
 ######################
 
-#_______________________________________________________
-def make_pseudodata(hName: str, 
-                    inDir: str, 
-                    procs: list[str], 
-                    processes: dict[str, list[str]], 
-                    cat: str, 
-                    z_decays: list[str], 
-                    h_decays: list[str], 
-                    target: str,
-                    ecm: int = 240, 
-                    variation: float = 1.05, 
-                    suffix: str = '', 
-                    proc_scales: dict[str, float] = None, 
-                    tot: bool = True):
+#________________________________________
+def make_pseudodata(
+    hName: str, 
+    inDir: str, 
+    procs: list[str], 
+    processes: dict[str, list[str]], 
+    cat: str, 
+    z_decays: list[str], 
+    h_decays: list[str], 
+    target: str,
+    ecm: int = 240, 
+    variation: float = 1.05, 
+    suffix: str = '', 
+    proc_scales: dict[str, float] = None, 
+    tot: bool = True):
     '''Create pseudo-data histogram with perturbed signal for bias testing.
     
     Generates pseudo-data by combining backgrounds and signal with a specified
@@ -237,16 +240,17 @@ def make_pseudodata(hName: str,
     print(f'----->[CROSS-CHECK] Scale ratio {scale_ratio:.2f} vs target {variation}\n')
     return hist_pseudo
 
-#__________________________________________
-def make_datacard(outDir: str, 
-                  procs: list[str], 
-                  target: str, 
-                  bkg_unc: float, 
-                  categories: list[str], 
-                  freezeBkgs: bool = False,
-                  floatBkgs: bool = False, 
-                  plot_dc: bool = False
-                  ) -> None:
+#____________________________
+def make_datacard(
+    outDir: str, 
+    procs: list[str], 
+    target: str, 
+    bkg_unc: float, 
+    categories: list[str], 
+    freezeBkgs: bool = False,
+    floatBkgs: bool = False, 
+    plot_dc: bool = False
+    ) -> None:
     '''Generate a datacard for statistical analysis with Combine.
     
     Creates a text datacard compatible with the Combine tool for performing
@@ -336,25 +340,23 @@ def make_datacard(outDir: str,
     # Optionally print datacard content
     if plot_dc: print(f'\n{dc}\n')
 
-
-
-
+#___________________________________
 def pseudo_datacard(
-        inDir: str, 
-        outDir: str,
-        cat: str,
-        ecm: int,
-        target: str,
-        pert: float,
-        z_decays: list[str],
-        h_decays: list[str],
-        processes: dict[str, list[str]],
-        tot: bool = False,
-        scales: str = '',
-        freeze: bool = False,
-        float_bkg: bool = False,
-        plot_dc: bool = False
-        ) -> None:
+    inDir: str, 
+    outDir: str,
+    cat: str,
+    ecm: int,
+    target: str,
+    pert: float,
+    z_decays: list[str],
+    h_decays: list[str],
+    processes: dict[str, list[str]],
+    tot: bool = False,
+    scales: str = '',
+    freeze: bool = False,
+    float_bkg: bool = False,
+    plot_dc: bool = False
+    ) -> None:
     '''
     Generate pseudodata histogram and datacard for a specific Higgs decay target.
     
@@ -426,13 +428,14 @@ def pseudo_datacard(
         plot_dc=plot_dc
     )
 
-#___________________________________________
-def hist_from_datacard(inDir: str,
-                       target: str,
-                       cat: str,
-                       procs: list[str]
-                       ) -> tuple['hist.Hist', 
-                                  'hist.Hist']:
+#___________________________
+def hist_from_datacard(
+    inDir: str,
+    target: str,
+    cat: str,
+    procs: list[str]
+    ) -> tuple['hist.Hist', 
+               'hist.Hist']:
 
     import uproot
 

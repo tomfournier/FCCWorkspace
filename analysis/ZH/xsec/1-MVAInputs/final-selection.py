@@ -6,7 +6,7 @@ import os
 
 # Analysis configuration and paths
 from package.userConfig import (
-    loc, get_loc, get_params,
+    loc, get_params,
     frac, nb
 )
 
@@ -21,10 +21,12 @@ if cat not in ['ee', 'mumu']:
 #############################
 
 # Input directory for pre-selection outputs
-inputDir  = get_loc(loc.EVENTS_TRAINING, cat, ecm, '')
+# inputDir = get_loc(loc.EVENTS_TRAINING, cat, ecm, '')
+inputDir = loc.get('EVENTS_TRAINING', cat, ecm)
 
 # Output directory for final-selection histograms
-outputDir = get_loc(loc.HIST_MVA,   cat, ecm, '')
+# outputDir = get_loc(loc.HIST_MVA, cat, ecm, '')
+outputDir = loc.get('HIST_MVA', cat, ecm)
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts

@@ -46,10 +46,13 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os, json, copy, uproot, ROOT
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import ROOT
+    import numpy as np
+    import pandas as pd
 
-import numpy as np
-import pandas as pd
+import os, json, copy, uproot
 
 from functools import lru_cache
 from glob import glob
@@ -63,9 +66,10 @@ from ...tools.utils import mkdir
 ########################
 
 @lru_cache(maxsize=None)
-def _key_from_file(filepath: str, 
-                   key: str
-                   ) -> int:
+def _key_from_file(
+    filepath: str, 
+    key: str
+    ) -> int:
     '''Extract an integer value from a ROOT file key.
     
     Args:
@@ -86,9 +90,10 @@ def _key_from_file(filepath: str,
             return 0
         
 @lru_cache(maxsize=None)
-def _cut_from_file(filepath: str, 
-                   branch: str
-                   ) -> int:
+def _cut_from_file(
+    filepath: str, 
+    branch: str
+    ) -> int:
     '''Retrieve cut value from events branch in a ROOT file.
     
     Args:
@@ -104,8 +109,9 @@ def _cut_from_file(filepath: str,
         return 0
     
 @lru_cache(maxsize=None)
-def _col_from_file(filepath: str
-                   ) -> set[str]:
+def _col_from_file(
+    filepath: str
+    ) -> set[str]:
     '''Extract column names from the events tree in a ROOT file.
     
     Args:
@@ -128,10 +134,11 @@ def _col_from_file(filepath: str
 ### MAIN FUNCTIONS ###
 ######################
 
-#____________________________________
-def find_sample_files(inDir: str, 
-                      sample: str
-                      ) -> list[str]:
+#_____________________
+def find_sample_files(
+    inDir: str, 
+    sample: str
+    ) -> list[str]:
     '''Locate ROOT files for a specified sample.
     
     Searches for .root files in a directory or accepts a single file path.
@@ -163,10 +170,11 @@ def find_sample_files(inDir: str,
 
     return result
         
-#_____________________________________________
-def get_processed(files: list[str] | str, 
-                  arg: str = 'eventsProcessed'
-                  ) -> int:
+#_______________________________
+def get_processed(
+    files: list[str] | str, 
+    arg: str = 'eventsProcessed'
+    ) -> int:
     '''Sum the number of processed events across files.
     
     Args:
@@ -181,9 +189,11 @@ def get_processed(files: list[str] | str,
     return int(sum(_key_from_file(os.fspath(f), arg) 
                    for f in files))
 
-#____________________________
-def get_cut(files: list[str], 
-            cut: str) -> int:
+#____________________
+def get_cut(
+    files: list[str], 
+    cut: str
+    ) -> int:
     '''Sum cut values across files.
     
     Args:
@@ -198,11 +208,12 @@ def get_cut(files: list[str],
     return int(sum(_cut_from_file(os.fspath(f), cut) 
                    for f in files))
 
-#_________________________________________
-def getcut(df: pd.DataFrame, 
-           filter: str,
-           mask: np.ndarray | None = None,
-           ) -> tuple[int, np.ndarray]:
+#____________________________________
+def getcut(
+    df: 'pd.DataFrame', 
+    filter: str,
+    mask: 'np.ndarray' | None = None,
+    ) -> tuple[int, 'np.ndarray']:
     '''Apply a filter to dataframe and combine with existing mask.
     
     Args:
@@ -213,6 +224,7 @@ def getcut(df: pd.DataFrame,
     Returns:
         tuple: (count of rows matching filter, combined boolean mask).
     '''
+    import numpy as np
     if df is None or df.empty:
         return 0, mask
     sel_mask = np.asarray(df.eval(filter), 
@@ -223,14 +235,15 @@ def getcut(df: pd.DataFrame,
         mask &= sel_mask
     return int(mask.sum()), mask
 
-#________________________________________________
-def get_count(df: pd.DataFrame,
-              df_mask: np.ndarray | None,
-              file_list: list[str],
-              cut_name: str,
-              filter_expr: str,
-              columns: set | None = None
-              ) -> tuple[int, np.ndarray | None]:
+#________________________________________
+def get_count(
+    df: 'pd.DataFrame',
+    df_mask: 'np.ndarray' | None,
+    file_list: list[str],
+    cut_name: str,
+    filter_expr: str,
+    columns: set | None = None
+    ) -> tuple[int, 'np.ndarray' | None]:
     '''Get event count for a cut using file metadata or dataframe filtering.
     
     Prefers reading cut values directly from files if available,
@@ -261,11 +274,12 @@ def get_count(df: pd.DataFrame,
         print("WARNING: Couldn't compute the count for this cut")
         return 0, df_mask
 
-#__________________________________
-def is_there_events(proc: str, 
-                    path: str = '', 
-                    end='.root'
-                    ) -> bool:
+#___________________
+def is_there_events(
+    proc: str, 
+    path: str = '', 
+    end='.root'
+    ) -> bool:
     '''Check if a process has an events tree in ROOT files.
     
     Args:
@@ -296,14 +310,17 @@ def is_there_events(proc: str,
         print(f'ERROR: Could not find ROOT file for {proc}')
         quit()
 
-#________________________________________________
-def dump_json(flow: dict[str, 
-                         dict[str, 
-                              dict[str, float]]], 
-              outDir: str, 
-              outName: str, 
-              hist: bool = False, 
-              procs: list = []) -> None:
+#_________________________________
+def dump_json(
+    flow: dict[str, 
+               dict[str, 
+                    dict[str, 
+                         float]]], 
+    outDir: str, 
+    outName: str, 
+    hist: bool = False, 
+    procs: list = []
+    ) -> None:
     '''Save event flow dictionary to a JSON file.
     
     Args:
@@ -325,25 +342,26 @@ def dump_json(flow: dict[str,
     with open(f'{outDir}/{outName}.json', 'w') as fOut:
         json.dump(dictio, fOut, indent=4)
 
-#________________________________________________________________
-def get_flow(events: dict[str, 
-                          dict[str, 
-                               float | int | dict[str, 
-                                                  float | str]]], 
-             procs: list[str], 
-             processes: dict[str, str], 
-             cuts: dict[str, dict[str, str]], 
-             cat: str, 
-             sel: str, 
-             tot: bool = False,
-             json_file: bool = False, 
-             loc: str = '', 
-             outName: str = 'flow', 
-             suffix: str = ''
-             ) -> dict[str, 
-                       dict[str, 
-                            ROOT.TH1 | dict[str, 
-                                            float]]]:
+#_______________________________________________________
+def get_flow(
+    events: dict[str, 
+                 dict[str, 
+                      float | int | dict[str, 
+                                         float | str]]], 
+    procs: list[str], 
+    processes: dict[str, str], 
+    cuts: dict[str, dict[str, str]], 
+    cat: str, 
+    sel: str, 
+    tot: bool = False,
+    json_file: bool = False, 
+    loc: str = '', 
+    outName: str = 'flow', 
+    suffix: str = ''
+    ) -> dict[str, 
+              dict[str, 
+                   'ROOT.TH1' | dict[str, 
+                                     float]]]:
     '''Build event flow histograms and cutflow data for processes.
     
     Accumulates cut yields and errors across samples for each process,
@@ -391,26 +409,27 @@ def get_flow(events: dict[str,
         dump_json(flow, loc, outName+_sel+suffix, hist=True, procs=procs)
     return flow
 
-#______________________________________________________________________
-def get_flow_decay(events: dict[str,
-                                dict[str,
-                                     float | int | dict[str,
-                                                        float | str]]], 
-                   z_decays: list[str], 
-                   h_decays: list[str], 
-                   cuts: dict[str, dict[str, str]], 
-                   cat: str, 
-                   sel: str, 
-                   outName: str = 'flow_decay',
-                   ecm: int = 240, 
-                   json_file: bool = False, 
-                   loc: str = '', 
-                   suffix: str = '', 
-                   tot: bool = False
-                   ) -> dict[str,
-                             dict[str,
-                                  ROOT.TH1 | dict[str,
-                                                  float]]]:
+#_______________________________________________________
+def get_flow_decay(
+    events: dict[str,
+                 dict[str,
+                      float | int | dict[str,
+                                         float | str]]], 
+    z_decays: list[str], 
+    h_decays: list[str], 
+    cuts: dict[str, dict[str, str]], 
+    cat: str, 
+    sel: str, 
+    outName: str = 'flow_decay',
+    ecm: int = 240, 
+    json_file: bool = False, 
+    loc: str = '', 
+    suffix: str = '', 
+    tot: bool = False
+    ) -> dict[str,
+              dict[str,
+                   'ROOT.TH1' | dict[str,
+                                     float]]]:
     '''Build event flow histograms for Higgs decay channels.
     
     Accumulates cut yields for each Higgs decay mode across Z decay channels,
@@ -433,6 +452,8 @@ def get_flow_decay(events: dict[str,
     Returns:
         dict: Dictionary with Higgs decay flow data including histograms, cuts, and errors.
     '''
+    import ROOT
+
     cats = z_decays if tot else [cat]
     sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in cats] for y in h_decays]
     _cat, _sel, _tot = f'_{cat}', f'_{sel}', '_tot' if tot else ''
@@ -458,23 +479,24 @@ def get_flow_decay(events: dict[str,
         dump_json(flow, loc, outName+_sel+suffix, hist=True, procs=h_decays)
     return flow
 
-#_________________________________________________________________
-def get_flows(procs: list[str], 
-              processes: dict[str, list[str]], 
-              cuts: dict[str, dict[str, str]], 
-              events: dict[str,
-                           dict[str,
-                                float | int | dict[str,
-                                                   float | str]]], 
-              cat: str, 
-              sel: str, 
-              z_decays: list[str], 
-              h_decays: list[str], 
-              ecm: int = 240, 
-              json_file: bool = False, 
-              tot: bool = False, 
-              loc_json: str = ''
-              ) ->tuple[dict, dict]:
+#_______________________________________________________
+def get_flows(
+    procs: list[str], 
+    processes: dict[str, list[str]], 
+    cuts: dict[str, dict[str, str]], 
+    events: dict[str,
+                 dict[str,
+                      float | int | dict[str,
+                                         float | str]]], 
+    cat: str, 
+    sel: str, 
+    z_decays: list[str], 
+    h_decays: list[str], 
+    ecm: int = 240, 
+    json_file: bool = False, 
+    tot: bool = False, 
+    loc_json: str = ''
+    ) ->tuple[dict, dict]:
     '''Generate both process and decay-specific event flows.
     
     Wrapper function that computes event flow histograms for both
@@ -499,19 +521,21 @@ def get_flows(procs: list[str],
     '''
     suffix = '_tot' if tot else ''
     # Generate process-level flow
-    flow = get_flow(events, procs, 
-                    processes, cuts, 
-                    cat, sel, tot=tot,
-                    json_file=json_file, 
-                    loc=loc_json, 
-                    suffix=suffix)
+    flow = get_flow(
+        events, procs, 
+        processes, cuts, 
+        cat, sel, tot=tot,
+        json_file=json_file, 
+        loc=loc_json, 
+        suffix=suffix
+    )
     
     # Generate decay-level flow
-    flow_decay = get_flow_decay(events, 
-                                z_decays, h_decays, 
-                                cuts, cat, sel, ecm=ecm, 
-                                json_file=json_file, 
-                                loc=loc_json, 
-                                suffix=suffix, 
-                                tot=tot)
+    flow_decay = get_flow_decay(
+        events, z_decays, h_decays, 
+        cuts, cat, sel, ecm=ecm, 
+        json_file=json_file, 
+        loc=loc_json, 
+        suffix=suffix, tot=tot
+    )
     return flow, flow_decay

@@ -74,28 +74,31 @@ from ..tools.utils import mkdir
 ######################
 
 @overload
-def counts_and_effs(files: list[str], 
-                    vars: list[str], 
-                    only_eff: bool = True
-                    ) -> float:
+def counts_and_effs(
+    files: list[str], 
+    vars: list[str], 
+    only_eff: bool = True
+    ) -> float:
     ...
 
 @overload
-def counts_and_effs(files: list[str], 
-                    vars: list[str], 
-                    only_eff: bool = False
-                    ) -> tuple['pd.DataFrame', 
-                               float,
-                               int]:
+def counts_and_effs(
+    files: list[str], 
+    vars: list[str], 
+    only_eff: bool = False
+    ) -> tuple['pd.DataFrame', 
+               float,
+               int]:
     ...
 
-#________________________________________________
-def counts_and_effs(files: list[str], 
-                    vars: list[str], 
-                    only_eff: bool = False
-                    ) -> tuple['pd.DataFrame', 
-                               float,
-                               int] | float:
+#____________________________
+def counts_and_effs(
+    files: list[str], 
+    vars: list[str], 
+    only_eff: bool = False
+    ) -> tuple['pd.DataFrame', 
+               float,
+               int] | float:
     '''Calculate event counts, dataframe, and selection efficiency.
     
     Args:
@@ -133,11 +136,12 @@ def counts_and_effs(files: list[str],
     else: 
         return df, eff, N_events
 
-#_____________________________________
-def additional_info(df: 'pd.DataFrame', 
-                    mode: str, 
-                    sig: str
-                    ) -> 'pd.DataFrame':
+#_______________________
+def additional_info(
+    df: 'pd.DataFrame', 
+    mode: str, 
+    sig: str
+    ) -> 'pd.DataFrame':
     '''Add sample mode and signal label columns to dataframe.
     
     Args:
@@ -152,14 +156,15 @@ def additional_info(df: 'pd.DataFrame',
     df['isSignal'] = int(mode == sig)  # Add sample identifier and signal flag
     return df
 
-#____________________________________________
-def BDT_input_numbers(df: 'pd.DataFrame', 
-                      modes: list[str], 
-                      sig: str, 
-                      eff: dict[str, float], 
-                      xsec: dict[str, float], 
-                      frac: dict[str, float]
-                      ) -> dict[str, int]:
+#__________________________
+def BDT_input_numbers(
+    df: 'pd.DataFrame', 
+    modes: list[str], 
+    sig: str, 
+    eff: dict[str, float], 
+    xsec: dict[str, float], 
+    frac: dict[str, float]
+    ) -> dict[str, int]:
     '''Calculate number of events to use for BDT training per process.
     
     Balances signal and background using cross-sections and efficiencies.
@@ -179,20 +184,21 @@ def BDT_input_numbers(df: 'pd.DataFrame',
     # Total background cross-section weighted by efficiency
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in modes if mode != sig)
     for m in modes:
-        N_BDT_inputs[m] = (int(frac[m] * df[m].shape[0]) if m == sig else 
-                           int(frac[m] * df[sig].shape[0] * (eff[m] * xsec[m] \
-                                                         / xsec_tot_bkg)))
+        N_BDT_inputs[m] = (
+            int(frac[m] * df[m].shape[0]) if m == sig else 
+            int(frac[m] * df[sig].shape[0] * (eff[m] * xsec[m] / xsec_tot_bkg)))
     return N_BDT_inputs
 
-#______________________________________________
-def df_split_data(df: 'pd.DataFrame', 
-                  N_BDT_inputs: dict[str, int], 
-                  eff: dict[str, float], 
-                  xsec: dict[str, float], 
-                  N_events: dict[str, int], 
-                  mode: str, 
-                  lumi: float = 10.8
-                  ) -> 'pd.DataFrame':
+#________________________________
+def df_split_data(
+    df: 'pd.DataFrame', 
+    N_BDT_inputs: dict[str, int], 
+    eff: dict[str, float], 
+    xsec: dict[str, float], 
+    N_events: dict[str, int], 
+    mode: str, 
+    lumi: float = 10.8
+    ) -> 'pd.DataFrame':
     '''Sample events are split into training/validation sets with weights.
     
     Args:
@@ -226,10 +232,11 @@ def df_split_data(df: 'pd.DataFrame',
     sampled.loc[df1.index, 'weights'] = coeff / df1.shape[0]
     return sampled
 
-#__________________________________
-def print_stats(df: 'pd.DataFrame', 
-                modes: list
-                ) -> None:
+#______________________
+def print_stats(
+    df: 'pd.DataFrame', 
+    modes: list
+    ) -> None:
     '''Print training and validation event counts per process.
     
     Args:
@@ -249,13 +256,14 @@ def print_stats(df: 'pd.DataFrame',
         print(f"{f'Number of validation for {m:<{lenght}} : {int((m_mask & ~train).sum())}':^45}")
         print(f"{'=' * 45:^45}")
 
-#_____________________________________
-def split_data(df: 'pd.DataFrame', 
-               vars: list[str]
-               ) -> tuple['np.ndarray', 
-                          'np.ndarray', 
-                          'np.ndarray', 
-                          'np.ndarray']:
+#____________________________
+def split_data(
+    df: 'pd.DataFrame', 
+    vars: list[str]
+    ) -> tuple['np.ndarray', 
+               'np.ndarray', 
+               'np.ndarray', 
+               'np.ndarray']:
     '''Split data into training and validation sets for features and labels.
     
     Args:
@@ -276,15 +284,16 @@ def split_data(df: 'pd.DataFrame',
     y_valid = df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel()
     return X_train, y_train, X_valid, y_valid
 
-#_________________________________________
-def train_model(X_train: 'np.ndarray', 
-                y_train: 'np.ndarray', 
-                X_valid: 'np.ndarray', 
-                y_valid: 'np.ndarray', 
-                config: dict[str, 
-                             str | int | float], 
-                early: int
-                ) -> 'xgb.XGBClassifier':
+#____________________________________
+def train_model(
+    X_train: 'np.ndarray', 
+    y_train: 'np.ndarray', 
+    X_valid: 'np.ndarray', 
+    y_valid: 'np.ndarray', 
+    config: dict[str, 
+                 str | int | float], 
+    early: int
+    ) -> 'xgb.XGBClassifier':
     '''Train XGBoost model with early stopping.
     
     Args:
@@ -316,11 +325,12 @@ def train_model(X_train: 'np.ndarray',
     bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True)
     return bdt
 
-#_______________________________________
-def evaluate_bdt(df: 'pd.DataFrame', 
-                 bdt: 'xgb.XGBClassifier', 
-                 vars: list[str]
-                 ) -> 'pd.DataFrame':
+#____________________________
+def evaluate_bdt(
+    df: 'pd.DataFrame', 
+    bdt: 'xgb.XGBClassifier', 
+    vars: list[str]
+    ) -> 'pd.DataFrame':
     '''Compute BDT scores and add to dataframe.
     
     Args:
@@ -341,11 +351,12 @@ def evaluate_bdt(df: 'pd.DataFrame',
     df['BDTscore'] = bdt.predict_proba(X)[:, 1]
     return df
 
-#_______________________________________________________
-def get_metrics(bdt: 'xgb.XGBClassifier'
-                ) -> tuple[dict[str, 
-                                dict[str, list[float]]], 
-                           int, 'np.ndarray', int]:
+#___________________________________________
+def get_metrics(
+    bdt: 'xgb.XGBClassifier'
+    ) -> tuple[dict[str, 
+                    dict[str, list[float]]], 
+                    int, 'np.ndarray', int]:
     '''Extract training metrics from trained model.
     
     Args:
@@ -365,7 +376,7 @@ def get_metrics(bdt: 'xgb.XGBClassifier'
         (bdt.best_iteration is not None) else epochs
     return results, epochs, x_axis, best_iteration
 
-#_______________________________________________
+#_________________________________________________
 def load_model(inDir: str) -> 'xgb.XGBClassifier':
     '''Load previously trained XGBoost model.
     
@@ -380,10 +391,12 @@ def load_model(inDir: str) -> 'xgb.XGBClassifier':
     print(f'--->Loading BDT model {fpath}')
     return joblib.load(fpath)
 
-#_____________________________________
-def save_model(bdt: 'xgb.XGBClassifier', 
-               vars: list[str], 
-               path: str) -> None:
+#____________________________
+def save_model(
+    bdt: 'xgb.XGBClassifier', 
+    vars: list[str], 
+    path: str
+    ) -> None:
     '''Save trained model in ROOT and joblib formats.
     
     Args:
@@ -415,14 +428,15 @@ def save_model(bdt: 'xgb.XGBClassifier',
     # Save model in joblib format for Python
     joblib.dump(bdt, fjob, compress=2)
 
-#_____________________________________________
-def def_bdt(vars: Sequence[str], 
-            loc_bdt: str, 
-            MVAVec:  str = 'MVAVec', 
-            score:   str = 'BDTscore',
-            defineList: dict[str, str] = {},
-            suffix: str = ''
-            ) -> tuple[dict[str, str], float]:
+#______________________________________
+def def_bdt(
+    vars: Sequence[str], 
+    loc_bdt: str, 
+    MVAVec:  str = 'MVAVec', 
+    score:   str = 'BDTscore',
+    defineList: dict[str, str] = {},
+    suffix: str = ''
+    ) -> tuple[dict[str, str], float]:
     '''Define BDT computation in ROOT RDataFrame and load cut value.
     
     Args:
@@ -456,12 +470,13 @@ def def_bdt(vars: Sequence[str],
     bdt_cut  = float(np.loadtxt(f'{loc_bdt}/BDT_cut.txt'))
     return defineList, bdt_cut
 
-#_________________________________________
-def make_high_low(cutList: dict[str, str], 
-                  bdt_cut: float, 
-                  sels: list[str], 
-                  score: str = 'BDTscore'
-                  ) -> dict[str, str]:
+#___________________________
+def make_high_low(
+    cutList: dict[str, str], 
+    bdt_cut: float, 
+    sels: list[str], 
+    score: str = 'BDTscore'
+    ) -> dict[str, str]:
     '''Create high/low BDT score cut regions for selected criteria.
     
     Args:

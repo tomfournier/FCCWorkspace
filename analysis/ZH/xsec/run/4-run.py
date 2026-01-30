@@ -31,6 +31,10 @@ from package.config import timer
 
 t = time.time()
 
+# Reuse environment without copying for each subprocess
+ENV = os.environ.copy()
+ENV['RUN'] = '1'
+
 
 ########################
 ### ARGUMENT PARSING ###
@@ -39,11 +43,11 @@ t = time.time()
 parser = ArgumentParser(description='Run analysis pipeline with automated parameters')
 # Select lepton final states; dash-separated values run both channels
 parser.add_argument('--cat', type=str, default='ee-mumu', 
-                    choices=['ee', 'mumu', 'ee-mumu'],
+                    choices=['ee', 'mumu', 'ee-mumu', 'mumu-ee'],
                     help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
 # Choose center-of-mass energy; dash-separated values run multiple energies sequentially
 parser.add_argument('--ecm', type=str, default='240-365', 
-                    choices=['240', '365', '240-365'],
+                    choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
 # Select pipeline stages: 1=process_histogram, 2=combine; dash-separated runs both in order
 parser.add_argument('--run', type=str, default='2', choices=['1', '2', '1-2'],
@@ -84,13 +88,13 @@ path = f'{loc.ROOT}/4-Combine'
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cfg_dir: str, 
-        cat: str, 
-        ecm: int,
-        sel: str, 
-        path: str,
-        script: str,
-        ) -> None:
+def run(cfg_dir: str,
+    cat: str,
+    ecm: int,
+    sel: str,
+    path: str,
+    script: str,
+    ) -> None:
     '''Execute one measurement stage with a temporary config and streamed output.
 
     Builds a JSON file with cat/ecm/sel, sets RUN=1, and calls the stage script
@@ -118,17 +122,14 @@ def run(cfg_dir: str,
     # Write configuration to temporary JSON file
     cfg_file.write_text(json.dumps(config))
     
-    # Set up environment with RUN flag for automated mode detection
-    env = os.environ.copy()
-    env['RUN'] = '1'
-
     script_path = f'{path}/{script}.py'
     
-    # Display execution information for traceability
-    print('=' * 60)
-    print(f'Running: {cat = }, {ecm = } for {script}')
-    print('=' * 60)
-
+    # Display execution header with clear identification
+    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = }'
+    length = len(msg) + 2
+    print('\n' + '=' * length)
+    print(msg.center(length))
+    print('=' * length)
 
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
@@ -139,16 +140,23 @@ def run(cfg_dir: str,
     
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
-        else ['python', script_path] + extra_args
+        else [sys.executable, script_path] + extra_args
     
     try:
         # Execute fccanalysis with modified environment and stream output
         result = subprocess.run(
             cmd,
-            env=env,
+            env=ENV,
             stdout=sys.stdout,
             stderr=sys.stderr,
         )
+        # Completion status marker
+        status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
+        msg = f'{status}: [{script}] {cat = } | {ecm = }'
+        length = len(msg) + 2
+        print('=' * length)
+        print(msg.center(length))
+        print('=' * length + '\n')
         return result.returncode
     finally:
         # Cleanup: remove temporary configuration file
@@ -165,9 +173,20 @@ if __name__ == '__main__':
     # Nested loops: iterate over energies, channels, and pipeline stages
     for ecm in ecms:
         if 'process_histogram' in scripts:
+            msg = f'BATCH: Running 1 task(s) for {ecm = } | script = process_histogram'
+            length = len(msg) + 2
+            print('\n' + '█' * length)
+            print(msg.center(length))
+            print('█' * length)
             result = run(loc.RUN, arg.cat, ecm, '', path, 'process_histogram')
             if result != 0: sys.exit(result)
         if 'combine' in scripts:
+            task_count = len(cats) * len(sels)
+            msg = f'BATCH: Running {task_count} task(s) for {ecm = } | script = combine'
+            length = len(msg) + 2
+            print('\n' + '█' * length)
+            print(msg.center(length))
+            print('█' * length)
             for cat in cats:
                 for sel in sels:
                     result = run(loc.RUN, cat, ecm, sel, path, 'combine')

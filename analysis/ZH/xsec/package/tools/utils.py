@@ -32,12 +32,13 @@ if TYPE_CHECKING:
     import pandas as pd
     import numpy as np
 
-#_____________________________
-def get_paths(mode: str, 
-              path: str, 
-              modes: str, 
-              suffix: str = ''
-              ) -> list:
+#___________________
+def get_paths(
+    mode: str, 
+    path: str, 
+    modes: str, 
+    suffix: str = ''
+    ) -> list:
     '''
     Retrieve ROOT file paths based on mode and suffix.
 
@@ -57,10 +58,11 @@ def get_paths(mode: str,
     return glob(f'{fpath}.root')
 
 
-#__________________________________
-def get_df(filename: str, 
-           branches: list[str] = []
-           ) -> pd.DataFrame:
+#___________________________
+def get_df(
+    filename: str, 
+    branches: list[str] = []
+    ) -> pd.DataFrame:
     '''
     Load a DataFrame from a ROOT file.
 
@@ -84,9 +86,8 @@ def get_df(filename: str,
             return tree.arrays(branches, library='pd')
         return tree.arrays(library='pd')
 
-#___________________
-def mkdir(mydir: str
-          ) -> None:
+#_____________________________
+def mkdir(mydir: str) -> None:
     '''
     Create a directory if it does not exist.
 
@@ -97,12 +98,11 @@ def mkdir(mydir: str
     os.makedirs(mydir, exist_ok=True)
 
 
-#________________________________________________________
-def get_procDict(procFile: str, 
-                 fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts'
-                 ) -> dict[str, 
-                           dict[str, 
-                                float]]:
+#___________________________________________
+def get_procDict(
+    procFile: str, 
+    fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts'
+    ) -> dict[str, dict[str, float]]:
     '''
     Load process dictionary from a JSON file.
 
@@ -130,14 +130,11 @@ def get_procDict(procFile: str,
     return procDict
 
 
-#________________________________________________
-def update_keys(procDict: dict[str,
-                               dict[str,
-                                    float]], 
-                modes: list
-                ) -> dict[str, 
-                          dict[str, 
-                               float]]:
+#_________________________________________
+def update_keys(
+    procDict: dict[str, dict[str, float]], 
+    modes: list[str]
+    ) -> dict[str, dict[str, float]]:
     '''
     Update dictionary keys by reversing mode name mappings.
 
@@ -160,11 +157,11 @@ def update_keys(procDict: dict[str,
     return updated_dict
 
 
-#__________________________________
-def get_xsec(modes: list, 
-             training: bool = True
-             ) -> dict[str, 
-                       float]:
+#_________________________
+def get_xsec(
+    modes: list[str], 
+    training: bool = True
+    ) -> dict[str, float]:
     '''
     Retrieve cross-section values for specified modes.
 
@@ -192,10 +189,11 @@ def get_xsec(modes: list,
     return xsec
 
 
-#___________________________________________
-def load_data(inDir: str, 
-              filename: str = 'preprocessed'
-              ) -> pd.DataFrame:
+#_________________________________
+def load_data(
+    inDir: str, 
+    filename: str = 'preprocessed'
+    ) -> pd.DataFrame:
     '''
     Load preprocessed data from a pickle file.
 
@@ -214,11 +212,12 @@ def load_data(inDir: str,
     return df
 
 
-#________________________________________
-def to_pkl(df: pd.DataFrame, 
-           path: str, 
-           filename: str = 'preprocessed'
-           ) -> None:
+#_________________________________
+def to_pkl(
+    df: pd.DataFrame, 
+    path: str, 
+    filename: str = 'preprocessed'
+    ) -> None:
     '''
     Save a DataFrame to a pickle file.
 
@@ -233,11 +232,12 @@ def to_pkl(df: pd.DataFrame,
     df.to_pickle(fpath)
     print(f'\n----->[Info] Preprocessed saved {fpath}\n')
 
-#____________________________
-def dump_json(arg: dict, 
-              file: str, 
-              indent: int = 4
-              ) -> None:
+#__________________
+def dump_json(
+    arg: dict, 
+    file: str, 
+    indent: int = 4
+    ) -> None:
     '''
     Dump a dictionary to a JSON file.
 
@@ -250,9 +250,10 @@ def dump_json(arg: dict,
     with open(file, mode='w', encoding='utf-8') as fOut:
         json.dump(arg, fOut, indent=indent)
 
-#_______________________
-def load_json(file: str
-              ) -> dict:
+#_____________
+def load_json(
+    file: str
+    ) -> dict:
     '''
     Load a dictionary from a JSON file.
 
@@ -269,10 +270,11 @@ def load_json(file: str
     return arg
 
 
-#_________________
-def Z0(S: float, 
-       B: float
-       ) -> float:
+#______________
+def Z0(
+    S: float, 
+    B: float
+    ) -> float:
     '''
     Calculate significance using the Z0 method.
 
@@ -290,10 +292,11 @@ def Z0(S: float,
     return np.sqrt( 2*( (S + B)*np.log(1 + S/B) - S ) )
 
 
-#__________________
-def Zmu(S: float, 
-        B: float
-        ) -> float:
+#______________
+def Zmu(
+    S: float, 
+    B: float
+    ) -> float:
     '''
     Calculate significance using the Zmu method.
 
@@ -311,10 +314,11 @@ def Zmu(S: float,
     return np.sqrt( 2*( S - B*np.log(1 + S/B) ) )
 
 
-#________________
-def Z(S: float, 
-      B: float
-      ) -> float:
+#______________
+def Z(
+    S: float, 
+    B: float
+    ) -> float:
     '''
     Calculate significance using the Z method (simple S/sqrt(S+B)).
 
@@ -334,14 +338,15 @@ def Z(S: float,
     return S/np.sqrt(S + B)
 
 
-#___________________________________________________________
-def Significance(df_s: pd.DataFrame, 
-                 df_b: pd.DataFrame, 
-                 column: str = 'BDTscore',
-                 weight: str = 'norm_weight',
-                 func: Callable[[float, float], float] = Z0, 
-                 score_range: tuple[float, float] = (0, 1), 
-                 nbins: int = 50) -> pd.DataFrame:      
+#______________________________________________
+def Significance(
+    df_s: pd.DataFrame, 
+    df_b: pd.DataFrame, 
+    column: str = 'BDTscore',
+    weight: str = 'norm_weight',
+    func: Callable[[float, float], float] = Z0, 
+    score_range: tuple[float, float] = (0, 1), 
+    nbins: int = 50) -> pd.DataFrame:      
     '''Calculate significance from signal and background DataFrames.
     
     Optimized for speed: vectorized numpy operations, single pass binning.
@@ -381,14 +386,18 @@ def Significance(df_s: pd.DataFrame,
     # Vectorized significance calculation
     Z_vals = np.array([func(Si, Bi) for Si, Bi in zip(S_cum, B_cum)])
     
-    return pd.DataFrame(data={'S': S_cum, 'B': B_cum, 'Z': Z_vals}, 
-                        index=edges[:-1])
+    return pd.DataFrame(
+        data={'S': S_cum, 'B': B_cum, 'Z': Z_vals}, 
+        index=edges[:-1]
+    )
 
-#_________________________________________
-def high_low_sels(sels: list[str], 
-                  list_hl: str | list[str]
-                  ) -> list[str]:
-    if isinstance(list_hl, str): list_hl = [list_hl]
+#___________________________
+def high_low_sels(
+    sels: list[str], 
+    list_hl: str | list[str]
+    ) -> list[str]:
+    if isinstance(list_hl, str): 
+        list_hl = [list_hl]
 
     valid_sels = [hl for hl in list_hl if hl in sels]
     for sel in valid_sels:

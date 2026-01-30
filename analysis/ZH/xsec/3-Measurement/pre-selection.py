@@ -7,7 +7,7 @@ import os
 # Import user configuration paths and parameters
 from package.config import z_decays, H_decays
 from package.userConfig import (
-    loc, get_loc, get_params,
+    loc, get_params,
     frac, nb
 )
 
@@ -22,7 +22,7 @@ if cat not in ['ee', 'mumu']:
 #############################
 
 # Output directory for training events (default is local directory)
-outputDir = get_loc(loc.EVENTS, cat, ecm, '')
+outputDir = loc.get('EVENTS', cat, ecm)
 
 # Include custom C++ analysis functions
 includePaths = ['../../../../functions/functions.h']

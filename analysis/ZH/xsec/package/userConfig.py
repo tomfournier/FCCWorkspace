@@ -1,33 +1,23 @@
-'''User-facing configuration for the ZH cross-section analysis.
+'''Core configuration for path templates and helpers.
 
 Provides:
-- Global parameters: `plot_file`, `frac`, `nb`, `ww`, `ecm`, `lumi`.
-- Storage toggle and repo discovery via `eos` and `repo`.
-- Centralized filesystem layout under `loc` with template paths that use
-    placeholders: `cat` (category like 'ee' or 'mumu'), `ecm` (GeV),
-    `sel` (selection name, e.g. 'Baseline').
-- Path helpers via `PathTemplate`: `loc.COMBINE.get(cat, ecm, sel)` to
-    expand placeholders; `loc.COMBINE.astype(Path)` to convert to
-    `pathlib.Path`.
-- Small utilities to work with the layout and imports.
+- Path templates via `loc` with placeholders: `cat`, `ecm`, `sel`.
+- Type-flexible expansion with `LocPath.get()` and `loc.get(...)`.
+- Bidirectional type conversion via `astype(str)` and `astype(Path)`.
+- Global parameters: `plot_file`, `frac`, `nb`, `ww`, `cat`, `ecm`, `lumi`.
+- Utilities: `get_loc()`, `event()`, `get_params()`.
 
 Conventions:
-- `lumi` is in ab^-1 (10.8 at 240 GeV; 3.1 at 365 GeV).
-- Path templates in `loc` are expanded with `.get()` or `.astype()`.
-- Event files are ROOT files containing a TTree named 'events'.
+- `lumi` is in ab^-1 (10.8 at 240 GeV; 3.12 at 365 GeV).
+- Templates are expanded with `loc.get()` or `LocPath.get()`.
+- Expanded paths can be str or pathlib.Path; both support `astype()`.
 
-Helpers:
-- `get_loc(path, cat, ecm, sel)`: Expand a `loc` template into a concrete path.
-- `event(procs, path='', end='.root')`: Keep processes whose files/directories
-    all contain an 'events' TTree (supports single-file and multi-file layouts).
-- `add_package_path(names)`: Append one or more directories to `sys.path`.
-
-Notes:
-- When `eos=True`, `repo` is resolved from the current working directory; a
-    warning is printed if 'xsec' is not in the path.
-
-Lazy Imports:
-- uproot, glob, and json are lazy-loaded only when needed in functions
+Usage:
+- path = loc.EVENTS
+- path1 = loc.EVENTS.get(cat='ee', ecm=240, sel='Baseline')
+- path2 = loc.get('EVENTS', cat='ee', ecm=240, sel='Baseline', type=Path)
+- path3 = path1.astype(str)
+- path4 = path3.astype(Path)
 '''
 
 ####################################
@@ -40,9 +30,9 @@ from typing import overload, Type, Union
 
 
 
-######################
-##### PARAMETERS #####
-######################
+##################
+### PARAMETERS ###
+##################
 
 # Output plot file formats
 plot_file = ['png']
@@ -57,8 +47,8 @@ ww = True
 # Center-of-mass energy in GeV
 cat, ecm = 'mumu', 240
 
-# Integrated luminosity in ab-1 (10.8 for 240 GeV, 3.1 for 365 GeV)
-lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
+# Integrated luminosity in ab-1 (10.8 for 240 GeV, 3.12 for 365 GeV)
+lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 
 
@@ -66,96 +56,248 @@ lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
 ##### LOCATION OF FILES #####
 #############################
 
-# Toggle between EOS and AFS storage
-eos = True
-if eos: repo = os.path.abspath('.')
-# example: '/eos/user/t/tofourni/FCC/FCCWorkspace/analysis/ZH/xsec'
-else: repo = os.getenv('PWD')
-# example: '/afs/cern.ch/user/t/tofourni/eos/FCC/FCCWorkspace/analysis/ZH/xsec'
+###############################
+### Custom class definition ###
+###############################
 
-if not 'xsec' in repo:
-    print('WARNING: You are not executing the script from the good directory')
+# str-like class with get and astype methods
+class LocPath(str):
+    """String subclass for templates and expanded paths.
+    
+    Adds:
+    - `get(...)`: expand placeholders in a template
+    - `astype(type)`: convert between LocPath (str) and PathObj (Path)
+    """
+    
+    def astype(self, 
+               type: Type[Union[str, Path]]
+               ) -> Union['LocPath', 
+                          'PathObj']:
+        """Convert to str (LocPath) or Path (PathObj).
+        
+        Args:
+            type: Either str or Path class
+            
+        Returns:
+            LocPath or PathObj with an `astype()` method for roundtrip conversion
+        """
+        # str → LocPath; Path → PathObj; keep interface symmetric
+        if type is str:
+            return LocPath(self)
+        elif type is Path:
+            return PathObj(Path(str(self)))
+        raise TypeError("Only 'str' or 'Path' supported")
+    
+    def get(self, 
+            name: Union[str, None] = None, 
+            cat: Union[str, None] = None,
+            ecm: Union[int, None] = None, 
+            sel: Union[str, None] = None,
+            type: Type[Union[str, Path]] = str
+            ) -> Union['LocPath', 
+                       'PathObj']:
+        """Expand placeholders in this template or a named template.
+        
+        Args:
+            name: Template name ('EVENTS', etc.). If None, self is the template.
+            cat, ecm, sel: Placeholder values
+            type: Return type - str (default) or Path
+            
+        Returns:
+            Expanded LocPath or PathObj (both with `astype()`)
+        """
+        # If name is None, expand self; otherwise fetch `loc.<name>`
+        template = self if name is None else getattr(loc, name, name)
+        expanded = loc.expand(template, cat=cat, ecm=ecm, sel=sel)
+        return LocPath(expanded).astype(type)
 
-class loc : pass
-# Location of the root folder
-loc.ROOT               = repo
 
-# Location of primary folders
-loc.PACKAGE            = f'{loc.ROOT}/package'
-loc.OUT                = f'{loc.ROOT}/output'
-loc.PLOTS              = f'{loc.OUT}/plots'
-loc.DATA               = f'{loc.OUT}/data'
-loc.TMP                = f'{loc.OUT}/tmp'
+# pathlib.Path-like class with get and astype methods
+class PathObj:
+    """Thin wrapper over `pathlib.Path` mirroring `LocPath` interface.
+    
+    Adds:
+    - `get(...)`: expand a named template from `loc`
+    - `astype(type)`: convert between PathObj (Path) and LocPath (str)
+    """
+    
+    def __init__(self, path: Union[Path, str]):
+        self.path = path if isinstance(path, Path) else Path(path)
+    
+    def astype(self, 
+               type: Type[Union[str, Path]]
+               ) -> Union[LocPath, 
+                          'PathObj']:
+        """Convert to str (LocPath) or Path (PathObj).
+        
+        Args:
+            type: Either str or Path class
+            
+        Returns:
+            LocPath or PathObj with an `astype()` method for roundtrip conversion
+        """
+        # Path → PathObj; str → LocPath; keep interface symmetric
+        if type is Path:
+            return PathObj(self.path)
+        elif type is str:
+            return LocPath(str(self.path))
+        raise TypeError("Only 'str' or 'Path' supported")
+    
+    def get(self, name: str, 
+            cat: Union[str, None] = None,
+            ecm: Union[int, None] = None, 
+            sel: Union[str, None] = None,
+            type: Type[Union[str, Path]] = str
+            ) -> Union[LocPath, 
+                       'PathObj']:
+        """Fetch named template from `loc`, expand, and return.
+        
+        Args:
+            name: Template name ('EVENTS', etc.)
+            cat, ecm, sel: Placeholder values
+            type: Return type - str (default) or Path
+            
+        Returns:
+            Expanded LocPath or PathObj (both with `astype()`)
+        """
+        template = getattr(loc, name, name)
+        expanded = loc.expand(template, cat=cat, ecm=ecm, sel=sel)
+        return LocPath(expanded).astype(type)
+    
+    def __str__(self) -> str:
+        return str(self.path)
+    
+    def __repr__(self) -> str:
+        return repr(self.path)
+    
+    def __truediv__(self, other) -> 'PathObj':
+        return PathObj(self.path / other)
+    
+    def __getattr__(self, name):
+        """Forward unknown attributes to underlying Path object."""
+        return getattr(self.path, name)
 
-# Location of files needed for configuration
-loc.JSON               = f'{loc.TMP}/config_json'
-loc.RUN                = f'{loc.JSON}/run'
+######################
+### Path defintion ###
+######################
 
-# Location of events
-loc.EVENTS             = f'{loc.DATA}/events/ecm/cat/full/analysis'
-loc.EVENTS_TRAINING    = f'{loc.DATA}/events/ecm/cat/full/training'
-loc.EVENTS_TEST        = f'{loc.DATA}/events/ecm/cat/test'
+class loc:
+    """Path templates with placeholders ('cat', 'ecm', 'sel') and expansion methods."""
 
-# Location of MVA related files
-loc.MVA                = f'{loc.DATA}/MVA'
-loc.MVA_INPUTS         = f'{loc.MVA}/ecm/cat/sel/MVAInputs'
-loc.BDT                = f'{loc.MVA}/ecm/cat/sel/BDT'
+    # Toggle between EOS and AFS storage
+    eos = True
+    if eos: repo = os.path.abspath('.')
+    # example: '/eos/home-t/u/username/FCC/FCCWorkspace/analysis/ZH/xsec'
+    else: repo = os.getenv('PWD')
+    # example: '/afs/cern.ch/user/u/username/eos/FCC/FCCWorkspace/analysis/ZH/xsec'
 
-# Location of histograms
-loc.HIST               = f'{loc.DATA}/histograms'
+    if not 'xsec' in repo:
+        print('WARNING: You are not executing the script from the good directory')
 
-loc.HIST_MVA           = f'{loc.HIST}/MVAInputs/ecm/cat/'
-loc.HIST_PREPROCESSED  = f'{loc.HIST}/preprocessed/ecm/cat'
-loc.HIST_PROCESSED     = f'{loc.HIST}/processed/ecm/cat/sel'
+    # Templates as LocPath strings with placeholders
+    ROOT               = LocPath(repo)                   # Repo root
+    PACKAGE            = LocPath(f"{repo}/package")      # Python package code
+    OUT                = LocPath(f"{repo}/output")       # Output root
+    PLOTS              = LocPath(f"{repo}/output/plots") # Plots root
+    DATA               = LocPath(f"{repo}/output/data")  # Data artifacts
+    TMP                = LocPath(f"{repo}/output/tmp")   # Scratch state
+    
+    JSON               = LocPath(f"{repo}/output/tmp/config_json")     # JSON configs
+    RUN                = LocPath(f"{repo}/output/tmp/config_json/run") # Per-run configs
+    
+    EVENTS             = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis") # Full ntuples
+    EVENTS_TRAINING    = LocPath(f"{repo}/output/data/events/ecm/cat/full/training") # Training split
+    EVENTS_TEST        = LocPath(f"{repo}/output/data/events/ecm/cat/test")          # Test split
+    
+    MVA                = LocPath(f"{repo}/output/data/MVA")                       # MVA root
+    MVA_INPUTS         = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/MVAInputs") # Engineered features
+    BDT                = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/BDT")       # Trained BDT
+    
+    HIST               = LocPath(f"{repo}/output/data/histograms")                       # Histograms root
+    HIST_MVA           = LocPath(f"{repo}/output/data/histograms/MVAInputs/ecm/cat/")    # MVA input hists
+    HIST_PREPROCESSED  = LocPath(f"{repo}/output/data/histograms/preprocessed/ecm/cat")  # After preprocess
+    HIST_PROCESSED     = LocPath(f"{repo}/output/data/histograms/processed/ecm/cat/sel") # After processing
+    
+    PLOTS_MVA          = LocPath(f"{repo}/output/plots/MVAInputs/ecm/cat")      # Input var plots
+    PLOTS_BDT          = LocPath(f"{repo}/output/plots/evaluation/ecm/cat/sel") # BDT perf plots
+    PLOTS_MEASUREMENT  = LocPath(f"{repo}/output/plots/measurement/ecm/cat")    # XS measurement plots
+    
+    COMBINE            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")         # Combine root
+    COMBINE_NOMINAL    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal") # Nominal outputs
+    COMBINE_BIAS       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")    # Bias outputs
+    
+    NOMINAL_LOG        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")      # Logs (nominal)
+    NOMINAL_RESULT     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/results")  # Results (nominal)
+    NOMINAL_DATACARD   = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/datacard") # Datacards (nominal)
+    NOMINAL_WS         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/WS")       # Workspaces (nominal)
+    
+    BIAS_LOG           = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/log")          # Logs (bias)
+    BIAS_FIT_RESULT    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/fit")  # Fit outputs (bias)
+    BIAS_RESULT        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias") # Bias summaries
+    BIAS_DATACARD      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")     # Datacards (bias)
+    BIAS_WS            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")           # Workspaces (bias)
 
-# Location of plots
-loc.PLOTS_MVA          = f'{loc.PLOTS}/MVAInputs/ecm/cat'
-loc.PLOTS_BDT          = f'{loc.PLOTS}/evaluation/ecm/cat/sel'
-loc.PLOTS_MEASUREMENT  = f'{loc.PLOTS}/measurement/ecm/cat'
+    @staticmethod
+    def expand(
+        template: Union[str, Path], 
+        cat: Union[str, None] = None,
+        ecm: Union[int, None] = None, 
+        sel: Union[str, None] = None
+        ) -> str:
+        """Replace placeholders in a template string.
+        
+        Args:
+            template: Template string containing 'cat', 'ecm', 'sel' placeholders
+            cat, ecm, sel: Values to substitute. Raises ValueError if required but None.
+            
+        Returns:
+            str: Template with placeholders replaced
+        """
+        tpl = str(template)
+        needs_cat = 'cat' in tpl
+        needs_ecm = 'ecm' in tpl
+        needs_sel = 'sel' in tpl
+        
+        if needs_cat and cat is None:
+            raise ValueError("'cat' is required to expand this path")
+        if needs_ecm and ecm is None:
+            raise ValueError("'ecm' is required to expand this path")
+        if needs_sel and sel is None:
+            raise ValueError("'sel' is required to expand this path")
+        
+        tpl = tpl.replace('cat', cat or '')
+        tpl = tpl.replace('ecm', str(ecm) if ecm is not None else '')
+        tpl = tpl.replace('sel', sel or '')
+        return tpl
 
-# Location of combine files
-loc.COMBINE            = f'{loc.DATA}/combine/sel/ecm/cat'
-
-loc.COMBINE_NOMINAL    = f'{loc.COMBINE}/nominal'
-loc.COMBINE_BIAS       = f'{loc.COMBINE}/bias'
-
-# Location of combine files when doing nominal fit
-loc.NOMINAL_LOG        = f'{loc.COMBINE_NOMINAL}/log' 
-loc.NOMINAL_RESULT     = f'{loc.COMBINE_NOMINAL}/results'
-loc.NOMINAL_DATACARD   = f'{loc.COMBINE_NOMINAL}/datacard'
-loc.NOMINAL_WS         = f'{loc.COMBINE_NOMINAL}/WS'
-
-# Location of combine files when doing bias test
-loc.BIAS_LOG           = f'{loc.COMBINE_BIAS}/log' 
-loc.BIAS_FIT_RESULT    = f'{loc.COMBINE_BIAS}/results/fit'
-loc.BIAS_RESULT        = f'{loc.COMBINE_BIAS}/results/bias'
-loc.BIAS_DATACARD      = f'{loc.COMBINE_BIAS}/datacard'
-loc.BIAS_WS            = f'{loc.COMBINE_BIAS}/WS'
+    @classmethod
+    def get(cls, 
+            name: str, 
+            cat: Union[str, None] = None,
+            ecm: Union[int, None] = None, 
+            sel: Union[str, None] = None,
+            type: Type[Union[str, Path]] = str
+            ) -> Union[LocPath, 
+                       PathObj]:
+        """Fetch template by name, expand placeholders, and return as LocPath or PathObj.
+        
+        Args:
+            name: Template name (e.g., 'EVENTS')
+            cat, ecm, sel: Placeholder values
+            type: Return type - str (default) returns LocPath, Path returns PathObj
+            
+        Returns:
+            LocPath or PathObj (both with astype() and get() methods)
+        """
+        template = getattr(cls, name)
+        expanded = cls.expand(template, cat=cat, ecm=ecm, sel=sel)
+        return LocPath(expanded).astype(type)
 
 
 
 #################
 ### FUNCTIONS ###
 #################
-
-#_____________________
-def get_loc(path: str, 
-            cat: str, 
-            ecm: int, 
-            sel: str,
-            ) -> str:
-    '''Backwards-compatible wrapper around `loc.get()`.
-
-    Args:
-        path: Path template containing 'cat', 'ecm', 'sel' placeholders
-        cat: Category name (e.g., 'ee', 'mumu')
-        ecm: Center-of-mass energy in GeV
-        sel: Selection name (e.g., 'Baseline')
-
-    Returns:
-        str: Path with substituted values
-    '''
-    return path.replace('cat', cat).replace('ecm', str(ecm)).replace('sel', sel)
 
 #___________________________
 def event(procs: list[str], 
@@ -243,7 +385,8 @@ def get_params(
         if cfg_file.exists():
             cfg = json.loads(cfg_file.read_text())
             cat, ecm, lumi = cfg['cat'], cfg['ecm'], cfg['lumi']
-            if is_presel3: ww = cfg['ww']
+            if is_presel3:
+                ww = cfg['ww']
         else:
             raise FileNotFoundError(f"Couldn't find {cfg_file} file")
     else:

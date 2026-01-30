@@ -81,10 +81,11 @@ def _ensure_plt_style() -> None:
         set_plt_style()
         PLT_STYLE_SET = True
 
-def _parse_selection_dir(sel: str,
-                         outDir: str,
-                         subdir: str
-                         ) -> str:
+def _parse_selection_dir(
+    sel: str,
+    outDir: str,
+    subdir: str
+    ) -> str:
     '''Build standardized output directory path from selection string.
 
     Returns a path of the form:
@@ -98,10 +99,14 @@ def _parse_selection_dir(sel: str,
     direction = 'high' if '_high' in sel else ('low' if '_low' in sel else 'nominal')
     return f'{outDir}/{subdir}/{base_sel}/{direction}'
 
-def _extract_nested_args(var_args: dict, 
-                         ecm: int, 
-                         sel: str
-                         ) -> dict:
+def _extract_nested_args(
+    var_args: dict, 
+    ecm: int, 
+    sel: str
+    ) -> dict[str, 
+              Union[float, 
+                    int, 
+                    str]]:
     '''Navigate nested args structure to extract parameters for given ecm and sel.
     
     Supports three levels of nesting:
@@ -129,9 +134,11 @@ def _extract_nested_args(var_args: dict,
     
     # Try to find matching sel pattern in current level
     # Look for string keys that could be selection patterns
-    param_keys = {'xmin', 'xmax', 'ymin', 'ymax', 'rebin', 'which', 'sel', 
-                  'ecm', 'lumi', 'suffix', 'outName', 'format', 'strict', 
-                  'logX', 'logY', 'stack', 'sig_scale', 'lazy', 'tot'}
+    param_keys = {
+        'xmin', 'xmax', 'ymin', 'ymax', 'rebin', 'which', 'sel', 
+        'ecm', 'lumi', 'suffix', 'outName', 'format', 'strict', 
+        'logX', 'logY', 'stack', 'sig_scale', 'lazy', 'tot'
+    }
     
     for key in current.keys():
         if isinstance(key, str) and key not in param_keys:
@@ -186,16 +193,17 @@ def _extract_nested_args(var_args: dict,
 ### MAIN FUNCTIONS ###
 ######################
 
-#____________________________________________________
-def get_args(var: str, 
-             sel: str,
-             ecm: int,
-             lumi: float,
-             args: dict[str, 
-                        dict[str, 
-                             Union[str, float, int]]]
-             ) -> dict[str, 
-                       Union[str, float, int]]:
+#___________________________________________
+def get_args(
+    var: str, 
+    sel: str,
+    ecm: int,
+    lumi: float,
+    args: dict[str, 
+               dict[str, 
+                    Union[str, float, int]]]
+    ) -> dict[str, 
+              Union[str, float, int]]:
     '''Return plotting arguments for a variable/selection pair with defaults.
 
     Copies user-provided options for a given variable, applies selection filters,
@@ -270,16 +278,17 @@ def get_args(var: str,
 
     return arg
 
-#______________________________________________________
-def args_decay(var: str, 
-               sel: str,
-               ecm: int,
-               lumi: float,
-               args: dict[str, 
-                          dict[str, 
-                               Union[str, float, int]]]
-               ) -> dict[str, 
-                         Union[str, float, int]]:
+#___________________________________________
+def args_decay(
+    var: str, 
+    sel: str,
+    ecm: int,
+    lumi: float,
+    args: dict[str, 
+               dict[str, 
+                    Union[str, float, int]]]
+    ) -> dict[str, 
+              Union[str, float, int]]:
     '''Return decay-plot arguments for a variable/selection with defaults.
 
     Similar to get_args() but filters for decay analysis plots (excludes 'make' mode).
@@ -348,24 +357,24 @@ def args_decay(var: str,
 
     return arg
 
-#_____________________________________________________
-def significance(variable: str, 
-                 inDir: str, 
-                 outDir: str, 
-                 sel: str,
-                 procs: list[str], 
-                 processes: dict[str, 
-                                 list[str]], 
-                 locx: str = 'right', 
-                 locy: str = 'top',
-                 xMin: Union[float, int, None] = None,
-                 xMax: Union[float, int, None] = None, 
-                 outName: str = '', 
-                 suffix: str = '', 
-                 format: list[str] = ['png'], 
-                 reverse: bool = False, 
-                 lazy: bool = True, 
-                 rebin: int = 1) -> None:
+#________________________________________
+def significance(
+    variable: str, 
+    inDir: str, 
+    outDir: str, 
+    sel: str,
+    procs: list[str], 
+    processes: dict[str, list[str]], 
+    locx: str = 'right', 
+    locy: str = 'top',
+    xMin: Union[float, int, None] = None,
+    xMax: Union[float, int, None] = None, 
+    outName: str = '', 
+    suffix: str = '', 
+    format: list[str] = ['png'], 
+    reverse: bool = False, 
+    lazy: bool = True, 
+    rebin: int = 1) -> None:
     '''Plot running significance and signal efficiency for a cut variable.
 
     Builds cumulative signal/background yields across histogram bins, computes
@@ -460,31 +469,33 @@ def significance(variable: str,
     fig, ax1 = plt.subplots()
 
     ax2 = ax1.twinx()
-    ax2.plot(x, l, 
-             color='red', 
-             linewidth=3, 
-             label='Signal efficiency')
-    ax1.scatter(x, y, 
-                color='blue', 
-                marker='o', 
-                label='Significance')
-    ax1.scatter(max_x, max_y, 
-                color='red', 
-                marker='*', 
-                s=150)
+    ax2.plot(
+        x, l, color='red', 
+        linewidth=3, 
+        label='Signal efficiency'
+    )
+    ax1.scatter(
+        x, y, color='blue', 
+        marker='o', 
+        label='Significance'
+    )
+    ax1.scatter(
+        max_x, max_y, color='red', 
+        marker='*', s=150
+    )
     
-    ax1.axvline(max_x, 
-                color='black', 
-                alpha=0.8, 
-                linewidth=1)
-    ax1.axhline(max_y, 
-                color='blue', 
-                alpha=0.8, 
-                linewidth=1)
-    ax2.axhline(max_l, 
-                color='red', 
-                alpha=0.8, 
-                linewidth=1)
+    ax1.axvline(
+        max_x, color='black', 
+        alpha=0.8, linewidth=1
+    )
+    ax1.axhline(
+        max_y, color='blue', 
+        alpha=0.8, linewidth=1
+    )
+    ax2.axhline(
+        max_l, color='red', 
+        alpha=0.8, linewidth=1
+    )
 
     ax1.set_xlim(min(x), max(x))
     if variable=='H':
@@ -504,13 +515,17 @@ def significance(variable: str,
     ax2.grid(False, axis='y')
 
     if reverse:
-        ax1.set_title(rf'Max: {vars_label[variable]} $<$ {max_x:.2f}{GeV}, '
-                      rf'Significance = {max_y:.2f}, '
-                      rf'Signal eff = {max_l*100:.1f} \%')
+        ax1.set_title(
+            rf'Max: {vars_label[variable]} $<$ {max_x:.2f}{GeV}, '
+            rf'Significance = {max_y:.2f}, '
+            rf'Signal eff = {max_l*100:.1f} \%'
+        )
     else:
-        ax1.set_title(rf'Max: {vars_label[variable]} $>$ {max_x:.2f}{GeV}, '
-                      rf'Significance = {max_y:.2f}, '
-                      rf'Signal eff = {max_l*100:.1f} \%')
+        ax1.set_title(
+            rf'Max: {vars_label[variable]} $>$ {max_x:.2f}{GeV}, '
+            rf'Significance = {max_y:.2f}, '
+            rf'Signal eff = {max_l*100:.1f} \%'
+        )
     fig.tight_layout()
 
     s = sel.replace('_high', '').replace('_low', '')
@@ -521,39 +536,39 @@ def significance(variable: str,
     mkdir(out)
 
     suffix = '_reverse' if reverse else ''
-    savefigs(fig, out, outName, 
-             suffix=suffix, 
-             format=format)
+    savefigs(
+        fig, out, outName, 
+        suffix=suffix, 
+        format=format
+    )
     plt.close()
 
-#_________________________________________________
-def makePlot(variable: str, 
-             inDir: str, 
-             outDir: str, 
-             sel: str, 
-             procs: list[str], 
-             processes: dict[str, 
-                             list[str]], 
-             colors: dict[str, 
-                          str], 
-             legend: dict[str, 
-                          str], 
-             ecm: int = 240, 
-             lumi: float = 10.8, 
-             suffix: str = '', 
-             outName: str = '', 
-             format: list[str] = ['png'],
-             xmin: Union[float, int, None] = None, 
-             xmax: Union[float, int, None] = None,
-             ymin: Union[float, int, None] = None, 
-             ymax: Union[float, int, None] = None,
-             rebin: int = 1, 
-             sig_scale: float = 1., 
-             strict: bool = True,
-             logX: bool = False, 
-             logY: bool = True, 
-             stack: bool = False, 
-             lazy: bool = True) -> None:
+#________________________________________
+def makePlot(
+    variable: str, 
+    inDir: str, 
+    outDir: str, 
+    sel: str, 
+    procs: list[str], 
+    processes: dict[str, list[str]], 
+    colors: dict[str, str], 
+    legend: dict[str, str], 
+    ecm: int = 240, 
+    lumi: float = 10.8, 
+    suffix: str = '', 
+    outName: str = '', 
+    format: list[str] = ['png'],
+    xmin: Union[float, int, None] = None, 
+    xmax: Union[float, int, None] = None,
+    ymin: Union[float, int, None] = None, 
+    ymax: Union[float, int, None] = None,
+    rebin: int = 1, 
+    sig_scale: float = 1., 
+    strict: bool = True,
+    logX: bool = False, 
+    logY: bool = True, 
+    stack: bool = False, 
+    lazy: bool = True) -> None:
     '''Draw signal/background histogram with optional stacking.
 
     Loads and styles histograms, applies rebinning and scaling, and renders
@@ -673,28 +688,29 @@ def makePlot(variable: str,
     del canvas, dummy, leg, st
 
 
-#___________________________________________________
-def PlotDecays(variable: str, 
-               inDir: str, 
-               outDir: str, 
-               sel: str, 
-               z_decays: list[str], 
-               h_decays: list[str],
-               ecm: int = 240, 
-               lumi: float = 10.8, 
-               rebin: int = 1, 
-               outName: str = '', 
-               suffix: str = '',
-               format: list[str] = ['png'], 
-               xmin: Union[float, int, None] = None, 
-               xmax: Union[float, int, None] = None,
-               ymin: Union[float, int, None] = None, 
-               ymax: Union[float, int, None] = None,
-               logX: bool = False, 
-               logY: bool = False,
-               lazy: bool = True, 
-               strict: bool = True,
-               tot: bool = False) -> None:
+#________________________________________
+def PlotDecays(
+    variable: str, 
+    inDir: str, 
+    outDir: str, 
+    sel: str, 
+    z_decays: list[str], 
+    h_decays: list[str],
+    ecm: int = 240, 
+    lumi: float = 10.8, 
+    rebin: int = 1, 
+    outName: str = '', 
+    suffix: str = '',
+    format: list[str] = ['png'], 
+    xmin: Union[float, int, None] = None, 
+    xmax: Union[float, int, None] = None,
+    ymin: Union[float, int, None] = None, 
+    ymax: Union[float, int, None] = None,
+    logX: bool = False, 
+    logY: bool = False,
+    lazy: bool = True, 
+    strict: bool = True,
+    tot: bool = False) -> None:
     '''Plot Higgs decay modes normalized to unit integral for comparison.
 
     Creates overlaid histograms for each Higgs decay channel, each normalized
@@ -802,25 +818,23 @@ def PlotDecays(variable: str,
     del canvas, dummy, leg
 
 
-#________________________________________
-def AAAyields(hName: str, 
-              inDir: str, 
-              outDir: str, 
-              plots: dict[str, 
-                          list[str]], 
-              legend: dict[str, 
-                           str], 
-              colors: dict[str, 
-                           str], 
-              cat: str, sel: str, 
-              ecm: int = 240, 
-              lumi: float = 10.8, 
-              scale_sig: float = 1., 
-              scale_bkg: float = 1., 
-              lazy: bool = True,
-              outName: str = '', 
-              format: list[str] = ['png']
-              ) -> None:
+#_______________________________
+def AAAyields(
+    hName: str, 
+    inDir: str, 
+    outDir: str, 
+    plots: dict[str, list[str]], 
+    legend: dict[str, str], 
+    colors: dict[str, str], 
+    cat: str, sel: str, 
+    ecm: int = 240, 
+    lumi: float = 10.8, 
+    scale_sig: float = 1., 
+    scale_bkg: float = 1., 
+    lazy: bool = True,
+    outName: str = '', 
+    format: list[str] = ['png']
+    ) -> None:
     '''Render a yields summary canvas with process list and metadata.
 
     Creates a ROOT canvas displaying process yields, scaling factors, significance,
@@ -1000,17 +1014,18 @@ def AAAyields(hName: str,
     savecanvas(canvas, out, outName, format=format)
     canvas.Close()
 
-#___________________________________
-def Bias(df: 'pd.DataFrame', 
-         nomDir: str, 
-         outDir: str, 
-         h_decays: list[str], 
-         suffix: str = '', 
-         ecm: int = 240, 
-         lumi: float = 10.8, 
-         outName: str = 'bias', 
-         format: list[str] = ['png']
-         ) -> None:
+#______________________________
+def Bias(
+    df: 'pd.DataFrame', 
+    nomDir: str, 
+    outDir: str, 
+    h_decays: list[str], 
+    suffix: str = '', 
+    ecm: int = 240, 
+    lumi: float = 10.8, 
+    outName: str = 'bias', 
+    format: list[str] = ['png']
+    ) -> None:
     '''Plot bias distribution per Higgs decay with uncertainty bands.
 
     Creates a scatter plot showing bias values for each Higgs decay mode,
@@ -1135,11 +1150,12 @@ def Bias(df: 'pd.DataFrame',
     savecanvas(canvas, outDir, outName, suffix, format)
     canvas.Close()
 
-#_________________________________________
-def hist_to_arrays(hist: 'ROOT.TH1'
-                   ) -> tuple['np.ndarray', 
-                              'np.ndarray', 
-                              'np.ndarray']:
+#____________________________
+def hist_to_arrays(
+    hist: 'ROOT.TH1'
+    ) -> tuple['np.ndarray', 
+               'np.ndarray', 
+               'np.ndarray']:
     '''Convert a ROOT histogram into numpy arrays of counts, bin edges, and errors.
 
     Args:
@@ -1165,22 +1181,23 @@ def hist_to_arrays(hist: 'ROOT.TH1'
     
     return counts, bin_edges, errors
 
-#_____________________________________________
-def PseudoRatio(inDir: str, 
-                outDir: str, 
-                cat: str, 
-                target: str, 
-                procs: list[str],
-                ecm: int = 240, 
-                lumi: float = 10.8, 
-                pert: float = 1.05, 
-                sel: str = '', 
-                outName: str = 'PseudoRatio', 
-                format: list[str] = ['png'], 
-                logX: bool = False, 
-                logY: bool = False, 
-                density: bool = False,
-                ) -> None:
+#________________________________
+def PseudoRatio(
+    inDir: str, 
+    outDir: str, 
+    cat: str, 
+    target: str, 
+    procs: list[str],
+    ecm: int = 240, 
+    lumi: float = 10.8, 
+    pert: float = 1.05, 
+    sel: str = '', 
+    outName: str = 'PseudoRatio', 
+    format: list[str] = ['png'], 
+    logX: bool = False, 
+    logY: bool = False, 
+    density: bool = False,
+    ) -> None:
     '''Compare nominal signal to pseudo-signal and plot ratio with errors.
 
     This function creates a publication-quality plot comparing the nominal signal
