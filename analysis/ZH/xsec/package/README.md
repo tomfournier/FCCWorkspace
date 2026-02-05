@@ -140,10 +140,6 @@ path_obj = str_path.astype(Path)  # LocPath → PathObj
 
 #### Utility Functions
 
-**`get_loc(path, cat, ecm, sel)`**
-- Backwards-compatible wrapper around `loc.get()`
-- Expands path template with specified parameters
-
 **`event(procs, path='', end='.root')`**
 - Filter processes that contain valid ROOT event trees
 - Verifies each process has 'events' TTree in ROOT files

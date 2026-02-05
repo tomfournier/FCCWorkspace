@@ -31,7 +31,7 @@ FCCee/winter2023/IDEA/ (via procDict)
 
 **Output:** Pre-selected event samples
 ```
-output/data/events/{cat}/{ecm}/
+output/data/events/{ecm}/{cat}/full/analysis/
 ```
 
 **Usage:**
@@ -42,7 +42,10 @@ cd xsec/
 fccanalysis run 3-Measurement/pre-selection.py
 ```
 
-Or automate through the pipeline runner (see [Workflow Integration](#workflow-integration)).
+Or automate through the pipeline runner (see [Workflow Integration](#workflow-integration)):
+```bash
+python run/1-run.py --run 1
+```
 
 **Configuration:**
 - Integration with FCCAnalysis framework
@@ -59,26 +62,30 @@ Applies BDT-based signal/background discrimination and generates analysis histog
 **Key operations:**
 - Loads trained BDT models for each final state/energy combination
 - Evaluates BDT score on kinematic variables: lepton kinematics, dilepton mass/momentum, event topology
+- Applies BDT cut determined from significance scan in 2-BDT evaluation stage (see [2-BDT/README.md](../2-BDT/README.md) for details)
 - Defines baseline selection cuts:
-  - Dilepton mass window: $86 < m_{\ell^+\ell^-} < 96$ GeV
+  - Dilepton mass window: $86 < m_{\ell^+\ell^-} < 96\text{ GeV}$
   - Momentum cuts (energy-dependent): 20-70 GeV (240 GeV), 50-150 GeV (365 GeV)
-  - Recoil mass window (365 GeV only): $100 < m_{\text{recoil}} < 150$ GeV
+  - Recoil mass window (365 GeV only): $100 < m_{\text{recoil}} < 150\text{ GeV}$
   - Visible energy threshold (energy-dependent)
 - Generates selection variants:
   - Base selections: `Baseline`, `Baseline_miss`, `Baseline_sep`
   - High BDT score region: `{sel}_high` (signal-like events)
   - Low BDT score region: `{sel}_low` (background-like events)
-- Produces histograms of Higgs recoil mass ($m_{\text{recoil}}$) across all three regions
-- Scales yields to integrated luminosity ($10.8\,\text{ab}^{-1}$ at 240 GeV; $3.12\,\text{ab}^{-1}$ at 365 GeV)
+- Processes separate signal samples for each Z and Higgs decay combination with sample naming: `wzp6_ee_{Z_decay}H_H{Higgs_decay}_ecm{ecm}`
+  - Allows reconstruction of selection effects and acceptance for individual decay channels
+  - Supports physics analysis of decay-dependent properties
+- Produces histograms of Higgs recoil mass ($m_{\text{recoil}}$) across all three regions for each decay combination
+- Scales yields to integrated luminosity ($10.8\text{ ab}^{-1}$ at 240 GeV; $3.12\text{ ab}^{-1}$ at 365 GeV)
 
 **Input:** Pre-selected event trees from `pre-selection.py`
 ```
-output/data/events/{cat}/{ecm}/
+output/data/events/{ecm}/{cat}/full/analysis/
 ```
 
 **Output:** Preprocessed histograms
 ```
-output/data/histograms/preprocessed/{cat}/{ecm}/{sel}/
+output/data/histograms/preprocessed/{ecm}/{cat}/{sample}_{sel}_histo.root
 ```
 
 **Usage:**
@@ -89,11 +96,13 @@ cd xsec/
 fccanalysis final 3-Measurement/final-selection.py
 ```
 
-Or automate through the pipeline runner (see [Workflow Integration](#workflow-integration)).
+Or automate through the pipeline runner (see [Workflow Integration](#workflow-integration)):
+```bash
+python run/1-run.py --run 2
+```
 
 **Configuration:**
 - Parallel processing with configurable CPU count
-- MC statistics handling
 - Event selection fractions for testing (configurable in `package.userConfig`)
 
 **Key functions** (from `package`):
@@ -107,20 +116,18 @@ Or automate through the pipeline runner (see [Workflow Integration](#workflow-in
 Generates visualization plots for signal/background distributions and statistical significance estimates.
 
 **Key operations:**
-- Plots kinematic distributions for signal and backgrounds separately
+- Plots kinematic distributions for signal and backgrounds
 - Generates Higgs decay mode composition plots
-- Creates BDT score distributions (high/low control regions)
-- Computes and visualizes signal significance by decay mode
-- Generates combined channel plots
+- Computes and visualizes signal significance
 
 **Input:** Preprocessed histograms from `final-selection.py`
 ```
-output/data/histograms/preprocessed/{cat}/{ecm}/{sel}/
+output/data/histograms/preprocessed/{ecm}/{cat}/{sample}_{sel}_histo.root/
 ```
 
 **Output:** Validation plots
 ```
-output/plots/measurement/{cat}/{ecm}/
+output/plots/measurement/{ecm}/{cat}/
 ```
 
 **Usage:**
@@ -164,21 +171,43 @@ For more details on pipeline execution, see [run/README.md](../run/README.md).
 
 ## Output Structure
 
+### Data Output
+
 ```
 output/
 ├── data/
-│   └── events/{cat}/{ecm}/           # Pre-selection event trees
-│   └── histograms/preprocessed/{cat}/{ecm}/{sel}/  # Final selection histograms
+│   ├── events/{ecm}/{cat}/full/analysis/           # Pre-selection event trees
+│   └── histograms/preprocessed/{ecm}/{cat}/        # Final selection histograms
+│       ├── {sample}_{sel}_hist.root
+│       └── ... (all analysis samples)
 └── plots/
-    └── measurement/{cat}/{ecm}/      # Validation plots
+    └── measurement/{ecm}/{cat}/                    # Validation plots
 ```
 
-**Key output files:**
-- Output ROOT files organized by selection variant: `histograms/preprocessed/{cat}/{ecm}/{sel}/` and `{sel}_high/` and `{sel}_low/`
-- Each ROOT file contains histograms for all analysis variables for the corresponding processed sample
-- Base region: All selected events
-- High BDT region: Signal-like events for analysis
-- Low BDT region: Background-like events for validation
+Each selection variant generates its own directory:
+- `{sel}/` - Base selection (all selected events)
+- `{sel}_high/` - High BDT score region (signal-like events)
+- `{sel}_low/` - Low BDT score region (background-like events)
+
+### Validation Plots Structure
+
+```
+measurement/{ecm}/{cat}/
+├── higgsDecays/          # Higgs decay mode composition
+│   └── {sel}/{region}/   # Plots for each selection and BDT region
+├── makePlot/             # Kinematic distributions
+│   └── {sel}/{region}/
+├── significance/         # Signal significance estimates
+│   └── {sel}/{region}/
+└── yield/                # Selection yields and efficiencies
+    └── {sel}/{region}/
+        ├── cutflow/
+        └── efficiency/
+```
+
+Where:
+- `{sel}` = selection variant (`Baseline`, `Baseline_miss`, `Baseline_sep`, etc.)
+- `{region}` = `nominal` (all events), `high` (signal-like), `low` (background-like)
 
 ---
 
@@ -194,8 +223,8 @@ Configuration is managed through the `package/` module. For detailed information
 
 ## Physics Notes
 
-- **Signal process:** $e^+e^- \to Z(\ell^+\ell^-)H$ with $\ell \in \{e, \mu\}$
-- **Background processes:** $ZZ$, $WW$, $Z/\gamma$, rare processes (see [4-Combine/README.md](../4-Combine/README.md) for complete process list)
+- **Signal process:** $e^+e^- \to Z(\ell^+\ell^-)H$ with $\ell \in \{e, \mu\}$ with $H$ decaying to quarks, leptons and gauge bosons exclusively
+- **Background processes:** $ZZ$, $W^+W^-$, $Z/\gamma$, rare processes (see [4-Combine/README.md](../4-Combine/README.md) for complete process list)
 - **Higgs reconstruction:** Recoil mass computed from $Z \to \ell^+\ell^-$ four-momentum
 - **Signal discrimination:** BDT trained on 9 kinematic variables (see [package/config.py](../package/config.py#L1) for details)
 - **Systematic considerations:** MC statistics and background modeling effects propagated through histogram uncertainties

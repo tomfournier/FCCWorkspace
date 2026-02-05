@@ -19,14 +19,14 @@ This module prepares kinematic features and histograms for BDT training to discr
 Applies initial kinematic cuts to raw FCC-ee simulation and computes kinematic variables needed for BDT training.
 
 **Key operations:**
-- Selects dilepton events ($e^+e^- \to Z(\ell^+\ell^-)X$) from raw EDM4Hep events
+- Selects dilepton events ($e^+e^- \to Z(\ell^+\ell^-)+X$) from raw EDM4Hep events
 - Reconstructs $Z \to \ell^+\ell^-$ candidates using mass ($m_Z \approx 91.2$ GeV) and recoil mass ($m_{\text{recoil}} \approx 125$ GeV) constraints
 - Applies lepton identification: momentum cut ($p > 20$ GeV), isolation ($I_{\text{rel}} < 0.25$)
-- Vetoes H→ℓℓ candidates to avoid bias in final selection
+- Vetoes $H\to\ell^+\ell^-$ candidates to avoid bias in final selection
 - Computes kinematic variables for each event:
   - **Lepton kinematics:** momentum, transverse momentum, polar angle for leading/subleading leptons
   - **Dilepton system:** mass, momentum, transverse momentum, polar angle
-  - **Topology:** acolinearity, acoplanarity, ΔR between leptons
+  - **Topology:** acolinearity, acoplanarity, $\Delta R$ between leptons
   - **Recoil:** Higgs candidate recoil mass
   - **Other:** visible energy, missing energy, Higgsstrahlungness discriminant
 
@@ -37,7 +37,7 @@ FCCee/winter2023_training/IDEA/ (via procDict)
 
 **Output:** Pre-selected event trees with computed variables
 ```
-output/data/events/{cat}/{ecm}/
+output/data/events/{ecm}/{cat}/full/training/
 ```
 
 **Usage:**
@@ -54,29 +54,29 @@ python run/1-run.py --run 1
 **Configuration:**
 - Channels: `ee` (electron) or `mumu` (muon) final state
 - Center-of-mass energies: 240 GeV or 365 GeV
-- Parallel processing: 10 CPUs (adjustable via `nCPUS` parameter)
+- Parallel processing: 20 CPUs (adjustable via `nCPUS` parameter)
 - Process dictionary: `FCCee_procDict_winter2023_training_IDEA.json`
 
 **Samples processed:**
-- **Signal:** $e^+e^- \to ZH$ with $H \to \ell^+\ell^-$ (channel-dependent)
+- **Signal:** $e^+e^- \to ZH$ with $Z \to \ell^+\ell^-$ ($\ell=e,\mu$ depending on `cat`)
 - **Backgrounds:**
   - Diboson: $ZZ$, $WW$
-  - Z+jets: $Z/\gamma \to \ell^+\ell^-$
+  - $Z+\text{jets}$: $Z/\gamma \to \ell^+\ell^-$
   - Rare: radiative Z ($e^\pm\gamma \to e^\pm Z$), diphoton ($\gamma\gamma \to \ell^+\ell^-$)
 
 ---
 
 ### 2. `final-selection.py` — MVA Input Histogram Generation
 
-Produces analysis histograms from pre-selected events for BDT training and feature study.
+Produces analysis histograms and TTree from pre-selected events for BDT training and feature study.
 
 **Key operations:**
-- Loads pre-selected event trees for all processes (signal + backgrounds)
+- Loads pre-selected event TTree for all processes (signal + backgrounds)
 - Applies baseline kinematic selection cuts:
-  - Dilepton mass window: $86 < m_{\ell^+\ell^-} < 96$ GeV
+  - Dilepton mass window: $86 < m_{\ell^+\ell^-} < 96\text{ GeV}$
   - Momentum range (energy-dependent):
-    - 240 GeV: $20 < p_{\ell^+\ell^-} < 70$ GeV
-    - 365 GeV: $50 < p_{\ell^+\ell^-} < 150$ GeV (+ recoil window $100 < m_{\text{recoil}} < 150$ GeV)
+    - 240 GeV: $20 < p_{\ell^+\ell^-} < 70\text{ GeV}$
+    - 365 GeV: $50 < p_{\ell^+\ell^-} < 150\text{ GeV}$ (+ recoil window $100 < m_{\text{recoil}} < 150\text{ GeV}$)
 - Fills histograms for 19 kinematic variables
 - Scales yields to integrated luminosity:
   - 240 GeV: 10.8 ab⁻¹
@@ -85,12 +85,13 @@ Produces analysis histograms from pre-selected events for BDT training and featu
 
 **Input:** Pre-selected event trees from `pre-selection.py`
 ```
-output/data/events/{cat}/{ecm}/
+output/data/events/{ecm}/{cat}/full/training/
 ```
 
 **Output:** MVA input histograms
 ```
-output/data/histograms/MVAInputs/{cat}/{ecm}/
+output/data/histograms/MVAInputs/{ecm}/{cat}/{sample}_{sel}_histo.root  # For histogram files (for plotting)
+output/data/histograms/MVAInputs/{ecm}/{cat}/{sample}_{sel}.root        # For TTree files (for BDT training)
 ```
 
 **Usage:**
@@ -104,11 +105,12 @@ Or automate:
 python run/1-run.py --run 2
 ```
 
+Note: Must be run after `pre-selection.py` to have input TTree available.
+
 **Configuration:**
-- Output formats: ROOT TTrees and histograms (configurable via `doTree`, `doScale`)
+- Output formats: ROOT TTrees and histograms (`doTree = True` to make TTree files)
 - Process samples: 7 processes per channel (1 signal + 6 backgrounds)
-- Histogram bins: 64–500 depending on variable
-- Integration: Luminosity scaling enabled by default
+- Integration: Luminosity scaling enabled if `doScale = True`
 
 **Key variables in histograms:**
 - Lepton kinematics (8 variables): $p$, $p_T$, $\theta$ for leading/subleading leptons
@@ -122,22 +124,22 @@ For detailed variable definitions, see [package/config.py](../package/README.md)
 
 ### 3. `plots.py` — Validation Plots
 
-Generates comparison plots of kinematic distributions for signal and backgrounds to validate event selection.
+Generates plots of kinematic distributions for signal and backgrounds to validate event selection.
 
 **Key operations:**
 - Loads MVA input histograms from all processes
 - Stacks background histograms and overlays signal
 - Produces linear and logarithmic scale plots for each variable
-- Outputs ROOT and PNG formats for visualization
+- Outputs PNG format for visualization (can choose other formats e.g. PDF)
 
 **Input:** MVA input histograms from `final-selection.py`
 ```
-output/data/histograms/MVAInputs/{cat}/{ecm}/
+output/data/histograms/MVAInputs/{ecm}/{cat}/
 ```
 
 **Output:** Validation plots
 ```
-output/plots/MVAInputs/{cat}/{ecm}/
+output/plots/MVAInputs/{ecm}/{cat}/{sel}/
 ```
 
 **Usage:**
@@ -191,11 +193,11 @@ This runner processes both channels (`ee`, `mumu`) and both energies (240, 365 G
 
 ```
 output/data/
-├── events/{cat}/{ecm}/          # Pre-selected event trees
+├── events/{ecm}/{cat}/full/training/          # Pre-selected event trees (ROOT files)
 ├── histograms/
-│   ├── MVAInputs/{cat}/{ecm}/   # MVA input histograms (ROOT files)
-│   └── ...                      # Other histogram types
-└── plots/MVAInputs/{cat}/{ecm}/ # Validation plots (PNG/PDF)
+│   ├── MVAInputs/{ecm}/{cat}/                 # MVA input histograms (ROOT files)
+│   └── ...                                    # Other histograms
+└── plots/MVAInputs/{ecm}/{cat}/{sel}/         # Validation plots (PNG/PDF)
 ```
 
 ---
@@ -206,6 +208,6 @@ After completing the MVA input stage:
 
 1. **BDT Training** → [2-BDT](../2-BDT/README.md): Train machine learning models using generated histograms
 2. **Physics Measurement** → [3-Measurement](../3-Measurement/README.md): Apply BDT to measurement data
-3. **Statistical Analysis** → [4-Combine](../4-Combine/README.md) and [5-Fit](../5-Fit/README.md): Extract cross-section results
+3. **Statistical Analysis** → [4-Combine](../4-Combine/README.md) and [5-Fit](../5-Fit/README.md): Extract cross-section results and do bias test
 
 See [package/README.md](../package/README.md) for details on analysis configuration and utility functions.

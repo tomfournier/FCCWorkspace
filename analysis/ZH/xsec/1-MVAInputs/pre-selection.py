@@ -36,7 +36,7 @@ eosType = 'eosuser'
 
 # Optional: Number of CPUs for parallel processing 
 # (default is 4,  -1 uses all cores available)
-nCPUS = 10
+nCPUS = 20
 
 # Run on HTCondor batch system (default is False)
 runBatch = False

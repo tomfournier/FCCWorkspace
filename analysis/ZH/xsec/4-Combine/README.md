@@ -21,17 +21,17 @@ Processes histograms from the measurement stage (3-Measurement) and combines the
 - Retrieves preprocessed histograms for signal and background processes
 - Splits recoil mass spectra into high/low control regions based on BDT score (signal-like vs background-like)
 - Concatenates control regions into a single histogram for analysis
-- Applies optional cross-section scaling (polarization, ILC) to signal/background samples
+- Applies optional cross-section scaling (beam polarization, ILC) to signal/background samples
 - Writes processed histograms to ROOT files organized by final state and selection
 
 **Input:** Preprocessed histograms from 3-Measurement (after BDT selection)
 ```
-output/data/histograms/preprocessed/{cat}/{ecm}/{sel}/
+output/data/histograms/preprocessed/{ecm}/{cat}/{sample}_{sel}_histo.root
 ```
 
 **Output:** Processed histograms
 ```
-output/data/histograms/processed/{cat}/{ecm}/{sel}/
+output/data/histograms/processed/{ecm}/{cat}/{sel}/
 ```
 
 **Usage:**
@@ -66,8 +66,9 @@ Note: `process_histogram.py` is run standalone with command-line arguments, not 
 Generates COMBINE-compatible datacards for statistical fitting of the ZH signal and backgrounds.
 
 **Key operations:**
-- Defines signal processes: $e^+e^-\rightarrow Z(\ell^+\ell^-)H$ with all Higgs decay modes ($b\bar{b}$, $c\bar{c}$, $s\bar{s}$, $gg$, $\mu^+\mu^-$, $\tau^+\tau^-$, $ZZ^*$, $WW^*$, $Z\gamma$, $\gamma\gamma$, $\textrm{Inv}$)
-- Defines background processes: $ZZ$, $WW$, $Z/\gamma$, and rare processes
+- Defines signal processes: $e^+e^-\rightarrow Z(f\bar{f})H$ with all Higgs decay modes ($b\bar{b}$, $c\bar{c}$, $s\bar{s}$, $gg$, $\mu^+\mu^-$, $\tau^+\tau^-$, $ZZ^*$, $WW^*$, $Z\gamma$, $\gamma\gamma$, $\textrm{Inv}$)
+    - Also take into account the $Z$ decays from quarks, $\tau$ and neutrinos
+- Defines background processes: $ZZ$, $W^+W^-$, $Z/\gamma$, and rare processes
 - Configures systematic uncertainties (1% log-normal normalization uncertainties for backgrounds)
 - Prepares datacard structure for RooFit/COMBINE statistical framework
 - Supports multiple analysis categories based on Higgs production/decay modes
@@ -81,7 +82,7 @@ sel:  Baseline, Baseline_miss, Baseline_sep (selection strategy)
 
 **Output:** COMBINE datacard files
 ```
-output/data/combine/{cat}/{ecm}/{sel}/
+output/data/combine/{sel}/{ecm}/{sel}/nominal/datacard/
 ```
 
 **Configuration:**
@@ -91,7 +92,7 @@ output/data/combine/{cat}/{ecm}/{sel}/
 - Systematic uncertainties: 1% background normalization (log-normal, `lnN`, uncorrelated between backgrounds)
 
 **Process categories:**
-- **Signal:** $e^+e^-\rightarrow Z(\ell^+\ell^-)H$ with 10 Higgs decay modes + $ZZ_\textrm{noInv}$ variant
+- **Signal:** $e^+e^-\rightarrow Z(f\bar{f})H$ with 10 Higgs decay modes + $ZZ_\textrm{noInv}$ variant
 - **Backgrounds:**
   - `ZZ` — Pair production via $e^+e^- \rightarrow ZZ$
   - `WW` — Pair production via $e^+e^- \rightarrow W^+W^-$ (all decay channels: hadronic, electron, muon)
@@ -134,7 +135,7 @@ fccanalysis combine 4-Combine/combine.py
 
 *Automated (via run script):*
 ```bash
-python run/4-run.py
+python run/4-run.py --run 2
 ```
 
 The `run/4-run.py` script automates execution across all combinations of channels, center-of-mass energies, and selections, avoiding repeated manual execution. This uses the **FCCAnalysis framework** (part of FCCWorkspace). The xsec analysis is located at `FCCWorkspace/analyses/ZH/xsec/`.

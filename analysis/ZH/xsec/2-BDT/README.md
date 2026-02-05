@@ -12,7 +12,7 @@ The `2-BDT` module consists of three main scripts executed sequentially:
 
 | Script | Purpose |
 |--------|---------|
-| **`process_input.py`** | Prepare training data from MVA input histograms |
+| **`process_input.py`** | Prepare training data from MVA input TTree |
 | **`train_bdt.py`** | Train XGBoost models for each channel and energy combination |
 | **`evaluation.py`** | Evaluate BDT performance and generate validation plots |
 
@@ -29,14 +29,14 @@ Processes histograms from MVA input stage and prepares balanced training dataset
 - Assigns signal/background labels and luminosity weights
 - Saves preprocessed training data as pickle files
 
-**Input:** MVA input histograms
+**Input:** MVA input TTree
 ```
-output/data/histograms/MVAInputs/{cat}/{ecm}/{sel}/
+output/data/histograms/MVAInputs/{ecm}/{cat}/{sample}_{sel}.root
 ```
 
 **Output:** Preprocessed training data
 ```
-output/data/MVA/{cat}/{ecm}/{sel}/preprocessed.pkl
+output/data/MVA/{ecm}/{cat}/{sel}/MVAInputs/preprocessed.pkl
 ```
 
 **Usage:**
@@ -51,8 +51,8 @@ python process_input.py --cat mumu --ecm 365
 
 **Configuration:**
 - Processes included:
-  - **Signal:** ZH production
-  - **Backgrounds:** ZZ, WW, Z+jets, radiative Z (e-γ, γ-e), diphoton (γγ)
+  - **Signal:** $ZH$ production
+  - **Backgrounds:** $ZZ$, $W^+W^-$, $Z+\text{jets}$, radiative $Z$ ($e^\pm\gamma$), diphoton ($\gamma\gamma$)
 - Variable selection: 9 kinematic features from `package.config.input_vars`
 - Process dictionary: `FCCee_procDict_winter2023_training_IDEA.json`
 
@@ -73,15 +73,15 @@ Trains XGBoost models for each channel and selection strategy using prepared tra
 
 **Input:** Preprocessed training data from `process_input.py`
 ```
-output/data/MVA/{cat}/{ecm}/{sel}/preprocessed.pkl
+output/data/MVA/{ecm}/{cat}/{sel}/MVAInputs/preprocessed.pkl
 ```
 
 **Output:** Trained BDT models and metadata
 ```
-output/data/MVA/{cat}/{ecm}/{sel}/
-  ├── bdt_model.pkl           # Trained XGBoost model
-  ├── variables.json          # Input variable names
-  └── feature.txt             # Feature map for TMVA evaluation
+output/data/MVA/{ecm}/{cat}/{sel}/BDT/
+  ├── xgb_bdt.pkl             # Trained XGBoost model saved in pkl format (For evaluation)
+  ├── xgb_bdt.root            # Trained XGBoost model saved in root format (For 3-Measurement)
+  └── feature.txt             # Feature map for evaluation
 ```
 
 **Usage:**
@@ -96,13 +96,14 @@ python train_bdt.py --cat mumu --ecm 365
 
 **XGBoost Configuration:**
 ```python
-n_estimators: 350          # Number of boosting rounds
-learning_rate: 0.20        # Step size shrinkage (eta)
-max_depth: 3               # Maximum tree depth
-subsample: 0.5             # Subsample ratio of training instances
-gamma: 3                   # Minimum loss reduction (regularization)
-min_child_weight: 10       # Minimum child weight (regularization)
-colsample_bytree: 0.5      # Subsample ratio of columns per tree
+'n_estimators': 350          # Number of boosting rounds
+'learning_rate': 0.20        # Step size shrinkage (eta)
+'max_depth': 3               # Maximum tree depth
+'subsample': 0.5             # Subsample ratio of training instances
+'gamma': 3                   # Minimum loss reduction (regularization)
+'min_child_weight': 10       # Minimum child weight (regularization)
+'max_delta_step': 0,         # Maximum delta step for weight update
+'colsample_bytree': 0.5      # Subsample ratio of columns per tree
 ```
 
 **Early Stopping:** Training stops after 25 rounds without validation set improvement.
@@ -122,24 +123,30 @@ Evaluates trained BDT models and generates diagnostic plots for validation.
 
 **Key operations:**
 - Loads trained models and validation datasets
-- Computes classification performance metrics (AUC, efficiency, purity)
+- Computes classification performance metrics (AUC, classification error, log loss)
 - Generates BDT score distributions for signal and background
-- Creates decision tree visualizations
-- Produces input variable distributions in high/low BDT score regions
+- Performs significance scan to determine optimal BDT cut separating signal-like and background-like regions
+- Creates decision tree visualizations (optional)
+- Produces input variable distributions in high/low BDT score regions (optional)
 
 **Input:** Trained BDT models and MVA input data
 ```
-output/data/MVA/{cat}/{ecm}/{sel}/
-output/data/histograms/MVAInputs/{cat}/{ecm}/{sel}/
+output/data/MVA/{ecm}/{cat}/{sel}/BDT/
+output/data/MVA/{ecm}/{cat}/{sel}/MVAInputs/
 ```
 
-**Output:** Evaluation plots and metrics
+**Output:** Evaluation plots, metrics, and BDT cut determination
 ```
-output/plots/evaluation/{cat}/{ecm}/
+output/plots/evaluation/{ecm}/{cat}/{sel}/
   ├── metrics/                    # Classification performance plots
-  ├── trees/                      # Decision tree visualizations
-  ├── variables/                  # Input variable distributions
-  └── high_low/                   # High/low BDT score regions
+  ├── feature/                    # Decision tree visualizations
+  └── variables/                  # Input variable distributions
+        ├── nominal/              # Nominal distributions (all events)
+        ├── high/                 # High BDT score regions
+        └── low/                  # Low BDT score regions
+
+output/data/MVA/{ecm}/{cat}/{sel}/BDT/
+  └── BDT_cut.txt                # Optimal BDT cut value (used in 3-Measurement)
 ```
 
 **Usage:**
@@ -162,8 +169,10 @@ python evaluation.py --cat ee --ecm 240 --hl               # Plot high/low regio
 **Metrics Computed:**
 - Receiver Operating Characteristic (ROC) curve
 - AUC (Area Under Curve) for binary classification
+- Classification error
+- Log loss
 - Signal efficiency and background rejection at various BDT score thresholds
-- Confusion matrix
+- Significance scan: Computes expected signal significance across the full BDT score range to determine optimal cut point separating high/low score control regions
 
 For detailed information on evaluation functions, see [package/func/bdt.py](../package/func/README.md).
 
@@ -173,8 +182,11 @@ For detailed information on evaluation functions, see [package/func/bdt.py](../p
 
 The BDT models trained in this stage are used in [3-Measurement](../3-Measurement/README.md) for:
 - **Signal/background discrimination:** BDT scores define baseline and control regions
-- **Event categorization:** High BDT scores (signal-like) vs low BDT scores (background-like) for systematic studies
+- **Event categorization:** High BDT scores (signal-like) vs low BDT scores (background-like) for uncertainty extraction, with the separation cut optimized via significance scan
 - **Physics selection:** BDT-based selection improves measurement sensitivity
+
+**BDT Cut Determination:**
+The optimal BDT cut value separating high/low score regions is determined in the evaluation stage through a significance scan. This cut maximizes expected signal significance and is stored in `BDT_cut.txt` for use in the measurement stage.
 
 ## Automation
 
@@ -198,16 +210,19 @@ See [package/func/README.md](../package/func/README.md) and [package/config.py](
 ## Output Structure
 
 ```
-output/data/MVA/{cat}/{ecm}/{sel}/
-├── bdt_model.pkl              # Trained XGBoost model (binary format)
-├── variables.json             # Input variable names (JSON)
-└── feature.txt                # Feature map for TMVA (TSV)
+output/data/MVA/{ecm}/{cat}/{sel}/BDT/
+  ├── xgb_bdt.pkl             # Trained XGBoost model saved in pkl format (used in evaluation)
+  ├── xgb_bdt.root            # Trained XGBoost model saved in root format (used in 3-Measurement)
+  ├── feature.txt             # Feature map for evaluation
+  └── BDT_cut.txt             # Optimal BDT cut from significance scan (used in 3-Measurement)
 
-output/plots/evaluation/{cat}/{ecm}/
-├── metrics/                   # ROC curves, AUC, efficiency plots
-├── trees/                     # Decision tree visualizations (PNG)
-├── variables/                 # Input variable distributions
-└── high_low/                  # High/low BDT score region distributions
+output/plots/evaluation/{ecm}/{cat}/{sel}/
+  ├── metrics/                    # Classification performance plots
+  ├── feature/                    # Decision tree visualizations
+  └── variables/                  # Input variable distributions
+        ├── nominal/              # Nominal distributions (all events)
+        ├── high/                 # High BDT score regions
+        └── low/                  # Low BDT score regions
 ```
 
 Where:
