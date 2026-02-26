@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # VSCode folder
-.vscode
+# .vscode
 .vscode-server
 
 # C extensions
@@ -29,6 +29,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+./conda
 
 # Compiled source #
 ###################
@@ -213,4 +214,4 @@ cython_debug/
 output/
 test/
 fccphysics-data/
-
+env*.txt
