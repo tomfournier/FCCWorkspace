@@ -29,11 +29,11 @@ parser = ArgumentParser()
 parser.add_argument('--cat',  help='Final state (ee, mumu)', 
                     choices=['ee', 'mumu', 'ee-mumu'], type=str, default='ee-mumu')
 # Define center of mass energy
-parser.add_argument('--ecm',  help='Center of mass energy (240, 365)', 
+parser.add_argument('--ecm',  help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
 
 # Include all Z decay modes in plots
-parser.add_argument('--tot', help='Include all the Z decays in the plots', 
+parser.add_argument('--tot', help='Include all the Z decays in the plots',
                     action='store_true')
 arg = parser.parse_args()
 
@@ -104,10 +104,10 @@ variables = [
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cats: list[str], 
-        sels: list[str], 
-        processes: dict[str, list[str]], 
-        colors: dict[str, dict[str, str]], 
+def run(cats: list[str],
+        sels: list[str],
+        processes: dict[str, list[str]],
+        colors: dict[str, dict[str, str]],
         legend: dict[str, dict[str, str]]
         ) -> None:
     '''Generate cutflow plots for each channel and selection strategy.'''
@@ -125,21 +125,20 @@ def run(cats: list[str],
         branches = branches_from_cuts(cuts, variables)
         br_str = ', '.join(br for br in branches)
         print(f'----->[Info] Only importing these branches from the .root file: \n\t{br_str}\n')
-        
+
         # Generate cutflow plots and tables
-        get_cutflow(inDir, outDir, 
-                    cat, sels, 
-                    procs, procs_decays, 
-                    processes, colors, legend, 
-                    cuts, cuts_label, 
-                    z_decays, H_decays, 
+        get_cutflow(inDir, outDir,
+                    cat, sels,
+                    procs, procs_decays,
+                    processes, colors, legend,
+                    cuts, cuts_label,
+                    z_decays, H_decays,
                     branches=branches,
                     ecm=ecm,
                     lumi=lumi,
-                    sig_scale=1, 
-                    tot=arg.tot, 
+                    sig_scale=1,
+                    tot=arg.tot,
                     loc_json=loc.JSON+f'/{cat}')
-
 
 
 ######################

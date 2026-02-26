@@ -12,10 +12,10 @@ t = time()
 
 from package.userConfig import loc
 from package.config import (
-    timer, warning, 
-    mk_processes, 
+    timer, warning,
+    mk_processes,
     z_decays,
-    h_decays, 
+    h_decays,
     H_decays
 )
 from package.func.bias import pseudo_datacard
@@ -30,23 +30,23 @@ from package.func.bias import pseudo_datacard
 parser = ArgumentParser()
 
 # Final state selection
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
                     choices=['ee', 'mumu'], type=str, default='')
 # Collision energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
 # Selection criteria for histogram fitting
-parser.add_argument('--sel', help='Selection with which you fit the histograms', 
+parser.add_argument('--sel', help='Selection with which you fit the histograms',
                     type=str, default='Baseline')
 
 # Combine channels for joint fit
 parser.add_argument('--combine', help='Combine the channel to do the fit', action='store_true')
 
 # Target Higgs decay mode for pseudodata
-parser.add_argument('--target',  help='Target pseudodata', 
+parser.add_argument('--target',  help='Target pseudodata',
                     type=str, default='bb')
 # Scaling factor for pseudodata
-parser.add_argument('--pert',    help='Target pseudodata size', 
+parser.add_argument('--pert',    help='Target pseudodata size',
                     type=float, default=1.0)
 # Use all Z decays for cross-section calculation
 parser.add_argument('--tot',     help='Do not consider all Z decays for making cross-section',
@@ -105,21 +105,21 @@ decays = H_decays if arg.target=='inv' else h_decays
 ### MAIN EXECUTION ###
 ######################
 
-# Process histograms and create pseudodata 
+# Process histograms and create pseudodata
 # (unless only running fit or combining)
 if not arg.combine and not arg.onlyrun and not arg.no_btest:
     scales = 'ILC' if arg.ILC else \
-            ('polL' if arg.polL else \
-            ('polR' if arg.polR else ''))
+                ('polL' if arg.polL else
+                    ('polR' if arg.polR else ''))
     pseudo_datacard(
         inDir, outDir,
-        cat=cat, ecm=ecm, 
+        cat=cat, ecm=ecm,
         target=arg.target, pert=arg.pert,
         z_decays=z_decays, h_decays=decays,
         processes=processes,
-        tot=tot, 
-        freeze=arg.freeze, 
-        float_bkg=arg.float, 
+        tot=tot,
+        freeze=arg.freeze,
+        float_bkg=arg.float,
         plot_dc=arg.plot_dc
     )
 
@@ -137,7 +137,7 @@ if arg.run:
     # Add category argument if specified
     if arg.cat:
         cmd.extend(['--cat', arg.cat])
-    
+
     # Add common fit arguments
     cmd.extend([
         '--bias',
@@ -164,7 +164,7 @@ if arg.run:
             env=os.environ.copy()
         )
     except FileNotFoundError:
-        print(f'----->[Error] Could not find python or 5-Fit/fit.py')
+        print('----->[Error] Could not find python or 5-Fit/fit.py')
         sys.exit(1)
 
 # Print elapsed time if requested

@@ -35,7 +35,7 @@ prodTag = 'FCCee/winter2023/IDEA/'
 # Path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = 'FCCee_procDict_winter2023_IDEA.json'
 
-# Optional: Number of CPUs for parallel processing 
+# Optional: Number of CPUs for parallel processing
 # (default is 4,  -1 uses all cores available)
 nCPUS = 20
 
@@ -58,25 +58,25 @@ compGroup = 'group_u_FCC.local_gen'
 samples_bkg = [
     # Diboson:  ee -> VV
     f'p8_ee_ZZ_ecm{ecm}',
-    f'p8_ee_WW_ee_ecm{ecm}', 
+    f'p8_ee_WW_ee_ecm{ecm}',
     f'p8_ee_WW_mumu_ecm{ecm}',
 
     # ee -> Z+jets
-    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}', 
-    f'wzp6_ee_mumu_ecm{ecm}', 
+    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+    f'wzp6_ee_mumu_ecm{ecm}',
     f'wzp6_ee_tautau_ecm{ecm}',
 
     # Radiative: ey -> eZ(ll)
-    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', 
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
     f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}',
     f'wzp6_gammae_eZ_Zee_ecm{ecm}',
 
     # Diphoton: yy -> ll
-    f'wzp6_gaga_ee_60_ecm{ecm}', 
-    f'wzp6_gaga_mumu_60_ecm{ecm}', 
-    f'wzp6_gaga_tautau_60_ecm{ecm}', 
-    
+    f'wzp6_gaga_ee_60_ecm{ecm}',
+    f'wzp6_gaga_mumu_60_ecm{ecm}',
+    f'wzp6_gaga_tautau_60_ecm{ecm}',
+
     # Invisible: ee -> nunuZ
     f'wzp6_ee_nuenueZ_ecm{ecm}'
 ]
@@ -91,8 +91,8 @@ if ww: samples = [f'p8_ee_WW_ecm{ecm}']
 
 # Large samples requiring chunked processing
 big_sample = [
-    f'p8_ee_ZZ_ecm{ecm}', 
-    f'p8_ee_WW_ecm{ecm}', 
+    f'p8_ee_ZZ_ecm{ecm}',
+    f'p8_ee_WW_ecm{ecm}',
     f'p8_ee_WW_{cat}_ecm{ecm}',
 
     f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu' else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
@@ -102,7 +102,7 @@ big_sample = [
     f'wzp6_gaga_{cat}_60_ecm{ecm}'
 ]
 # Configure processing fraction and chunks for each sample
-processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1}  for i in samples}
+processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1} for i in samples}
 
 
 
@@ -123,7 +123,7 @@ def cutflow(df, cut: str):
 ##########################
 
 def build_graph_ll(df, cat):
-    
+
     # Alias for lepton collections based on final state
     if cat == 'mumu':
         df = df.Alias('Lepton0', 'Muon#0.index')
@@ -131,7 +131,7 @@ def build_graph_ll(df, cat):
         df = df.Alias('Lepton0', 'Electron#0.index')
     else:
         raise ValueError(f'cat {cat} not supported')
-    
+
     # Alias for MC truth matching and particle collections
     df = df.Alias('MCRecoAssociations0', 'MCRecoAssociations#0.index')
     df = df.Alias('MCRecoAssociations1', 'MCRecoAssociations#1.index')
@@ -156,8 +156,8 @@ def build_graph_ll(df, cat):
     df = df.Define('leps_all_phi',   'FCCAnalyses::ReconstructedParticle::get_phi(leps_all)')
     df = df.Define('leps_all_q',     'FCCAnalyses::ReconstructedParticle::get_charge(leps_all)')
     df = df.Define('leps_all_no',    'FCCAnalyses::ReconstructedParticle::get_n(leps_all)')
-    df = df.Define('leps_all_iso',   'FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)') 
-    
+    df = df.Define('leps_all_iso',   'FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)')
+
     # Apply momentum cut (p > 20 GeV) and isolation requirements
     df = df.Define('leps',            'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_all)')
     df = df.Define('leps_p',          'FCCAnalyses::ReconstructedParticle::get_p(leps)')
@@ -189,10 +189,10 @@ def build_graph_ll(df, cat):
     # Veto H->mumu/ee candidate leptons (mass window: 125 ± 3 GeV)
     df = df.Define('zbuilder_Hll',   f'FCCAnalyses::resonanceBuilder_mass_recoil(125, 91.2, 0.4, {ecm}, false)'
                    '(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
-    df = df.Define('zll_Hll',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_Hll[0]}') # the Z
+    df = df.Define('zll_Hll',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_Hll[0]}')  # the Z
     df = df.Define('zll_Hll_m',      'FCCAnalyses::ReconstructedParticle::get_mass(zll_Hll)[0]')
-    df = df.Define('zll_leps_Hll',   'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_Hll[1], zbuilder_Hll[2]}') # the leptons
-    df = df.Define('zll_leps_dummy', 'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{}') # the leptons
+    df = df.Define('zll_leps_Hll',   'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_Hll[1], zbuilder_Hll[2]}')  # the leptons
+    df = df.Define('zll_leps_dummy', 'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{}')  # the leptons
     df = df.Define('leps_to_remove', 'return (zll_Hll_m > (125-3) && zll_Hll_m < (125+3)) ? zll_leps_Hll : zll_leps_dummy')
     df = df.Define('leps_good',      'FCCAnalyses::ReconstructedParticle::remove(leps, leps_to_remove)')
 
@@ -201,9 +201,9 @@ def build_graph_ll(df, cat):
     # Returns: [0] di-lepton system, [1,2] individual leptons
     df = df.Define('zbuilder_result', f'FCCAnalyses::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)'
                    '(leps_good, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
-    df = df.Define('zll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[0]}') # the Z
-    df = df.Define('zll_leps',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[1],zbuilder_result[2]}') # the leptons
-    
+    df = df.Define('zll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[0]}')  # the Z
+    df = df.Define('zll_leps',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[1],zbuilder_result[2]}')  # the leptons
+
     # Z boson kinematics
     df = df.Define('zll_m',     'FCCAnalyses::ReconstructedParticle::get_mass(zll)[0]')
     df = df.Define('zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(zll)[0]')
@@ -234,7 +234,7 @@ def build_graph_ll(df, cat):
     df = df.Define('subleading_theta', 'zll_leps_theta[subleading_p_idx]')
     df = df.Define('leading_phi',      'zll_leps_phi[leading_p_idx]')
     df = df.Define('subleading_phi',   'zll_leps_phi[subleading_p_idx]')
-    
+
     # Angular correlation variables
     df = df.Define('acoplanarity', 'FCCAnalyses::acoplanarity(zll_leps)')
     df = df.Define('acolinearity', 'FCCAnalyses::acolinearity(zll_leps)')
@@ -271,14 +271,14 @@ def build_graph_ll(df, cat):
 class RDFanalysis():
     '''RDataFrame analysis class for pre-selection stage.'''
 
-    #_________________________________________________________________
+    # _________________________________________________________________
     # Mandatory: analysers function to define the analysers to process
     def analysers(df):
         '''Apply analysis graph construction to the dataframe.'''
         df = build_graph_ll(df, cat)
         return df
-    
-    #_____________________________________________________
+
+    # _____________________________________________________
     # Mandatory: output function defining branches to save
     def output():
         '''Define output branches to save.'''
@@ -301,7 +301,7 @@ class RDFanalysis():
 
             # Higgsstrahlungness discriminant
             'H',
-            
+
             # Cutflow counters
             'cut0', 'cut1', 'cut2',
             # 'cut3', 'cut4'

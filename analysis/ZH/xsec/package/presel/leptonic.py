@@ -249,6 +249,10 @@ def _cutflow(df, cut: str):
     df = df.Define(cut, str(n))
     return df
 
+def make_cut(df, hists: list, cut: int):
+    df = df.Define(f'cut{cut}', str(cut))
+    hists.append(df.Histo1D(('cutFlow', '', 50, 0, 50), f'cut{cut}'))
+    return df, hists
 
 
 ######################

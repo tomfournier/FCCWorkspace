@@ -11,8 +11,8 @@ from package.userConfig import (
 )
 from package.func.bdt import def_bdt, make_high_low
 from package.config import (
-    z_decays, 
-    H_decays, 
+    z_decays,
+    H_decays,
     input_vars
 )
 
@@ -46,7 +46,7 @@ nCPUS = 10
 
 # Scale yields to integrated luminosity
 doScale = True
-intLumi = lumi * 1e6 # in pb-1
+intLumi = lumi * 1e6  # in pb-1
 
 # Save results in a .json file
 # saveJSON = True
@@ -65,25 +65,25 @@ samples_bkg = [
     # Diboson:  ee -> VV
     f'p8_ee_ZZ_ecm{ecm}',
     f'p8_ee_WW_ecm{ecm}',
-    f'p8_ee_WW_ee_ecm{ecm}', 
+    f'p8_ee_WW_ee_ecm{ecm}',
     f'p8_ee_WW_mumu_ecm{ecm}',
 
     # ee -> Z+jets
-    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}', 
-    f'wzp6_ee_mumu_ecm{ecm}', 
+    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+    f'wzp6_ee_mumu_ecm{ecm}',
     f'wzp6_ee_tautau_ecm{ecm}',
 
     # Radiative: ey -> eZ(ll)
-    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', 
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
     f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_egamma_eZ_Zee_ecm{ecm}', 
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}',
     f'wzp6_gammae_eZ_Zee_ecm{ecm}',
 
     # Diphoton: yy -> ll
-    f'wzp6_gaga_ee_60_ecm{ecm}', 
-    f'wzp6_gaga_mumu_60_ecm{ecm}', 
-    f'wzp6_gaga_tautau_60_ecm{ecm}', 
-    
+    f'wzp6_gaga_ee_60_ecm{ecm}',
+    f'wzp6_gaga_mumu_60_ecm{ecm}',
+    f'wzp6_gaga_tautau_60_ecm{ecm}',
+
     # Invisible: ee -> nunuZ
     f'wzp6_ee_nuenueZ_ecm{ecm}'
 ]
@@ -97,20 +97,20 @@ samples = event(samples_sig + samples_bkg, inputDir)
 
 # Large samples requiring chunked processing
 big_sample = (
-    f'p8_ee_ZZ_ecm{ecm}', 
-    f'p8_ee_WW_ecm{ecm}', 
+    f'p8_ee_ZZ_ecm{ecm}',
+    f'p8_ee_WW_ecm{ecm}',
     f'p8_ee_WW_{cat}_ecm{ecm}',
 
-    f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu' \
-        else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+    f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu'
+    else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
 
-    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', 
+    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
     f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
     f'wzp6_gaga_{cat}_60_ecm{ecm}'
 )
 
 # Configure processing parameters for each sample
-processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1}  for i in samples}
+processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1} for i in samples}
 
 # Define BDT score from trained model and apply BDT cut
 sel_BDT = 'Baseline'
@@ -129,14 +129,14 @@ p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)
 
 # Define baseline selection cuts
 vis_cut = 100 if ecm==240 else (171 if ecm==365 else 0)
-m_cut, p_cut = 'zll_m > 86 && zll_m < 96', f'zll_p > {p_dw} && zll_p < {p_up}', 
+m_cut, p_cut = 'zll_m > 86 && zll_m < 96', f'zll_p > {p_dw} && zll_p < {p_up}',
 rec_cut = ' && zll_recoil_m > 100 && zll_recoil_m < 150' if ecm==365 else ''
 
 Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
 vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' && visibleEnergy < {vis_cut}'
 
 # Selection cut dictionary (key = selection name used in outputs)
-cutList = { 
+cutList = {
     'Baseline':          Baseline_Cut,
     'Baseline_vis':      vis,
     'Baseline_inv':      inv,
@@ -147,7 +147,7 @@ cutList = {
 # List of selections to split into high/low BDT score regions
 sels = [
     'Baseline',
-    'Baseline_miss', 
+    'Baseline_miss',
     'Baseline_sep',
 ]
 # Split each selection into high and low BDT score regions
@@ -183,7 +183,7 @@ histoList = {
     'subleading_p':     {'name':'subleading_p',
                          'title':'p_{l,subleading} [GeV]',
                          'bin':400,'xmin':0,'xmax':200},
-    
+
     'subleading_pT':    {'name':'subleading_pT',
                          'title':'p_{T,l,subleading} [GeV]',
                          'bin':400,'xmin':0,'xmax':200},
@@ -191,7 +191,7 @@ histoList = {
     'subleading_theta': {'name':'subleading_theta',
                          'title':'#theta_{l,subleading}',
                          'bin':128,'xmin':0,'xmax':3.2},
-    
+
     'subleading_phi':   {'name':'subleading_phi',
                          'title':'#phi_{l,subleading}',
                          'bin':64,'xmin':-3.2,'xmax':3.2},
@@ -204,11 +204,11 @@ histoList = {
     'acoplanarity':     {'name':'acoplanarity',
                          'title':'#Delta#phi_{l^{+}l^{-}}',
                          'bin':128,'xmin':0,'xmax':3.2},
-    
+
     'deltaR':           {'name':'deltaR',
                          'title':'#DeltaR',
                          'bin':100,'xmin':0,'xmax':10},
-    
+
     # Z boson properties
     'zll_m':            {'name':'zll_m',
                          'title':'m_{l^{+}l^{-}} [GeV]',
@@ -229,17 +229,17 @@ histoList = {
     'zll_phi':          {'name':'zll_phi',
                          'title':'#phi_{l^{+}l^{-}}',
                          'bin':64,'xmin':-3.2,'xmax':3.2},
-    
+
     # Recoil mass (Higgs candidate)
     'zll_recoil_m':     {'name':'zll_recoil_m',
                          'title':'m_{recoil} [GeV]',
                          'bin':200,'xmin':100,'xmax':150},
-    
+
     # Visible and invisible information
     'cosTheta_miss':    {'name':'cosTheta_miss',
                          'title':'|cos#theta_{miss}|',
                          'bin':1000,'xmin':0,'xmax':1},
-    
+
     'visibleEnergy':    {'name':'visibleEnergy',
                          'title':'E_{vis} [GeV]',
                          'bin':700,'xmin':0,'xmax':350},
@@ -247,7 +247,7 @@ histoList = {
     'missingMass':      {'name':'missingMass',
                          'title':'m_{miss} [GeV]',
                          'bin':700,'xmin':0,'xmax':350},
-    
+
     # Higgsstrahlungness
     'H':                {'name':'H',
                          'title':'Higgsstrahlungness [GeV^{2}]',
@@ -257,5 +257,5 @@ histoList = {
     'BDTscore':         {'name':'BDTscore',
                          'title':'BDT score',
                          'bin':500,'xmin':0,'xmax':1}
-                         
+
 }

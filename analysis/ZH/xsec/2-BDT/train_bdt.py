@@ -16,14 +16,14 @@ print('----->[Info] Loading custom modules\n')
 
 from package.userConfig import loc
 from package.config import (
-    timer, 
-    warning, 
+    timer,
+    warning,
     input_vars
 )
 from package.func.bdt import (
-    print_stats, 
-    split_data, 
-    train_model, 
+    print_stats,
+    split_data,
+    train_model,
     save_model
 )
 
@@ -83,10 +83,10 @@ config = {
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(sels: list[str], 
-        modes: list[str], 
-        vars: list[str], 
-        config: dict[str, str], 
+def run(sels: list[str],
+        modes: list[str],
+        vars: list[str],
+        config: dict[str, str],
         early: int = 25
         ) -> None:
     """Train BDT models for each selection strategy."""
@@ -116,11 +116,11 @@ def run(sels: list[str],
 
         # Train XGBoost model with early stopping
         bdt = train_model(
-            X_train, y_train, 
-            X_valid, y_valid, 
+            X_train, y_train,
+            X_valid, y_valid,
             config, early
         )
-        
+
         # Save trained model
         save_model(bdt, vars, outDir)
 
@@ -128,7 +128,6 @@ def run(sels: list[str],
         fmap = pd.DataFrame({'vars':vars, 'Q':list('q' * len(vars))})
         fmap.to_csv(f'{outDir}/feature.txt', sep='\t', header=False)
         print(f'----->[Info] Wrote variable input in {outDir}/feature.txt')
-
 
 
 ######################

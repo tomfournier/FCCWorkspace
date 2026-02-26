@@ -37,12 +37,12 @@ outdir         = loc.get('PLOTS_MVA', cat, ecm)
 # Variables to plot from pre-selection outputs
 variables = [
     # Leptons kinematics
-    'leading_p',    'leading_pT',    'leading_theta', 
+    'leading_p',    'leading_pT',    'leading_theta',
     'subleading_p', 'subleading_pT', 'subleading_theta',
     # 'leading_phi', 'subleading_phi',
 
     # Z boson properties
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',
     # 'zll_phi',
 
     # Angular correlation
@@ -64,8 +64,8 @@ variables = [
 ### DEFINE CONFIG DICTIONARY FOR THE PLOT ###
 #############################################
 
-# Dictonnary with the analysis name as a key, 
-# and the list of selections to be plotted for this analysis. 
+# Dictonnary with the analysis name as a key,
+# and the list of selections to be plotted for this analysis.
 # The name of the selections should be the same than in the final selection
 selections = {}
 selections['ZH'] = [
@@ -86,10 +86,10 @@ plots['ZH'] = {
 
     'backgrounds':{
         f'WW{cat}':   [f'p8_ee_WW_{cat}_ecm{ecm}'],
-        'ZZ':         [f'p8_ee_ZZ_ecm{ecm}'], 
-        f'Z{cat}':    [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee' 
+        'ZZ':         [f'p8_ee_ZZ_ecm{ecm}'],
+        f'Z{cat}':    [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'
                        else f'wzp6_ee_mumu_ecm{ecm}'],
-        'eeZ':        [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', 
+        'eeZ':        [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
                        f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],
         f'gaga{cat}': [f'wzp6_gaga_{cat}_60_ecm{ecm}']}
 }

@@ -13,7 +13,7 @@ t = time()
 
 from package.userConfig import loc
 from package.config import (
-    timer, mk_processes, 
+    timer, mk_processes,
     z_decays, H_decays
 )
 from package.tools.utils import mkdir
@@ -27,10 +27,10 @@ from package.tools.process import get_hist, concat
 
 parser = ArgumentParser()
 # Define final state: ee, mumu or both
-parser.add_argument('--cat',  help='Final state (ee, mumu), qq is not available yet', 
+parser.add_argument('--cat',  help='Final state (ee, mumu), qq is not available yet',
                     choices=['ee', 'mumu', 'ee-mumu'], type=str, default='ee-mumu')
 # Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
 
 # Polarization and luminosity scaling options
@@ -57,7 +57,7 @@ sels = [
 ]
 
 # Define cross-section scaling factors based on polarization or luminosity
-if arg.ILC: ## change fit to ASIMOV -t -1 !!!
+if arg.ILC:  # change fit to ASIMOV -t -1 !!!
     procs_scales = {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}
 elif arg.polL:
     procs_scales = {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263}
@@ -66,42 +66,42 @@ elif arg.polR:
 else:
     procs_scales  = {}
 if procs_scales!={}:
-    print(f'----->[Info] Will scale histograms to ILC cross section')
+    print('----->[Info] Will scale histograms to ILC cross section')
 
 
 # Define physics processes and their Higgs decay modes
 processes = mk_processes(
-    ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'], 
+    ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'],
     H_decays=H_decays+('ZZ_noInv',), ecm=ecm
 )
 
 # Background samples: WW, ZZ, Z/gamma -> ll, photon processes, invisible decays
 samples_bkg = [
     # ee -> WW
-    f'p8_ee_WW_ecm{ecm}', 
-    f'p8_ee_WW_ee_ecm{ecm}', 
-    f'p8_ee_WW_mumu_ecm{ecm}', 
+    f'p8_ee_WW_ecm{ecm}',
+    f'p8_ee_WW_ee_ecm{ecm}',
+    f'p8_ee_WW_mumu_ecm{ecm}',
 
     # ee -> ZZ
     f'p8_ee_ZZ_ecm{ecm}',
 
     # ee -> Z/ga -> ll
-    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}', 
-    f'wzp6_ee_mumu_ecm{ecm}', 
+    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+    f'wzp6_ee_mumu_ecm{ecm}',
     f'wzp6_ee_tautau_ecm{ecm}',
 
     # e ga -> e Z(ll)
-    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}', 
+    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
     f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_egamma_eZ_Zee_ecm{ecm}',   
+    f'wzp6_egamma_eZ_Zee_ecm{ecm}',
     f'wzp6_gammae_eZ_Zee_ecm{ecm}',
 
     # ga ga -> ll
-    f'wzp6_gaga_ee_60_ecm{ecm}', 
-    f'wzp6_gaga_mumu_60_ecm{ecm}', 
+    f'wzp6_gaga_ee_60_ecm{ecm}',
+    f'wzp6_gaga_mumu_60_ecm{ecm}',
     f'wzp6_gaga_tautau_60_ecm{ecm}',
 
-    # ee -> nu nu Z 
+    # ee -> nu nu Z
     f'wzp6_ee_nuenueZ_ecm{ecm}'
 ]
 
@@ -119,9 +119,9 @@ samples = samples_sig + samples_bkg
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cats: str, 
-        sels: str, 
-        hNames: list[str], 
+def run(cats: str,
+        sels: str,
+        hNames: list[str],
         samples: list[str]
         ) -> None:
     """Process histograms by splitting into high/low control regions and combining."""
@@ -161,9 +161,9 @@ def run(cats: str,
 
                     # Retrieve high and low region histograms with optional scaling
                     h_high = get_hist(
-                        hName, sample, processes, inDir, 
+                        hName, sample, processes, inDir,
                         suffix=suffix_high,
-                        rebin=1, 
+                        rebin=1,
                         proc_scales=procs_scales
                     )
                     h_low  = get_hist(
@@ -198,7 +198,6 @@ def run(cats: str,
                     hist.Write()
                 f.Close()
                 print(f'----->[Info] Saved histograms in {fOut}\n')
-
 
 
 ######################

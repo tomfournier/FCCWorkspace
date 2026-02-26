@@ -28,10 +28,10 @@ from package.tools.process import (
 
 parser = ArgumentParser()
 # Define final state: ee, mumu, or both
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
                     choices=['ee', 'mumu', 'ee-mumu'], type=str, default='ee-mumu')
 # Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
 
 # Flags to control which plot types to skip (inverted logic: flag skips the plot except for --scan)
@@ -56,7 +56,6 @@ sels = [
     'Baseline',
     'Baseline_miss',
     'Baseline_sep',
-    
     'Baseline_vis', 'Baseline_inv',
 ]
 hl = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
@@ -66,21 +65,21 @@ sels = high_low_sels(sels, hl)
 # Define physics processes
 processes = mk_processes(
     procs=[
-        'ZH', 'ZeeH', 'ZmumuH', 
-        'WW', 'ZZ', 'Zgamma', 
+        'ZH', 'ZeeH', 'ZmumuH',
+        'WW', 'ZZ', 'Zgamma',
         'Rare'], ecm=ecm
 )
 
 # Variables to plot
 variables = [
-    'leading_p', 'leading_pT', 'leading_theta', #'leading_phi',             # leading lepton variables
-    'subleading_p', 'subleading_pT', 'subleading_theta', #'subleading_phi', # subleading lepton variables
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', # 'zll_phi',                   # Z boson properties
-    'acolinearity', 'acoplanarity', 'deltaR',                               # Angular separation variables
-    'zll_recoil_m',                                                         # Recoil mass (Higgs candidate)
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',                        # Missing energy and mass
-    'H',                                                                    # Higgsstrahlungness
-    'BDTscore'                                                              # BDT score
+    'leading_p', 'leading_pT', 'leading_theta',  # 'leading_phi',             # leading lepton variables
+    'subleading_p', 'subleading_pT', 'subleading_theta',  # 'subleading_phi', # subleading lepton variables
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',  # 'zll_phi',                    # Z boson properties
+    'acolinearity', 'acoplanarity', 'deltaR',                                 # Angular separation variables
+    'zll_recoil_m',                                                           # Recoil mass (Higgs candidate)
+    'visibleEnergy', 'cosTheta_miss', 'missingMass',                          # Missing energy and mass
+    'H',                                                                      # Higgsstrahlungness
+    'BDTscore'                                                                # BDT score
 ]
 
 # Define signal and background samples for AAAyields
@@ -128,10 +127,10 @@ def run(cats, sels, vars, processes, colors, legend):
                 print(f'\n----->[Info] Making plots for {sel} selection\n')
 
             # Generate yields plots unless skipped
-            if not arg.yields: 
+            if not arg.yields:
                 from package.plots.plotting import AAAyields
                 AAAyields('zll_p', inDir, outDir, plots, legend, colors, cat, sel, ecm=ecm, lumi=lumi)
-            
+
             # Generate distribution and decay plots unless all skipped
             if not arg.make or not arg.decay or arg.scan:
                 for var in vars:
@@ -144,14 +143,14 @@ def run(cats, sels, vars, processes, colors, legend):
                             significance(var, inDir, outDir, sel, procs, processes, reverse=reverse)
 
                     # Generate Higgs decay mode plots unless skipped
-                    if not arg.decay: 
+                    if not arg.decay:
                         from package.plots.plotting import args_decay, PlotDecays
                         kwarg_decay = args_decay(var, sel, ecm, lumi, args)
                         # Channel-specific decay plots (linear and log scale)
                         for logY in [False, True]:
                             PlotDecays(var, inDir, outDir, sel, [cat],    H_decays, logY=logY, tot=False, **kwarg_decay)
                             PlotDecays(var, inDir, outDir, sel, z_decays, H_decays, logY=logY, tot=True,  **kwarg_decay)
-                    
+
                     # Generate standard distribution plots unless skipped
                     if not arg.make:
                         from package.plots.plotting import get_args, makePlot
@@ -159,10 +158,9 @@ def run(cats, sels, vars, processes, colors, legend):
                         # Signal vs background plots (linear and log scale)
                         for logY in [False, True]:
                             makePlot(var, inDir, outDir, sel, procs, processes, colors, legend, logY=logY, **kwarg)
-            
+
             # Clear cache after finishing this selection to free memory
             clear_histogram_cache()
-
 
 
 ######################

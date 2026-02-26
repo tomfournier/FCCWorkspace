@@ -9,12 +9,12 @@ from uuid import uuid4
 from datetime import datetime
 from argparse import ArgumentParser
 
-# Start timer for performance tracking
-t = time()
-
 from package.userConfig import loc
 from package.config import timer, warning
 from package.tools.utils import mkdir
+
+# Start timer for performance tracking
+t = time()
 
 
 
@@ -24,24 +24,24 @@ from package.tools.utils import mkdir
 
 parser = ArgumentParser()
 # Define final state: ee or mumu
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
                     choices=['ee', 'mumu'], type=str, default='')
 # Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
 # Define selection strategy
-parser.add_argument('--sel', help='Selection with which you fit the histograms', 
+parser.add_argument('--sel', help='Selection with which you fit the histograms',
                     type=str, default='Baseline')
 
 # Pseudodata parameters
-parser.add_argument('--pert',   help='Target pseudodata size', 
+parser.add_argument('--pert',   help='Target pseudodata size',
                     type=float, default=1.0)
-parser.add_argument('--target', help='Target pseudodata', 
+parser.add_argument('--target', help='Target pseudodata',
                     type=str, default='')
 
 # Fit mode: nominal or bias test; combine channels; timer and print options
 parser.add_argument('--bias',    help='Nominal fit or bias test', action='store_true')
-parser.add_argument('--combine', '--comb', 
+parser.add_argument('--combine', '--comb',
                                  help='Combine the channel to do the fit', action='store_true')
 parser.add_argument('--t',       help='Compute the elapsed time to run the code', action='store_true')
 parser.add_argument('--noprint', help='Do not display the uncertainty', action='store_true')
@@ -67,19 +67,19 @@ args = [arg.cat, arg.ecm, arg.sel]
 # Map fit mode (nominal vs bias) to corresponding directory locations
 location_map = {
     False: {  # Nominal fit
-        'dir': loc.COMBINE_NOMINAL,
-        'dc':  loc.NOMINAL_DATACARD,
-        'ws':  loc.NOMINAL_WS,
-        'log': loc.NOMINAL_LOG,
-        'res': loc.NOMINAL_RESULT,
+        'dir': 'COMBINE_NOMINAL',
+        'dc':  'NOMINAL_DATACARD',
+        'ws':  'NOMINAL_WS',
+        'log': 'NOMINAL_LOG',
+        'res': 'NOMINAL_RESULT',
         'tp':  'nominal'
     },
     True: {   # Bias test fit
-        'dir': loc.COMBINE_BIAS,
-        'dc':  loc.BIAS_DATACARD,
-        'ws':  loc.BIAS_WS,
-        'log': loc.BIAS_LOG,
-        'res': loc.BIAS_FIT_RESULT,
+        'dir': 'COMBINE_BIAS',
+        'dc':  'BIAS_DATACARD',
+        'ws':  'BIAS_WS',
+        'log': 'BIAS_LOG',
+        'res': 'BIAS_FIT_RESULT',
         'tp': 'bias'
     }
 }
@@ -113,7 +113,7 @@ for dir_path in [dc, ws, log, res]:
 ### FITTING PART ###
 ####################
 
-def add_stamp(path: str, 
+def add_stamp(path: str,
               label: str,
               status: str = 'ok'
               ) -> None:
@@ -129,11 +129,12 @@ def add_stamp(path: str,
         log_file.write(stamp)
     print(f'----->[Info] Added STAMP: {ts} | id={uniq} | status={status} | file={label}')
 
-def fitting(dir: str, 
-        dc: str, 
-        ws: str,  
-        tp: str, 
-        dc_comb: str, 
+def fitting(
+        dir: str,
+        dc: str,
+        ws: str,
+        tp: str,
+        dc_comb: str,
         env: os._Environ
         ) -> int:
     """Execute the fitting workflow: combine datacards, create workspace, and run fit."""
@@ -142,7 +143,7 @@ def fitting(dir: str,
     text_status, fit_status = 'not-run', 'not-run'
     try:
         dc_combined = f'{dc}/datacard{tar}{comb}.txt'
-        
+
         # Combine datacards from multiple channels if requested
         if arg.combine:
             dc_mu = f'{dc_comb}/mumu/{tp}/datacard/datacard{tar}.txt'
@@ -150,8 +151,8 @@ def fitting(dir: str,
 
             print('\n----->[Info] Combining datacards')
             with open(dc_combined, 'w') as out:
-                subprocess.run(['combineCards.py', dc_mu, dc_ee], 
-                            stdout=out, env=env, check=True)
+                subprocess.run(['combineCards.py', dc_mu, dc_ee],
+                               stdout=out, env=env, check=True)
 
         # Convert datacard to RooFit workspace
         with open(log_text, 'w') as log_out:
@@ -159,17 +160,17 @@ def fitting(dir: str,
             print(f'{enter}----->[Info] Setting files for the fit')
             subprocess.run(['text2workspace.py', dc_combined, '-v', '10',
                             '--X-allow-no-background', '-m', '125', '-o', ws_file],
-                            stdout=log_out, stderr=subprocess.STDOUT, 
-                            cwd=dir, env=env, check=True)
+                           stdout=log_out, stderr=subprocess.STDOUT,
+                           cwd=dir, env=env, check=True)
         text_status = 'ok'
-        
+
         # Run the maximum likelihood fit
         with open(result_log, 'w') as log_out:
             print('----->[Info] Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '10', '-t', '0', '--expectSignal=1', '-n', 'Xsec'],
-                            stdout=log_out, stderr=subprocess.STDOUT, 
-                            cwd=ws, env=env, check=True)
+                           stdout=log_out, stderr=subprocess.STDOUT,
+                           cwd=ws, env=env, check=True)
         fit_status = 'ok'
         return 0
 
@@ -195,12 +196,12 @@ def fitting(dir: str,
 ##########################
 
 def res_extraction(res_log: str
-                   ) -> tuple[float, 
+                   ) -> tuple[float,
                               float]:
     """Extract signal strength (mu) and uncertainty from fit results log."""
     print('----->[Info] Fit done, extracting results')
     mu, err = -100, -100  # Initialize with error values
-    
+
     # Parse log file for signal strength result
     # (parse from end to find latest result)
     with open(res_log) as file:
@@ -210,10 +211,10 @@ def res_extraction(res_log: str
 
             # Match line format: r = value +/- error (limited)
             if (len(parts)>=6 and
-                parts[0]=='r' and
-                parts[1]=='=' and 
-                parts[3]=='+/-' and
-                parts[-1]=='(limited)'):
+                    parts[0]=='r' and
+                    parts[1]=='=' and
+                    parts[3]=='+/-' and
+                    parts[-1]=='(limited)'):
 
                 mu, err = float(parts[2]), float(parts[4])
                 break
@@ -249,7 +250,6 @@ def res_saving(mu: float,
         print(f'----->[Info] Saved results in {res}/results{tar}.txt')
 
 
-
 ######################
 ### CODE EXECUTION ###
 ######################
@@ -268,4 +268,3 @@ res_saving(mu, err, res)
 # Print execution time if requested
 if __name__=='__main__' and arg.t:
     timer(t)
-    

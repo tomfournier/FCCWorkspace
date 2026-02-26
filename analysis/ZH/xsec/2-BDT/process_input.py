@@ -19,21 +19,21 @@ print('----->[Info] Loading custom modules')
 # Import configuration and utilities
 from package.userConfig import loc
 from package.config import (
-    timer, warning, 
+    timer, warning,
     input_vars
 )
 # Utility functions for file handling and process dictionaries
 from package.tools.utils import (
-    get_paths, 
-    to_pkl, 
-    get_procDict, 
+    get_paths,
+    to_pkl,
+    get_procDict,
     update_keys
 )
 # BDT-specific functions for data processing
 from package.func.bdt import (
-    counts_and_effs, 
-    additional_info, 
-    BDT_input_numbers, 
+    counts_and_effs,
+    additional_info,
+    BDT_input_numbers,
     df_split_data
 )
 
@@ -74,7 +74,7 @@ sels = [
 # Decay modes used in first stage training and their respective file names
 modes = {
     f'Z{cat}H':      f'wzp6_ee_{cat}H_ecm{ecm}',                 # Signal: ZH production
-    f'ZZ':           f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
+    'ZZ':            f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
     f'Z{cat}':       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'  # Background: Z+jets
                      else f'wzp6_ee_mumu_ecm{ecm}',
     f'WW{cat}':      f'p8_ee_WW_{cat}_ecm{ecm}',              # Background: diboson WW
@@ -93,11 +93,11 @@ procDict_name = 'FCCee_procDict_winter2023_training_IDEA.json'
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(inDir: str, 
-        sels:  list[str], 
-        modes: list[str], 
-        vars:  list[str], 
-        sig: str, 
+def run(inDir: str,
+        sels:  list[str],
+        modes: list[str],
+        vars:  list[str],
+        sig: str,
         procDict_name: str
         ) -> None:
     """Process MVA input histograms and prepare BDT training data."""
@@ -108,7 +108,7 @@ def run(inDir: str,
 
     # Extract cross sections for each mode
     xsec = {}
-    for key, value in procDict.items(): 
+    for key, value in procDict.items():
         if key in modes: xsec[key] = value['crossSection']
 
     # Set uniform fraction for all modes
@@ -153,7 +153,6 @@ def run(inDir: str,
         # Combine all modes and save to pickle file
         dfsum = pd.concat([df[mode] for mode in Modes])
         to_pkl(dfsum, outDir)
-
 
 
 ######################

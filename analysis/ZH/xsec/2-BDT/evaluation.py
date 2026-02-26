@@ -23,20 +23,20 @@ print('----->[Info] Loading custom modules')
 from package.userConfig import loc, plot_file
 # Import utilities and plotting configurations
 from package.config import (
-    timer, warning, 
-    input_vars, 
-    modes_label, 
-    modes_color, 
-    vars_label, 
+    timer, warning,
+    input_vars,
+    modes_label,
+    modes_color,
+    vars_label,
     vars_xlabel
 )
 # Utility functions for data loading
 from package.tools.utils import mkdir, load_data
 # BDT model utilities
 from package.func.bdt import (
-    load_model, 
-    get_metrics, 
-    print_stats, 
+    load_model,
+    get_metrics,
+    print_stats,
     evaluate_bdt
 )
 
@@ -49,10 +49,10 @@ from package.func.bdt import (
 # Command-line argument parsing
 parser = ArgumentParser()
 # Define final state: ee or mumu
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
                     choices=['ee', 'mumu'], type=str, default='')
 # Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
 
 parser.add_argument('--metric', help='Do not plot the metrics plots',        action='store_true')
@@ -83,14 +83,14 @@ sels = [
 
 # Decay modes used in first stage training and their respective file names
 modes = {
-  f'Z{cat}H':      f'wzp6_ee_{cat}H_ecm{ecm}',                 # Signal: ZH production
-  f'WW{cat}':      f'p8_ee_WW_{cat}_ecm{ecm}',                 # Background: diboson WW
-  f'ZZ':           f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
-  f'Z{cat}':       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'  # Background: Z+jets
-              else f'wzp6_ee_mumu_ecm{ecm}',
-  f'egamma_{cat}': f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Background: radiative Z
-  f'gammae_{cat}': f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',       # Background: radiative Z
-  f'gaga_{cat}':   f'wzp6_gaga_{cat}_60_ecm{ecm}'           # Background: diphoton
+    f'Z{cat}H':      f'wzp6_ee_{cat}H_ecm{ecm}',                 # Signal: ZH production
+    f'WW{cat}':      f'p8_ee_WW_{cat}_ecm{ecm}',                 # Background: diboson WW
+    'ZZ':            f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
+    f'Z{cat}':       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'  # Background: Z+jets
+                     else f'wzp6_ee_mumu_ecm{ecm}',
+    f'egamma_{cat}': f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Background: radiative Z
+    f'gammae_{cat}': f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',       # Background: radiative Z
+    f'gaga_{cat}':   f'wzp6_gaga_{cat}_60_ecm{ecm}'           # Background: diphoton
 }
 
 
@@ -99,30 +99,30 @@ modes = {
 ### EXECUTION FUNCTION ###
 ##########################
 
-def plot_metrics(df: 'pd.DataFrame', 
-                 bdt: 'xgb.XGBClassifier', 
-                 vars: list[str], 
-                 results: dict[str, 
-                               dict[str, 
-                                    list[float]]], 
-                 x_axis: 'np.ndarray', 
-                 modes: list[str], 
-                 cat: str, 
+def plot_metrics(df: 'pd.DataFrame',
+                 bdt: 'xgb.XGBClassifier',
+                 vars: list[str],
+                 results: dict[str,
+                               dict[str,
+                                    list[float]]],
+                 x_axis: 'np.ndarray',
+                 modes: list[str],
+                 cat: str,
                  outDir: str) -> None:
     """Generate comprehensive BDT evaluation plots."""
 
     # Set LaTeX label based on final state
     if cat=='mumu': label = r'$Z(\mu^+\mu^-)H$'
     elif cat=='ee': label = r'$Z(e^+e^-)H$'
-    else: warning('Invalid final state') 
+    else: warning('Invalid final state')
 
     # Create output directory
     mkdir(outDir)
-    
+
     if not arg.metric:
         from package.plots.eval import (
-            log_loss, classification_error, 
-            AUC, roc, bdt_score, mva_score, 
+            log_loss, classification_error,
+            AUC, roc, bdt_score, mva_score,
             importance, significance, efficiency
         )
 
@@ -130,15 +130,15 @@ def plot_metrics(df: 'pd.DataFrame',
         log_loss(results, x_axis, label, outDir, best_iteration, format=plot_file)
         classification_error(results, x_axis, label, outDir, best_iteration, format=plot_file)
         AUC(results, x_axis, label, outDir, best_iteration, format=plot_file)
-        
+
         # Generate BDT response plots
         roc(df, label, outDir, format=plot_file)
         bdt_score(df, label, outDir, format=plot_file, unity=False, nbins=200)
         mva_score(df, label, outDir, modes, modes_label, modes_color, format=plot_file, unity=False, nbins=200)
-        
+
         # Generate feature and performance analysis plots
         importance(bdt, vars, vars_label, label, outDir, format=plot_file)
-        significance(df, label, outDir, inBDT, format=plot_file, weight='norm_weight') # weights
+        significance(df, label, outDir, inBDT, format=plot_file, weight='norm_weight')  # weights
         efficiency(df, modes, modes_label, modes_color, label, outDir, incr=1e-3, format=plot_file)
 
     if arg.tree:
@@ -151,11 +151,11 @@ def plot_metrics(df: 'pd.DataFrame',
         for var in vars:
             print(f'------>Plotting histogram for {var}')
             hist_check(
-                df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var], 
+                df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
                 yscale='linear', suffix='_lin', format=plot_file, strict=True
             )
             hist_check(
-                df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var], 
+                df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
                 yscale='log', suffix='_log', format=plot_file, strict=True
             )
     if arg.hl:
@@ -168,20 +168,20 @@ def plot_metrics(df: 'pd.DataFrame',
         for var in vars:
             print(f'------>Plotting histogram for {var}')
             hist_check(
-                df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var], 
+                df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
                 yscale='linear', suff='high', suffix='_lin', format=plot_file, strict=True
             )
             hist_check(
-                df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var], 
+                df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
                 yscale='log', suff='high', suffix='_log', format=plot_file, strict=True
             )
-            
+
             hist_check(
-                df_low, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var], 
+                df_low, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
                 yscale='linear', suff='low', suffix='_lin', format=plot_file, strict=True
             )
             hist_check(
-                df_low, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var], 
+                df_low, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
                 yscale='log', suff='low', suffix='_log', format=plot_file, strict=True
             )
 
@@ -208,19 +208,19 @@ if __name__=='__main__':
         print(f'----->[Info] Getting DataFrame from {sel}\n')
         df = load_data(inDir)
         print_stats(df, Modes)
-        
+
         # Load trained BDT model
         print('\n----->[Info] Loading BDT')
         bdt = load_model(inBDT)
-        
+
         # Apply BDT to data and calculate scores
         print('----->[Info] Evaluating BDT')
         df = evaluate_bdt(df, bdt, input_vars)
-        
+
         # Extract training metrics
         print('----->[Info] Extracting metrics from BDT')
         results, epochs, x_axis, best_iteration = get_metrics(bdt)
-        
+
         # Generate all evaluation plots
         print('\n----->[Info] Plotting the metrics for the BDT')
         plot_metrics(df, bdt, input_vars, results, x_axis, Modes, cat, outDir)

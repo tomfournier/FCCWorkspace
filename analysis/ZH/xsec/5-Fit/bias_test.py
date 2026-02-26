@@ -16,7 +16,7 @@ t = time()
 from package.userConfig import loc
 
 from package.config import (
-    timer, warning, 
+    timer, warning,
     z_decays, h_decays, H_decays,
     mk_processes,
 )
@@ -33,17 +33,17 @@ from package.func.bias import pseudo_datacard
 
 parser = ArgumentParser()
 # Define final state: ee or mumu
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', 
+parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
                     choices=['ee', 'mumu'], type=str, default='')
 # Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', 
+parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
 # Define selection strategy
-parser.add_argument('--sel', help='Selection with which you fit the histograms', 
+parser.add_argument('--sel', help='Selection with which you fit the histograms',
                     type=str, default='Baseline')
 
 # Bias test parameters
-parser.add_argument('--pert',    help='Prior uncertainty on ZH cross-section used for the bias test', 
+parser.add_argument('--pert',    help='Prior uncertainty on ZH cross-section used for the bias test',
                     type=float, default=1.05)
 
 # Fit execution flags
@@ -57,8 +57,8 @@ parser.add_argument('--polR', help='Scale to right polarization', action='store_
 parser.add_argument('--ILC',  help='Scale to ILC luminosity',     action='store_true')
 
 # Additional fit options (freeze, float, plot_dc, polarization, etc.)
-parser.add_argument('--extra',   help='Extra argument for the fit', 
-                    choices=['tot', 'onlyrun', 't'], 
+parser.add_argument('--extra',   help='Extra argument for the fit',
+                    choices=['tot', 'onlyrun', 't'],
                     nargs='*',  default=[])
 # Combine channels option
 parser.add_argument('--combine', '--comb', help='Combine the channel to do the fit', action='store_true')
@@ -138,15 +138,15 @@ def _setup_cache() -> None:
 ### FUNCTIONS ###
 #################
 
-def run_fit(target: str, 
-            pert: float, 
+def run_fit(target: str,
+            pert: float,
             cmd_args: list[str],
             cat: str,
             ecm: int,
             sel: str,
             ) -> float:
     """Generate pseudodata and run pseudodata fit for a Higgs decay mode.
-    
+
     Calls pseudodata generation directly (shares cached histograms),
     then runs fit via subprocess.
     """
@@ -154,7 +154,7 @@ def run_fit(target: str,
     tot = 'tot' not in arg.extra
     decays = h_decays if target!='inv' else H_decays
     pseudo_datacard(
-        h_inDir, inDir, 
+        h_inDir, inDir,
         cat, ecm, target, pert,
         z_decays, decays,
         processes,
@@ -165,7 +165,7 @@ def run_fit(target: str,
     # Now run the fit via subprocess (fit.py only, datacard already exists)
     cmd = ['python3', '5-Fit/fit.py', '--bias', '--target', target,
            '--pert', str(pert), '--ecm', str(ecm), '--noprint'] + cmd_args
-    
+
     result = subprocess.run(cmd, check=False, capture_output=False, text=True, env=os.environ.copy())
     if result.returncode != 0:
         print(f"----->[Error] Fit subprocess failed (exit {result.returncode}) while running {cmd}")
@@ -176,8 +176,8 @@ def run_fit(target: str,
     mu = np.loadtxt(f'{inputdir}/results_{target}.txt')[0]
     return mu
 
-def get_bias(inDir: str, 
-             outDir: str, 
+def get_bias(inDir: str,
+             outDir: str,
              h_decays: list[str],
              cat: str,
              sel: str,
@@ -185,7 +185,7 @@ def get_bias(inDir: str,
              cmd_args: list[str],
              ecm: int = 240,
              lumi: float = 10.8
-             ) -> tuple[pd.DataFrame, 
+             ) -> tuple[pd.DataFrame,
                         list[float]]:
     """Run bias test for all Higgs decay modes and generate pseudodata plots."""
 
@@ -193,7 +193,7 @@ def get_bias(inDir: str,
     bias = [0.0] * len(h_decays)
 
     _setup_cache()
-    
+
     for idx, h_decay in enumerate(h_decays):
         print(f'----->[Info] Running fit for {h_decay} channel')
 
@@ -210,7 +210,7 @@ def get_bias(inDir: str,
             args = {
                 'inDir': inDir, 'outDir': outDir,
                 'cat': cat, 'target': h_decay,
-                'procs': ['ZH' if 'tot' not in arg.extra else f'Z{cat}H', 
+                'procs': ['ZH' if 'tot' not in arg.extra else f'Z{cat}H',
                           'WW', 'ZZ', 'Zgamma', 'Rare'],
                 'ecm': ecm, 'lumi': lumi, 'pert': pert
             }
@@ -220,7 +220,7 @@ def get_bias(inDir: str,
                 PseudoRatio(**args, sel=sel_full)
 
     # Save bias results to CSV file
-    print(f'----->[Info] Saving bias in a .csv file')
+    print('----->[Info] Saving bias in a .csv file')
     df = pd.DataFrame({'mode':h_decays, 'bias':bias})
 
     result_csv = f'{loc_result}/bias_results.csv'
@@ -230,13 +230,13 @@ def get_bias(inDir: str,
     return df, bias
 
 
-def bias_to_txt(outDir: str, 
-                bias: list[float], 
+def bias_to_txt(outDir: str,
+                bias: list[float],
                 h_decays: list[str]
                 ) -> None:
     """Format and save bias results to a text file with fixed-width columns."""
-    
-    print(f'----->[Info] Saving bias in a .txt file')
+
+    print('----->[Info] Saving bias in a .txt file')
 
     out = f'{outDir}/bias_results.txt'
     ndecays, col_w = len(h_decays), 15
@@ -257,9 +257,8 @@ def bias_to_txt(outDir: str,
     with open(out, 'w') as f:
         for row in [header, sep, row_3dec, row_2dec]:
             f.write(row + '\n')
-    
-    print(f'----->[Info] Bias saved at {out}')
 
+    print(f'----->[Info] Bias saved at {out}')
 
 
 ######################
@@ -272,19 +271,19 @@ if __name__=='__main__':
 
     # Run bias test for all decay modes
     df, bias = get_bias(
-        inDir, h_inDir, loc_result, H_decays, 
+        inDir, h_inDir, loc_result, H_decays,
         cat, sel, pert, cmd_args,
         ecm=ecm, lumi=lumi
     )
-    
+
     # Generate bias summary plots
-    print(f'----->[Info] Making plot of the bias')
+    print('----->[Info] Making plot of the bias')
     Bias(df, nomDir, loc_result, H_decays, ecm=ecm, lumi=lumi)
 
     # Save bias results to formatted text file
     bias_to_txt(loc_result, bias, H_decays)
 
     clear_histogram_cache()
-    
+
     # Print execution time
     timer(t)

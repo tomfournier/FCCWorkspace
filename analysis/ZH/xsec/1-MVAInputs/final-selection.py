@@ -42,7 +42,7 @@ doTree = True
 
 # Scale yields to integrated luminosity
 doScale = True
-intLumi = lumi * 1e6 # in pb-1
+intLumi = lumi * 1e6  # in pb-1
 
 
 
@@ -56,12 +56,12 @@ samples_BDT = [
     f'wzp6_ee_{cat}H_ecm{ecm}',
 
     # Main backgrounds: diboson and Z+jets
-    f'p8_ee_ZZ_ecm{ecm}', 
-    f'p8_ee_WW_{cat}_ecm{ecm}', 
+    f'p8_ee_ZZ_ecm{ecm}',
+    f'p8_ee_WW_{cat}_ecm{ecm}',
     f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee' else f'wzp6_ee_mumu_ecm{ecm}',
 
     # Rare backgrounds: radiative and diphton
-    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', 
+    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
     f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
     f'wzp6_gaga_{cat}_60_ecm{ecm}'
 ]
@@ -85,7 +85,7 @@ rec_cut = ' && zll_recoil_m > 100 && zll_recoil_m < 150' if ecm==365 else ''
 Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
 
 # Selection cuts dictionary (key = selection name used in outputs)
-cutList = { 
+cutList = {
     # 'sel0':     'return true;',
     'Baseline': Baseline_Cut
 }
@@ -110,7 +110,7 @@ histoList = {
 
     'leading_theta':    {'name':'leading_theta',
                          'title':'#theta_{l,leading}',
-                         'bin':128, 'xmin':0,  'xmax':3.2},
+                         'bin':128, 'xmin':0, 'xmax':3.2},
 
     'leading_phi':      {'name':'leading_phi',
                          'title':'#phi_{l,leading}',
@@ -127,8 +127,8 @@ histoList = {
 
     'subleading_theta': {'name':'subleading_theta',
                          'title':'#theta_{l,subleading}',
-                         'bin':128, 'xmin':0,  'xmax':3.2},
-    
+                         'bin':128, 'xmin':0, 'xmax':3.2},
+
     'subleading_phi':   {'name':'subleading_phi',
                          'title':'#phi_{l,subleading}',
                          'bin':64,'xmin':-3.2,'xmax':3.2},
@@ -141,11 +141,11 @@ histoList = {
     'acoplanarity':     {'name':'acoplanarity',
                          'title':'#Delta#phi_{l^{+}l^{-}}',
                          'bin':128,'xmin':0,'xmax':3.2},
-    
+
     'deltaR':           {'name':'deltaR',
                          'title':'#DeltaR',
                          'bin':100,'xmin':1,'xmax':7},
-    
+
     # Z boson properties
     'zll_m':            {'name':'zll_m',
                          'title':'m_{l^{+}l^{-}} [GeV]',
@@ -166,17 +166,17 @@ histoList = {
     'zll_phi':          {'name':'zll_phi',
                          'title':'#phi_{l^{+}l^{-}}',
                          'bin':64,'xmin':-3.2,'xmax':3.2},
-    
+
     # Recoil mass (Higgs candidate)
     'zll_recoil_m':     {'name':'zll_recoil_m',
                          'title':'m_{recoil} [GeV]',
                          'bin':100,'xmin':100,'xmax':150},
-    
+
     # Visible and invisible information
     'cosTheta_miss':    {'name':'cosTheta_miss',
                          'title':'|cos#theta_{miss}|',
                          'bin':1000,'xmin':0,'xmax':1},
-    
+
     'visibleEnergy':    {'name':'visibleEnergy',
                          'title':'E_{vis} [GeV]',
                          'bin':700,'xmin':0,'xmax':350},
@@ -184,7 +184,7 @@ histoList = {
     'missingMass':      {'name':'missingMass',
                          'title':'m_{miss} [GeV]',
                          'bin':700,'xmin':0,'xmax':350},
-    
+
     # Higgsstrahlungness
     'H':                {'name':'H',
                          'title':'Higgsstrahlungness [GeV^{2}]',

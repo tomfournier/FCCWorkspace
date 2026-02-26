@@ -55,15 +55,15 @@ sig_procs = {'sig': samples_sig}
 # Define background processes: ZZ, WW, Z/gamma, and rare processes
 bkg_procs = {
     'ZZ':    event([f'p8_ee_ZZ_ecm{ecm}'], inDir),
-    'WW':    event([f'p8_ee_WW_ecm{ecm}', 
-                    f'p8_ee_WW_ee_ecm{ecm}', 
+    'WW':    event([f'p8_ee_WW_ecm{ecm}',
+                    f'p8_ee_WW_ee_ecm{ecm}',
                     f'p8_ee_WW_mumu_ecm{ecm}'], inDir),
-    'Zgamma':event([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}', 
-                    f'wzp6_ee_mumu_ecm{ecm}', 
+    'Zgamma':event([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+                    f'wzp6_ee_mumu_ecm{ecm}',
                     f'wzp6_ee_tautau_ecm{ecm}'], inDir),
-    'Rare':  event([f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', 
+    'Rare':  event([f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
                     f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-                    f'wzp6_gaga_{cat}_60_ecm{ecm}', 
+                    f'wzp6_gaga_{cat}_60_ecm{ecm}',
                     f'wzp6_gaga_tautau_60_ecm{ecm}',
                     f'wzp6_ee_nuenueZ_ecm{ecm}'], inDir)
 }
