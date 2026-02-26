@@ -1,0 +1,12 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "cmake.ignoreCMakeListsMissing": true,
+        "python.envFile": "${workspaceFolder}/env_fccanalysis.txt",
+        "git.ignoreLimitWarning": true,
+    }
+}
