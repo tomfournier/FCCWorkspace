@@ -52,7 +52,7 @@ build/
 # IDE specific files #
 ######################
 *.idea
-*.vscode
+# *.vscode
 *.suo
 *.ntvs*
 *.njsproj
