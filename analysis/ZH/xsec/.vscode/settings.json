@@ -1,0 +1,9 @@
+{
+    "flake8.args": [
+        "--isolated",
+        "--ignore=B006, B007, B019, E701, E702, E272, E704, E741, E402, E266, E303, E225, E231, E241, E501, E221, E226, E126, E271, E302, E401, W504"
+    ],
+    "cmake.ignoreCMakeListsMissing": true,
+    "python.envFile": "${workspaceFolder}../../../env_fccanalysis.txt",
+    // "python.envFile": "${workspaceFolder}../../../env_combinedlimit.txt",
+}

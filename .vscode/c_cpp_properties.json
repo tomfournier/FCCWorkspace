@@ -1,0 +1,36 @@
+{
+    "configurations": [
+        {
+            "name": "FCCAnalyses",
+            "includePath": [
+                "${workspaceFolder}/FCCAnalyses/**",
+                "${workspaceFolder}/functions",
+                "/usr/include/root",
+                "/usr/include"
+            ],
+            "defines": [],
+            "cStandard": "c11",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "gcc-x64",
+            "compileCommands": [
+                "${workspaceFolder}/FCCAnalyses/build/compile_commands.json"
+            ],
+            "configurationProvider": "ms-vscode.cmake-tools"
+        },
+        {
+            "name": "Combined-Limit",
+            "includePath": [
+                "${workspaceFolder}/HiggsAnalysis/CombinedLimit/**"
+            ],
+            "defines": [],
+            "cStandard": "c11",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "gcc-x64",
+            "compileCommands": [
+                "${workspaceFolder}/HiggsAnalysis/CombinedLimit/build/compile_commands.json"
+            ],
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ],
+    "version": 4
+}
