@@ -6,7 +6,7 @@
     ],
     "settings": {
         "cmake.ignoreCMakeListsMissing": true,
-        "python.envFile": "${workspaceFolder}/env_fccanalysis.txt",
+        "python.envFile": "${workspaceFolder}/envs/fccanalysis.txt",
         "git.ignoreLimitWarning": true,
     }
 }

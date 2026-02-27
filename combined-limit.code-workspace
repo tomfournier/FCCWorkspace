@@ -6,6 +6,6 @@
     ],
     "settings": {
         "cmake.ignoreCMakeListsMissing": true,
-        "python.envFile": "${workspaceFolder}/env_combinedlimit.txt",
+        "python.envFile": "${workspaceFolder}/envs/combinedlimit.txt",
     }
 }
