@@ -55,7 +55,7 @@ if [ -d "$ENV_PATH" ]; then
     echo "> environment at ${ENV_PATH} already exist"
     echo "  if you want to recreate this environment, remove it and re-execute this script"
     echo "  if you want to install the modules in requirements.txt, you can run:"
-    echo "  ${PYTHON_CMD} -m pip install -r ${PARENTDIR}/requirements.txt"
+    echo "  ${PYTHON_CMD} -m pip install -r ${ROOTDIR}/requirements.txt"
     exit 0
 fi
 
@@ -72,7 +72,7 @@ if [ -e "${PARENTDIR}/requirements.txt" ]; then
     echo "> requirements.txt is present, will download the required modules"
     echo "  you can also add modules after having activated the environment with:"
     echo "  pip install <module_names>"
-    "$PYTHON_CMD" -m pip install -r "${PARENTDIR}/requirements.txt" || exit 1
+    "$PYTHON_CMD" -m pip install -r "${ROOTDIR}/requirements.txt" || exit 1
 fi
 
 echo ""
