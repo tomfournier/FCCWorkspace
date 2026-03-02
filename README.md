@@ -88,13 +88,15 @@ source setup/install_env.sh <env_name>
 
 with `<env_name>` either `fccanalysis`, `combined-limit`, `default` or nothing. If you don't put any argument, `default` will be taken. These 3 arguments are possible in case you need different environments for `FCCAnalyses` and `Combined-Limit`, the default one is there just in case. If you need more environments, you can modify `setup/install_env.sh` to add a new argument, you'll just have to follow the syntax of the script.
 
+`setup/install_env.sh` will install the required modules that are in `setup/requirements.txt`. If you modify the repository by adding a new module, add it to `setup/requirements.txt`.
+
 Since these environment use `pip` to install the modules, `ROOT` won't directly available which will cause conflict if you use these environment on a `Jupyter` notebook in VSCode for example as VSCode won't detect `ROOT`. It is thus recommended to use these environment if you already setup `ROOT` before starting VSCode or if you use this environment by executing your scripts on the terminal.
 
 ## VSCode setup
 
 If you want to use VSCode to use this repository, it is recommended that you sourced `ROOT` before executing VSCode as it won't detect `ROOT` otherwise. `.vscode` folder were put in `FCCWorkspace/` and `analysis/ZH/xsec/` for `C/C++` and `python` IntelliSense.
 
-Workspace specific settings were written in `fccanalysis.code-workspace` and `combined-limit.code-workspace` for `FCCAnalyses` or `Combined-Limit` specific IntelliSense. You can choose to put these settings in `settings.json` if you only need only one specific IntelliSense.
+Workspace specific settings were written in `workspace/fccanalysis.code-workspace` and `workspace/combined-limit.code-workspace` for `FCCAnalyses` or `Combined-Limit` specific IntelliSense. You can choose to put these settings in `settings.json` if you only need only one specific IntelliSense.
 
 If you find a way to have workspace specific settings in `settings.json` for `python`. Contact me as I would be very interested in it.
 
