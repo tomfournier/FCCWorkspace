@@ -2,7 +2,11 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, subprocess, sys
+import os, sys, subprocess
+from pathlib import Path
+
+# Add workspace root to path so package imports work
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from time import time
 from uuid import uuid4
@@ -136,7 +140,7 @@ def fitting(
         tp: str,
         dc_comb: str,
         env: os._Environ
-        ) -> int:
+         ) -> int:
     """Execute the fitting workflow: combine datacards, create workspace, and run fit."""
 
     # Track status of each fitting step

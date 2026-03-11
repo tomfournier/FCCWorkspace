@@ -3,6 +3,10 @@
 ##########################################################
 
 import os, sys, subprocess
+from pathlib import Path
+
+# Add workspace root to path so package imports work
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import numpy as np
 import pandas as pd

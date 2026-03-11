@@ -5,14 +5,10 @@
 import os
 
 # Analysis configuration and paths
-from package.userConfig import (
-    loc, get_params,
-    frac, nb
-)
+from package.userConfig import loc, get_params
+from package.sel.final.leptonic import histos_ll
 
 cat, ecm, lumi = get_params(os.environ.copy(), '1-run.json', is_final=True)
-if cat not in ['ee', 'mumu']:
-    raise ValueError(f'Invalid channel: {cat}. Must be "ee" or "mumu"')
 
 
 
@@ -21,17 +17,14 @@ if cat not in ['ee', 'mumu']:
 #############################
 
 # Input directory for pre-selection outputs
-# inputDir = get_loc(loc.EVENTS_TRAINING, cat, ecm, '')
-inputDir = loc.get('EVENTS_TRAINING', cat, ecm)
-
+inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
+# inputDir = loc.get('EVENTS_TRAINING', cat, ecm)
 # Output directory for final-selection histograms
-# outputDir = get_loc(loc.HIST_MVA, cat, ecm, '')
 outputDir = loc.get('HIST_MVA', cat, ecm)
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
-
 # If procDict is incomplete, can use procDictAdd to add information on the missing samples
 
 # Parallel processing configuration (default nCPUS=4)
@@ -39,7 +32,6 @@ nCPUS = 10
 
 # Produce ROOT TTrees in addition to histograms (default is False)
 doTree = True
-
 # Scale yields to integrated luminosity
 doScale = True
 intLumi = lumi * 1e6  # in pb-1
@@ -51,7 +43,7 @@ intLumi = lumi * 1e6  # in pb-1
 ################################
 
 # Process samples for BDT (signal + backgrounds)
-samples_BDT = [
+processList = [
     # Signal: ZH production
     f'wzp6_ee_{cat}H_ecm{ecm}',
 
@@ -65,9 +57,6 @@ samples_BDT = [
     f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
     f'wzp6_gaga_{cat}_60_ecm{ecm}'
 ]
-
-# Process list with per-sample parameters (from `param`)
-processList = {i:{'fraction': frac, 'chunks': nb} for i in samples_BDT}
 
 
 
@@ -87,7 +76,8 @@ Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
 # Selection cuts dictionary (key = selection name used in outputs)
 cutList = {
     # 'sel0':     'return true;',
-    'Baseline': Baseline_Cut
+    # 'Baseline': Baseline_Cut,
+    'test': Baseline_Cut
 }
 
 
@@ -97,16 +87,17 @@ cutList = {
 #################################
 
 # Output histogram definitions (name, title, binning)
+histoList = histos_ll
 histoList = {
 
     # Lepton kinematics: leading lepton
     'leading_p':        {'name':'leading_p',
                          'title':'p_{l,leading} [GeV]',
-                         'bin':400,'xmin':0,'xmax':200},
+                         'bin':800,'xmin':0,'xmax':200},
 
     'leading_pT':       {'name':'leading_pT',
                          'title':'p_{T,l,leading} [GeV]',
-                         'bin':400,'xmin':0,'xmax':200},
+                         'bin':800,'xmin':0,'xmax':200},
 
     'leading_theta':    {'name':'leading_theta',
                          'title':'#theta_{l,leading}',
@@ -119,11 +110,11 @@ histoList = {
     # Lepton kinematics: subleading lepton
     'subleading_p':     {'name':'subleading_p',
                          'title':'p_{l,subleading} [GeV]',
-                         'bin':400,'xmin':0,'xmax':200},
+                         'bin':800,'xmin':0,'xmax':200},
 
     'subleading_pT':    {'name':'subleading_pT',
                          'title':'p_{T,l,subleading} [GeV]',
-                         'bin':400,'xmin':0,'xmax':200},
+                         'bin':800,'xmin':0,'xmax':200},
 
     'subleading_theta': {'name':'subleading_theta',
                          'title':'#theta_{l,subleading}',
@@ -136,15 +127,15 @@ histoList = {
     # Angular separation between leptons
     'acolinearity':     {'name':'acolinearity',
                          'title':'#Delta#theta_{l^{+}l^{-}}',
-                         'bin':120,'xmin':0,'xmax':3},
+                         'bin':240,'xmin':0,'xmax':3},
 
     'acoplanarity':     {'name':'acoplanarity',
-                         'title':'#Delta#phi_{l^{+}l^{-}}',
-                         'bin':128,'xmin':0,'xmax':3.2},
+                         'title':'#pi-#Delta#phi_{l^{+}l^{-}}',
+                         'bin':256,'xmin':0,'xmax':3.2},
 
     'deltaR':           {'name':'deltaR',
                          'title':'#DeltaR',
-                         'bin':100,'xmin':1,'xmax':7},
+                         'bin':500,'xmin':1,'xmax':10},
 
     # Z boson properties
     'zll_m':            {'name':'zll_m',
@@ -153,11 +144,11 @@ histoList = {
 
     'zll_p':            {'name':'zll_p',
                          'title':'p_{l^{+}l^{-}} [GeV]',
-                         'bin':500,'xmin':0,'xmax':250},
+                         'bin':2500,'xmin':0,'xmax':250},
 
     'zll_pT':           {'name':'zll_pT',
                          'title':'p_{T,l^{+}l^{-}} [GeV]',
-                         'bin':500,'xmin':0,'xmax':250},
+                         'bin':2500,'xmin':0,'xmax':250},
 
     'zll_theta':        {'name':'zll_theta',
                          'title':'#theta_{l^{+}l^{-}}',
@@ -175,7 +166,7 @@ histoList = {
     # Visible and invisible information
     'cosTheta_miss':    {'name':'cosTheta_miss',
                          'title':'|cos#theta_{miss}|',
-                         'bin':1000,'xmin':0,'xmax':1},
+                         'bin':500,'xmin':0,'xmax':1},
 
     'visibleEnergy':    {'name':'visibleEnergy',
                          'title':'E_{vis} [GeV]',

@@ -3,6 +3,10 @@
 ##########################################################
 
 import os, sys, subprocess
+from pathlib import Path
+
+# Add workspace root to path so package imports work
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from time import time
 from argparse import ArgumentParser

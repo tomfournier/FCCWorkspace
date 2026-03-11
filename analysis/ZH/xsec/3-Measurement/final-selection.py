@@ -17,8 +17,6 @@ from package.config import (
 )
 
 cat, ecm, lumi = get_params(os.environ.copy(), '3-run.json', is_final=True)
-if cat not in ['ee', 'mumu']:
-    raise ValueError(f'Invalid channel: {cat}. Must be "ee" or "mumu"')
 
 
 
@@ -27,7 +25,8 @@ if cat not in ['ee', 'mumu']:
 #############################
 
 # Input directory for pre-selection outputs
-inputDir  = loc.get('EVENTS', cat, ecm)
+inputDir  = loc.get('EVENTS_TEST', cat, ecm)
+# inputDir  = loc.get('EVENTS', cat, ecm)
 
 # Output directory for final-selection histograms
 outputDir = loc.get('HIST_PREPROCESSED', cat, ecm)
@@ -90,7 +89,6 @@ samples_bkg = [
 
 # Signal samples: ee -> Z(ll)H with all Higgs decay modes
 samples_sig = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in H_decays + ('ZZ_noInv',)]
-samples_sig.extend((f'wzp6_ee_eeH_ecm{ecm}', f'wzp6_ee_mumuH_ecm{ecm}', f'wzp6_ee_ZH_Hinv_ecm{ecm}'))
 
 # Load event samples with events TTree
 samples = event(samples_sig + samples_bkg, inputDir)
@@ -138,10 +136,11 @@ vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' &&
 # Selection cut dictionary (key = selection name used in outputs)
 cutList = {
     'Baseline':          Baseline_Cut,
-    'Baseline_vis':      vis,
-    'Baseline_inv':      inv,
-    'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
-    'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
+    # 'Baseline_vis':      vis,
+    # 'Baseline_inv':      inv,
+    # 'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
+    # 'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
+    # 'test':              Baseline_Cut
 }
 
 # List of selections to split into high/low BDT score regions
@@ -149,6 +148,7 @@ sels = [
     'Baseline',
     'Baseline_miss',
     'Baseline_sep',
+    'test'
 ]
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
@@ -158,6 +158,11 @@ cutList = make_high_low(cutList, bdt_cut, sels)
 #################################
 ### DEFINE HISTOGRAM SETTINGS ###
 #################################
+
+customHists = {
+    'leps_iso': {'name':'ConeIsolation', 'title':'I_{rel}'},
+    'leps_no':  {'name':'n_leptons', 'title':'N_{#ell}'}
+}
 
 # Output histogram definitions (name, title, binning)
 histoList = {
@@ -199,15 +204,15 @@ histoList = {
     # Angular separation between leptons
     'acolinearity':     {'name':'acolinearity',
                          'title':'#Delta#theta_{l^{+}l^{-}}',
-                         'bin':120,'xmin':0,'xmax':3},
+                         'bin':240,'xmin':0,'xmax':3},
 
     'acoplanarity':     {'name':'acoplanarity',
-                         'title':'#Delta#phi_{l^{+}l^{-}}',
+                         'title':'#pi-#Delta#phi_{l^{+}l^{-}}',
                          'bin':128,'xmin':0,'xmax':3.2},
 
     'deltaR':           {'name':'deltaR',
                          'title':'#DeltaR',
-                         'bin':100,'xmin':0,'xmax':10},
+                         'bin':200,'xmin':0,'xmax':10},
 
     # Z boson properties
     'zll_m':            {'name':'zll_m',

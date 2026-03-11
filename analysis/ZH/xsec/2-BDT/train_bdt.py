@@ -53,8 +53,8 @@ if arg.cat=='':
 cat, ecm = arg.cat, arg.ecm
 # Selection strategies for BDT training
 sels = [
-    'Baseline',
-    # 'test'
+    # 'Baseline',
+    'test'
 ]
 
 # Process modes for training (signal vs various backgrounds)
@@ -100,7 +100,7 @@ def run(sels: list[str],
         inDir  = loc.get('MVA_INPUTS', cat, ecm, sel)
         outDir = loc.get('BDT',        cat, ecm, sel)
 
-        if 'Baseline' in sel and cat=='ee' and ecm==365:
+        if cat=='ee' and ecm==365:
             if 'gaga_ee' in modes:
                 Modes = [m for m in modes if m!='gaga_ee']
         else:

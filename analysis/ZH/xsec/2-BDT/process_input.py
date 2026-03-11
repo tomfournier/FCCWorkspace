@@ -67,8 +67,8 @@ inDir = loc.get('HIST_MVA', cat, ecm)
 
 # Selection strategies to process
 sels = [
-    'Baseline',
-    # 'test'
+    # 'Baseline',
+    'test'
 ]
 
 # Decay modes used in first stage training and their respective file names
@@ -121,7 +121,7 @@ def run(inDir: str,
         # Initialize storage for each mode
         files, df, eff, N_events = {}, {}, {}, {}
 
-        if 'Baseline' in sel and cat=='ee' and ecm==365:
+        if cat=='ee' and ecm==365:
             Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}
         else:
             Modes = modes.copy()

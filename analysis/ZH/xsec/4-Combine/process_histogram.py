@@ -52,8 +52,9 @@ hNames = ['zll_recoil_m']
 # Selection strategies to apply
 sels = [
     'Baseline',
-    'Baseline_miss',
-    'Baseline_sep'
+    # 'Baseline_miss',
+    # 'Baseline_sep',
+    # 'test'
 ]
 
 # Define cross-section scaling factors based on polarization or luminosity

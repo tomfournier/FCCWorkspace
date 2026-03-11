@@ -11,8 +11,8 @@ t = time()
 from package.userConfig import loc
 
 from package.config import (
-    timer, mk_processes, 
-    z_decays, H_decays, 
+    timer, mk_processes,
+    z_decays, H_decays,
     colors, labels
 )
 from package.tools.utils import high_low_sels
@@ -54,9 +54,10 @@ lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 # Selection strategies to plot
 sels = [
     'Baseline',
-    'Baseline_miss',
-    'Baseline_sep',
-    'Baseline_vis', 'Baseline_inv',
+    # 'Baseline_miss',
+    # 'Baseline_sep',
+    # 'Baseline_vis', 'Baseline_inv',
+    # 'test'
 ]
 hl = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
 sels = high_low_sels(sels, hl)
@@ -79,7 +80,8 @@ variables = [
     'zll_recoil_m',                                                           # Recoil mass (Higgs candidate)
     'visibleEnergy', 'cosTheta_miss', 'missingMass',                          # Missing energy and mass
     'H',                                                                      # Higgsstrahlungness
-    'BDTscore'                                                                # BDT score
+    'BDTscore',                                                               # BDT score
+    'leps_iso', 'leps_no'
 ]
 
 # Define signal and background samples for AAAyields
@@ -123,8 +125,8 @@ def run(cats, sels, vars, processes, colors, legend):
             if not arg.yields or not arg.make or not arg.decay or arg.scan:
                 # Preload all histograms for this selection to avoid repeated file I/O
                 all_procs = [p for proc in processes.values() for p in proc]
+                print(f'\n----->[Info] Making plots for {sel} selection')
                 preload_histograms(all_procs, inDir, suffix=f'_{sel}_histo', hNames=vars)
-                print(f'\n----->[Info] Making plots for {sel} selection\n')
 
             # Generate yields plots unless skipped
             if not arg.yields:

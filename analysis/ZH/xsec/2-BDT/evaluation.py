@@ -64,7 +64,6 @@ arg = parser.parse_args()
 # Validate that final state was selected
 if arg.cat=='':
     warning(log_msg='Final state was not selected, please select one to run this script')
-    exit(1)
 
 
 
@@ -78,7 +77,7 @@ cat, ecm = arg.cat, arg.ecm
 # Selection strategies to evaluate
 sels = [
     'Baseline',
-    # 'test'
+    'test'
 ]
 
 # Decay modes used in first stage training and their respective file names
@@ -138,7 +137,7 @@ def plot_metrics(df: 'pd.DataFrame',
 
         # Generate feature and performance analysis plots
         importance(bdt, vars, vars_label, label, outDir, format=plot_file)
-        significance(df, label, outDir, inBDT, format=plot_file, weight='norm_weight')  # weights
+        significance(df, label, outDir, inBDT, format=plot_file, weight='weights')  # norm_weight
         efficiency(df, modes, modes_label, modes_color, label, outDir, incr=1e-3, format=plot_file)
 
     if arg.tree:
@@ -199,7 +198,7 @@ if __name__=='__main__':
         inBDT  = loc.get('BDT',         cat, ecm, sel)
         data_path = loc.get('HIST_MVA', cat, ecm, sel)
 
-        if 'Baseline' in sel and cat=='ee' and ecm==365:
+        if cat=='ee' and ecm==365:
             Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}
         else:
             Modes = modes.copy()

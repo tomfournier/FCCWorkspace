@@ -33,6 +33,11 @@ yaxis          = ['lin','log']
 stacksig       = ['nostack']
 formats        = plot_file
 outdir         = loc.get('PLOTS_MVA', cat, ecm)
+scaleSig       = 1.
+scaleBkg       = 1.
+strictRange    = True
+setGrid        = True
+customLabel    = 'Training sample'
 
 # Variables to plot from pre-selection outputs
 variables = [
@@ -69,14 +74,16 @@ variables = [
 # The name of the selections should be the same than in the final selection
 selections = {}
 selections['ZH'] = [
-    'sel0',
-    'Baseline'
+    # 'sel0',
+    # 'Baseline',
+    'test'
 ]
 
 # Extra labels to display under plot titles per selection
 extralabel = {}
 extralabel['sel0'] = 'No cut'
 extralabel['Baseline'] = 'Baseline'
+extralabel['test'] = 'New #Delta#theta_{l^{+}l^{-}} definition'
 
 # Plot configuration: signal and backgrounds per analysis
 plots = {}
@@ -89,9 +96,13 @@ plots['ZH'] = {
         'ZZ':         [f'p8_ee_ZZ_ecm{ecm}'],
         f'Z{cat}':    [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'
                        else f'wzp6_ee_mumu_ecm{ecm}'],
+        # 'Rare':       [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
+        #                f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
+        #                f'wzp6_gaga_{cat}_60_ecm{ecm}'],
         'eeZ':        [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
                        f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],
-        f'gaga{cat}': [f'wzp6_gaga_{cat}_60_ecm{ecm}']}
+        f'gaga{cat}': [f'wzp6_gaga_{cat}_60_ecm{ecm}']
+    }
 }
 
 # Color palette for each process in the legend
@@ -103,6 +114,7 @@ colors[f'Z{cat}']    = ROOT.kCyan
 colors['eeZ']        = ROOT.kSpring+10
 colors[f'WW{cat}']   = ROOT.kBlue+1
 colors[f'gaga{cat}'] = ROOT.kBlue-8
+colors['Rare']       = ROOT.kBlue-8
 
 # Legend labels used in ROOT plots
 legend = {}
@@ -115,10 +127,12 @@ legend['WW']       = 'W^{+}W^{-}'
 
 legend['ZZ']       = 'ZZ'
 
-legend['Zmumu']    = 'Z/#gamma#rightarrow #mu^{+}#mu^{-}'
-legend['Zee']      = 'Z/#gamma#rightarrow e^{+}e^{-}'
+legend['Zmumu']    = 'Z/#gamma^{*}#rightarrow #mu^{+}#mu^{-}'
+legend['Zee']      = 'Z/#gamma^{*}#rightarrow e^{+}e^{-}'
 
 legend['eeZ']      = 'e^{+}(e^{-})#gamma'
 
 legend['gagamumu'] = '#gamma#gamma#rightarrow#mu^{+}#mu^{-}'
 legend['gagaee']   = '#gamma#gamma#rightarrow e^{+}e^{-}'
+
+legend['Rare']     = 'Rare'
