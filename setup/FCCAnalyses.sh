@@ -7,6 +7,7 @@
 # Set LOCAL_DIR to the FCCWorkspace
 export ROOTDIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 export LOCAL_DIR="$(dirname "$ROOTDIR")"
+WORKSPACE_DIR="$LOCAL_DIR"
 cd "$LOCAL_DIR"
 
 # Source Key4hep and setup script
@@ -85,8 +86,8 @@ cd ../
 echo -e "\nMaking alias for fast rebuilding"
 echo "If you want to compile FCCAnalyses, run: build_fcc"
 echo -e "If you want to recompile FCCAnalyses from scratch, run: rebuild_fcc\n"
-alias build_fcc='(cd "${LOCAL_DIR}" && source setup_FCCAnalyses.sh build)'
-alias rebuild_fcc='(cd "${LOCAL_DIR}" && source setup_FCCAnalyses.sh rebuild)'
+alias build_fcc="(cd "${WORKSPACE_DIR}" && source setup/FCCAnalyses.sh build)"
+alias rebuild_fcc="(cd "${WORKSPACE_DIR}" && source setup/FCCAnalyses.sh rebuild)"
 
 echo "You can also run 'fccanalysis build -j8' for default compiling"
 

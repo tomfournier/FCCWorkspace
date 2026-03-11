@@ -89,8 +89,8 @@ cd ../../
 echo -e "\nMaking alias for fast rebuilding"
 echo "If you want to compile Combined-Limit, run: build_combine"
 echo -e "If you want to recompile Combined-Limit from scratch, run: rebuild_combined\n"
-alias build_combine='(cd "${LOCAL_DIR}" && source setup_CombinedLimit.sh build)'
-alias rebuild_combine='(cd "${LOCAL_DIR}" && source setup_CombinedLimit.sh rebuild)'
+alias build_combine='(cd "${LOCAL_DIR}" && source setup/CombinedLimit.sh build)'
+alias rebuild_combine='(cd "${LOCAL_DIR}" && source setup/CombinedLimit.sh rebuild)'
 
 # Writting PYTHONPATH for VSCode to detect the environment
 echo -e "\nWritting PYTHONPATH into env_combinedlimit.sh.txt for VSCode"
