@@ -18,11 +18,17 @@ Functions:
 - `presel_ll()`: Apply preselection with full cutflow chain.
 """
 
+from typing import TYPE_CHECKING, Union
+if TYPE_CHECKING:
+    import ROOT
+
 ########################
 ### HELPER FUNCTIONS ###
 ########################
 
-def _setup_alias(df, cat: str):
+def _setup_alias(df: 'ROOT.ROOT.RDataFrame',
+                 cat: str
+                 ) -> 'ROOT.ROOT.RDataFrame':
     """Attach collection aliases based on final state.
 
     Args:
@@ -42,7 +48,7 @@ def _setup_alias(df, cat: str):
         df = df.Alias('Lepton0', 'Electron#0.index')
     else:
         raise ValueError(f'cat {cat} not supported')
-    
+
     # Alias for MC truth matching and particle collections
     df = df.Alias('MCRecoAssociations0', 'MCRecoAssociations#0.index')
     df = df.Alias('MCRecoAssociations1', 'MCRecoAssociations#1.index')
@@ -52,7 +58,8 @@ def _setup_alias(df, cat: str):
     return df
 
 
-def _lesp_properties(df):
+def _lesp_properties(df: 'ROOT.ROOT.RDataFrame'
+                     ) -> 'ROOT.ROOT.RDataFrame':
     """Define baseline lepton collections and isolation selections.
 
     Computes lepton kinematics (p, theta, phi) for all leptons before and after
@@ -75,8 +82,8 @@ def _lesp_properties(df):
     df = df.Define('leps_all_phi',   'FCCAnalyses::ReconstructedParticle::get_phi(leps_all)')
     df = df.Define('leps_all_q',     'FCCAnalyses::ReconstructedParticle::get_charge(leps_all)')
     df = df.Define('leps_all_no',    'FCCAnalyses::ReconstructedParticle::get_n(leps_all)')
-    df = df.Define('leps_all_iso',   'FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)') 
-    
+    df = df.Define('leps_all_iso',   'FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)')
+
     # Apply momentum cut (p > 20 GeV) to reduce soft backgrounds
     df = df.Define('leps',         'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_all)')
     df = df.Define('leps_p',       'FCCAnalyses::ReconstructedParticle::get_p(leps)')
@@ -87,11 +94,13 @@ def _lesp_properties(df):
     df = df.Define('leps_iso',     'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)')
     # Select isolated leptons: Irel < 0.25 (relative isolation ratio)
     df = df.Define('leps_sel_iso', 'FCCAnalyses::sel_isol(0.25)(leps, leps_iso)')
-    df = df.Define('leps_sel_no',  'leps_sel_iso.size()') 
+    df = df.Define('leps_sel_no',  'leps_sel_iso.size()')
     return df
 
 
-def _recoil_builder(df, ecm: int):
+def _recoil_builder(df: 'ROOT.ROOT.RDataFrame',
+                    ecm: int
+                    ) -> 'ROOT.ROOT.RDataFrame':
     """Build Z candidates and veto Higgs-like leptons.
 
     Two-step Z reconstruction: First veto H->ll (mass 125±3 GeV), then build best
@@ -108,28 +117,30 @@ def _recoil_builder(df, ecm: int):
     """
     # Veto H->mumu/ee candidate leptons (mass window: 125 ± 3 GeV)
     df = df.Define('zbuilder_result_Hll', f'FCCAnalyses::resonanceBuilder_mass_recoil(125, 91.2, 0.4, {ecm}, false)'
-                    '(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
-    df = df.Define('zll_Hll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[0]}') # the Z
+                   '(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
+    df = df.Define('zll_Hll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[0]}')  # the Z
     df = df.Define('zll_Hll_m',           'FCCAnalyses::ReconstructedParticle::get_mass(zll_Hll)[0]')
-    df = df.Define('zll_leps_Hll',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[1],zbuilder_result_Hll[2]}') # the leptons
-    df = df.Define('zll_leps_dummy',      'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{}') # placeholder for empty vector
+    df = df.Define('zll_leps_Hll',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[1],zbuilder_result_Hll[2]}')  # the leptons
+    df = df.Define('zll_leps_dummy',      'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{}')  # placeholder for empty vector
     # Remove H-candidate leptons if reconstructed mass falls in Higgs window
     df = df.Define('leps_to_remove',      'return (zll_Hll_m > (125-3) && zll_Hll_m < (125+3)) ? zll_leps_Hll : zll_leps_dummy')
-    df = df.Define('leps_good',           'FCCAnalyses::ReconstructedParticle::remove(leps, leps_to_remove)') 
+    df = df.Define('leps_good',           'FCCAnalyses::ReconstructedParticle::remove(leps, leps_to_remove)')
 
     # Build Z resonance from good leptons (mass ~ 91.2 GeV, recoil ~ 125 GeV)
     # resonanceBuilder returns: [0] di-lepton system, [1,2] individual leptons
     df = df.Define('zbuilder_result', f'FCCAnalyses::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)'
-                    '(leps_good, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
-    df = df.Define('zll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[0]}') # the Z
-    df = df.Define('zll_leps',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[1],zbuilder_result[2]}') # the leptons
+                   '(leps_good, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
+    df = df.Define('zll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[0]}')  # the Z
+    df = df.Define('zll_leps',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[1],zbuilder_result[2]}')  # the leptons
 
     # Remove Z leptons from full particle collection for recoil-based observables
     df = df.Define('rps_no_leps', 'FCCAnalyses::ReconstructedParticle::remove(ReconstructedParticles, zll_leps)')
     return df
 
 
-def _Z_kinematics(df, ecm: int):
+def _Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
+                  ecm: int
+                  ) -> 'ROOT.ROOT.RDataFrame':
     """Compute Z-boson kinematics and recoil mass.
 
     Extracts Z four-vector properties (mass, momentum, angles) and computes
@@ -150,7 +161,7 @@ def _Z_kinematics(df, ecm: int):
     df = df.Define('zll_pT',    'FCCAnalyses::ReconstructedParticle::get_pt(zll)[0]')
     df = df.Define('zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(zll)[0]')
     df = df.Define('zll_phi',   'FCCAnalyses::ReconstructedParticle::get_phi(zll)[0]')
-    
+
     # Recoil mass: invariant mass of system recoiling against Z (Higgs candidate)
     df = df.Define('zll_recoil',   f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)')
     df = df.Define('zll_recoil_m',  'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
@@ -159,7 +170,8 @@ def _Z_kinematics(df, ecm: int):
     return df
 
 
-def _lead_sub_properties(df):
+def _lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
+                             ) -> 'ROOT.ROOT.RDataFrame':
     """Extract leading/subleading lepton kinematics ordered by momentum.
 
     Identifies and indexes the higher/lower momentum leptons from Z decay,
@@ -195,7 +207,9 @@ def _lead_sub_properties(df):
     return df
 
 
-def _additional_variables(df, ecm: int):
+def _additional_variables(df: 'ROOT.ROOT.RDataFrame',
+                          ecm: int
+                          ) -> 'ROOT.ROOT.RDataFrame':
     """Compute angular correlations, energy observables, and kinematic discriminants.
 
     Calculates three-body kinematics (acoplanarity, acolinearity, deltaR between
@@ -230,26 +244,11 @@ def _additional_variables(df, ecm: int):
     return df
 
 
-def _cutflow(df, cut: str):
-    """Record event count at each cutflow stage.
+def _cutflow(df: 'ROOT.ROOT.RDataFrame',
+             hists: list['ROOT.TH1'],
+             cut: int
+             ) -> 'ROOT.ROOT.RDataFrame':
 
-    Snapshot current event count and store as a constant column for efficiency tracking.
-    Used to measure selection acceptance and background rejection.
-
-    Args:
-        df: RDataFrame-like object at a given selection step.
-        cut (str): Column name used to store the event count (e.g., 'cut0', 'cut1').
-
-    Returns:
-        The dataframe with a constant column holding the event count value.
-    """
-    # Count events passing all previous cuts in the chain
-    n  = df.Count().GetValue()
-    # Store count as constant column in dataframe for later retrieval
-    df = df.Define(cut, str(n))
-    return df
-
-def make_cut(df, hists: list, cut: int):
     df = df.Define(f'cut{cut}', str(cut))
     hists.append(df.Histo1D(('cutFlow', '', 50, 0, 50), f'cut{cut}'))
     return df, hists
@@ -259,8 +258,11 @@ def make_cut(df, hists: list, cut: int):
 ### MAIN FUNCTIONS ###
 ######################
 
-#_______________________________________
-def training_ll(df, cat: str, ecm: int):
+# __________________________________________
+def training_ll(df: 'ROOT.ROOT.RDataFrame',
+                cat: str,
+                ecm: int
+                ) -> 'ROOT.ROOT.RDataFrame':
     """Build training dataframe for leptonic channels without cutflow.
 
     Applies baseline cuts and derives all kinematic features for MVA training.
@@ -299,25 +301,38 @@ def training_ll(df, cat: str, ecm: int):
     # Build Z candidate with H veto, extract all kinematic observables
     df = _recoil_builder(df, ecm)
     df = _Z_kinematics(df, ecm)
-    df = _lead_sub_properties(df)
+    df = _lead_sublead_properties(df)
     df = _additional_variables(df, ecm)
-    
+
+
+
+    ###########################
+    ### KINEMATIC SELECTION ###
+    ###########################
 
     ##########
     ### CUT 3: Z mass window
     ##########
-    # df = df.Filter('zll_m > 86 && zll_m < 96') 
+    # df = df.Filter('zll_m > 86 && zll_m < 96')
 
     ##########
     ### CUT 4: Z momentum (CoM dependent)
     ##########
     # if ecm == 240:   df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
     # elif ecm == 365: df = df.Filter('zll_p > 50 && zll_p < 150')  # 365 GeV
-    
+
     return df
 
-#_______________________________________________________
-def presel_ll(df, cat: str, ecm: int, ww: bool = False):
+
+
+# _______________________________________________________
+def presel_ll(df: 'ROOT.ROOT.RDataFrame',
+              cat: str,
+              ecm: int,
+              dataset: str
+              ) -> tuple['ROOT.ROOT.RDataFrame',
+                         list[Union['ROOT.TH1',
+                                    'ROOT.TParameter']]]:
     """Apply leptonic preselection with full cutflow tracking.
 
     Executes complete preselection chain with event counting at each stage:
@@ -337,48 +352,64 @@ def presel_ll(df, cat: str, ecm: int, ww: bool = False):
         (cut0, cut1, cut2) plus all kinematic feature variables.
     """
 
+    params = []
+
+    df = _setup_alias(df, cat)
     # Filter out leptonic WW events if WW flag is set
-    if ww:
+    if 'p8_ee_WW_ecm' in dataset:
         df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
         df = df.Filter('!ww_leptonic')
 
-    df = _setup_alias(df, cat)
     df = _lesp_properties(df)
 
+    params.append(df.Histo1D(("leps_iso", "leps_iso", 2000, 0, 10), "leps_iso"))
+    params.append(df.Histo1D(("leps_no", "leps_no", 20, 0, 20), "leps_no"))
+
     ##########
-    ### Define cumulative gates for all events (no intermediate filtering)
+    ### CUT 0: all events
     ##########
-    df = _cutflow(df, 'cut0')
+    df, params = _cutflow(df, params, 0)
 
     ##########
     ### CUT 1: at least one lepton and at least one isolated lepton (I_rel < 0.25)
     ##########
-    df = df.Filter('leps_no >= 1 && leps_sel_iso.size() > 0', 'cut1')
-    df = _cutflow(df, 'cut1')
+    df = df.Filter('leps_no >= 1 && leps_sel_iso.size() > 0')
+    df, params = _cutflow(df, params, 1)
 
     ##########
     ### CUT 2: at least 2 leptons with opposite-sign
     ##########
-    df = df.Filter('leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()', 'cut2')
-    df = _cutflow(df, 'cut2')
+    df = df.Filter('leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()')
+    df, params = _cutflow(df, params, 2)
 
     # Build Z candidate with H veto, extract all kinematic observables
     df = _recoil_builder(df, ecm)
     df = _Z_kinematics(df, ecm)
-    df = _lead_sub_properties(df)
+    df = _lead_sublead_properties(df)
     df = _additional_variables(df, ecm)
+
+
+
+    ###########################
+    ### KINEMATIC SELECTION ###
+    ###########################
 
     ##########
     ### CUT 3: Z mass window
     ##########
     # df = df.Filter('zll_m > 86 && zll_m < 96')
-    # df = _cutflow(df, 'cut3')
+    # df, params = _cutflow(df, params, 3)
 
     ##########
     ### CUT 4: Z momentum (CoM dependent)
     ##########
     # if ecm == 240:   df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
     # elif ecm == 365: df = df.Filter('zll_p > 50 && zll_p < 150')  # 365 GeV
-    # df = _cutflow(df, 'cut4')
+    # df, params = _cutflow(df, params, 4)
 
-    return df
+    ##########
+    ### CUT 5: Recoil mass window (365 GeV)
+    ##########
+    # if ecm==365: df = df.Filter('zll_recoil_m > 100 && zll_recoil_m < 150')
+
+    return df, params

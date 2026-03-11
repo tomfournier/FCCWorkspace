@@ -56,13 +56,13 @@ if TYPE_CHECKING:
     import xgboost as xgb
 
 from .python.plotter import (
-    set_plt_style, 
-    set_labels, 
+    set_plt_style,
+    set_labels,
     savefigs
 )
 from ..tools.utils import (
     mkdir, Z,
-    Significance 
+    Significance
 )
 
 
@@ -85,110 +85,110 @@ _cache_id = None
 ### HELPER FUNCTIONS ###
 ########################
 
-#____________________________
+# ____________________________
 def _make_fig(
-    figsize: tuple = (12, 8), 
+    figsize: tuple = (12, 8),
     dpi: int = 100
-    ) -> tuple[plt.Figure, 
-               plt.Axes]:
+     ) -> tuple[plt.Figure,
+                plt.Axes]:
     '''Create and pre-configure a matplotlib figure.
-    
+
     Ensures consistent figure setup across all plotting functions.
-    
+
     Args:
         figsize (tuple, optional): Figure size (width, height). Defaults to (10, 8).
         dpi (int, optional): Figure DPI. Defaults to 100.
-        
+
     Returns:
         Tuple of (fig, ax) ready to use
     '''
     return plt.subplots(figsize=figsize, dpi=dpi)
 
-#_____________________________
+# _____________________________
 def _get_splits(
     df: 'pd.DataFrame'
-    ) -> dict[str, 
-              'pd.DataFrame']:
+     ) -> dict[str,
+               'pd.DataFrame']:
     '''Fast extraction of train/valid and signal/bkg splits.
-    
+
     Computes boolean masks once, reused across functions.
     Caches results if same DataFrame used multiple times.
-    
+
     Args:
         df: Input DataFrame with 'valid' and 'isSignal' columns
-        
+
     Returns:
         dict with precomputed masks and split DataFrames
     '''
     global _splits_cache, _cache_id
-    
+
     # Use DataFrame memory address as cache key
     df_id = id(df)
-    
+
     # Return cached result if same DataFrame
     if df_id == _cache_id and df_id in _splits_cache:
         return _splits_cache[df_id]
-    
+
     # Compute boolean masks explicitly to avoid integer bitwise quirks
     is_valid = df['valid'].to_numpy(dtype=bool, copy=False)
     is_sig = (df['isSignal'] == 1).to_numpy(copy=False)
-    
+
     train_sig = ~is_valid & is_sig
     train_bkg = ~is_valid & ~is_sig
     val_sig = is_valid & is_sig
     val_bkg = is_valid & ~is_sig
-    
+
     result = {
         'train_sig': df.loc[train_sig, :],
         'train_bkg': df.loc[train_bkg, :],
         'val_sig':   df.loc[val_sig, :],
         'val_bkg':   df.loc[val_bkg, :]
     }
-    
+
     # Cache for future calls with same DataFrame
     _cache_id = df_id
     _splits_cache[df_id] = result
-    
+
     # Keep cache small (max 3 DataFrames)
     if len(_splits_cache) > 3:
         _splits_cache.clear()
-    
+
     return result
 
-#____________________________
+# ____________________________
 def _get_wts(
-    df: 'pd.DataFrame', 
+    df: 'pd.DataFrame',
     use_wts: bool,
     weights: str = 'weights'
-    ) -> 'np.ndarray' | None:
+     ) -> 'np.ndarray' | None:
     '''Extract weights efficiently, return None if unused.
-    
+
     Args:
         df: Input DataFrame
         use_wts: Whether to use weights
-        
+
     Returns:
         Weights array or None
     '''
     return df[weights].values if use_wts else None
 
-#____________________________________
+# ____________________________________
 def _plot_metric(
-    results: dict[str, 
-                  dict[str, 
-                       list[float]]], 
+    results: dict[str,
+                  dict[str,
+                       list[float]]],
     x_axis: 'np.ndarray',
     metric_name: str,
     ylabel: str,
-    label: str, 
-    outDir: str, 
-    best_iteration: int, 
-    locx: str = 'right', 
-    locy: str = 'top', 
-    suffix: str = '', 
+    label: str,
+    outDir: str,
+    best_iteration: int,
+    locx: str = 'right',
+    locy: str = 'top',
+    suffix: str = '',
     dpi: int = 100,
     format: list[str] = ['png']
-    ) -> None:
+     ) -> None:
     '''Plot a training and validation metric over boosting rounds.
 
     Args:
@@ -207,18 +207,18 @@ def _plot_metric(
     print(f'----->[Info] Plotting {metric_name}')
     fig, ax = _make_fig(dpi=dpi)
     try:
-        ax.plot(x_axis, results['validation_0'][metric_name], 
+        ax.plot(x_axis, results['validation_0'][metric_name],
                 label='Training', linewidth=2)
-        ax.plot(x_axis, results['validation_1'][metric_name], 
+        ax.plot(x_axis, results['validation_1'][metric_name],
                 label='Validation', linewidth=2)
-        ax.axvline(best_iteration, color='gray', 
-                label='Optimal tree number')
+        ax.axvline(best_iteration, color='gray',
+                   label='Optimal tree number')
         ax.legend()
-        
-        set_labels(ax, 'Number of Trees', ylabel, 
-                right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, metric_name.replace(' ', '_').lower(), 
-                suffix=suffix, format=format)
+
+        set_labels(ax, 'Number of Trees', ylabel,
+                   right=label, locx=locx, locy=locy)
+        savefigs(fig, outDir, metric_name.replace(' ', '_').lower(),
+                 suffix=suffix, format=format)
     finally:
         plt.close(fig)
 
@@ -228,23 +228,23 @@ def _plot_metric(
 ### MAIN FUNCTIONS ###
 ######################
 
-#____________________________________
+# ____________________________________
 def log_loss(
-    results: dict[str, 
-                  dict[str, 
-                       list[float]]], 
-    x_axis: 'np.ndarray', 
-    label: str, 
-    outDir: str, 
-    best_iteration: int, 
-    format: list[str] = ['png'], 
-    locx: str = 'right', 
-    locy: str = 'top', 
+    results: dict[str,
+                  dict[str,
+                       list[float]]],
+    x_axis: 'np.ndarray',
+    label: str,
+    outDir: str,
+    best_iteration: int,
+    format: list[str] = ['png'],
+    locx: str = 'right',
+    locy: str = 'top',
     suffix: str = '',
     dpi: int = 100
-    ) -> None:
+     ) -> None:
     '''Plot log-loss evolution during training and validation.
-    
+
     Args:
         results (dict[str, dict[str, list[float]]]): XGBoost evals_result dictionary keyed by dataset and metric.
         x_axis (np.ndarray): Boosting iteration numbers.
@@ -260,21 +260,21 @@ def log_loss(
     _plot_metric(results, x_axis, 'logloss', 'Log Loss', label, outDir,
                  best_iteration, locx, locy, suffix, dpi, format)
 
-#_______________________________
+# _______________________________
 def classification_error(
-    results: dict, 
-    x_axis: 'np.ndarray', 
-    label: str, 
-    outDir: str, 
-    best_iteration: int, 
-    locx: str = 'right', 
-    locy: str = 'top', 
+    results: dict,
+    x_axis: 'np.ndarray',
+    label: str,
+    outDir: str,
+    best_iteration: int,
+    locx: str = 'right',
+    locy: str = 'top',
     suffix: str = '',
     dpi: int = 100,
     format: list[str] = ['png']
-    ) -> None:
+     ) -> None:
     '''Plot classification error progression during training and validation.
-    
+
     Args:
         results (dict): XGBoost evals_result dictionary keyed by dataset and metric.
         x_axis (np.ndarray): Boosting iteration numbers.
@@ -290,21 +290,21 @@ def classification_error(
     _plot_metric(results, x_axis, 'error', 'Classification Error', label, outDir,
                  best_iteration, locx, locy, suffix, dpi, format)
 
-#_____________________________
+# _____________________________
 def AUC(
-    results: dict, 
-    x_axis: np.ndarray, 
-    label: str, 
-    outDir: str, 
-    best_iteration: int, 
-    locx: str = 'right', 
-    locy: str = 'top', 
-    suffix: str = '', 
+    results: dict,
+    x_axis: np.ndarray,
+    label: str,
+    outDir: str,
+    best_iteration: int,
+    locx: str = 'right',
+    locy: str = 'top',
+    suffix: str = '',
     dpi: int = 100,
     format: list[str] = ['png']
-    ) -> None:
+     ) -> None:
     '''Plot AUC progression during training and validation.
-    
+
     Args:
         results (dict): XGBoost evals_result dictionary keyed by dataset and metric.
         x_axis (np.ndarray): Boosting iteration numbers.
@@ -320,15 +320,16 @@ def AUC(
     _plot_metric(results, x_axis, 'auc', 'AUC', label, outDir,
                  best_iteration, locx, locy, suffix, dpi, format)
 
-#_____________________________________
+# _____________________________________
 def plot_roc_curve(
-    df: 'pd.DataFrame', 
-    column: str, 
-    thresh: float = 0.7, 
-    ax: plt.Axes | None = None, 
-    color: str | None = None, 
-    linestyle: str = '-', 
-    label: str | None = None) -> None:
+    df: 'pd.DataFrame',
+    column: str,
+    thresh: float = 0.7,
+    ax: plt.Axes | None = None,
+    color: str | None = None,
+    linestyle: str = '-',
+    label: str | None = None
+     ) -> None:
     '''Draw a ROC segment above a true-positive threshold.
 
     Args:
@@ -352,23 +353,23 @@ def plot_roc_curve(
     roc_auc = auc(fpr, tpr)
     mask = tpr >= thresh
     fpr, tpr = fpr[mask], tpr[mask]
-    ax.plot(fpr, tpr, label=label+f', AUC={roc_auc:.2f}', 
+    ax.plot(fpr, tpr, label=label+f', AUC={roc_auc*100:.2f} %',
             color=color, linestyle=linestyle, linewidth=4)
 
-#______________________________
+# ______________________________
 def roc(
-    df: 'pd.DataFrame', 
-    label: str, 
-    outDir: str, 
-    eps: float = 0, 
-    locx: str = 'right', 
-    locy: str = 'top', 
+    df: 'pd.DataFrame',
+    label: str,
+    outDir: str,
+    eps: float = 0,
+    locx: str = 'right',
+    locy: str = 'top',
     suffix: str = '',
     dpi: int = 100,
     format: list[str] = ['png']
-    ) -> None:
+     ) -> None:
     '''Plot ROC curves for training and validation samples.
-    
+
     Args:
         df (pd.DataFrame): Dataframe with `BDTscore`, `valid`, and `isSignal` columns.
         label (str): Text label placed on the figure.
@@ -384,11 +385,11 @@ def roc(
     print('------>[Info] Plotting ROC')
     fig, ax = _make_fig(figsize=(12, 12), dpi=dpi)
     try:
-        plot_roc_curve(df[df['valid']==True],  'BDTscore', ax=ax, 
-                    label='Validation Sample', thresh=eps)
-        plot_roc_curve(df[df['valid']==False], 'BDTscore', ax=ax, 
-                    label='Training Sample', thresh=eps,
-                    linestyle=(0, (1, 1)))
+        plot_roc_curve(df[df['valid'] == True],  'BDTscore', ax=ax,
+                       label='Validation Sample', thresh=eps)
+        plot_roc_curve(df[df['valid'] == False], 'BDTscore', ax=ax,
+                       label='Training Sample', thresh=eps,
+                       linestyle=(0, (1, 1)))
         ax.plot([eps, 1], [eps, 1], color='r', lw=2, linestyle='--', label='Random Classifier')
         ax.plot([eps, eps, 1], [eps, 1, 1], color='g', lw=2, linestyle='--', label='Perfect Classifier')
         ax.legend()
@@ -398,23 +399,24 @@ def roc(
     finally:
         plt.close(fig)
 
-#_____________________________________
+# _____________________________________
 def bdt_score(
-    df: 'pd.DataFrame', 
-    label: str, 
-    outDir: str, 
-    htype: str = 'step', 
+    df: 'pd.DataFrame',
+    label: str,
+    outDir: str,
+    htype: str = 'step',
     suffix: str = '',
-    locx: str = 'right', 
-    locy: str = 'top', 
-    yscale: str = 'log', 
+    locx: str = 'right',
+    locy: str = 'top',
+    yscale: str = 'log',
     format: list[str] = ['png'],
-    nbins: int = 100, 
-    range: list[float | int] = [0, 1], 
-    weight: bool = True, 
-    unity: bool = True, 
+    nbins: int = 100,
+    range: list[float | int] = [0, 1],
+    weight: bool = True,
+    unity: bool = True,
     dpi: int = 100,
-    verbose: bool = False) -> None:
+    verbose: bool = False
+     ) -> None:
     '''Plot BDT score distributions for train/validation signal and background.
 
     Args:
@@ -439,7 +441,7 @@ def bdt_score(
     # Get splits with single pass through data
     splits = _get_splits(df)
     df_len = len(df)
-    
+
     # Define styling: linestyle, color, valid flag, sig flag
     params = [
         ('Signal Training',       '-',  'r', splits['train_sig']),
@@ -454,50 +456,50 @@ def bdt_score(
             if verbose:
                 ratio = (len(d) / df_len) * 100.0
                 print(f'---------> {name:<25} {len(d):6d} Ratio: {ratio:5.2f}%')
-            
+
             wts = _get_wts(d, weight)
-            ax.hist(d['BDTscore'].values, 
-                    density=unity, bins=nbins, 
-                    range=range, histtype=htype, 
-                    label=name, linestyle=ls, 
+            ax.hist(d['BDTscore'].values,
+                    density=unity, bins=nbins,
+                    range=range, histtype=htype,
+                    label=name, linestyle=ls,
                     color=c, linewidth=1.5, weights=wts)
-        
+
         ax.legend(loc='upper right', shadow=False)
         ax.set_yscale(yscale)
         yMin, yMax = ax.get_ylim()
         yMax = yMax * (10 if yscale=='log' else 1.25)
         ax.set_xlim(*range)
-        ax.set_ylim(yMin, yMax) 
+        ax.set_ylim(yMin, yMax)
 
         ylabel = 'Normalized to Unity' if unity else 'Events'
-        set_labels(ax, 'BDT Score', ylabel, 
-                right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, 'bdt_score', 
-                suffix=suffix, format=format)
+        set_labels(ax, 'BDT Score', ylabel,
+                   right=label, locx=locx, locy=locy)
+        savefigs(fig, outDir, 'bdt_score',
+                 suffix=suffix, format=format)
     finally:
         plt.close(fig)
 
-#______________________________________
+# ______________________________________
 def mva_score(
-    df: 'pd.DataFrame', 
-    label: str, 
-    outDir: str, 
+    df: 'pd.DataFrame',
+    label: str,
+    outDir: str,
     modes: list[str],
-    modes_label: dict[str, str], 
+    modes_label: dict[str, str],
     modes_color: dict[str, str],
-    locx: str = 'right', 
-    locy: str = 'top', 
-    suffix:str = '', 
-    format: list[str] = ['png'], 
-    htype: str = 'step', 
+    locx: str = 'right',
+    locy: str = 'top',
+    suffix:str = '',
+    format: list[str] = ['png'],
+    htype: str = 'step',
     yscale: str = 'log',
-    nbins: int = 100, 
+    nbins: int = 100,
     range: list[float | int] = [0, 1],
     ncols: int = 3,
-    unity: bool = True, 
+    unity: bool = True,
     dpi: int = 100,
     weight: bool = True
-    ) -> None:
+     ) -> None:
     '''Plot stacked BDT score histograms for multiple modes.
 
     Args:
@@ -532,21 +534,21 @@ def mva_score(
         for linestyle, show_lbl in [('-', True), ('--', False)]:
             sig_data = splits['train_sig'] if linestyle == '-' else splits['val_sig']
             bkg_data = splits['train_bkg'] if linestyle == '-' else splits['val_bkg']
-            
+
             # Plot signal modes
             for mode in sig_modes:
                 d = sig_data[sig_data['sample'] == mode]
                 wts = _get_wts(d, weight)
                 ax.hist(
-                    d['BDTscore'].values, 
-                    density=unity, 
-                    bins=nbins, 
-                    range=range, 
-                    histtype=htype, 
+                    d['BDTscore'].values,
+                    density=unity,
+                    bins=nbins,
+                    range=range,
+                    histtype=htype,
                     color=modes_color[mode],
-                    label=modes_label[mode] if show_lbl else None, 
-                    linestyle=linestyle, 
-                    linewidth=1.5, 
+                    label=modes_label[mode] if show_lbl else None,
+                    linestyle=linestyle,
+                    linewidth=1.5,
                     weights=wts)
 
             # Stack background samples
@@ -565,16 +567,16 @@ def mva_score(
                 wts_stacked = bkg_wts if weight else None
                 lbls_stacked = bkg_lbls if show_lbl else None
                 ax.hist(
-                    bkg_arrays, 
-                    density=unity, 
-                    bins=nbins, 
-                    range=range, 
-                    histtype=htype, 
-                    label=lbls_stacked, 
+                    bkg_arrays,
+                    density=unity,
+                    bins=nbins,
+                    range=range,
+                    histtype=htype,
+                    label=lbls_stacked,
                     color=bkg_cols,
-                    stacked=True, 
-                    linestyle=linestyle, 
-                    linewidth=1.5, 
+                    stacked=True,
+                    linestyle=linestyle,
+                    linewidth=1.5,
                     weights=wts_stacked)
 
         ax.set_xlim(*range)
@@ -583,28 +585,28 @@ def mva_score(
         yMax = yMax * (10 if yscale=='log' else 1.25)
         ax.set_ylim(yMin, yMax)
         ax.legend(loc='upper right', shadow=False, ncols=ncols)
-        
+
         ylabel = 'Normalized to Unity' if unity else 'Events'
-        set_labels(ax, 'BDT Score', ylabel, 
+        set_labels(ax, 'BDT Score', ylabel,
                    right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, 'mva_score', 
-                suffix=suffix, format=format)
+        savefigs(fig, outDir, 'mva_score',
+                 suffix=suffix, format=format)
     finally:
         plt.close(fig)
 
-#_________________________________
+# _________________________________
 def importance(
-    bdt: 'xgb.XGBClassifier', 
-    vars: list[str], 
-    latex_mapping: dict[str, str], 
-    label: str, 
-    outDir: str, 
-    locx: str = 'right', 
-    locy: str = 'top', 
-    suffix: str = '', 
+    bdt: 'xgb.XGBClassifier',
+    vars: list[str],
+    latex_mapping: dict[str, str],
+    label: str,
+    outDir: str,
+    locx: str = 'right',
+    locy: str = 'top',
+    suffix: str = '',
     dpi: int = 100,
     format: list[str] = ['png']
-    ) -> None:
+     ) -> None:
     '''Plot feature importance using the XGBoost F-score (split count).
 
     Args:
@@ -626,49 +628,49 @@ def importance(
     # Extract and sort feature importances by F-score (split count)
     importance = bdt.get_booster().get_score(importance_type='weight')
     sorted_importance = sorted(importance.items(), key=lambda x: x[1])
-    
+
     # Map feature indices to LaTeX labels and extract values in single pass
     sorted_vars_latex = [latex_mapping[vars[int(k[1:])]] for k, _ in sorted_importance]
     sorted_values = [v for _, v in sorted_importance]
 
     # Build DataFrame and create horizontal bar chart
     importance_df = pd.DataFrame(
-        {'Variable': sorted_vars_latex, 
+        {'Variable': sorted_vars_latex,
          'Importance': sorted_values}
     )
-    
+
     fig, ax = _make_fig(dpi=dpi)
     try:
         importance_df.plot(
-            kind='barh', x='Variable', y='Importance', 
+            kind='barh', x='Variable', y='Importance',
             legend=None, ax=ax
         )
         set_labels(
-            ax, 'F-score', 'Variables', 
+            ax, 'F-score', 'Variables',
             right=label, locx=locx, locy=locy
         )
         ax.grid(False, axis='y')
         savefigs(
-            fig, outDir, 'importance', 
+            fig, outDir, 'importance',
             suffix=suffix, format=format
         )
     finally:
         plt.close(fig)
 
-#_______________________________
+# _______________________________
 def significance(
-    df: 'pd.DataFrame', 
-    label: str, 
-    outDir: str, 
-    out_txt: str, 
-    locx: str = 'right', 
-    locy: str = 'top', 
+    df: 'pd.DataFrame',
+    label: str,
+    outDir: str,
+    out_txt: str,
+    locx: str = 'right',
+    locy: str = 'top',
     column: str = 'BDTscore',
     weight: str = 'norm_weight',
-    suffix: str = '', 
+    suffix: str = '',
     dpi: int = 100,
     format: list[str] = ['png']
-    ) -> None:
+     ) -> None:
     '''Scan the BDT score for maximal significance and save the cut value.
 
     Args:
@@ -694,7 +696,7 @@ def significance(
     # Compute significance across BDT score thresholds
     df_Z = Significance(df_sig, df_bkg,
                         column=column,
-                        weight=weight, 
+                        weight=weight,
                         func=Z, nbins=100)
     max_index = df_Z['Z'].idxmax()
     max_Z = df_Z.loc[max_index, 'Z']
@@ -710,36 +712,37 @@ def significance(
         ax.scatter(df_Z.index, df_Z['Z'], marker='.')
         ax.scatter(max_index, max_Z, color='r', marker='*', s=150)
         # Mark optimal cut on plot
-        ax.axvline(max_index, color='gray', alpha=0.8, 
-                label=f'max-Z: {max_Z:.3f}\ncut threshold: [{max_index:.2f}]')
+        ax.axvline(max_index, color='gray', alpha=0.8,
+                   label=f'max-Z: {max_Z:.3f}\ncut threshold: [{max_index:.2f}]')
         ax.legend()
 
         set_labels(
-            ax, 'BDT score', 'Significance', 
+            ax, 'BDT score', 'Significance',
             right=label, locx=locx, locy=locy
         )
         savefigs(
-            fig, outDir, 'significance_scan', 
+            fig, outDir, 'significance_scan',
             suffix=suffix, format=format
         )
     finally:
         plt.close(fig)
 
-#____________________________________
+# ____________________________________
 def efficiency(
-    df: 'pd.DataFrame', 
-    modes: list[str], 
-    modes_label: dict[str, str], 
+    df: 'pd.DataFrame',
+    modes: list[str],
+    modes_label: dict[str, str],
     modes_color: dict[str, str],
-    label: str, 
-    outDir: str, 
-    locx: str = 'right', 
-    locy: str = 'top', 
+    label: str,
+    outDir: str,
+    locx: str = 'right',
+    locy: str = 'top',
     suffix: str = '',
-    format: list[str] = ['png'], 
-    range: list[int | float] = [0, 1], 
+    format: list[str] = ['png'],
+    range: list[int | float] = [0, 1],
     dpi: int = 100,
-    incr: float = 0.01) -> None:
+    incr: float = 0.01
+     ) -> None:
     '''Compute and plot efficiency vs. BDT cut for each mode.
 
     Args:
@@ -759,13 +762,13 @@ def efficiency(
     '''
     import numpy as np
     print('------>[Info] Calculating efficiencies for each mode')
-    
+
     # Create scan grid and filter valid data
     cuts = np.arange(range[0], range[1] + incr, incr)
     d_valid = df[df['valid'].values].copy()
     samples = d_valid['sample'].values
     scores = d_valid['BDTscore'].values
-    
+
     # Vectorized efficiency: broadcast cuts against scores
     # Shape: (len(modes), len(cuts))
     print('------>[Info] Plotting Efficiency')
@@ -777,33 +780,33 @@ def efficiency(
             if len(s) > 0:
                 # Vectorized: s[:, None] has shape (n_samples, 1)
                 # cuts has shape (len(cuts),)
-                # Result: (n_samples, len(cuts)) >= (len(cuts),) 
+                # Result: (n_samples, len(cuts)) >= (len(cuts),)
                 eff = np.mean(s[:, None] >= cuts, axis=0)
-                ax.plot(cuts, eff, 
+                ax.plot(cuts, eff,
                         label=modes_label[mode],
                         color=modes_color[mode])
-        
-        ax.legend(loc='best', ncols=4)
+
+        ax.legend(loc='best', ncols=3)
         ax.set_xlim(*range)
-        ax.set_ylim(None, 1.3)
-            
-        set_labels(ax, 'BDT score', 'Efficiency', 
-                right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, 'efficiency', 
-                suffix=suffix, format=format)
+        ax.set_ylim(None, 1.4)
+
+        set_labels(ax, 'BDT score', 'Efficiency',
+                   right=label, locx=locx, locy=locy)
+        savefigs(fig, outDir, 'efficiency',
+                 suffix=suffix, format=format)
     finally:
         plt.close(fig)
 
-#_______________________________
+# _______________________________
 def tree_plot(
-    bdt: 'xgb.XGBClassifier', 
-    inDir: str, 
-    outDir: str, 
-    epochs: int, 
-    n: int, 
-    format: list[str] = ['png'], 
+    bdt: 'xgb.XGBClassifier',
+    inDir: str,
+    outDir: str,
+    epochs: int,
+    n: int,
+    format: list[str] = ['png'],
     rankdir: str = 'LR'
-    ) -> None:
+     ) -> None:
     '''Render a subset of boosted trees to Graphviz files.
 
     Args:
@@ -825,20 +828,20 @@ def tree_plot(
         n = epochs
         print('n > epochs: resetting n to match total epochs')
 
-    print(f'------>[Info] Plotting structure of BDT')
+    print('------>[Info] Plotting structure of BDT')
     # Generate evenly-spaced tree indices for visualization
     num_trees = np.linspace(0, epochs-1, n, dtype=int)
     for num_tree in tqdm(num_trees):
         # Export tree to DOT format
         dot = xgb.to_graphviz(
-            bdt, num_trees=num_tree, 
-            fmap=f'{inDir}/feature.txt', 
+            bdt, num_trees=num_tree,
+            fmap=f'{inDir}/feature.txt',
             rankdir=rankdir
         )
         dot.save(f'{inDir}/bdt.dot')
 
         # Render to requested formats using graphviz
-        with open(f'{inDir}/bdt.dot') as f: 
+        with open(f'{inDir}/bdt.dot') as f:
             dot_graph = f.read()
         graph = graphviz.Source(dot_graph)
         for pl in format:
@@ -848,16 +851,16 @@ def tree_plot(
     os.system(f'rm -rf {outDir}/tmp')
     print(f'------>[Info] Plotted structure of BDT in {outDir}/feature folder')
 
-#_______________________________
+# _______________________________
 def hist_check(
-    df: 'pd.DataFrame', 
-    label: str, 
-    outDir: str, 
-    modes: list[str], 
-    modes_label: dict[str, str],  
+    df: 'pd.DataFrame',
+    label: str,
+    outDir: str,
+    modes: list[str],
+    modes_label: dict[str, str],
     modes_color: dict[str, str],
-    var: str, 
-    xlabel: str, 
+    var: str,
+    xlabel: str,
     nbins: int = 100,
     ncols: int = 3,
     yscale: str = 'linear',
@@ -865,13 +868,13 @@ def hist_check(
     locy: str = 'top',
     suff: str = 'nominal',
     suffix: str = '',
-    format: list[str] = ['png'], 
+    format: list[str] = ['png'],
     htype: str = 'step',
-    unity: bool = False, 
+    unity: bool = False,
     dpi: int = 100,
     weight: bool = True,
     strict: bool = True
-    ) -> None:
+     ) -> None:
     '''Plot per-variable histograms for signal and background modes.
 
     Args:
@@ -896,7 +899,7 @@ def hist_check(
         weight (bool, optional): Whether to apply per-event weights. Defaults to True.
         strict (bool, optional): If True, clamp x-limits to observed data range. Defaults to True.
     '''
-    
+
     out = f'{outDir}/variables/{suff}'
     mkdir(out)
 
@@ -914,15 +917,15 @@ def hist_check(
         for linestyle, show_lbl in [('-', True), ('--', False)]:
             sig_data = splits['train_sig'] if linestyle == '-' else splits['val_sig']
             bkg_data = splits['train_bkg'] if linestyle == '-' else splits['val_bkg']
-            
+
             # Plot signal modes
             for mode in sig_modes:
                 d = sig_data[sig_data['sample'] == mode]
                 if len(d) > 0:
                     wts = _get_wts(d, weight)
-                    ax.hist(d[var].values, density=unity, bins=nbins, 
-                            range=[xmin, xmax], histtype=htype, 
-                            label=modes_label[mode] if show_lbl else None, 
+                    ax.hist(d[var].values, density=unity, bins=nbins,
+                            range=[xmin, xmax], histtype=htype,
+                            label=modes_label[mode] if show_lbl else None,
                             color=modes_color[mode],
                             linestyle=linestyle, linewidth=1.5, weights=wts)
 
@@ -941,12 +944,12 @@ def hist_check(
             if bkg_arrays:
                 wts_stacked = bkg_wts if weight else None
                 lbls_stacked = bkg_lbls if show_lbl else None
-                ax.hist(bkg_arrays, density=unity, bins=nbins, 
-                        range=[xmin, xmax], histtype=htype, 
+                ax.hist(bkg_arrays, density=unity, bins=nbins,
+                        range=[xmin, xmax], histtype=htype,
                         label=lbls_stacked, color=bkg_cols,
-                        stacked=True, linestyle=linestyle, 
+                        stacked=True, linestyle=linestyle,
                         linewidth=1.5, weights=wts_stacked)
-        
+
         ax.legend(loc='upper center', shadow=False, ncols=ncols)
 
         # Constrain x-limits to data range if strict mode enabled
@@ -956,11 +959,11 @@ def hist_check(
         yMin, yMax = ax.get_ylim()
         yMax = yMax * (10 if yscale=='log' else 1.25)
         ax.set_ylim(yMin, yMax)
-        
+
         ylabel = 'Normalized to Unity' if unity else 'Events'
-        set_labels(ax, xlabel, ylabel, 
+        set_labels(ax, xlabel, ylabel,
                    right=label, locx=locx, locy=locy)
-        savefigs(fig, out, var, 
+        savefigs(fig, out, var,
                  suffix=suffix, format=format)
     finally:
         plt.close(fig)

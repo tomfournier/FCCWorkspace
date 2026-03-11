@@ -42,12 +42,12 @@ Usage:
 import ROOT
 
 from .helper import (
-    canvas_margins, 
-    pad_margins, 
-    configure_axis, 
-    axis_limits, 
-    y_offset, 
-    setup_latex, 
+    canvas_margins,
+    pad_margins,
+    configure_axis,
+    axis_limits,
+    y_offset,
+    setup_latex,
     savecanvas
 )
 from ...tools.utils import mkdir
@@ -77,20 +77,20 @@ cfg = None  # Global configuration dictionary, populated at runtime
 ### MAIN FUNCTIONS ###
 ######################
 
-#_________________________
+# _________________________
 def canvas(
-    width:  int = 1000, 
-    height: int = 1000, 
+    width:  int = 1000,
+    height: int = 1000,
     top:    float = 0.055,
     bottom: float = 0.11,
     left:   float = 0.15,
     right:  float = 0.05,
     batch: bool = False,
     yields: bool = False
-    ) -> ROOT.TCanvas:
+     ) -> ROOT.TCanvas:
     '''
     Create a configured ROOT canvas with standard margins and axis settings.
-    
+
     Args:
         width (int, optional): Canvas width in pixels. Defaults to 1000.
         height (int, optional): Canvas height in pixels. Defaults to 1000.
@@ -100,15 +100,15 @@ def canvas(
         right (float, optional): Right margin fraction. Defaults to 0.05.
         batch (bool, optional): If True, enable tick marks on all sides. Defaults to False.
         yields (bool, optional): If True, disable log-scale settings. Defaults to False.
-    
+
     Returns:
         ROOT.TCanvas: Configured ROOT.TCanvas object.
     '''
     c = ROOT.TCanvas('c', 'c', width, height)
     canvas_margins(
-        c, top=top, 
-        bottom=bottom, 
-        left=left, 
+        c, top=top,
+        bottom=bottom,
+        left=left,
         right=right
     )
 
@@ -124,30 +124,30 @@ def canvas(
 
     return c
 
-#___________________________
+# ___________________________
 def canvasRatio(
-    width:  int = 1000, 
-    height: int = 1000, 
-    left: float = 0.15, 
+    width:  int = 1000,
+    height: int = 1000,
+    left: float = 0.15,
     eps:  float = 0.025
-    ) -> tuple[ROOT.TCanvas,
-               ROOT.TPad, 
-               ROOT.TPad]:
+     ) -> tuple[ROOT.TCanvas,
+                ROOT.TPad,
+                ROOT.TPad]:
     '''
     Create a canvas with two vertically-stacked pads for ratio plots.
-    
+
     Args:
         width (int, optional): Canvas width in pixels. Defaults to 1000.
         height (int, optional): Canvas height in pixels. Defaults to 1000.
         left (float, optional): Left margin fraction. Defaults to 0.15.
         eps (float, optional): Spacing between pads as fraction of canvas height. Defaults to 0.025.
-    
+
     Returns:
         tuple: (canvas, upper_pad, lower_pad) configured for ratio plots.
     '''
     c = ROOT.TCanvas('c', 'c', width, height)
     canvas_margins(
-        c, top=0., bottom=0., 
+        c, top=0., bottom=0.,
         left=0., right=0.
     )
 
@@ -169,19 +169,19 @@ def canvasRatio(
 
     return c, pad1, pad2
 
-#_________________
+# _________________
 def aux() -> None:
     '''
     Draw auxiliary text boxes with top-left and top-right labels on the plot.
-    
+
     Uses global configuration 'topLeft' and 'topRight' strings to display
     plot metadata (e.g., luminosity, channel information).
-    
+
     Returns:
         None
     '''
     y_off = y_offset(cfg['topRight'])
-    
+
     # Draw left-aligned label at top-left
     latex = setup_latex(text_size=0.04, text_align=10)
     latex.DrawLatexNDC(0.15, 0.95, cfg['topLeft'])
@@ -190,14 +190,14 @@ def aux() -> None:
     latex = setup_latex(text_size=0.04, text_align=30)
     latex.DrawLatex(0.95, y_off, cfg['topRight'])
 
-#______________________
+# ______________________
 def auxRatio() -> None:
     '''
     Draw auxiliary text boxes for ratio plots with adaptive vertical positioning.
-    
+
     Adjusts label positioning based on LaTeX special characters (superscripts,
     subscripts, square root symbols) in the 'topRight' configuration string.
-    
+
     Returns:
         None
     '''
@@ -206,7 +206,7 @@ def auxRatio() -> None:
     has_special = '^' in cfg['topRight'] or '_' in cfg['topRight']
     y_off = 0.935 if (has_sqrt and has_special) \
         else y_offset(cfg['topRight'], 0.945, 0.935)
-    
+
     # Draw left-aligned label
     latex = setup_latex(text_size=0.06, text_align=13)
     latex.DrawLatex(0.15, 0.975, cfg['topLeft'])
@@ -215,19 +215,19 @@ def auxRatio() -> None:
     latex = setup_latex(text_size=0.055, text_align=31)
     latex.DrawLatex(0.95, y_off, cfg['topRight'])
 
-#__________________
+# __________________
 def dummy(
     nbins: int = 1
-    ) -> ROOT.TH1D:
+     ) -> ROOT.TH1D:
     '''
     Create a dummy histogram with configured axis limits and labels.
-    
+
     The dummy histogram serves as a template for plot appearance without
     containing actual data. Useful for setting axis ranges and titles.
-    
+
     Args:
         nbins (int, optional): Number of histogram bins. Defaults to 1.
-    
+
     Returns:
         ROOT.TH1D: Configured ROOT.TH1D histogram with axis labels and limits set.
     '''
@@ -235,24 +235,24 @@ def dummy(
     ymin, ymax = axis_limits(cfg, 'y')
 
     # Create empty histogram with specified bin count and range
-    dummy = ROOT.TH1D('h', 'h', 
-                      nbins, 
+    dummy = ROOT.TH1D('h', 'h',
+                      nbins,
                       xmin, xmax)
 
     # Configure x-axis
     configure_axis(
-        dummy.GetXaxis(), 
-        cfg['xtitle'], 
+        dummy.GetXaxis(),
+        cfg['xtitle'],
         xmin, xmax,
-        title_offset=1.2, 
+        title_offset=1.2,
         label_offset=1.2
     )
     # Configure y-axis
     configure_axis(
-        dummy.GetYaxis(), 
-        cfg['ytitle'], 
+        dummy.GetYaxis(),
+        cfg['ytitle'],
         ymin, ymax,
-        title_offset=1.7, 
+        title_offset=1.7,
         label_offset=1.4
     )
 
@@ -260,23 +260,23 @@ def dummy(
     dummy.SetMaximum(ymax)
     return dummy
 
-#____________________________________________
+# ____________________________________________
 def dummyRatio(
-    nbins: int = 1, 
-    rlines: list[float] = [1], 
+    nbins: int = 1,
+    rlines: list[float] = [1],
     colors: list[ROOT.TColor] = [ROOT.kBlack]
-    ) -> None:
+     ) -> None:
     '''
     Create dummy histograms for ratio plots with reference lines.
-    
+
     Generates two stacked dummy histograms (main and ratio) with configured
     axes, and optional reference lines for ratio comparison.
-    
+
     Args:
         nbins (int, optional): Number of histogram bins. Defaults to 1.
         rlines (list[float], optional): Y-values for horizontal reference lines in ratio pad. Defaults to [1].
         colors (list[ROOT.TColor], optional): Colors for reference lines (one per line). Defaults to [ROOT.kBlack].
-    
+
     Returns:
         tuple: (upper_dummy, lower_dummy, line_objects) for ratio plots.
     '''
@@ -294,29 +294,29 @@ def dummyRatio(
 
     # Configure x-axis: hidden in upper pad, visible in lower pad
     configure_axis(
-        dummyT.GetXaxis(), '', 
+        dummyT.GetXaxis(), '',
         xmin, xmax,
-        title_size=0, label_size=0, 
+        title_size=0, label_size=0,
         title_font=0, label_font=0
     )
     configure_axis(
-        dummyB.GetXaxis(), cfg['xtitle'], 
+        dummyB.GetXaxis(), cfg['xtitle'],
         xmin, xmax,
-        title_size=32, label_size=28, 
+        title_size=32, label_size=28,
         title_offset=1.0, label_offset=3.0
     )
-    
+
     # Configure y-axes
     configure_axis(
-        dummyT.GetYaxis(), cfg['ytitle'], 
+        dummyT.GetYaxis(), cfg['ytitle'],
         ymin, ymax,
-        title_size=32, label_size=28, 
+        title_size=32, label_size=28,
         title_offset=1.7, label_offset=1.4
     )
     configure_axis(
-        dummyB.GetYaxis(), cfg['ytitleR'], 
-        yminR, ymaxR, 
-        title_size=32, label_size=28, 
+        dummyB.GetYaxis(), cfg['ytitleR'],
+        yminR, ymaxR,
+        title_size=32, label_size=28,
         title_offset=1.7, label_offset=1.4
     )
 
@@ -325,7 +325,7 @@ def dummyRatio(
     dummyB.SetMinimum(yminR)
     dummyB.SetMaximum(ymaxR)
     dummyB.GetYaxis().SetNdivisions(505)
-    
+
     # Create reference lines at specified y-values
     lines = []
     for rline, color in zip(rlines, colors):
@@ -335,23 +335,23 @@ def dummyRatio(
 
     return dummyT, dummyB, lines
 
-#______________________________________
+# ______________________________________
 def setup_cutflow_hist(
-    n_cuts: int, 
-    labels_map: dict[str, str], 
+    n_cuts: int,
+    labels_map: dict[str, str],
     cat: str
-    ) -> tuple[ROOT.TCanvas, ROOT.TH1]:
+     ) -> tuple[ROOT.TCanvas, ROOT.TH1]:
     '''
     Create and configure a histogram for cutflow plots.
-    
+
     Sets up a canvas with grid and binned histogram, where each bin represents
     a selection cut with corresponding label.
-    
+
     Args:
         n_cuts (int): Number of cuts (bins) in the histogram.
         labels_map (dict[str, str]): Mapping of cut keys to display labels.
         cat (str): Category string (e.g., 'ee', 'mumu') to substitute in labels.
-    
+
     Returns:
         tuple: (canvas, configured_histogram).
     '''
@@ -371,20 +371,20 @@ def setup_cutflow_hist(
 
     return c, d
 
-#________________________
+# ________________________
 def finalize_canvas(
     canvas: ROOT.TCanvas,
     grid: bool = True
-    ) -> None:
+     ) -> None:
     '''
     Finalize canvas appearance and redraw elements.
-    
+
     Applies grid, ticks, auxiliary labels, and refreshes the canvas display.
-    
+
     Args:
         canvas (ROOT.TCanvas): ROOT.TCanvas to finalize.
         grid (bool, optional): If True, enable grid lines on the canvas. Defaults to True.
-    
+
     Returns:
         None
     '''
@@ -396,27 +396,27 @@ def finalize_canvas(
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
-#_________________________________
+# _________________________________
 def save_canvas(
-    canvas: ROOT.TCanvas, 
-    outDir: str, 
-    outName: str, 
-    suffix: str = '', 
+    canvas: ROOT.TCanvas,
+    outDir: str,
+    outName: str,
+    suffix: str = '',
     plot_file: list[str] = ['png']
-    ) -> None:
+     ) -> None:
     '''
     Save canvas to file with auxiliary labels and proper formatting.
-    
+
     Creates output directory if needed, applies final cosmetics (axis redraw,
     auxiliary labels), and exports to specified file formats.
-    
+
     Args:
         canvas (ROOT.TCanvas): ROOT.TCanvas to save.
         outDir (str): Output directory path.
         outName (str): Base filename for output (without extension).
         suffix (str, optional): Optional suffix to append to filename before extension. Defaults to ''.
         plot_file (list[str], optional): List of file formats to save (e.g., ['png', 'pdf']). Defaults to ['png'].
-    
+
     Returns:
         None
     '''

@@ -45,7 +45,7 @@ Lazy Imports:
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    import hist
+    import hist, ROOT
 
 from ..tools.utils import mkdir
 from ..tools.process import getMetaInfo, getHist
@@ -63,9 +63,9 @@ def _signal_lists(
     target: str,
     ecm: int = 240,
     tot: bool = True
-    ) -> list[list[str]]:
+     ) -> list[list[str]]:
     '''Generate lists of signal process names for different Higgs decay channels.
-    
+
     Args:
         cat (str): Category name for the Z decay channel.
         z_decays (list[str]): List of Z boson decay channels.
@@ -73,7 +73,7 @@ def _signal_lists(
         target (str): Target channel for the analysis (e.g., 'inv' for invisible).
         ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
         tot (bool, optional): If True, use all Z decays; if False, use only the specified category. Defaults to True.
-    
+
     Returns:
         list[list[str]]: Nested list where each sublist contains process names for a specific Higgs decay.
     '''
@@ -87,23 +87,23 @@ def _signal_lists(
     return [[template.format(x, y) for x in cats] for y in h_list]
 
 def _scaling(
-    sigs: list[list[str]], 
-    h_decays: list[str], 
-    target: str, 
-    variation: float, 
+    sigs: list[list[str]],
+    h_decays: list[str],
+    target: str,
+    variation: float,
     verbose: bool = True
-    ) -> tuple[float, 
-               float, 
-               float]:
+     ) -> tuple[float,
+                float,
+                float]:
     '''Calculate scaling factors for signal variations in bias tests.
-    
+
     Args:
         sigs (list[list[str]]): Nested list of signal process names for each Higgs decay.
         h_decays (list[str]): List of Higgs decay channel names.
         target (str): Target Higgs decay channel to perturb.
         variation (float): Scaling factor for total cross-section (e.g., 1.05 for +5%).
         verbose (bool, optional): If True, print scaling information. Defaults to True.
-    
+
     Returns:
         tuple: (scale_target, xsec_tot, xsec_tot_new) where scale_target is the scaling factor applied to the target channel, xsec_tot is the original total cross-section, and xsec_tot_new is the new total cross-section after variation.
     '''
@@ -135,26 +135,27 @@ def _scaling(
 ### MAIN FUNCTIONS ###
 ######################
 
-#________________________________________
+# ________________________________________
 def make_pseudodata(
-    hName: str, 
-    inDir: str, 
-    procs: list[str], 
-    processes: dict[str, list[str]], 
-    cat: str, 
-    z_decays: list[str], 
-    h_decays: list[str], 
+    hName: str,
+    inDir: str,
+    procs: list[str],
+    processes: dict[str, list[str]],
+    cat: str,
+    z_decays: list[str],
+    h_decays: list[str],
     target: str,
-    ecm: int = 240, 
-    variation: float = 1.05, 
-    suffix: str = '', 
-    proc_scales: dict[str, float] = None, 
-    tot: bool = True):
+    ecm: int = 240,
+    variation: float = 1.05,
+    suffix: str = '',
+    proc_scales: dict[str, float] = None,
+    tot: bool = True
+     ) -> 'ROOT.TH1':
     '''Create pseudo-data histogram with perturbed signal for bias testing.
-    
+
     Generates pseudo-data by combining backgrounds and signal with a specified
     variation in the target channel to test fit bias.
-    
+
     Args:
         hName (str): Histogram name to retrieve.
         inDir (str): Input directory containing histograms.
@@ -169,7 +170,7 @@ def make_pseudodata(
         suffix (str, optional): Suffix for histogram retrieval. Defaults to ''.
         proc_scales (dict[str, float], optional): Optional scaling factors per process. Defaults to None.
         tot (bool, optional): If True, use all Z decays; if False, use only the specified category. Defaults to True.
-    
+
     Returns:
         ROOT.TH1: ROOT histogram containing the pseudo-data.
     '''
@@ -191,30 +192,30 @@ def make_pseudodata(
     for proc in procs[1:]:
         scale = proc_scales.get(proc, 1.0)
         h = getHist(
-            hName, processes[proc], inDir, 
+            hName, processes[proc], inDir,
             suffix=suffix, proc_scale=scale
         )
-        
-        if hist_pseudo is None: 
+
+        if hist_pseudo is None:
             hist_pseudo = h.Clone('h_pseudo')
             h_bkg = h.Clone('h_bkg')
-        else: 
+        else:
             hist_pseudo.Add(h)
             h_bkg.Add(h)
 
     # Get ZH signal scaling factor
     zh_scale = proc_scales.get('ZH', 1.0)
-        
+
     # Add signal processes with target channel perturbation
     for h_decay, sig in zip(h_decays, sigs):
         h = getHist(
-            hName, sig, inDir, 
-            suffix=suffix, 
+            hName, sig, inDir,
+            suffix=suffix,
             proc_scale=zh_scale
         )
-        
+
         # Store original signal histogram
-        if hist_old is None: 
+        if hist_old is None:
             hist_old = h.Clone('h_old')
         else:
             hist_old.Add(h)
@@ -224,11 +225,11 @@ def make_pseudodata(
             h.Scale(scale_target)
 
         # Store perturbed signal histogram
-        if hist_new is None: 
+        if hist_new is None:
             hist_new = h.Clone('h_new')
-        else: 
+        else:
             hist_new.Add(h)
-        
+
         # Add signal to pseudo-data
         hist_pseudo.Add(h)
 
@@ -240,22 +241,22 @@ def make_pseudodata(
     print(f'----->[CROSS-CHECK] Scale ratio {scale_ratio:.2f} vs target {variation}\n')
     return hist_pseudo
 
-#____________________________
+# ____________________________
 def make_datacard(
-    outDir: str, 
-    procs: list[str], 
-    target: str, 
-    bkg_unc: float, 
-    categories: list[str], 
+    outDir: str,
+    procs: list[str],
+    target: str,
+    bkg_unc: float,
+    categories: list[str],
     freezeBkgs: bool = False,
-    floatBkgs: bool = False, 
+    floatBkgs: bool = False,
     plot_dc: bool = False
-    ) -> None:
+     ) -> None:
     '''Generate a datacard for statistical analysis with Combine.
-    
+
     Creates a text datacard compatible with the Combine tool for performing
     fits and extracting signal strength.
-    
+
     Args:
         outDir (str): Output directory for the datacard file.
         procs (list[str]): List of process names (signal first, then backgrounds).
@@ -265,7 +266,7 @@ def make_datacard(
         freezeBkgs (bool, optional): If True, freeze background normalizations. Defaults to False.
         floatBkgs (bool, optional): If True, float backgrounds as negative process indices. Defaults to False.
         plot_dc (bool, optional): If True, print the datacard content to console. Defaults to False.
-    
+
     Returns:
         None
     '''
@@ -298,16 +299,16 @@ def make_datacard(
         'jmax *',  # Number of processes minus 1 (automatic)
         'kmax *',  # Number of systematics (automatic)
         sep,
-        f'shapes *        * datacard_{target}.root $CHANNEL_$PROCESS',      # Shape templates
-        f'shapes data_obs * datacard_{target}.root $CHANNEL_data_{target}', # Observed data
+        f'shapes *        * datacard_{target}.root $CHANNEL_$PROCESS',       # Shape templates
+        f'shapes data_obs * datacard_{target}.root $CHANNEL_data_{target}',  # Observed data
         sep,
-        f'bin                        {cats_str}',   # Bin names
-        f'observation                {rates_cats}', # Observed event counts
+        f'bin                        {cats_str}',    # Bin names
+        f'observation                {rates_cats}',  # Observed event counts
         sep,
-        f'bin                        {cats_procs_str}',     # Bins for each process
-        f'process                    {procs_str}',          # Process names
-        f'process                    {cats_procs_idx_str}', # Process indices
-        f'rate                       {rates_procs}',        # Expected rates
+        f'bin                        {cats_procs_str}',      # Bins for each process
+        f'process                    {procs_str}',           # Process names
+        f'process                    {cats_procs_idx_str}',  # Process indices
+        f'rate                       {rates_procs}',         # Expected rates
         sep,
     ]
 
@@ -320,7 +321,7 @@ def make_datacard(
                 for _ in categories for p1 in procs
             )
             dc_lines.append(f"{'norm_'+proc:<15} {'lnN':<10} {vals}")
-            
+
     else:
         # Only add signal normalization uncertainty (negligible)
         vals = ''.join(
@@ -340,9 +341,9 @@ def make_datacard(
     # Optionally print datacard content
     if plot_dc: print(f'\n{dc}\n')
 
-#___________________________________
+# ___________________________________
 def pseudo_datacard(
-    inDir: str, 
+    inDir: str,
     outDir: str,
     cat: str,
     ecm: int,
@@ -356,13 +357,13 @@ def pseudo_datacard(
     freeze: bool = False,
     float_bkg: bool = False,
     plot_dc: bool = False
-    ) -> None:
+     ) -> None:
     '''
     Generate pseudodata histogram and datacard for a specific Higgs decay target.
-    
+
     This function can be called directly from bias_test.py to benefit from cached
     histograms in the same process, or used standalone via subprocess.
-    
+
     Args:
         cat (str): Final state category (ee or mumu).
         ecm (int): Center of mass energy.
@@ -381,17 +382,17 @@ def pseudo_datacard(
     # Define histogram names and categories
     hNames = ('zll_recoil_m',)
     categories = (f'z_{cat}',)
-    
+
     # List of processes and their samples
     procs = ['ZH' if tot else f'Z{cat}H', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
     # Set process-wise scale factors based on polarization or luminosity
     proc_scales = {
-        'ILC':  {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}, ## change fit to ASIMOV -t -1 !!!
+        'ILC':  {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919},  # change fit to ASIMOV -t -1 !!!
         'polL': {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263},
         'polR': {'ZH': 1.047, 'WW': 0.219, 'ZZ': 1.011, 'Zgamma': 1.018},
     }
-    
+
     # Collect histograms
     hists = []
     for i, categorie in enumerate(categories):
@@ -414,9 +415,9 @@ def pseudo_datacard(
     print('----->[Info] Saving pseudo histograms')
     fOut = f'{outDir}/datacard_{target}.root'
 
-    with ROOT.TFile(fOut, 'RECREATE') as f:
-        for hist in hists:
-            hist.Write()
+    with ROOT.TFile(fOut, 'RECREATE'):
+        for h in hists:
+            h.Write()
 
     print(f'----->[Info] Histograms saved in {fOut}')
 
@@ -424,18 +425,18 @@ def pseudo_datacard(
     print('----->[Info] Making datacard')
     make_datacard(
         outDir, procs, target, 1.01, categories,
-        freezeBkgs=freeze, floatBkgs=float_bkg, 
+        freezeBkgs=freeze, floatBkgs=float_bkg,
         plot_dc=plot_dc
     )
 
-#___________________________
+# ___________________________
 def hist_from_datacard(
     inDir: str,
     target: str,
     cat: str,
     procs: list[str]
-    ) -> tuple['hist.Hist', 
-               'hist.Hist']:
+     ) -> tuple['hist.Hist',
+                'hist.Hist']:
 
     import uproot
 
@@ -443,7 +444,7 @@ def hist_from_datacard(
 
     hist_pseudo = datacard[f'z_{cat}_data_{target}'].to_hist()
     hist_sig    = datacard[f'z_{cat}_{procs[0]}'].to_hist()
-    
+
     # Build background histogram by summing all background processes
     hist_bkg = None
     for proc in procs[1:]:
@@ -459,5 +460,5 @@ def hist_from_datacard(
     if hist_bkg is not None:
         hist_pseudo.view(flow=False).value[:] -= hist_bkg.view(flow=False).value
         hist_pseudo.view(flow=False).variance[:] += hist_bkg.view(flow=False).variance
-    
+
     return hist_sig, hist_pseudo

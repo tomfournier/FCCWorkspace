@@ -75,48 +75,48 @@ from ..tools.utils import mkdir
 
 @overload
 def counts_and_effs(
-    files: list[str], 
-    vars: list[str], 
+    files: list[str],
+    vars: list[str],
     only_eff: bool = True
-    ) -> float:
+     ) -> float:
     ...
 
 @overload
 def counts_and_effs(
-    files: list[str], 
-    vars: list[str], 
+    files: list[str],
+    vars: list[str],
     only_eff: bool = False
-    ) -> tuple['pd.DataFrame', 
-               float,
-               int]:
+     ) -> tuple['pd.DataFrame',
+                float,
+                int]:
     ...
 
-#____________________________
+# ___________________________
 def counts_and_effs(
-    files: list[str], 
-    vars: list[str], 
+    files: list[str],
+    vars: list[str],
     only_eff: bool = False
-    ) -> tuple['pd.DataFrame', 
-               float,
-               int] | float:
+     ) -> tuple['pd.DataFrame',
+                float,
+                int] | float:
     '''Calculate event counts, dataframe, and selection efficiency.
-    
+
     Args:
         files (list[str]): List of ROOT file paths.
         vars (list[str]): Variables to extract from files.
         only_eff (bool, optional): If True, return only efficiency; if False, return (df, eff, N_events). Defaults to False.
-    
+
     Returns:
         float: Efficiency value when only_eff=True.
         tuple: (dataframe, efficiency, N_events) when only_eff=False.
     '''
     import uproot
     import pandas as pd
-    
+
     # Single pass through files: extract both N_events and dataframes
     N_events = 0
     dfs = []
-    
+
     for f in files:
         with uproot.open(f) as file:
             # Get total generated events
@@ -126,29 +126,29 @@ def counts_and_effs(
             if tree.num_entries > 0:
                 df_chunk = tree.arrays(vars, library='pd') if vars else tree.arrays(library='pd')
                 dfs.append(df_chunk)
-    
+
     # Concatenate all dataframes at once
     df = pd.concat(dfs, ignore_index=True, copy=False) if dfs else pd.DataFrame()
     eff = df.shape[0] / N_events if N_events > 0 else 0.0
-    
-    if only_eff: 
+
+    if only_eff:
         return eff
-    else: 
+    else:
         return df, eff, N_events
 
-#_______________________
+# ______________________
 def additional_info(
-    df: 'pd.DataFrame', 
-    mode: str, 
+    df: 'pd.DataFrame',
+    mode: str,
     sig: str
-    ) -> 'pd.DataFrame':
+     ) -> 'pd.DataFrame':
     '''Add sample mode and signal label columns to dataframe.
-    
+
     Args:
         df (pd.DataFrame): Input dataframe.
         mode (str): Sample mode/process name.
         sig (str): Signal process name for classification.
-    
+
     Returns:
         pd.DataFrame: Dataframe with added 'sample' and 'isSignal' columns.
     '''
@@ -156,19 +156,19 @@ def additional_info(
     df['isSignal'] = int(mode == sig)  # Add sample identifier and signal flag
     return df
 
-#__________________________
+# __________________________
 def BDT_input_numbers(
-    df: 'pd.DataFrame', 
-    modes: list[str], 
-    sig: str, 
-    eff: dict[str, float], 
-    xsec: dict[str, float], 
+    df: 'pd.DataFrame',
+    modes: list[str],
+    sig: str,
+    eff: dict[str, float],
+    xsec: dict[str, float],
     frac: dict[str, float]
-    ) -> dict[str, int]:
+     ) -> dict[str, int]:
     '''Calculate number of events to use for BDT training per process.
-    
+
     Balances signal and background using cross-sections and efficiencies.
-    
+
     Args:
         df (pd.DataFrame): Dataframe grouped by mode containing events.
         modes (list[str]): List of process modes.
@@ -176,7 +176,7 @@ def BDT_input_numbers(
         eff (dict[str, float]): Selection efficiency per mode.
         xsec (dict[str, float]): Cross-section per mode (in pb).
         frac (dict[str, float]): Fraction of available events to use per mode.
-    
+
     Returns:
         dict[str, int]: Dictionary with number of BDT input events per mode.
     '''
@@ -185,22 +185,22 @@ def BDT_input_numbers(
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in modes if mode != sig)
     for m in modes:
         N_BDT_inputs[m] = (
-            int(frac[m] * df[m].shape[0]) if m == sig else 
+            int(frac[m] * df[m].shape[0]) if m == sig else
             int(frac[m] * df[sig].shape[0] * (eff[m] * xsec[m] / xsec_tot_bkg)))
     return N_BDT_inputs
 
-#________________________________
+# ________________________________
 def df_split_data(
-    df: 'pd.DataFrame', 
-    N_BDT_inputs: dict[str, int], 
-    eff: dict[str, float], 
-    xsec: dict[str, float], 
-    N_events: dict[str, int], 
-    mode: str, 
+    df: 'pd.DataFrame',
+    N_BDT_inputs: dict[str, int],
+    eff: dict[str, float],
+    xsec: dict[str, float],
+    N_events: dict[str, int],
+    mode: str,
     lumi: float = 10.8
-    ) -> 'pd.DataFrame':
+     ) -> 'pd.DataFrame':
     '''Sample events are split into training/validation sets with weights.
-    
+
     Args:
         df (pd.DataFrame): Input dataframe.
         N_BDT_inputs (dict[str, int]): Number of events to sample per process.
@@ -209,7 +209,7 @@ def df_split_data(
         N_events (dict[str, int]): Total generated events per mode.
         mode (str): Current process mode.
         lumi (float, optional): Integrated luminosity in ab-1. Defaults to 10.8.
-    
+
     Returns:
         pd.DataFrame: Dataframe with 'valid', 'norm_weight', and 'weights' columns added.
     '''
@@ -225,57 +225,57 @@ def df_split_data(
     # Mark validation set
     sampled.loc[df0.index, 'valid'] = False  # Training set
     sampled.loc[df1.index, 'valid'] = True   # Validation set
-    
+
     # Calculate event weights accounting for efficiency, cross-section, and luminosity
     coeff = eff[mode] * xsec[mode] * lumi * 1e6
     sampled.loc[df0.index, 'weights'] = coeff / df0.shape[0]
     sampled.loc[df1.index, 'weights'] = coeff / df1.shape[0]
     return sampled
 
-#______________________
+# ______________________
 def print_stats(
-    df: 'pd.DataFrame', 
+    df: 'pd.DataFrame',
     modes: list
-    ) -> None:
+     ) -> None:
     '''Print training and validation event counts per process.
-    
+
     Args:
         df (pd.DataFrame): Dataframe containing 'sample', 'isSignal', and 'valid' columns.
         modes (list): List of process modes to display.
-    
+
     Returns:
         None
     '''
 
     lenght = max(len(m) for m in modes)
     print(f"{'NUMBER OF BDT INPUT EVENTS':=^45}")
-    train = df['valid']==False
+    train = df['valid'] == False
     for m in modes:
         m_mask = df['sample']==m
         print(f"{f'Number of training for {m:<{lenght+2}} : {int((m_mask &  train).sum())}':^45}")
         print(f"{f'Number of validation for {m:<{lenght}} : {int((m_mask & ~train).sum())}':^45}")
         print(f"{'=' * 45:^45}")
 
-#____________________________
+# ____________________________
 def split_data(
-    df: 'pd.DataFrame', 
+    df: 'pd.DataFrame',
     vars: list[str]
-    ) -> tuple['np.ndarray', 
-               'np.ndarray', 
-               'np.ndarray', 
-               'np.ndarray']:
+     ) -> tuple['np.ndarray',
+                'np.ndarray',
+                'np.ndarray',
+                'np.ndarray']:
     '''Split data into training and validation sets for features and labels.
-    
+
     Args:
         df (pd.DataFrame): Input dataframe with 'valid' column marking validation set.
         vars (list[str]): Feature variable names to extract.
-    
+
     Returns:
         tuple: (X_train, y_train, X_valid, y_valid) as numpy arrays.
     '''
     import numpy as np
 
-    train = df['valid']==False
+    train = df['valid'] == False
     # Features for training and validation sets
     X_train = df.loc[train,  vars].to_numpy(np.float32, copy=False)
     X_valid = df.loc[~train, vars].to_numpy(np.float32, copy=False)
@@ -284,18 +284,18 @@ def split_data(
     y_valid = df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel()
     return X_train, y_train, X_valid, y_valid
 
-#____________________________________
+# ____________________________________
 def train_model(
-    X_train: 'np.ndarray', 
-    y_train: 'np.ndarray', 
-    X_valid: 'np.ndarray', 
-    y_valid: 'np.ndarray', 
-    config: dict[str, 
-                 str | int | float], 
+    X_train: 'np.ndarray',
+    y_train: 'np.ndarray',
+    X_valid: 'np.ndarray',
+    y_valid: 'np.ndarray',
+    config: dict[str,
+                 str | int | float],
     early: int
-    ) -> 'xgb.XGBClassifier':
+     ) -> 'xgb.XGBClassifier':
     '''Train XGBoost model with early stopping.
-    
+
     Args:
         X_train (np.ndarray): Training feature matrix.
         y_train (np.ndarray): Training labels.
@@ -303,7 +303,7 @@ def train_model(
         y_valid (np.ndarray): Validation labels.
         config (dict[str, int | float]): XGBoost hyperparameters.
         early (int): Number of rounds for early stopping.
-    
+
     Returns:
         xgb.XGBClassifier: Trained XGBoost classifier.
     '''
@@ -312,12 +312,11 @@ def train_model(
     cfg = dict(config)
     # Set default XGBoost parameters
     cfg.setdefault('use_label_encoder', False)
-    # cfg.setdefault('n_jobs', -1)
     cfg.setdefault('verbosity', 1)
     cfg.setdefault('tree_method', 'auto')
 
     bdt = xgb.XGBClassifier(
-        **cfg, eval_metric=['error', 'logloss', 'auc'], 
+        **cfg, eval_metric=['error', 'logloss', 'auc'],
         early_stopping_rounds=early
     )
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
@@ -325,19 +324,19 @@ def train_model(
     bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True)
     return bdt
 
-#____________________________
+# ____________________________
 def evaluate_bdt(
-    df: 'pd.DataFrame', 
-    bdt: 'xgb.XGBClassifier', 
+    df: 'pd.DataFrame',
+    bdt: 'xgb.XGBClassifier',
     vars: list[str]
-    ) -> 'pd.DataFrame':
+     ) -> 'pd.DataFrame':
     '''Compute BDT scores and add to dataframe.
-    
+
     Args:
         df (pd.DataFrame): Input dataframe.
         bdt (xgb.XGBClassifier): Trained XGBoost classifier.
         vars (list[str]): Feature variables for prediction.
-    
+
     Returns:
         pd.DataFrame: Dataframe with 'BDTscore' column added.
     '''
@@ -351,17 +350,17 @@ def evaluate_bdt(
     df['BDTscore'] = bdt.predict_proba(X)[:, 1]
     return df
 
-#___________________________________________
+# ___________________________________________
 def get_metrics(
     bdt: 'xgb.XGBClassifier'
-    ) -> tuple[dict[str, 
-                    dict[str, list[float]]], 
-                    int, 'np.ndarray', int]:
+     ) -> tuple[dict[str,
+                     dict[str, list[float]]],
+                int, 'np.ndarray', int]:
     '''Extract training metrics from trained model.
-    
+
     Args:
         bdt (xgb.XGBClassifier): Trained XGBoost classifier.
-    
+
     Returns:
         tuple: (results dict, num_epochs, epoch_axis, best_epoch).
     '''
@@ -376,13 +375,13 @@ def get_metrics(
         (bdt.best_iteration is not None) else epochs
     return results, epochs, x_axis, best_iteration
 
-#_________________________________________________
+# _________________________________________________
 def load_model(inDir: str) -> 'xgb.XGBClassifier':
     '''Load previously trained XGBoost model.
-    
+
     Args:
         inDir (str): Directory path containing xgb_bdt.joblib file.
-    
+
     Returns:
         xgb.XGBClassifier: Loaded XGBoost classifier.
     '''
@@ -391,19 +390,19 @@ def load_model(inDir: str) -> 'xgb.XGBClassifier':
     print(f'--->Loading BDT model {fpath}')
     return joblib.load(fpath)
 
-#____________________________
+# ____________________________
 def save_model(
-    bdt: 'xgb.XGBClassifier', 
-    vars: list[str], 
+    bdt: 'xgb.XGBClassifier',
+    vars: list[str],
     path: str
-    ) -> None:
+     ) -> None:
     '''Save trained model in ROOT and joblib formats.
-    
+
     Args:
         bdt (xgb.XGBClassifier): Trained XGBoost classifier.
         vars (list[str]): Feature variable names.
         path (str): Directory path for saving model files.
-    
+
     Returns:
         None
     '''
@@ -417,9 +416,9 @@ def save_model(
     )
     # Create list of feature variable names
     variables = ROOT.TList()
-    for var in vars: 
+    for var in vars:
         variables.Add(ROOT.TObjString(var))
-    
+
     # Write variable list to ROOT file
     with ROOT.TFile(froot, 'UPDATE') as fOut:
         fOut.WriteObject(variables, 'variables')
@@ -428,17 +427,17 @@ def save_model(
     # Save model in joblib format for Python
     joblib.dump(bdt, fjob, compress=2)
 
-#______________________________________
+# ______________________________________
 def def_bdt(
-    vars: Sequence[str], 
-    loc_bdt: str, 
-    MVAVec:  str = 'MVAVec', 
+    vars: Sequence[str],
+    loc_bdt: str,
+    MVAVec:  str = 'MVAVec',
     score:   str = 'BDTscore',
     defineList: dict[str, str] = {},
     suffix: str = ''
-    ) -> tuple[dict[str, str], float]:
+     ) -> tuple[dict[str, str], float]:
     '''Define BDT computation in ROOT RDataFrame and load cut value.
-    
+
     Args:
         vars (Sequence[str]): Comma-separated feature variable names.
         loc_bdt (str): Directory containing xgb_bdt.root model file.
@@ -446,13 +445,13 @@ def def_bdt(
         score (str, optional): Name for BDT score column. Defaults to 'BDTscore'.
         defineList (dict[str, str], optional): Dictionary to append column definitions to. Defaults to {}.
         suffix (str, optional): Suffix to append to output column names. Defaults to ''.
-    
+
     Returns:
         tuple: (updated defineList, BDT cut threshold).
     '''
     import ROOT
     import numpy as np
-    
+
     # Load TMVA model from ROOT file
     ROOT.gInterpreter.ProcessLine(f'''
         TMVA::Experimental::RBDT<> tmva("ZH_Recoil_BDT", "{loc_bdt}/xgb_bdt.root");
@@ -460,7 +459,7 @@ def def_bdt(
 
     var_list = ', (float)'.join(vars)
     # Define feature vector if not already present
-    if not MVAVec in defineList:
+    if MVAVec not in defineList:
         defineList[MVAVec] = f'ROOT::VecOps::RVec<float>{{{var_list}}}'
     # Compute BDT score
     defineList['mva_score'+suffix] = f'tmva.Compute({MVAVec})'
@@ -470,21 +469,21 @@ def def_bdt(
     bdt_cut  = float(np.loadtxt(f'{loc_bdt}/BDT_cut.txt'))
     return defineList, bdt_cut
 
-#___________________________
+# ___________________________
 def make_high_low(
-    cutList: dict[str, str], 
-    bdt_cut: float, 
-    sels: list[str], 
+    cutList: dict[str, str],
+    bdt_cut: float,
+    sels: list[str],
     score: str = 'BDTscore'
-    ) -> dict[str, str]:
+     ) -> dict[str, str]:
     '''Create high/low BDT score cut regions for selected criteria.
-    
+
     Args:
         cutList (dict[str, str]): Dictionary of selection criteria strings.
         bdt_cut (float): BDT cut threshold value.
         sels (list[str]): List of selection names to split into high/low regions.
         score (str, optional): BDT score column name. Defaults to 'BDTscore'.
-    
+
     Returns:
         dict[str, str]: Updated cutList with '_high' and '_low' cut variants.
     '''

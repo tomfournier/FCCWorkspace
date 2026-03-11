@@ -50,15 +50,15 @@ WW_SCALE_CACHE = {}
 HIST_CACHE = {}
 
 def _get_procDict(
-    procFile: str = 'FCCee_procDict_winter2023_IDEA.json',
-    fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts') -> dict:
+        procFile: str = 'FCCee_procDict_winter2023_IDEA.json',
+        fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts') -> dict:
     '''
     Retrieve and cache process dictionary from file.
-    
+
     Args:
         procFile (str, optional): Name of the process dictionary file. Defaults to 'FCCee_procDict_winter2023_IDEA.json'.
         fcc (str, optional): Path to the FCC directory containing the dictionary. Defaults to '/cvmfs/fcc.cern.ch/FCCDicts'.
-    
+
     Returns:
         dict: Process dictionary with metadata (cross-sections, decay channels, etc.).
     '''
@@ -68,7 +68,7 @@ def _get_procDict(
     return PROCDICT_CACHE[cache_key]
 
 
-#____________________________
+# ___________________________
 def preload_histograms(
     procs: list[str],
     inDir: str,
@@ -76,13 +76,13 @@ def preload_histograms(
     hNames: list[str] = None,
     rebin: int = 1,
     rmww: bool = True
-    ) -> None:
+     ) -> None:
     '''
     Preload all histograms from files into memory cache.
-    
+
     Opens each ROOT file once and caches all histograms (or specified ones)
     to avoid repeated file I/O during plotting loops.
-    
+
     Args:
         procs (list[str]): List of process names to preload.
         inDir (str): Input directory path.
@@ -93,34 +93,34 @@ def preload_histograms(
     '''
     import ROOT
     from tqdm import tqdm
-    
+
     print('\n----->[Info] Preloading histograms into cache...')
 
     # Pre-cache WW scales (use global cache to persist across calls)
     ww_scales_cache = WW_SCALE_CACHE
-    
+
     for proc in tqdm(procs):
         fInName = os.path.join(inDir, f'{proc}{suffix}.root')
         cache_key = (proc, suffix, inDir)
-        
+
         # Skip if already cached
         if cache_key in HIST_CACHE:
             continue
-            
+
         # Check file existence
         if not os.path.exists(fInName):
             continue
-        
+
         # Open ROOT file
         f = ROOT.TFile.Open(fInName)
         if not f or f.IsZombie():
             if f:
                 f.Close()
             continue
-        
+
         # Initialize cache for this file
         HIST_CACHE[cache_key] = {}
-        
+
         # Compute WW scale once per process
         scale = 1.0
         if rmww and 'p8_ee_WW_ecm' in proc:
@@ -132,43 +132,44 @@ def preload_histograms(
                 else:
                     ww_scales_cache[proc] = 1.0
             scale = ww_scales_cache[proc]
-        
+
         # Load histograms
         if hNames is None:
             # Load all histograms in file
             key_list = f.GetListOfKeys()
             hist_names_to_load = [
-                key.GetName() for key in key_list 
+                key.GetName() for key in key_list
                 if key.GetClassName().startswith('TH')
             ]
         else:
             hist_names_to_load = hNames
-        
+
         for hName in hist_names_to_load:
             h = f.Get(hName)
-            if h is None:
+            if not h:
+                print(f"----->[WARNING] couldn't load {hName} from {fInName}")
                 continue
-            
+
             # Clone and detach from file
             h_clone = h.Clone(f'{proc}_{hName}')
             h_clone.SetDirectory(0)
-            
+
             # Apply rebinning
             if rebin != 1:
                 h_clone.Rebin(rebin)
-            
+
             # Apply WW scale
             if scale != 1.0:
                 h_clone.Scale(scale)
-            
+
             HIST_CACHE[cache_key][hName] = h_clone
-        
+
         f.Close()
-    
+
     print(f'----->[Info] Preloading complete. Cached {len(HIST_CACHE)} files.\n')
 
 
-#___________________________________
+# __________________________________
 def clear_histogram_cache() -> None:
     '''
     Clear the histogram cache to free memory.
@@ -181,24 +182,24 @@ def clear_histogram_cache() -> None:
     print('----->[Info] Histogram cache cleared.')
 
 
-#________________________________________________________
+# _______________________________________________________
 def getMetaInfo(
-    proc: str, 
-    info: str = 'crossSection', 
+    proc: str,
+    info: str = 'crossSection',
     rmww: bool = False,
-    fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts', 
+    fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts',
     procFile: str = 'FCCee_procDict_winter2023_IDEA.json'
-    ) -> float:
+     ) -> float:
     '''
     Retrieve metadata information for a process from the process dictionary.
-    
+
     Args:
         proc (str): Process name identifier.
         info (str, optional): Type of metadata to retrieve. Defaults to 'crossSection'.
         rmww (bool, optional): If True, remove leptonic WW decays from WW cross-section. Defaults to False.
         fcc (str, optional): Path to the FCC directory. Defaults to '/cvmfs/fcc.cern.ch/FCCDicts'.
         procFile (str, optional): Process dictionary file name. Defaults to 'FCCee_procDict_winter2023_IDEA.json'.
-    
+
     Returns:
         float: Requested metadata value, or None if process not found.
     '''
@@ -223,21 +224,21 @@ def getMetaInfo(
     XSEC_CACHE[cache_key] = val
     return val
 
-#_____________________________________
+# ____________________________________
 def get_hist(
-    hName: str, 
-    proc: str, 
-    processes: dict[str, list[str]], 
-    inDir: str, 
+    hName: str,
+    proc: str,
+    processes: dict[str, list[str]],
+    inDir: str,
     suffix: str = '',
     rebin: int = 1,
     proc_scales: dict[str, float] = {}
-    ) -> 'ROOT.TH1':
+     ) -> 'ROOT.TH1':
     '''
     Retrieve a histogram for a single process from ROOT file.
-    
+
     Applies cross-section corrections for WW processes and process-specific scales.
-    
+
     Args:
         hName (str): Name of the histogram to retrieve.
         proc (str): Process name identifier.
@@ -245,7 +246,7 @@ def get_hist(
         inDir (str): Input directory path.
         suffix (str, optional): File suffix to append. Defaults to ''.
         proc_scales (dict[str, float], optional): Process scaling factors. Defaults to {}.
-    
+
     Returns:
         ROOT.TH1: Scaled histogram, or None if retrieval fails.
     '''
@@ -253,26 +254,26 @@ def get_hist(
 
     fpath = os.path.join(inDir, f'{proc}{suffix}.root')
     print(f'----->[Info] Getting {hName} from \n\t {fpath}')
-    
+
     # Verify input file exists
     if not os.path.exists(fpath):
         warning(f'Input file not found: {fpath}')
         return None
-    
+
     # Open ROOT file and check validity
     f = ROOT.TFile.Open(fpath)
     if not f or f.IsZombie():
         if f:
             f.Close()
         return None
-    
+
     # Retrieve histogram and check if found
     h = f.Get(hName)
     if h is None:
         warning(f'Histogram {hName} not found in {fpath}')
         f.Close()
         return None
-    
+
     # Detach histogram from file to prevent cleanup issues
     h.SetDirectory(0)
 
@@ -294,24 +295,24 @@ def get_hist(
     h = proc_scale(h, proc, processes, proc_scales=proc_scales)
     return h
 
-#_________________________
+# ________________________
 def getHist(
-    hName: str, 
-    procs: str, 
-    inDir: str, 
-    suffix: str = '', 
-    rebin: int = 1, 
-    lazy: bool = True, 
+    hName: str,
+    procs: str,
+    inDir: str,
+    suffix: str = '',
+    rebin: int = 1,
+    lazy: bool = True,
     proc_scale: float = 1.,
     rmww: bool = True,
     use_cache: bool = True,
-    ) -> 'ROOT.TH1':
+     ) -> 'ROOT.TH1':
     '''
     Retrieve and sum histograms across multiple processes.
-    
+
     Handles missing files gracefully based on lazy mode and applies cross-section
     corrections, rebinning, and scaling. Checks cache first if use_cache=True.
-    
+
     Args:
         hName (str): Name of the histogram to retrieve.
         procs (str): List of process names to combine.
@@ -322,28 +323,28 @@ def getHist(
         proc_scale (float, optional): Global scaling factor for the histogram. Defaults to 1.0.
         rmww (bool, optional): Apply WW cross-section correction. Defaults to True.
         use_cache (bool, optional): Check cache before opening files. Defaults to True.
-    
+
     Returns:
         ROOT.TH1: Combined and scaled histogram, or None if no histograms found.
     '''
-    import ROOT 
+    import ROOT
 
     hist = None
     names, where = [], []
-    
+
     # Pre-cache WW metadata for all processes to avoid repeated lookups
     ww_scales_cache = {}
 
     for proc in procs:
         cache_key = (proc, suffix, inDir)
-        
+
         # Check cache first if enabled
         if use_cache and cache_key in HIST_CACHE:
             if hName in HIST_CACHE[cache_key]:
                 # Clone from cache to avoid modifying cached histogram
                 h = HIST_CACHE[cache_key][hName].Clone(f'{proc}_{hName}_copy')
                 h.SetDirectory(0)
-                
+
                 # Accumulate
                 if hist is None:
                     hist = h
@@ -388,7 +389,7 @@ def getHist(
             else:
                 warning(f'Histogram {hName} not found in {fInName}')
                 return None
-        
+
         # Detach histogram from file
         h.SetDirectory(0)
 
@@ -409,9 +410,9 @@ def getHist(
             h.Scale(scale)
 
         # Accumulate histograms
-        if hist is None: 
+        if hist is None:
             hist = h
-        else: 
+        else:
             hist.Add(h)
 
         f.Close()
@@ -426,25 +427,25 @@ def getHist(
     # Apply post-processing: rebinning and scaling
     if rebin!=1:
         hist.Rebin(rebin)
-    
+
     if proc_scale!=1:
         hist.Scale(proc_scale)
     return hist
 
-#____________________________
+# ___________________________
 def concat(
-    h_list: list['ROOT.TH1'], 
-    hName: str, 
+    h_list: list['ROOT.TH1'],
+    hName: str,
     outName: str = ''
-    ) -> 'ROOT.TH1':
+     ) -> 'ROOT.TH1':
     '''
     Concatenate multiple histograms into a single unrolled 1D histogram.
-    
+
     Args:
         h_list (list[ROOT.TH1]): List of ROOT histograms to concatenate.
         hName (str): Name for logging purposes.
         outName (str, optional): Name for the output histogram. Defaults to '' (uses hName if empty).
-    
+
     Returns:
         ROOT.TH1: Unrolled 1D histogram combining all input histograms.
     '''
@@ -456,7 +457,7 @@ def concat(
     tot_bins = sum([h.GetNbinsX() for h in h_list])
 
     # Create unrolled 1D histogram
-    h_concat = ROOT.TH1D('h1', '1D Unrolled Histogram', 
+    h_concat = ROOT.TH1D('h1', '1D Unrolled Histogram',
                          tot_bins, 0.5, tot_bins + 0.5)
     h_concat.SetDirectory(0)
 
@@ -472,35 +473,34 @@ def concat(
         bin_offset += nbins
 
     h_concat.SetName(outName if outName else hName)
-            
+
     return h_concat
 
-#_____________________________________
+# ____________________________________
 def proc_scale(
-    hist: 'ROOT.TH1', 
-    proc: str, 
-    processes: dict[str, list[str]], 
+    hist: 'ROOT.TH1',
+    proc: str,
+    processes: dict[str, list[str]],
     proc_scales: dict[str, float] = {}
-    ) -> 'ROOT.TH1':
+     ) -> 'ROOT.TH1':
     '''
     Apply process-specific scaling factor to a histogram.
-    
+
     Looks up the process in the configuration and applies the corresponding scale.
-    
+
     Args:
         hist (ROOT.TH1): ROOT histogram to scale.
         proc (str): Process name identifier.
         processes (dict[str, list[str]]): Process configuration mapping process names to process lists.
         proc_scales (dict[str, float], optional): Dictionary of scaling factors by process name. Defaults to {}.
-    
+
     Returns:
         ROOT.TH1: Scaled histogram.
     '''
-    import ROOT
 
     if not proc_scales:
         return hist
-    
+
     # Find process category and apply corresponding scale
     for proc_name, proc_list in processes.items():
         if proc in proc_list and proc_name!='Rare':
@@ -508,14 +508,14 @@ def proc_scale(
             if scale is not None:
                 hist.Scale(scale)
                 print(f'----->[Info] Scaled histogram '
-                    f'to ILC scale by a factor of {scale:.3f}')
+                      f'to ILC scale by a factor of {scale:.3f}')
             break
     return hist
 
-#__________________________
+# _________________________
 def get_stack(
     hists: list['ROOT.TH1']
-    ) -> 'ROOT.TH1':
+     ) -> 'ROOT.TH1':
     '''
     Create a stacked histogram from a list of histograms.
 
@@ -531,23 +531,23 @@ def get_stack(
 
     if not hists:
         raise ValueError('get_stack requires at least one histogram')
-    
+
     # Clone first histogram and add remaining histograms
     hist = hists[0].Clone()
     hist.SetDirectory(0)
     hist.SetName(hist.GetName() + '_stack')
-    for h in hists[1:]: 
+    for h in hists[1:]:
         hist.Add(h)
     return hist
 
-#________________________________________
+# _______________________________________
 def get_xrange(
-    hist: 'ROOT.TH1', 
-    strict: bool = True, 
+    hist: 'ROOT.TH1',
+    strict: bool = True,
     xmin: Union[float, int, None] = None,
     xmax: Union[float, int, None] = None
-    ) -> tuple[Union[float, int], 
-               Union[float, int]]:
+     ) -> tuple[Union[float, int],
+                Union[float, int]]:
     '''
     Get the x-range of a histogram based on bin content.
 
@@ -562,13 +562,13 @@ def get_xrange(
     '''
     import numpy as np
     nbins = hist.GetNbinsX()
-    
+
     # Direct numpy array from ROOT (excludes under/overflow bins)
     contents = np.array(hist, dtype=np.float64)[1:nbins+1]
-    
+
     # Get axis object once
     xaxis = hist.GetXaxis()
-    
+
     # Check if variable bin width
     if xaxis.IsVariableBinSize():
         # Variable bins: extract edges individually but efficiently
@@ -576,7 +576,7 @@ def get_xrange(
     else:
         # Fixed bins: use linspace for maximum speed
         edges = np.linspace(xaxis.GetXmin(), xaxis.GetXmax(), nbins + 1, dtype=np.float64)
-    
+
     # Vectorized filtering
     mask = np.ones(nbins, dtype=bool)
     if strict:
@@ -585,25 +585,25 @@ def get_xrange(
         mask &= (edges[:-1] > xmin)
     if xmax is not None:
         mask &= (edges[1:] < xmax)
-    
+
     if not mask.any():
         # Fallback to full range if nothing matched
         return float(edges[0]), float(edges[-1])
-    
+
     # Find min/max from masked edges
     valid_bins = np.where(mask)[0]
     return float(edges[valid_bins[0]]), float(edges[valid_bins[-1] + 1])
 
-#________________________________________
+# _______________________________________
 def get_yrange(
-    hist: 'ROOT.TH1', 
+    hist: 'ROOT.TH1',
     logY: bool,
     ymin: Union[float, int, None] = None,
     ymax: Union[float, int, None] = None,
     scale_min: float = 1.,
     scale_max: float = 1.
-    ) -> tuple[Union[float, int], 
-               Union[float, int]]:
+     ) -> tuple[Union[float, int],
+                Union[float, int]]:
     '''
     Get the y-range of a histogram.
 
@@ -620,7 +620,7 @@ def get_yrange(
     '''
     import numpy as np
     nbins = hist.GetNbinsX()
-    
+
     # Direct numpy array extraction (excludes under/overflow bins)
     contents = np.array(hist, dtype=np.float64)[1:nbins+1]
 
@@ -638,21 +638,21 @@ def get_yrange(
     if (ymax is not None) and ymax < yMax: yMax = ymax
     return yMin, yMax
 
-#________________________________________
+# _______________________________________
 def get_range(
-    h_sigs: list['ROOT.TH1'], 
+    h_sigs: list['ROOT.TH1'],
     h_bkgs: list['ROOT.TH1'],
-    logY: bool = False, 
-    strict: bool = True, 
+    logY: bool = False,
+    strict: bool = True,
     stack: bool = False,
-    scale_min: float = 1., 
+    scale_min: float = 1.,
     scale_max: float = 1.,
     xmin: Union[float, int, None] = None,
     xmax: Union[float, int, None] = None,
     ymin: Union[float, int, None] = None,
     ymax: Union[float, int, None] = None
-    ) -> tuple[float, float, 
-               float, float]:
+     ) -> tuple[float, float,
+                float, float]:
     '''
     Determine the range for signal and background histograms.
 
@@ -678,56 +678,56 @@ def get_range(
 
     # Determine x-range from stacked histogram
     xMin, xMax = get_xrange(
-        h_stack, strict=strict, 
+        h_stack, strict=strict,
         xmin=xmin, xmax=xmax
     )
     h_bkg = [get_stack(h_bkgs)]
-    
+
     # Get y-min values from all histograms
     yMin = np.array([
         get_yrange(
             h, logY=logY,
             ymin=ymin, ymax=ymax,
             scale_min=scale_min,
-            scale_max=scale_max)[0] 
-            for h in h_sigs + h_bkgs
+            scale_max=scale_max)[0]
+        for h in h_sigs + h_bkgs
     ])
-    
+
     # Get y-max values based on stacking option
     if stack:
         yMax = get_yrange(
-            h_stack, logY=logY, 
-            ymin=ymin, ymax=ymax, 
+            h_stack, logY=logY,
+            ymin=ymin, ymax=ymax,
             scale_min=scale_min,
             scale_max=scale_max
         )[1]
     else:
         yMax = np.array([
             get_yrange(
-                h, logY=logY, 
+                h, logY=logY,
                 ymin=ymin, ymax=ymax,
                 scale_min=scale_min,
-                scale_max=scale_max)[1] 
-                for h in h_sigs + h_bkg
+                scale_max=scale_max)[1]
+            for h in h_sigs + h_bkg
         ])
-        
+        yMax = yMax.max()
     yMin = yMin.min()
-    yMax = yMax.max()
+
     return xMin, xMax, yMin, yMax
 
-#________________________________________
+# _______________________________________
 def get_range_decay(
-    h_sigs: list['ROOT.TH1'], 
-    logY: bool = False, 
+    h_sigs: list['ROOT.TH1'],
+    logY: bool = False,
     strict: bool = True,
-    scale_min: float = 1., 
+    scale_min: float = 1.,
     scale_max: float = 1.,
     xmin: Union[float, int, None] = None,
     xmax: Union[float, int, None] = None,
     ymin: Union[float, int, None] = None,
     ymax: Union[float, int, None] = None
-    ) -> tuple[float, float, 
-               float, float]:
+     ) -> tuple[float, float,
+                float, float]:
     '''
     Determine the range for decay mode histograms.
 
@@ -748,17 +748,17 @@ def get_range_decay(
     import numpy as np
     # Stack signal histograms
     h_sig = get_stack(h_sigs)
-    
+
     # Get x-range from stacked histogram
     xMin, xMax = get_xrange(
-        h_sig, strict=strict, 
+        h_sig, strict=strict,
         xmin=xmin, xmax=xmax
-        )
+    )
 
     # Get y-range values from all signal histograms
     y_ranges = np.array([get_yrange(
         h, logY=logY, ymin=ymin, ymax=ymax
-        ) for h in h_sigs])
+    ) for h in h_sigs])
     yMin = y_ranges[:,0].min()*scale_min
     yMax = y_ranges[:,1].max()*scale_max
 
