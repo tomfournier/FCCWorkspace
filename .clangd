@@ -1,0 +1,19 @@
+CompileFlags:
+  CompilationDatabase: FCCAnalyses/build
+  Add:
+    - "-I${workspaceFolder}/FCCAnalyses/install/include"
+    - "-I${workspaceFolder}/FCCAnalyses/analyzers/dataframe"
+    - "-I${workspaceFolder}/functions"
+    - "-I/usr/include/root"
+    - "-std=c++20"
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
+
+Hover:
+  ShowAKA: true
+
+Index:
+  Background: Build
