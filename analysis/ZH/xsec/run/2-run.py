@@ -36,15 +36,15 @@ t = time.time()
 
 parser = ArgumentParser(description='Run analysis pipeline with automated parameters')
 # Select lepton final states; dash-separated values run both channels
-parser.add_argument('--cat', type=str, default='ee-mumu', 
+parser.add_argument('--cat', type=str, default='ee-mumu',
                     choices=['ee', 'mumu', 'ee-mumu', 'mumu-ee'],
                     help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
 # Choose center-of-mass energy; dash-separated values run multiple energies sequentially
-parser.add_argument('--ecm', type=str, default='240-365', 
+parser.add_argument('--ecm', type=str, default='240-365',
                     choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
 # Select pipeline stages: 1=process_input, 2=train_bdt, 3=evaluation; dash-separated runs multiple
-parser.add_argument('--run', type=str, default='1-2-3', 
+parser.add_argument('--run', type=str, default='1-2-3',
                     choices=['1', '2', '3', '1-2', '2-3', '1-2-3'],
                     help='Pipeline stages: 1=pre-selection, 2=final-selection, 3=plots (default: 1-2-3)')
 
@@ -78,32 +78,32 @@ path = f'{loc.ROOT}/2-BDT'
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cat: str, 
-        ecm: int, 
+def run(cat: str,
+        ecm: int,
         path: str,
         script: str,
         ) -> None:
     '''Execute one BDT stage with streaming output.
-    
+
     Builds command-line arguments for the selected stage, appends optional
     evaluation flags when applicable, and forwards execution to the target
     script while piping stdout/stderr to the terminal.
-    
+
     Args:
         cat (str): Lepton channel identifier ('ee' or 'mumu').
         ecm (int): Center-of-mass energy in GeV (240 or 365).
         path (str): Base directory for stage scripts.
         script (str): Stage script name ('process_input', 'train_bdt', or 'evaluation').
-    
+
     Returns:
         int: Return code from the subprocess.
     '''
-    
+
     # Preserve the current environment; the called scripts interpret args directly
     env = os.environ.copy()
 
     script_path = f'{path}/{script}.py'
-    
+
     # Display execution header with clear identification
     msg = f'▶ STARTING: [{script}] {cat = } | {ecm = }'
     length = len(msg) + 2
@@ -118,7 +118,7 @@ def run(cat: str,
         if arg.tree:   extra_args.append('--tree')
         if arg.check:  extra_args.append('--check')
         if arg.hl:     extra_args.append('--hl')
-    
+
     # Execute stage script; pipe outputs through to this terminal
     result = subprocess.run(
         ['python', script_path] + extra_args,
@@ -136,7 +136,6 @@ def run(cat: str,
     return result.returncode
 
 
-
 ######################
 ### CODE EXECUTION ###
 ######################
@@ -150,7 +149,7 @@ if __name__ == '__main__':
         print('\n' + '█' * length)
         print(msg.center(length))
         print('█' * length)
-        
+
         for cat in cats:
             for script in scripts:
                 result = run(cat, ecm, path, script)

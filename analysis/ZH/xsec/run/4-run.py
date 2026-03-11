@@ -42,11 +42,11 @@ ENV['RUN'] = '1'
 
 parser = ArgumentParser(description='Run analysis pipeline with automated parameters')
 # Select lepton final states; dash-separated values run both channels
-parser.add_argument('--cat', type=str, default='ee-mumu', 
+parser.add_argument('--cat', type=str, default='ee-mumu',
                     choices=['ee', 'mumu', 'ee-mumu', 'mumu-ee'],
                     help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
 # Choose center-of-mass energy; dash-separated values run multiple energies sequentially
-parser.add_argument('--ecm', type=str, default='240-365', 
+parser.add_argument('--ecm', type=str, default='240-365',
                     choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
 # Select pipeline stages: 1=process_histogram, 2=combine; dash-separated runs both in order
@@ -69,9 +69,10 @@ arg = parser.parse_args()
 cats = arg.cat.split('-')
 ecms = [int(e) for e in arg.ecm.split('-')]
 sels = [
-    'Baseline', 
-    'Baseline_miss', 
-    'Baseline_sep'
+    'Baseline',
+    # 'Baseline_miss',
+    # 'Baseline_sep',
+    'test'
 ]
 
 # Map stage numbers to script names (cutflow added as stage 4)
@@ -89,12 +90,12 @@ path = f'{loc.ROOT}/4-Combine'
 ##########################
 
 def run(cfg_dir: str,
-    cat: str,
-    ecm: int,
-    sel: str,
-    path: str,
-    script: str,
-    ) -> None:
+        cat: str,
+        ecm: int,
+        sel: str,
+        path: str,
+        script: str,
+        ) -> None:
     '''Execute one measurement stage with a temporary config and streamed output.
 
     Builds a JSON file with cat/ecm/sel, sets RUN=1, and calls the stage script
@@ -114,16 +115,16 @@ def run(cfg_dir: str,
     # Create configuration directory if it doesn't exist
     mkdir(cfg_dir)
     cfg_file = Path(cfg_dir) / '4-run.json'
-    
+
     # Build configuration dictionary
     config = {'cat': cat, 'ecm': ecm}
     if script=='combine': config['sel'] = sel
-    
+
     # Write configuration to temporary JSON file
     cfg_file.write_text(json.dumps(config))
-    
+
     script_path = f'{path}/{script}.py'
-    
+
     # Display execution header with clear identification
     msg = f'▶ STARTING: [{script}] {cat = } | {ecm = }'
     length = len(msg) + 2
@@ -137,11 +138,11 @@ def run(cfg_dir: str,
         if arg.polL: extra_args.append('--polL')
         if arg.polR: extra_args.append('--polR')
         if arg.ILC:  extra_args.append('--ILC')
-    
+
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
         else [sys.executable, script_path] + extra_args
-    
+
     try:
         # Execute fccanalysis with modified environment and stream output
         result = subprocess.run(
@@ -162,7 +163,6 @@ def run(cfg_dir: str,
         # Cleanup: remove temporary configuration file
         if cfg_file.exists():
             cfg_file.unlink()
-
 
 
 ######################

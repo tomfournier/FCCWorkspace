@@ -20,6 +20,10 @@ Usage:
 ##########################################################
 
 import os, sys, time, subprocess
+from pathlib import Path
+
+# Add workspace root to path so package imports work
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from argparse import ArgumentParser
 
@@ -77,7 +81,7 @@ parser.add_argument(
 # Additional fit/bias-test arguments
 parser.add_argument(
     '--extra', nargs='*', default=[],
-    choices=['freeze', 'float', 'plot_dc', 'polL', 'polR', 
+    choices=['freeze', 'float', 'plot_dc', 'polL', 'polR',
              'ILC', 'tot', 'onlyrun', 't'],
     help='Extra fit arguments'
 )
@@ -115,8 +119,9 @@ ecms = parse_ecms(arg.ecm)
 # Active selections for analysis
 sels = [
     'Baseline',
-    'Baseline_miss',
-    'Baseline_sep',
+    # 'Baseline_miss',
+    # 'Baseline_sep',
+    'test'
 ]
 
 # Map stage identifiers to script names
@@ -172,7 +177,7 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
         if arg.noprint: cmd.append('--noprint')
     elif script == 'bias_test':
         cmd.extend(['--pert', str(arg.pert)])
-        if arg.extra: 
+        if arg.extra:
             cmd.extend(['--extra'] + arg.extra)
 
     # Execute with real-time streaming to terminal
@@ -188,7 +193,6 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
     print('=' * length + '\n')
 
     return result.returncode
-
 
 
 ######################

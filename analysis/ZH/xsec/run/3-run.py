@@ -39,15 +39,15 @@ t = time.time()
 
 parser = ArgumentParser(description='Run analysis pipeline with automated parameters')
 # Select lepton final states; dash-separated values run both channels
-parser.add_argument('--cat', type=str, default='ee-mumu', 
+parser.add_argument('--cat', type=str, default='ee-mumu',
                     choices=['ee', 'mumu', 'ee-mumu', 'mumu-ee'],
                     help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
 # Choose center-of-mass energy; dash-separated values run multiple energies sequentially
-parser.add_argument('--ecm', type=str, default='240-365', 
+parser.add_argument('--ecm', type=str, default='240-365',
                     choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
 # Select pipeline stages: 1=pre-selection, 2=final-selection, 3=plots, 4=cutflow; dash-separated runs multiple
-parser.add_argument('--run', type=str, default='2-3', 
+parser.add_argument('--run', type=str, default='2-3',
                     choices=['1', '2', '3', '4', '1-2', '2-3', '3-4', '1-2-3', '2-3-4', '1-2-3-4'],
                     help='Pipeline stages: 1=pre-selection, 2=final-selection, 3=plots, 4=cutflow (default: 2-3)')
 
@@ -58,10 +58,8 @@ parser.add_argument('--make',   help='Do not make distribution plots',      acti
 parser.add_argument('--scan',   help='Make significance scan plots',        action='store_true')
 
 # Include all Z decay modes in plots
-parser.add_argument('--tot', help='Include all the Z decays in the plots', 
+parser.add_argument('--tot', help='Include all the Z decays in the plots',
                     action='store_true')
-parser.add_argument('--ww', help="Choose if run pre-selection for p8_ee_WW_ee_ecm", 
-                    type=str, default='both', choices=['ww', 'other', 'both'])
 arg = parser.parse_args()
 
 
@@ -88,50 +86,48 @@ path = f'{loc.ROOT}/3-Measurement'
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cfg_dir: str, 
-        cat: str, 
-        ecm: int, 
+def run(cfg_dir: str,
+        cat: str,
+        ecm: int,
         path: str,
         script: str,
-        ww: bool = False
         ) -> None:
     '''Execute one measurement stage with a temporary config and streamed output.
-    
+
     Builds a JSON file with cat/ecm/lumi, sets RUN=1, and calls the stage script
     via fccanalysis (or python for non-fccanalysis steps) while piping stdout/stderr
     through to the parent terminal.
-    
+
     Args:
         cfg_dir (str): Directory where the temporary config file will be stored.
         cat (str): Lepton channel identifier ('ee' or 'mumu').
         ecm (int): Center-of-mass energy in GeV (240 or 365).
         path (str): Base directory for stage scripts.
         script (str): Stage script name ('pre-selection', 'final-selection', 'plots', 'cutflow').
-    
+
     Returns:
         int: Return code from the subprocess.
     '''
     # Create configuration directory if it doesn't exist
     mkdir(cfg_dir)
     cfg_file = Path(cfg_dir) / '3-run.json'
-    
+
     # Build configuration dictionary
     lumi = 10.8 if ecm == 240 else (3.12 if ecm==365 else -1)
-    config = {'cat': cat, 
-              'ecm': ecm, 
-              'lumi': lumi,
-              'ww': ww}
-    
+    config = {'cat': cat,
+              'ecm': ecm,
+              'lumi': lumi}
+
     # Write configuration to temporary JSON file
     cfg_file.write_text(json.dumps(config))
     print(f'----->[Info] Wrote config file to {cfg_file}')
-    
+
     # Set up environment with RUN flag for automated mode detection
     env = os.environ.copy()
     env['RUN'] = '1'
 
     script_path = f'{path}/{script}.py'
-    
+
     # Display execution header with clear identification
     msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {lumi = }'
     length = len(msg) + 2
@@ -175,7 +171,6 @@ def run(cfg_dir: str,
             cfg_file.unlink()
 
 
-
 ######################
 ### CODE EXECUTION ###
 ######################
@@ -192,34 +187,19 @@ if __name__ == '__main__':
         # BATCH info for pre/final-selection
         if ('pre-selection' in scripts) or ('final-selection' in scripts):
             task_count = len(cats) * len([s for s in scripts if s in ['pre-selection', 'final-selection']])
-            msg = f'BATCH: Running {task_count} task(s) for ecm={ecm}'
+            msg = f'BATCH: Running {task_count} task(s) for {ecm = }'
             length = len(msg) + 2
             print('\n' + '█' * length)
             print(msg.center(length))
             print('█' * length)
             for cat in cats:
                 for script in scripts:
-                    if 'pre-selection' in script:
-                        if arg.ww == 'both':
-                            result = run(loc.RUN, cat, ecm, path, script, ww=False)
-                            if result != 0: sys.exit(result)
-                            result = run(loc.RUN, cat, ecm, path, script, ww=True)
-                            if result != 0: sys.exit(result)
-                        elif arg.ww == 'ww':
-                            result = run(loc.RUN, cat, ecm, path, script, ww=True)
-                            if result != 0: sys.exit(result)
-                        elif arg.ww == 'other':
-                            result = run(loc.RUN, cat, ecm, path, script, ww=False)
-                            if result != 0: sys.exit(result)
-                        else:
-                            raise ValueError('Wrong value selected for --ww')
-                    else:
-                        result = run(loc.RUN, cat, ecm, path, script)
-                        if result != 0: sys.exit(result)
+                    result = run(loc.RUN, cat, ecm, path, script)
+                    if result != 0: sys.exit(result)
 
         # BATCH info for plots
         if is_there_plots:
-            msg = f'BATCH: Running plots for ecm={ecm} | cat={arg.cat}'
+            msg = f'BATCH: Running plots for {ecm = } | cat = {arg.cat}'
             length = len(msg) + 2
             print('\n' + '█' * length)
             print(msg.center(length))
@@ -228,7 +208,7 @@ if __name__ == '__main__':
             if result != 0: sys.exit(result)
         # BATCH info for cutflow
         if is_there_cutflow:
-            msg = f'BATCH: Running cutflow for ecm={ecm} | cat={arg.cat}'
+            msg = f'BATCH: Running cutflow for {ecm = } | cat = {arg.cat}'
             length = len(msg) + 2
             print('\n' + '█' * length)
             print(msg.center(length))
