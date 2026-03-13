@@ -1,9 +1,9 @@
 [submodule "HiggsAnalysis/CombinedLimit"]
 	path = HiggsAnalysis/CombinedLimit
-	url = https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git
+	url = git@github.com:tomfournier/HiggsAnalysis-CombinedLimit.git
 
 
 [submodule "FCCAnalyses"]
 	path = FCCAnalyses
-	url = git@github.com:HEP-FCC/FCCAnalyses.git
+	url = git@github.com:tomfournier/FCCAnalyses.git
 	branch = pre-edm4hep1
