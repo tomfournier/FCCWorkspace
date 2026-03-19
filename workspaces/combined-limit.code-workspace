@@ -6,6 +6,7 @@
     ],
     "settings": {
         "cmake.ignoreCMakeListsMissing": true,
+        "python.defaultInterpreterPath": "/cvmfs/sft.cern.ch/lcg/views/LCG_106/x86_64-el9-gcc13-opt/bin/python",
         "python.envFile": "${workspaceFolder}/envs/combinedlimit.txt",
     }
 }
