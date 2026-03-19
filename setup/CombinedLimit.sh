@@ -83,6 +83,9 @@ export PATH=$PWD/build/bin:$PATH
 export LD_LIBRARY_PATH=$PWD/build/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=$PWD/build/python:$PYTHONPATH
 
+# Add xsec/ folder for python to detect package/ 
+export PYTHONPATH=$LOCAL_DIR/analysis/ZH/xsec:$PYTHONPATH
+
 cd ../../
 
 # Make alias for fast rebuilding
