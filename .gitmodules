@@ -7,8 +7,3 @@
 	path = FCCAnalyses
 	url = git@github.com:tomfournier/FCCAnalyses.git
 	branch = pre-edm4hep1
-
-
-[submodule "HiggsAnalysis/Combined_tf"]
-	path = HiggsAnalysis/Combined_tf
-	url = git@github.com:tomfournier/Combine_tf.git
