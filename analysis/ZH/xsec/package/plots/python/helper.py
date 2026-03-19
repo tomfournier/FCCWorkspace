@@ -11,20 +11,23 @@ Provides:
 Functions:
 - `find_sample_files()`: Locate ROOT files for a specified sample or directory.
 - `get_processed()`: Sum processed event counts across files using metadata keys.
-- `get_cut()`: Sum cut values from events branch across files.
+- `get_cut()`: Sum cut yields from pre-computed histograms across files.
 - `is_there_events()`: Check if ROOT files contain an 'events' tree.
 - `getcut()`: Apply filter expression to dataframe with boolean mask combination.
-- `get_count()`: Get event count using file metadata or dataframe filtering with fallback.
+- `get_count()`: Get event count from ROOT histogram or dataframe filtering.
 - `get_flow()`: Build event flow histograms and cutflow data for multiple processes.
 - `get_flow_decay()`: Build event flow histograms for Higgs decay channels.
 - `get_flows()`: Generate both process-level and decay-level event flows.
 - `dump_json()`: Save event flow dictionary to JSON file.
 - `_key_from_file()`: Extract integer value from ROOT file key (cached).
-- `_cut_from_file()`: Retrieve cut value from events branch (cached).
+- `_cut_from_file()`: Retrieve cut yield from cutflow histogram (cached).
 - `_col_from_file()`: Extract column names from events tree (cached).
+- `_get_bin_index()`: Convert cut name to ROOT histogram bin index.
 
 Conventions:
 - All file metadata access cached via LRU cache (no size limit) to minimize I/O.
+- Cut yields read from histogram: custom_objects/cutflow with bin N = cut(N-1).
+- Cut naming: "cut0", "cut1", ... where bin 1 = cut0, bin 2 = cut1, etc.
 - Event counts represent cumulative passing events after applying cuts sequentially.
 - Yield uncertainties computed as sqrt(N) on raw counts, then scaled by luminosity/cross-section.
 - Histograms binned by cut step with bin N corresponding to cutN in cuts dictionary.
@@ -36,11 +39,13 @@ Conventions:
 
 Usage:
 - Load and process events from ROOT files with automatic file discovery.
-- Compute cumulative event counts across sequential cut selection steps.
-- Build event flow histograms for cutflow analysis and efficiency calculations.
+- Compute cumulative event counts from pre-computed histograms for efficiency.
+- Build event flow histograms for cutflow analysis with minimal memory overhead.
 - Export event flow data to JSON for downstream analysis and bookkeeping.
-- Validate data availability (events trees, cut branches) before processing.
+- Validate data availability (events trees, cut histograms) before processing.
 '''
+
+from __future__ import annotations
 
 ####################################
 ### IMPORT MODULES AND FUNCTIONS ###
@@ -89,22 +94,67 @@ def _key_from_file(
             print(f"WARNING: Couldn't find {key} in {filepath}, returning 0")
             return 0
 
+def _get_bin_index(cut_name: str) -> int:
+    '''Extract bin index from cut name.
+
+    Converts cut name (e.g., "cut0", "cut5") to histogram bin number.
+    Bin numbering in ROOT: bin 1 = cut0, bin 2 = cut1, etc.
+
+    Args:
+        cut_name (str): Cut identifier (e.g., "cut0", "cut1").
+
+    Returns:
+        int: ROOT histogram bin number (1-indexed), or 0 if invalid.
+    '''
+    try:
+        if cut_name.startswith('cut'):
+            return int(cut_name[3:]) + 1  # "cut0" -> 1, "cut1" -> 2, etc.
+    except (ValueError, IndexError):
+        pass
+    return 0
+
+
 @lru_cache(maxsize=None)
 def _cut_from_file(
     filepath: str,
-    branch: str
+    cut_name: str
      ) -> int:
-    '''Retrieve cut value from events branch in a ROOT file.
+    '''Retrieve cut value from histogram in a ROOT file.
+
+    Reads cut yields from pre-computed histogram stored in custom_objects.
+    Tries all 1D histogram types (TH1D, TH1F, TH1I, TH1S, TH1C) to maximize
+    compatibility. Uses caching to minimize I/O overhead when called multiple
+    times.
 
     Args:
         filepath (str): Path to the ROOT file.
-        branch (str): Branch name in the 'events' tree.
+        cut_name (str): Cut identifier (e.g., "cut0", "cut1", "cut2").
 
     Returns:
-        int: Integer value from the branch, or 0 if not found.
+        int: Event count for the specified cut, or 0 if not found.
     '''
     try:
-        return int(uproot.open(filepath)['events'][branch].array(entry_stop=1)[0])
+        f = uproot.open(filepath)
+        # Get bin number from cut name
+        bin_idx = _get_bin_index(cut_name)
+        if bin_idx <= 0:
+            return 0
+
+        # Try all 1D histogram types in order of likelihood
+        hist_types = ['TH1D', 'TH1F', 'TH1I', 'TH1S', 'TH1C']
+
+        for hist_type in hist_types:
+            hist_path = f'custom_objects/{hist_type}/cutFlow'
+            try:
+                hist = f[hist_path]
+                # Read bin content (number of events passing the cut)
+                return int(hist.values()[bin_idx - 1])
+            except (KeyError, IndexError, TypeError):
+                continue
+
+        # No valid histogram found
+        print("----->[WARNING] Didn't find cutFlow in custom_objects, returning 0")
+        return 0
     except Exception:
         return 0
 
@@ -192,20 +242,23 @@ def get_processed(
 # ____________________
 def get_cut(
     files: list[str],
-    cut: str
+    cut_name: str
      ) -> int:
-    '''Sum cut values across files.
+    '''Sum cut yields from histogram across files.
+
+    Aggregates event counts from pre-computed cutflow histograms across all
+    input files for a specific cut step.
 
     Args:
         files (list[str]): Single file path or list of file paths.
-        cut (str): Cut branch name in the events tree.
+        cut_name (str): Cut identifier (e.g., "cut0", "cut1", "cut2").
 
     Returns:
-        int: Total count from the cut branch.
+        int: Total event count passing the specified cut across all files.
     '''
     if isinstance(files, str):
         files = [files]
-    return int(sum(_cut_from_file(os.fspath(f), cut)
+    return int(sum(_cut_from_file(os.fspath(f), cut_name)
                    for f in files))
 
 # ____________________________________
@@ -244,18 +297,18 @@ def get_count(
     filter_expr: str,
     columns: set | None = None
      ) -> tuple[int, 'np.ndarray' | None]:
-    '''Get event count for a cut using file metadata or dataframe filtering.
+    '''Get event count for a cut using histogram or dataframe filtering.
 
-    Prefers reading cut values directly from files if available,
-    otherwise applies filter expression to dataframe.
+    Prioritizes reading pre-computed cut values from ROOT file histograms.
+    Falls back to filtering dataframe if histogram data unavailable.
 
     Args:
         df (pd.DataFrame): Dataframe containing event data.
         df_mask (np.ndarray | None): Existing boolean mask for events.
         file_list (list[str]): List of ROOT file paths.
-        cut_name (str): Name of the cut to retrieve.
-        filter_expr (str): Filter expression to apply if cut not in files.
-        columns (set | None, optional): Set of available columns in the files. Defaults to None.
+        cut_name (str): Cut identifier (e.g., "cut0", "cut1").
+        filter_expr (str): Filter expression to apply if cut not in histogram.
+        columns (set | None, optional): Set of available columns. Defaults to None.
 
     Returns:
         tuple: (event count, updated boolean mask).
@@ -263,10 +316,12 @@ def get_count(
     if df is None or df.empty:
         return 0, df_mask
 
-    if cut_name in columns:
+    # Try to read directly from pre-computed histogram in ROOT files
+    if filter_expr == '':
         count = get_cut(file_list, cut_name)
         return count, df_mask
 
+    # Fall back to dataframe filtering
     try:
         count, df_mask = getcut(df, filter_expr, df_mask)
         return count, df_mask
@@ -383,6 +438,8 @@ def get_flow(
     Returns:
         dict: Dictionary with process flow data including histograms, cuts, and errors.
     '''
+    import ROOT
+
     procs[0] = f'Z{cat}H' if not tot else 'ZH'
     _cat, _sel, _tot = f'_{cat}', f'_{sel}', '_tot' if tot else ''
 
@@ -426,10 +483,7 @@ def get_flow_decay(
     loc: str = '',
     suffix: str = '',
     tot: bool = False
-     ) -> dict[str,
-               dict[str,
-                    'ROOT.TH1' | dict[str,
-                                      float]]]:
+     ) -> 'dict[str, dict[str, ROOT.TH1 | dict[str, float]]]':
     '''Build event flow histograms for Higgs decay channels.
 
     Accumulates cut yields for each Higgs decay mode across Z decay channels,

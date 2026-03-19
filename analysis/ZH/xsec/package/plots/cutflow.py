@@ -682,7 +682,7 @@ def get_cutflow(
             flist = find_sample_files(inDir, sample)
             file_list[sample] = flist
             # Extract cross section and total processed event count for luminosity scaling
-            events[sample]['cross-section']   = getMetaInfo(sample, rmww=False, rminv=True)
+            events[sample]['cross-section']   = getMetaInfo(sample, rmww=False)
             events[sample]['eventsProcessed'] = get_processed(flist)
 
     # Preload column names from first file of each sample (avoids repeated I/O)
@@ -729,9 +729,11 @@ def get_cutflow(
                         for cut, filter in cuts[sel].items():
                             events[sample][sel]['filter'][cut] = filter
                             # Evaluate cut expression and accumulate passing events
-                            count, df_mask = get_count(df, df_mask, [f],
-                                                       cut, filter,
-                                                       columns=col_map.get(sample, None))
+                            count, df_mask = get_count(
+                                df, df_mask, [f],
+                                cut, filter,
+                                columns=col_map.get(sample, None)
+                            )
                             raw_counts[cut] += float(count)
 
                         # Scale yields and compute Poisson errors
