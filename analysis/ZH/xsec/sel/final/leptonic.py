@@ -1,13 +1,14 @@
+# Output histogram definitions (name, title, binning)
 histos_ll = {
 
     # Lepton kinematics: leading lepton
     'leading_p':        {'name':'leading_p',
                          'title':'p_{l,leading} [GeV]',
-                         'bin':800,'xmin':0,'xmax':200},
+                         'bin':1000,'xmin':0,'xmax':250},
 
     'leading_pT':       {'name':'leading_pT',
                          'title':'p_{T,l,leading} [GeV]',
-                         'bin':800,'xmin':0,'xmax':200},
+                         'bin':1000,'xmin':0,'xmax':250},
 
     'leading_theta':    {'name':'leading_theta',
                          'title':'#theta_{l,leading}',
@@ -36,8 +37,12 @@ histos_ll = {
 
     # Angular separation between leptons
     'acolinearity':     {'name':'acolinearity',
+                         'title':'#Delta#alpha_{l^{+}l^{-}}',
+                         'bin':256,'xmin':0,'xmax':3.2},
+
+    'acopolarity':      {'name':'acopolarity',
                          'title':'#Delta#theta_{l^{+}l^{-}}',
-                         'bin':240,'xmin':0,'xmax':3},
+                         'bin':256,'xmin':0,'xmax':3.2},
 
     'acoplanarity':     {'name':'acoplanarity',
                          'title':'#pi-#Delta#phi_{l^{+}l^{-}}',
@@ -45,7 +50,7 @@ histos_ll = {
 
     'deltaR':           {'name':'deltaR',
                          'title':'#DeltaR',
-                         'bin':500,'xmin':1,'xmax':10},
+                         'bin':1000,'xmin':1,'xmax':20},
 
     # Z boson properties
     'zll_m':            {'name':'zll_m',
@@ -64,6 +69,10 @@ histos_ll = {
                          'title':'#theta_{l^{+}l^{-}}',
                          'bin':128,'xmin':0,'xmax':3.2},
 
+    'zll_costheta':     {'name':'zll_costheta',
+                         'title':'cos#theta_{l^{+}l^{-}}',
+                         'bin':1000,'xmin':-1,'xmax':1},
+
     'zll_phi':          {'name':'zll_phi',
                          'title':'#phi_{l^{+}l^{-}}',
                          'bin':64,'xmin':-3.2,'xmax':3.2},
@@ -76,7 +85,11 @@ histos_ll = {
     # Visible and invisible information
     'cosTheta_miss':    {'name':'cosTheta_miss',
                          'title':'|cos#theta_{miss}|',
-                         'bin':500,'xmin':0,'xmax':1},
+                         'bin':1000,'xmin':0,'xmax':1},
+
+    # 'missingEnergy':    {'name':'missingEnergy',
+    #                      'title':'E_{miss} [GeV]',
+    #                      'bin':700,'xmin':0,'xmax':350},
 
     'visibleEnergy':    {'name':'visibleEnergy',
                          'title':'E_{vis} [GeV]',

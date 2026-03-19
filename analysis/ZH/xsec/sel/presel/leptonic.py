@@ -22,41 +22,13 @@ from typing import TYPE_CHECKING, Union
 if TYPE_CHECKING:
     import ROOT
 
+from helper import setup_alias, cutflow
+
+
+
 ########################
 ### HELPER FUNCTIONS ###
 ########################
-
-def _setup_alias(df: 'ROOT.ROOT.RDataFrame',
-                 cat: str
-                 ) -> 'ROOT.ROOT.RDataFrame':
-    """Attach collection aliases based on final state.
-
-    Args:
-        df: RDataFrame-like object used throughout the selection chain.
-        cat (str): Final-state category, either 'mumu' or 'ee'.
-
-    Returns:
-        The input dataframe with lepton, MC association, and particle aliases defined.
-
-    Raises:
-        ValueError: If an unsupported category is provided.
-    """
-    # Alias for lepton collections based on final state
-    if cat == 'mumu':
-        df = df.Alias('Lepton0', 'Muon#0.index')
-    elif cat == 'ee':
-        df = df.Alias('Lepton0', 'Electron#0.index')
-    else:
-        raise ValueError(f'cat {cat} not supported')
-
-    # Alias for MC truth matching and particle collections
-    df = df.Alias('MCRecoAssociations0', 'MCRecoAssociations#0.index')
-    df = df.Alias('MCRecoAssociations1', 'MCRecoAssociations#1.index')
-    df = df.Alias('Particle0', 'Particle#0.index')
-    df = df.Alias('Particle1', 'Particle#1.index')
-    df = df.Alias('Photon0', 'Photon#0.index')
-    return df
-
 
 def _lesp_properties(df: 'ROOT.ROOT.RDataFrame'
                      ) -> 'ROOT.ROOT.RDataFrame':
@@ -162,6 +134,8 @@ def _Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(zll)[0]')
     df = df.Define('zll_phi',   'FCCAnalyses::ReconstructedParticle::get_phi(zll)[0]')
 
+    df = df.Define('zll_costheta', 'std::cos(zll_theta)')
+
     # Recoil mass: invariant mass of system recoiling against Z (Higgs candidate)
     df = df.Define('zll_recoil',   f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)')
     df = df.Define('zll_recoil_m',  'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
@@ -228,6 +202,7 @@ def _additional_variables(df: 'ROOT.ROOT.RDataFrame',
     # Angular correlation variables
     df = df.Define('acoplanarity', 'FCCAnalyses::acoplanarity(zll_leps)')
     df = df.Define('acolinearity', 'FCCAnalyses::acolinearity(zll_leps)')
+    df = df.Define('acopolarity',  'FCCAnalyses::acopolarity(zll_leps)')
     df = df.Define('deltaR',       'FCCAnalyses::deltaR(zll_leps)')
 
     # Higgsstrahlungness: discriminant from Z mass and recoil mass ratio
@@ -237,21 +212,13 @@ def _additional_variables(df: 'ROOT.ROOT.RDataFrame',
     # Visible energy (excluding Z candidate leptons)
     df = df.Define('visibleEnergy', 'FCCAnalyses::visibleEnergy(rps_no_leps)')
     # Missing energy and missing mass to identify invisible Higgs or other missing particle signatures
-    df = df.Define('missingEnergy', f'FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)')
-    df = df.Define('cosTheta_miss', 'FCCAnalyses::get_cosTheta_miss(missingEnergy)')
+    df = df.Define('missingEnergy_rp', f'FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)')
+    df = df.Define('missingEnergy', 'missingEnergy_rp.energy')
+    df = df.Define('cosTheta_miss', 'FCCAnalyses::get_cosTheta_miss(missingEnergy_rp')
     df = df.Define('missingMass',   f'FCCAnalyses::missingMass({ecm}, ReconstructedParticles)')
 
     return df
 
-
-def _cutflow(df: 'ROOT.ROOT.RDataFrame',
-             hists: list['ROOT.TH1'],
-             cut: int
-             ) -> 'ROOT.ROOT.RDataFrame':
-
-    df = df.Define(f'cut{cut}', str(cut))
-    hists.append(df.Histo1D(('cutFlow', '', 50, 0, 50), f'cut{cut}'))
-    return df, hists
 
 
 ######################
@@ -281,7 +248,7 @@ def training_ll(df: 'ROOT.ROOT.RDataFrame',
         and Higgsstrahlungness discriminant.
     """
 
-    df = _setup_alias(df, cat)
+    df = setup_alias(df, cat)
     df = _lesp_properties(df)
 
     ##########
@@ -354,7 +321,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
 
     params = []
 
-    df = _setup_alias(df, cat)
+    df = setup_alias(df, cat)
     # Filter out leptonic WW events if WW flag is set
     if 'p8_ee_WW_ecm' in dataset:
         df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
@@ -362,25 +329,25 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
 
     df = _lesp_properties(df)
 
-    params.append(df.Histo1D(("leps_iso", "leps_iso", 2000, 0, 10), "leps_iso"))
+    params.append(df.Histo1D(("leps_iso", "leps_iso", 4000, 0, 20), "leps_iso"))
     params.append(df.Histo1D(("leps_no", "leps_no", 20, 0, 20), "leps_no"))
 
     ##########
     ### CUT 0: all events
     ##########
-    df, params = _cutflow(df, params, 0)
+    df, params = cutflow(df, params, 0)
 
     ##########
     ### CUT 1: at least one lepton and at least one isolated lepton (I_rel < 0.25)
     ##########
     df = df.Filter('leps_no >= 1 && leps_sel_iso.size() > 0')
-    df, params = _cutflow(df, params, 1)
+    df, params = cutflow(df, params, 1)
 
     ##########
     ### CUT 2: at least 2 leptons with opposite-sign
     ##########
     df = df.Filter('leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()')
-    df, params = _cutflow(df, params, 2)
+    df, params = cutflow(df, params, 2)
 
     # Build Z candidate with H veto, extract all kinematic observables
     df = _recoil_builder(df, ecm)
@@ -398,18 +365,19 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     ### CUT 3: Z mass window
     ##########
     # df = df.Filter('zll_m > 86 && zll_m < 96')
-    # df, params = _cutflow(df, params, 3)
+    # df, params = cutflow(df, params, 3)
 
     ##########
     ### CUT 4: Z momentum (CoM dependent)
     ##########
     # if ecm == 240:   df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
     # elif ecm == 365: df = df.Filter('zll_p > 50 && zll_p < 150')  # 365 GeV
-    # df, params = _cutflow(df, params, 4)
+    # df, params = cutflow(df, params, 4)
 
     ##########
     ### CUT 5: Recoil mass window (365 GeV)
     ##########
     # if ecm==365: df = df.Filter('zll_recoil_m > 100 && zll_recoil_m < 150')
+    # df, params = cutflow(df, params, 5)
 
     return df, params
