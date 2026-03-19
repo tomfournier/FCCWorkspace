@@ -19,6 +19,79 @@ inline constexpr float pz_365 = 143.0f;
 inline constexpr float mw = 80.4;
 
 
+inline int best_clustering_idx(Vec_f mz, Vec_f pz, Vec_f mrec, Vec_i njets, Vec_i njets_target, int ecm=240) {
+
+    float frac_mz  = 1.0;
+    float frac_pz  = 1.0;
+    float frac_rec = 1.0;
+    float pz_ = 52;
+    if(ecm == 240) {
+        frac_mz  = frac_mz_240;
+        frac_pz  = frac_pz_240;
+        frac_rec = frac_rec_240;
+        pz_ = pz_240;
+    }
+    if(ecm == 365) {
+        frac_mz  = frac_mz_365;
+        frac_pz  = frac_pz_365;
+        frac_rec = frac_rec_365;
+        pz_ = pz_365;
+    }
+
+    float mz_ = 91.2;
+    float mh_ = 125.0;
+
+    Vec_f chi2;
+    for(int i = 0; i < mz.size(); i++) {
+
+        float c = frac_mz*std::pow(mz[i]-mz_, 2) + frac_rec*std::pow(mrec[i]-mh_, 2) + frac_pz*std::pow(pz[i]-pz_, 2);
+        
+        // extra constraints: the number of good candidate jets must be at least 2 to form a good z-candidate
+        if(i==0 && njets[0] < 2) c = 9e99;
+        // sometimes exclusive clustering gives wrong njets
+        else if(i > 0 && njets[i] != njets_target[i]) c = 9e99;
+        chi2.push_back(c);
+    }
+
+    int min_dx = std::distance(std::begin(chi2), std::min_element(std::begin(chi2), std::end(chi2)));
+    if(min_dx == 0 and njets[0] >= 2) return 0; // requirement for inclusive clustering
+    else if(njets[min_dx] == njets_target[min_dx] && min_dx != 0) return min_dx; // requirement for exlusive clustering
+    else {
+        return -1; // could not cluster
+    }
+}
+
+
+inline float delta_mWW(float m1, float m2, float mw){
+    float dm1 = std::pow(m1 - mw, 2);
+    float dm2 = std::pow(m2 - mw, 2);
+    
+    return std::sqrt(dm1 + dm2);
+}
+
+
+inline Vec_rp expand_jets(Vec_rp in, int njets) {
+    if(in.size() < njets) in.resize(njets); // add empty jets
+    return in;
+}
+
+
+inline Vec_rp jets2rp(Vec_f px, Vec_f py, Vec_f pz, Vec_f e, Vec_f m) {
+    Vec_rp ret;
+    for(int i = 0; i < px.size(); i++) {
+        edm4hep::ReconstructedParticleData p;
+        p.momentum.x = px[i];
+        p.momentum.y = py[i];
+        p.momentum.z = pz[i];
+        p.mass   = m[i];
+        p.energy = e[i];
+        p.charge = 0;
+        ret.push_back(p);
+    }
+    return ret;
+}
+
+
 inline Vec_tlv pair_WW_N4(Vec_rp in) {
     // assume 4 input jets
     Vec_tlv ret;
@@ -105,22 +178,6 @@ inline float pair_W_dphi(Vec_rp in) {
 }
 
 
-inline Vec_rp jets2rp(Vec_f px, Vec_f py, Vec_f pz, Vec_f e, Vec_f m) {
-    Vec_rp ret;
-    for(int i = 0; i < px.size(); i++) {
-        edm4hep::ReconstructedParticleData p;
-        p.momentum.x = px[i];
-        p.momentum.y = py[i];
-        p.momentum.z = pz[i];
-        p.mass   = m[i];
-        p.energy = e[i];
-        p.charge = 0;
-        ret.push_back(p);
-    }
-    return ret;
-}
-
-
 inline Vec_rp select_jets(Vec_rp in, std::vector<std::vector<int>> constituents, int njets_sel, Vec_rp reco) {
     // njets_sel = the current njets clustering algo
     Vec_rp ret;
@@ -130,54 +187,6 @@ inline Vec_rp select_jets(Vec_rp in, std::vector<std::vector<int>> constituents,
         ret.push_back(in[i]);
     }
     return ret;
-}
-
-
-inline Vec_rp expand_jets(Vec_rp in, int njets) {
-    if(in.size() < njets) in.resize(njets); // add empty jets
-    return in;
-}
-
-
-inline int best_clustering_idx(Vec_f mz, Vec_f pz, Vec_f mrec, Vec_i njets, Vec_i njets_target, int ecm=240) {
-
-    float frac_mz  = 1.0;
-    float frac_pz  = 1.0;
-    float frac_rec = 1.0;
-    float pz_ = 52;
-    if(ecm == 240) {
-        frac_mz  = frac_mz_240;
-        frac_pz  = frac_pz_240;
-        frac_rec = frac_rec_240;
-        pz_ = pz_240;
-    }
-    if(ecm == 365) {
-        frac_mz  = frac_mz_365;
-        frac_pz  = frac_pz_365;
-        frac_rec = frac_rec_365;
-        pz_ = pz_365;
-    }
-
-    float mz_ = 91.2;
-    float mh_ = 125.0;
-
-    Vec_f chi2;
-    for(int i = 0; i < mz.size(); i++) {
-
-        float c = frac_mz*std::pow(mz[i]-mz_, 2) + frac_rec*std::pow(mrec[i]-mh_, 2) + frac_pz*std::pow(pz[i]-pz_, 2);
-        if(i==0 && njets[0] < 2) c = 9e99;
-        else if(i > 0 && njets[i] != njets_target[i]) c = 9e99;
-        chi2.push_back(c);
-    }
-
-    // extra constraints: the number of good candidate jets must be at least 2 to form a good z-candidate
-    // sometimes exclusive clustering gives wrong njets
-    int min_dx = std::distance(std::begin(chi2), std::min_element(std::begin(chi2), std::end(chi2)));
-    if(min_dx == 0 and njets[0] >= 2) return 0; // requirement for inclusive clustering
-    else if(njets[min_dx] == njets_target[min_dx] && min_dx != 0) return min_dx; // requirement for exlusive clustering
-    else {
-        return -1; // could not cluster
-    }
 }
 
 

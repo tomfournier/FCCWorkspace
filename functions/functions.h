@@ -1,5 +1,6 @@
 #include "FCCAnalyses/defines.h"
 #include <TLorentzVector.h>
+#include <cstdlib>
 #include <edm4hep/ReconstructedParticleData.h>
 #include <cmath>
 // #include <iostream>
@@ -13,29 +14,29 @@ namespace FCCAnalyses {
 *** CUSTOM FUNCTIONS ***
 ***********************/
 
-// acolinearity between two reco particles
-// inline float acolinearity(Vec_rp in) {
-//     if(in.size() < 2) return -999;
+// acopolarity between two reco particles
+inline float acopolarity(Vec_rp in) {
+    if(in.size() < 2) return -999;
 
-//     TLorentzVector p1;
-//     p1.SetXYZM(in[0].momentum.x, in[0].momentum.y, in[0].momentum.z, in[0].mass);
+    TLorentzVector p1;
+    p1.SetXYZM(in[0].momentum.x, in[0].momentum.y, in[0].momentum.z, in[0].mass);
 
-//     TLorentzVector p2;
-//     p2.SetXYZM(in[1].momentum.x, in[1].momentum.y, in[1].momentum.z, in[1].mass);
+    TLorentzVector p2;
+    p2.SetXYZM(in[1].momentum.x, in[1].momentum.y, in[1].momentum.z, in[1].mass);
 
-//     float acol = abs(p1.Theta() - p2.Theta());
-//     return acol;
-// }
+    float acol = abs(p1.Theta() - p2.Theta());
+    return acol;
+}
 
-// // acolinearity between two reco particles
-// inline float acolinearity(Vec_tlv in) {
-//     if(in.size() < 2) return -999;
-//     auto p1 = in[0];
-//     auto p2 = in[1];
+// acopolarity between two reco particles
+inline float acopolarity(Vec_tlv in) {
+    if(in.size() < 2) return -999;
+    auto p1 = in[0];
+    auto p2 = in[1];
 
-//     float acol = abs(p1.Theta() - p2.Theta());
-//     return acol;
-// }
+    float acol = abs(p1.Theta() - p2.Theta());
+    return acol;
+}
 
 
 // acolinearity between two reco particles
@@ -149,9 +150,31 @@ inline Vec_f get_costheta(Vec_rp in) {
     for (auto & p: in) {
         TLorentzVector tlv;
         tlv.SetXYZM(p.momentum.x, p.momentum.y, p.momentum.z, p.mass);
-        result.push_back(std::cos(tlv.Theta()));
+        result.push_back(cos(tlv.Theta()));
     }
     return result;
+}
+
+inline Vec_f get_costheta(Vec_f theta, bool absolute = false){
+    Vec_f ret; 
+    for(auto & t: theta) {
+        if (absolute) {
+            ret.push_back(abs(cos(t)));
+        }
+        else {
+            ret.push_back(cos(t));
+        }
+    }
+    return ret;
+}
+
+inline float get_costheta(float theta, bool absolute = false){
+    if (absolute) {
+        return abs(cos(theta));
+    }
+    else {
+        return cos(theta);
+    }
 }
 
 
@@ -444,7 +467,7 @@ inline resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil(float arg_reso
 inline Vec_rp resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil::operator()(Vec_rp legs, Vec_i recind, Vec_i mcind, Vec_rp reco, Vec_mc mc, Vec_i parents, Vec_i daugthers) {
     Vec_rp result;
     result.reserve(3);
-    std::vector<std::vector<int>> pairs; // for each permutation, add the indices of the 
+    std::vector<std::vector<int>> pairs; // for each permutation, add the indices of the particles
     int n = legs.size();
 
     if(n > 1) { 
@@ -519,7 +542,7 @@ inline Vec_rp resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil::operat
             TLorentzVector tg;
             tg.SetXYZM(result.at(i).momentum.x, result.at(i).momentum.y, result.at(i).momentum.z, result.at(i).mass);
 
-            float boost = tg.P();
+            // float boost = tg.P();
             float mass = std::pow(result.at(i).mass - m_resonance_mass, 2); // mass
             float rec = std::pow(recoil_fcc.mass - m_recoil_mass, 2); // recoil
             float d = (1.0-chi2_recoil_frac)*mass + chi2_recoil_frac*rec;
