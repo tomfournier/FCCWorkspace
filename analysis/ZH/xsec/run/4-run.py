@@ -49,6 +49,7 @@ parser.add_argument('--cat', type=str, default='ee-mumu',
 parser.add_argument('--ecm', type=str, default='240-365',
                     choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 # Select pipeline stages: 1=process_histogram, 2=combine; dash-separated runs both in order
 parser.add_argument('--run', type=str, default='2', choices=['1', '2', '1-2'],
                     help='Pipeline stages: 1=process-histogram, 2=combine (default: 2)')
@@ -68,12 +69,10 @@ arg = parser.parse_args()
 # Parse comma-separated arguments into lists
 cats = arg.cat.split('-')
 ecms = [int(e) for e in arg.ecm.split('-')]
-sels = [
-    'Baseline',
-    # 'Baseline_miss',
-    # 'Baseline_sep',
-    'test'
-]
+if arg.sels == '':
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+else:
+    sels = arg.sels.split('-')
 
 # Map stage numbers to script names (cutflow added as stage 4)
 script_map = {'1': 'process_histogram', '2': 'combine'}
@@ -134,10 +133,11 @@ def run(cfg_dir: str,
 
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
-    if 'process-histogram' in script:
+    if 'process_histogram' in script:
         if arg.polL: extra_args.append('--polL')
         if arg.polR: extra_args.append('--polR')
         if arg.ILC:  extra_args.append('--ILC')
+        if arg.sels!='': extra_args.extend(['--sels', arg.sels])
 
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \

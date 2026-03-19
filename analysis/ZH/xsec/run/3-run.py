@@ -46,6 +46,7 @@ parser.add_argument('--cat', type=str, default='ee-mumu',
 parser.add_argument('--ecm', type=str, default='240-365',
                     choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 # Select pipeline stages: 1=pre-selection, 2=final-selection, 3=plots, 4=cutflow; dash-separated runs multiple
 parser.add_argument('--run', type=str, default='2-3',
                     choices=['1', '2', '3', '4', '1-2', '2-3', '3-4', '1-2-3', '2-3-4', '1-2-3-4'],
@@ -144,6 +145,8 @@ def run(cfg_dir: str,
         if arg.scan:   extra_args.append('--scan')
     elif 'cutflow' in script:
         if arg.tot:    extra_args.append('--tot')
+    if arg.sels!='':
+        extra_args.extend(['--sels', arg.sels])
 
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \

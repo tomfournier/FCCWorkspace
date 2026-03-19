@@ -20,10 +20,6 @@ Usage:
 ##########################################################
 
 import os, sys, time, subprocess
-from pathlib import Path
-
-# Add workspace root to path so package imports work
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from argparse import ArgumentParser
 
@@ -54,6 +50,7 @@ parser.add_argument(
     choices=['240', '365', '240-365', '365-240'],
     help='Center-of-mass energy in GeV (default: 240-365)'
 )
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 # Pipeline stages: 1=fit, 2=bias_test
 parser.add_argument(
     '--run', type=str, default='2',
@@ -117,12 +114,11 @@ cats = parse_channels(arg.cat, arg.combine)
 ecms = parse_ecms(arg.ecm)
 
 # Active selections for analysis
-sels = [
-    'Baseline',
-    # 'Baseline_miss',
-    # 'Baseline_sep',
-    'test'
-]
+if arg.sels == '':
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+else:
+    sels = arg.sels.split('-')
+
 
 # Map stage identifiers to script names
 SCRIPT_MAP = {'1': 'fit', '2': 'bias_test'}

@@ -43,6 +43,7 @@ parser.add_argument('--cat', type=str, default='ee-mumu',
 parser.add_argument('--ecm', type=str, default='240-365',
                     choices=['240', '365', '240-365', '365-240'],
                     help='Center-of-mass energy in GeV (default: 240-365)')
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 # Select pipeline stages: 1=process_input, 2=train_bdt, 3=evaluation; dash-separated runs multiple
 parser.add_argument('--run', type=str, default='1-2-3',
                     choices=['1', '2', '3', '1-2', '2-3', '1-2-3'],
@@ -118,10 +119,14 @@ def run(cat: str,
         if arg.tree:   extra_args.append('--tree')
         if arg.check:  extra_args.append('--check')
         if arg.hl:     extra_args.append('--hl')
+    if arg.sels!='':
+        extra_args.extend(['--sels', arg.sels])
 
     # Execute stage script; pipe outputs through to this terminal
+    cmd = ['python', script_path] + extra_args
+    print(f'----->[Info] Executing command: {" ".join(cmd)}')
     result = subprocess.run(
-        ['python', script_path] + extra_args,
+        cmd,
         env=env,
         stdout=sys.stdout,
         stderr=sys.stderr,
