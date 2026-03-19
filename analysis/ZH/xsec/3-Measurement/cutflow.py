@@ -11,10 +11,10 @@ t = time()
 from package.userConfig import loc
 from package.config import (
     timer, mk_processes,
-    z_decays, H_decays, 
+    z_decays, H_decays,
     colors, labels)
 from package.plots.cutflow import (
-    get_cutflow, 
+    get_cutflow,
     branches_from_cuts
 )
 
@@ -26,11 +26,12 @@ from package.plots.cutflow import (
 
 parser = ArgumentParser()
 # Define final state: ee, mumu, or both
-parser.add_argument('--cat',  help='Final state (ee, mumu)', 
+parser.add_argument('--cat',  help='Final state (ee, mumu)',
                     choices=['ee', 'mumu', 'ee-mumu'], type=str, default='ee-mumu')
 # Define center of mass energy
 parser.add_argument('--ecm',  help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 
 # Include all Z decay modes in plots
 parser.add_argument('--tot', help='Include all the Z decays in the plots',
@@ -46,9 +47,10 @@ arg = parser.parse_args()
 cats, ecm = arg.cat.split('-'), arg.ecm
 lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
 # Selection strategies to analyze
-sels = [
-    'Baseline', 'Baseline_miss', 'Baseline_sep', 'test'
-]
+if arg.sels == '':
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+else:
+    sels = arg.sels.split('-')
 
 
 
@@ -78,19 +80,19 @@ cuts       = {sel: baseline_cuts.copy()   for sel in sels}
 cuts_label = {sel: baseline_labels.copy() for sel in sels}
 
 # Add additional cuts for specific selection strategies
-cuts['Baseline_miss']['cut5'] = 'cosTheta_miss < 0.98'
-cuts_label['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
+# cuts['Baseline_miss']['cut5']       = 'cosTheta_miss < 0.98'
+# cuts_label['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
 
-vis_cut = 100 if ecm==240 else (170 if ecm==365 else 0)
-cuts['Baseline_sep']['cut5'] = f'((visibleEnergy > {vis_cut}) | (visibleEnergy < {vis_cut} & cosTheta_miss < 0.99))'
-cuts_label['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
+# vis_cut = 100 if ecm==240 else (170 if ecm==365 else 0)
+# cuts['Baseline_sep']['cut5']       = f'((visibleEnergy > {vis_cut}) | (visibleEnergy < {vis_cut} & cosTheta_miss < 0.99))'
+# cuts_label['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
 
-cuts['test']['cut5'] = 'zll_recoil_m > 100 & zll_recoil_m < 150'
+cuts['test']['cut5']       = 'zll_recoil_m > 100 & zll_recoil_m < 150'
 cuts_label['test']['cut5'] = '100 < m_{recoil} < 150 GeV'
 
 # Variables required for cutflow evaluation (must match those used in cuts)
 variables = [
-    'leading_p',    'leading_theta', 
+    'leading_p',    'leading_theta',
     'subleading_p', 'subleading_theta',
     'zll_m', 'zll_p', 'zll_theta', 'zll_recoil_m',
     'acolinearity',  'acoplanarity',  'zll_deltaR',
@@ -118,7 +120,7 @@ def run(cats: list[str],
         procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
         # Define input and output directories
-        inDir  = loc.get('EVENTS', cat, ecm)
+        inDir  = loc.get('EVENTS_TEST', cat, ecm)
         outDir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
 
         # Extract required branches from cuts and variables
@@ -127,18 +129,20 @@ def run(cats: list[str],
         print(f'----->[Info] Only importing these branches from the .root file: \n\t{br_str}\n')
 
         # Generate cutflow plots and tables
-        get_cutflow(inDir, outDir,
-                    cat, sels,
-                    procs, procs_decays,
-                    processes, colors, legend,
-                    cuts, cuts_label,
-                    z_decays, H_decays,
-                    branches=branches,
-                    ecm=ecm,
-                    lumi=lumi,
-                    sig_scale=1,
-                    tot=arg.tot,
-                    loc_json=loc.JSON+f'/{cat}')
+        get_cutflow(
+            inDir, outDir,
+            cat, sels,
+            procs, procs_decays,
+            processes, colors, legend,
+            cuts, cuts_label,
+            z_decays, H_decays,
+            branches=branches,
+            ecm=ecm,
+            lumi=lumi,
+            sig_scale=1,
+            tot=arg.tot,
+            loc_json=loc.JSON+f'/{cat}'
+        )
 
 
 ######################

@@ -38,6 +38,7 @@ parser = ArgumentParser()
 parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
 # Define center of mass energy
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 arg = parser.parse_args()
 
 # Validate that final state is selected
@@ -52,10 +53,10 @@ if arg.cat=='':
 
 cat, ecm = arg.cat, arg.ecm
 # Selection strategies for BDT training
-sels = [
-    # 'Baseline',
-    'test'
-]
+if arg.sels=='':
+    sels = ['Baseline', 'test']
+else:
+    sels = arg.sels.split('-')
 
 # Process modes for training (signal vs various backgrounds)
 modes = [

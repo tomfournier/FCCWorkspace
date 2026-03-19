@@ -33,6 +33,7 @@ parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available y
 # Define center of mass energy
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 
 # Flags to control which plot types to skip (inverted logic: flag skips the plot except for --scan)
 parser.add_argument('--yields', help='Do not make yields plots',            action='store_true')
@@ -52,13 +53,16 @@ cats, ecm = arg.cat.split('-'), arg.ecm
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 # Selection strategies to plot
-sels = [
-    'Baseline',
-    # 'Baseline_miss',
-    # 'Baseline_sep',
-    # 'Baseline_vis', 'Baseline_inv',
-    # 'test'
-]
+if arg.sels=='':
+    sels = [
+        'Baseline',
+        'Baseline_miss',
+        'Baseline_sep',
+        'Baseline_vis', 'Baseline_inv',
+        'test'
+    ]
+else:
+    sels = arg.sels.split('-')
 hl = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
 sels = high_low_sels(sels, hl)
 
@@ -73,15 +77,16 @@ processes = mk_processes(
 
 # Variables to plot
 variables = [
-    'leading_p', 'leading_pT', 'leading_theta',  # 'leading_phi',             # leading lepton variables
-    'subleading_p', 'subleading_pT', 'subleading_theta',  # 'subleading_phi', # subleading lepton variables
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',  # 'zll_phi',                    # Z boson properties
+    'leading_p', 'leading_pT', 'leading_theta',                               # leading lepton variables
+    'subleading_p', 'subleading_pT', 'subleading_theta',                      # subleading lepton variables
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta',                  # Z boson properties
+    # 'zll_phi', 'leading_phi', 'subleading_phi',                               # Azimutal angles
     'acolinearity', 'acoplanarity', 'deltaR',                                 # Angular separation variables
     'zll_recoil_m',                                                           # Recoil mass (Higgs candidate)
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',                          # Missing energy and mass
+    'visibleEnergy', 'cosTheta_miss', 'missingMass',  # missingEnergy         # Missing energy and mass
     'H',                                                                      # Higgsstrahlungness
     'BDTscore',                                                               # BDT score
-    'leps_iso', 'leps_no'
+    'ConeIsolation', 'n_leptons'
 ]
 
 # Define signal and background samples for AAAyields
@@ -93,6 +98,7 @@ plots = {
 # Custom plot arguments for specific variables
 args = {
     'cosTheta_miss': {'xmin': 0.9},
+    'zll_costheta':  {'rebin': 2},
     'BDTscore': {
         240: {'ymin':1,    'ymax':1e5, 'rebin':2, 'which':'make'},
         365: {'ymin':1e-1, 'ymax':1e5, 'rebin':2, 'which':'make'}
@@ -171,6 +177,10 @@ def run(cats, sels, vars, processes, colors, legend):
 
 if __name__=='__main__':
     # Run plotting for all categories, selections and variables
-    run(cats, sels, variables, processes, colors, labels)
-    # Print execution time
-    timer(t)
+    try:
+        run(cats, sels, variables, processes, colors, labels)
+    except Exception as e:
+        print(f'Error during plotting: {e}')
+    finally:
+        # Print execution time
+        timer(t)

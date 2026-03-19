@@ -54,6 +54,7 @@ parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available y
 # Define center of mass energy
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 
 parser.add_argument('--metric', help='Do not plot the metrics plots',        action='store_true')
 parser.add_argument('--tree',   help='Plot the Decision Trees from the BDT', action='store_true')
@@ -75,10 +76,10 @@ if arg.cat=='':
 cat, ecm = arg.cat, arg.ecm
 
 # Selection strategies to evaluate
-sels = [
-    'Baseline',
-    'test'
-]
+if arg.sels=='':
+    sels = ['Baseline', 'test']
+else:
+    sels = arg.sels.split('-')
 
 # Decay modes used in first stage training and their respective file names
 modes = {

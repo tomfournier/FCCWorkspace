@@ -32,6 +32,7 @@ parser.add_argument('--cat',  help='Final state (ee, mumu), qq is not available 
 # Define center of mass energy
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
                     choices=[240, 365], type=int, default=240)
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 
 # Polarization and luminosity scaling options
 parser.add_argument('--polL', help='Scale to left polarization',  action='store_true')
@@ -50,12 +51,10 @@ cats, ecm = arg.cat.split('-'), arg.ecm
 hNames = ['zll_recoil_m']
 
 # Selection strategies to apply
-sels = [
-    'Baseline',
-    # 'Baseline_miss',
-    # 'Baseline_sep',
-    # 'test'
-]
+if arg.sels=='':
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+else:
+    sels = arg.sels.split('-')
 
 # Define cross-section scaling factors based on polarization or luminosity
 if arg.ILC:  # change fit to ASIMOV -t -1 !!!

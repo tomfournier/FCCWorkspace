@@ -5,7 +5,7 @@
 import os
 
 from package.userConfig import loc, get_params
-from package.sel.presel.leptonic import training_ll
+from sel.presel.leptonic import training_ll
 
 # Load config from temporary JSON if running automated, else prompt
 cat, ecm = get_params(os.environ.copy(), '1-run.json')
@@ -35,7 +35,7 @@ procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 nCPUS = 20
 
 # Run on HTCondor batch system (default is False)
-runBatch = False
+# runBatch = True
 # Batch queue name for HTCondor (default is workday)
 batchQueue = 'longlunch'
 # Computing account for HTCondor (default is group_u_FCC.local_gen)
@@ -111,24 +111,24 @@ class RDFanalysis():
     # Mandatory: output function defining branches to save
     def output():
         """Define output branches to save."""
-        branchList = [
+        branchList = sorted([
             # Lepton kinematics (leading and subleading)
             'leading_p',    'leading_pT',    'leading_theta',    'leading_phi',
             'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_phi',
 
             # Angular correlation
-            'acolinearity', 'acoplanarity', 'deltaR',
+            'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',
 
             # Z boson kinematics
-            'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_phi',
+            'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta', 'zll_phi',
 
             # Recoil mass (Higgs candidate)
             'zll_recoil_m',
 
             # Missing energy variables
-            'visibleEnergy', 'cosTheta_miss', 'missingMass',
+            'visibleEnergy', 'cosTheta_miss', 'missingMass', 'missingEnergy',
 
             # Higgsstrahlungness discriminant
             'H'
-        ]
+        ])
         return branchList

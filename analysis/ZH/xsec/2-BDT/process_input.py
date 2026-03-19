@@ -49,6 +49,7 @@ parser = ArgumentParser()
 parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
 # Define center of mass energy
 parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
+parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 arg = parser.parse_args()
 
 # Validate that final state was selected
@@ -66,10 +67,10 @@ cat, ecm = arg.cat, arg.ecm
 inDir = loc.get('HIST_MVA', cat, ecm)
 
 # Selection strategies to process
-sels = [
-    # 'Baseline',
-    'test'
-]
+if arg.sels=='':
+    sels = ['Baseline', 'test']
+else:
+    sels = arg.sels.split('-')
 
 # Decay modes used in first stage training and their respective file names
 modes = {
@@ -104,7 +105,7 @@ def run(inDir: str,
 
     # Load process dictionary and update keys with mode mapping
     proc_dict = get_procDict(procDict_name)
-    procDict = update_keys(proc_dict, modes)
+    procDict  = update_keys(proc_dict, modes)
 
     # Extract cross sections for each mode
     xsec = {}

@@ -11,8 +11,6 @@ from package.userConfig import (
 )
 
 cat, ecm, lumi = get_params(os.environ.copy(), '1-run.json', is_final=True)
-if cat not in ['ee', 'mumu']:
-    raise ValueError(f'Invalid channel: {cat}. Must be "ee" or "mumu"')
 
 
 
@@ -40,29 +38,28 @@ setGrid        = True
 customLabel    = 'Training sample'
 
 # Variables to plot from pre-selection outputs
-variables = [
+variables = sorted([
     # Leptons kinematics
     'leading_p',    'leading_pT',    'leading_theta',
     'subleading_p', 'subleading_pT', 'subleading_theta',
     # 'leading_phi', 'subleading_phi',
 
     # Z boson properties
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta',
     # 'zll_phi',
 
     # Angular correlation
-    'acolinearity', 'acoplanarity', 'deltaR',
+    'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',
 
     # Recoil mass (Higgs candidate)
     'zll_recoil_m',
 
     # Visible and invisible information
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',
+    'visibleEnergy', 'cosTheta_miss', 'missingMass',  # 'missingEnergy',
 
     # Higgsstrahlungness
     'H'
-]
-
+])
 
 
 #############################################

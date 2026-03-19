@@ -129,16 +129,16 @@ class RDFgraph():
             'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_phi',
 
             # Angular correlation
-            'acolinearity', 'acoplanarity', 'deltaR',
+            'acolinearity', 'acopolarity', 'acoplanarity', 'deltaR',
 
             # Z boson kinematics
-            'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_phi',
+            'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta', 'zll_phi',
 
             # Recoil mass (Higgs candidate)
             'zll_recoil_m',
 
             # Missing energy variables
-            'visibleEnergy', 'cosTheta_miss', 'missingMass',
+            'visibleEnergy', 'cosTheta_miss', 'missingMass', 'missingEnergy',
 
             # Higgsstrahlungness discriminant
             'H'
