@@ -368,8 +368,8 @@ def get_params(
         else:
             raise FileNotFoundError(f"Couldn't find {cfg_file} file")
     else:
-        cat = input('Select channel [ee, mumu]: ')
-        while cat not in ['ee', 'mumu']:
+        cat = input('Select channel [ee, mumu, qq]: ')
+        while cat not in ['ee', 'mumu', 'qq']:
             cat = input('Wrong input selected, choose between ee and mumu: ')
         ecm = int(input('Select center-of-mass energy [240, 365]: '))
         while (ecm!=240) and (ecm!=365):

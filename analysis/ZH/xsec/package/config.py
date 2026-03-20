@@ -55,7 +55,7 @@ from typing import Sequence, Union
 input_vars = (
     'leading_p',    'leading_theta',
     'subleading_p', 'subleading_theta',
-    'acolinearity', 'acoplanarity',
+    'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',
     'zll_m', 'zll_p', 'zll_theta'
 )
 
@@ -73,6 +73,8 @@ H_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW
 
 # Higgs decay modes including invisible decays
 H_DECAYS_WITH_INV: tuple[str, ...] = H_DECAYS + ('inv',)
+
+H_DECAYS_ALL: tuple[str, ...] = H_DECAYS + ('inv', 'ZZ_noInv',)
 
 # Quark decay channels
 QUARKS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq')
@@ -469,8 +471,9 @@ def _build_processes(z_set: tuple[str, ...],
     }
 
 @lru_cache(maxsize=None)
-def _default_processes(ecm: int) -> dict[str,
-                                         tuple[str, ...]]:
+def _default_processes(ecm: int
+                       ) -> dict[str,
+                                 tuple[str, ...]]:
     '''Generate default process dictionary with standard decay modes (cached).
 
     Uses default Z_DECAYS, H_DECAYS, H_DECAYS_WITH_INV, and QUARKS.
@@ -528,3 +531,181 @@ def mk_processes(
         requested = tuple(procs)
         return {proc: processes[proc] for proc in requested if proc in processes}
     return processes
+
+
+
+
+
+def _get_training_signals(cat: str, ecm: int) -> list[str]:
+    '''Build signal sample list for training mode.
+
+    Args:
+        cat: Category ('ee', 'mumu', 'qq').
+        ecm: Center-of-mass energy.
+
+    Raises:
+        ValueError: If ecm or cat is unsupported.
+    '''
+    if cat in ['ee', 'mumu']:
+        return [f'wzp6_ee_{cat}H_ecm{ecm}']
+    if cat == 'qq':
+        if ecm == 240:
+            return [f'wzp6_qqH_ecm{ecm}']
+        elif ecm == 365:
+            return [f'wzp6_{x}H_ecm{ecm}' for x in ['bb', 'cc', 'ss', 'qq']]
+        else:
+            raise ValueError(f'{ecm} is not supported for training. Use 240 or 365.')
+    raise ValueError(f'{cat} is not a valid category. Use [ee, mumu, qq].')
+
+def _build_background_dict(cat: str, ecm: int, train: bool) -> dict[str, dict]:
+    '''Build background process dictionary for given category and mode.
+
+    Separates common diboson/rare processes from category-specific ones to minimize duplication.
+
+    Args:
+        cat: Category ('ee', 'mumu', 'qq').
+        ecm: Center-of-mass energy.
+        train: Training mode flag.
+    '''
+    # Common diboson processes
+    common = {
+        f'p8_ee_ZZ_ecm{ecm}': {'frac': 1, 'nb': 1 if train else 5},
+        f'p8_ee_WW_ecm{ecm}': {'frac': 1, 'nb': 5 if train else 10},
+    }
+
+    # Training mode: category-specific backgrounds only
+    if train:
+        category_specific = {
+            'ee': {
+                f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1, 'nb': 5},
+                f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 1, 'nb': 10},
+                f'wzp6_egamma_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': 5},
+                f'wzp6_gammae_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': 5},
+                f'wzp6_gaga_ee_60_ecm{ecm}':       {'frac': 1, 'nb': 5},
+            },
+            'mumu': {
+                f'p8_ee_WW_mumu_ecm{ecm}':         {'frac': 1, 'nb': 5},
+                f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 1, 'nb': 10},
+                f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': 5},
+                f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': 5},
+                f'wzp6_gaga_mumu_60_ecm{ecm}':     {'frac': 1, 'nb': 5},
+            },
+            'qq': {
+                f'wzp6_ee_qq_ecm{ecm}':            {'frac': 1, 'nb': 10},
+                f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': 5},
+                f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': 5},
+                f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': 5},
+            },
+        }
+        return {**common, **category_specific.get(cat, {})}
+
+    # Non-training mode: all ll backgrounds for ee/mumu, mixed for qq
+    # All lepton-pair backgrounds (ee, mumu, tautau)
+    ll_bkgs = {
+        f'p8_ee_WW_ee_ecm{ecm}':            {'frac': 1, 'nb': 5},
+        f'p8_ee_WW_mumu_ecm{ecm}':          {'frac': 1, 'nb': 5},
+        f'wzp6_ee_ee_Mee_30_150_ecm{ecm}':  {'frac': 1, 'nb': 10},
+        f'wzp6_ee_mumu_ecm{ecm}':           {'frac': 1, 'nb': 10},
+        f'wzp6_ee_tautau_ecm{ecm}':         {'frac': 1, 'nb': 1},
+        f'wzp6_egamma_eZ_Zee_ecm{ecm}':     {'frac': 1, 'nb': 5},
+        f'wzp6_gammae_eZ_Zee_ecm{ecm}':     {'frac': 1, 'nb': 5},
+        f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':   {'frac': 1, 'nb': 5},
+        f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':   {'frac': 1, 'nb': 5},
+        f'wzp6_gaga_ee_60_ecm{ecm}':        {'frac': 1, 'nb': 5},
+        f'wzp6_gaga_mumu_60_ecm{ecm}':      {'frac': 1, 'nb': 5},
+        f'wzp6_gaga_tautau_60_ecm{ecm}':    {'frac': 1, 'nb': 1},
+        f'wzp6_ee_nuenueZ_ecm{ecm}':        {'frac': 1, 'nb': 1},
+    }
+
+    if cat in ['ee', 'mumu']:
+        return {**common, **ll_bkgs}
+    elif cat == 'qq':
+        # For qq: all ll backgrounds + qq-specific ones
+        qq_bkgs = {
+            f'wzp6_ee_qq_ecm{ecm}':          {'frac': 1, 'nb': 10},
+            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': 5},
+            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': 5},
+            f'wzp6_gaga_qq_60_ecm{ecm}':     {'frac': 1, 'nb': 1},
+        }
+        bkgs = {**common, **ll_bkgs, **qq_bkgs}
+        # Special case: top production at 365 GeV
+        if ecm == 365:
+            bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': 1}
+        return bkgs
+
+    return common
+
+
+def get_process_list(
+        cat: str,
+        ecm: int,
+        z_decays: tuple[str, ...] = Z_DECAYS,
+        h_decays: tuple[str, ...] = H_DECAYS_ALL,
+        train: bool = False,
+        onlysig: bool = False,
+        onlybkg: bool = False,
+        frac: dict[str, float] | None = None,
+        chunks: dict[str, int] | None = None,
+        include: dict[str, dict] | None = None,
+        exclude: set[str] | None = None,
+         ) -> dict[str, dict[str, float | int]]:
+    '''Generate process dictionary with signals and/or backgrounds.
+
+    Args:
+        cat: Category ('ee', 'mumu', 'qq').
+        ecm: Center-of-mass energy (GeV).
+        z_decays: Z decay modes (only for non-training mode).
+        h_decays: Higgs decay modes (only for non-training mode).
+        train: If True, build training-specific signal/background.
+        onlysig: Return only signal processes.
+        onlybkg: Return only background processes.
+        frac: Optional custom fractions by process name.
+        chunks: Optional custom chunk counts by process name.
+        include: Optional dicts {'sig': {...}, 'bkg': {...}} to add.
+        exclude: Optional set of process names to exclude.
+
+    Returns:
+        Dictionary mapping process names to {'fraction', 'chunks'}.
+
+    Raises:
+        ValueError: If onlysig and onlybkg are both True, or invalid cat/ecm.
+    '''
+    frac = frac or {}
+    chunks = chunks or {}
+    include = include or {}
+    exclude = exclude or set()
+
+    if onlysig and onlybkg:
+        raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
+
+    # Build signals
+    if train:
+        sigs = _get_training_signals(cat, ecm)
+    else:
+        sigs = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
+
+    # Build backgrounds
+    bkgs = _build_background_dict(cat, ecm, train)
+
+    # Assemble processes, applying custom overrides
+    process_sig = {
+        s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1)}
+        for s in sigs if s not in exclude
+    }
+    process_bkg = {
+        b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb'])}
+        for b, v in bkgs.items() if b not in exclude
+    }
+
+    # Merge custom processes
+    if 'sig' in include:
+        process_sig = {**process_sig, **include['sig']}
+    if 'bkg' in include:
+        process_bkg = {**process_bkg, **include['bkg']}
+
+    # Return requested subset
+    if onlysig:
+        return process_sig
+    if onlybkg:
+        return process_bkg
+    return {**process_sig, **process_bkg}

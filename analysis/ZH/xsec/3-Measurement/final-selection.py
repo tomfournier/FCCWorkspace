@@ -10,6 +10,7 @@ from package.userConfig import (
     frac, nb
 )
 from package.func.bdt import def_bdt, make_high_low
+from sel.final.leptonic import histos_ll
 from package.config import (
     z_decays,
     H_decays,
@@ -111,7 +112,7 @@ big_sample = (
 processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1} for i in samples}
 
 # Define BDT score from trained model and apply BDT cut
-sel_BDT = 'Baseline'
+sel_BDT = 'test2'
 loc_BDT = loc.get('BDT', cat, ecm, sel_BDT)
 defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
 
@@ -140,7 +141,7 @@ cutList = {
     # 'Baseline_inv':      inv,
     # 'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
     # 'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
-    # 'test':              Baseline_Cut
+    'test2':              Baseline_Cut
 }
 
 # List of selections to split into high/low BDT score regions
@@ -148,7 +149,7 @@ sels = [
     'Baseline',
     'Baseline_miss',
     'Baseline_sep',
-    'test'
+    'test2'
 ]
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
@@ -161,106 +162,8 @@ cutList = make_high_low(cutList, bdt_cut, sels)
 
 customHists = {
     'leps_iso': {'name':'ConeIsolation', 'title':'I_{rel}'},
-    'leps_no':  {'name':'n_leptons', 'title':'N_{#ell}'}
+    'leps_no':  {'name':'n_leptons', 'title':'N_{leptons}'}
 }
 
 # Output histogram definitions (name, title, binning)
-histoList = {
-
-    # Lepton kinematics: leading lepton
-    'leading_p':        {'name':'leading_p',
-                         'title':'p_{l,leading} [GeV]',
-                         'bin':500,'xmin':0,'xmax':250},
-
-    'leading_pT':       {'name':'leading_pT',
-                         'title':'p_{T,l,leading} [GeV]',
-                         'bin':500,'xmin':0,'xmax':250},
-
-    'leading_theta':    {'name':'leading_theta',
-                         'title':'#theta_{l,leading}',
-                         'bin':128,'xmin':0,'xmax':3.2},
-
-    'leading_phi':      {'name':'leading_phi',
-                         'title':'#phi_{l,leading}',
-                         'bin':64,'xmin':-3.2,'xmax':3.2},
-
-    # Lepton kinematics: subleading lepton
-    'subleading_p':     {'name':'subleading_p',
-                         'title':'p_{l,subleading} [GeV]',
-                         'bin':400,'xmin':0,'xmax':200},
-
-    'subleading_pT':    {'name':'subleading_pT',
-                         'title':'p_{T,l,subleading} [GeV]',
-                         'bin':400,'xmin':0,'xmax':200},
-
-    'subleading_theta': {'name':'subleading_theta',
-                         'title':'#theta_{l,subleading}',
-                         'bin':128,'xmin':0,'xmax':3.2},
-
-    'subleading_phi':   {'name':'subleading_phi',
-                         'title':'#phi_{l,subleading}',
-                         'bin':64,'xmin':-3.2,'xmax':3.2},
-
-    # Angular separation between leptons
-    'acolinearity':     {'name':'acolinearity',
-                         'title':'#Delta#theta_{l^{+}l^{-}}',
-                         'bin':240,'xmin':0,'xmax':3},
-
-    'acoplanarity':     {'name':'acoplanarity',
-                         'title':'#pi-#Delta#phi_{l^{+}l^{-}}',
-                         'bin':128,'xmin':0,'xmax':3.2},
-
-    'deltaR':           {'name':'deltaR',
-                         'title':'#DeltaR',
-                         'bin':200,'xmin':0,'xmax':10},
-
-    # Z boson properties
-    'zll_m':            {'name':'zll_m',
-                         'title':'m_{l^{+}l^{-}} [GeV]',
-                         'bin':100,'xmin':86,'xmax':96},
-
-    'zll_p':            {'name':'zll_p',
-                         'title':'p_{l^{+}l^{-}} [GeV]',
-                         'bin':800,'xmin':0,'xmax':200},
-
-    'zll_pT':           {'name':'zll_pT',
-                         'title':'p_{T,l^{+}l^{-}} [GeV]',
-                         'bin':800,'xmin':0,'xmax':200},
-
-    'zll_theta':        {'name':'zll_theta',
-                         'title':'#theta_{l^{+}l^{-}}',
-                         'bin':128,'xmin':0,'xmax':3.2},
-
-    'zll_phi':          {'name':'zll_phi',
-                         'title':'#phi_{l^{+}l^{-}}',
-                         'bin':64,'xmin':-3.2,'xmax':3.2},
-
-    # Recoil mass (Higgs candidate)
-    'zll_recoil_m':     {'name':'zll_recoil_m',
-                         'title':'m_{recoil} [GeV]',
-                         'bin':200,'xmin':100,'xmax':150},
-
-    # Visible and invisible information
-    'cosTheta_miss':    {'name':'cosTheta_miss',
-                         'title':'|cos#theta_{miss}|',
-                         'bin':1000,'xmin':0,'xmax':1},
-
-    'visibleEnergy':    {'name':'visibleEnergy',
-                         'title':'E_{vis} [GeV]',
-                         'bin':700,'xmin':0,'xmax':350},
-
-    'missingMass':      {'name':'missingMass',
-                         'title':'m_{miss} [GeV]',
-                         'bin':700,'xmin':0,'xmax':350},
-
-    # Higgsstrahlungness
-    'H':                {'name':'H',
-                         'title':'Higgsstrahlungness [GeV^{2}]',
-                         'bin':110,'xmin':0,'xmax':110},
-
-    # BDT score
-    'BDTscore':         {'name':'BDTscore',
-                         'title':'BDT score',
-                         'bin':500,'xmin':0,'xmax':1}
-
-}
+histoList = histos_ll

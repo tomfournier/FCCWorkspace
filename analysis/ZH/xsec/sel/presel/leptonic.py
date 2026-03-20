@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Union
 if TYPE_CHECKING:
     import ROOT
 
-from helper import setup_alias, cutflow
+from .helper import setup_alias, cutflow
 
 
 
@@ -217,6 +217,8 @@ def _additional_variables(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('cosTheta_miss', 'FCCAnalyses::get_cosTheta_miss(missingEnergy_rp')
     df = df.Define('missingMass',   f'FCCAnalyses::missingMass({ecm}, ReconstructedParticles)')
 
+    df = df.Define('enery_imbalance', 'FCCAnalyses::energy_imbalance()')
+
     return df
 
 
@@ -381,3 +383,25 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     # df, params = cutflow(df, params, 5)
 
     return df, params
+
+
+branch_list_ll = [
+    # Lepton kinematics (leading and subleading)
+    'leading_p',    'leading_pT',    'leading_theta',    'leading_phi',
+    'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_phi',
+
+    # Angular correlation
+    'acolinearity', 'acopolarity', 'acoplanarity', 'deltaR',
+
+    # Z boson kinematics
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta', 'zll_phi',
+
+    # Recoil mass (Higgs candidate)
+    'zll_recoil_m',
+
+    # Missing energy variables
+    'visibleEnergy', 'cosTheta_miss', 'missingMass', 'missingEnergy',
+
+    # Higgsstrahlungness discriminant
+    'H'
+]
