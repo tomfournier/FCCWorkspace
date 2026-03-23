@@ -168,15 +168,6 @@ inline Vec_f get_costheta(Vec_f theta, bool absolute = false){
     return ret;
 }
 
-inline float get_costheta(float theta, bool absolute = false){
-    if (absolute) {
-        return abs(cos(theta));
-    }
-    else {
-        return cos(theta);
-    }
-}
-
 
 // calculate the cosine(theta) of the missing energy vector
 inline float get_cosTheta_miss(Vec_rp met){
@@ -322,6 +313,7 @@ inline Vec_rp missingEnergy(float ecm, Vec_rp in, float p_cutoff = 0.0) {
     res.momentum.y = py;
     res.momentum.z = pz;
     res.energy = ecm-e;
+
     ret.emplace_back(res);
     return ret;
 }
@@ -335,7 +327,7 @@ inline float missingMass(float ecm, Vec_rp in, float p_cutoff = 0.0) {
         px += p.momentum.x;
         py += p.momentum.y;
         pz += p.momentum.z;
-        e += p.energy;
+        e  += p.energy;
     }
     if(ecm < e) return -99.;
 

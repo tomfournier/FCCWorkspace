@@ -137,7 +137,8 @@ def compare_algo(df: 'ROOT.ROOT.RDataFrame',
                                  'ROOT.TParameter']]:
 
     df = df.Define('zqq_algo',            'std::vector<Vec_rp> r = {zqq_N0, zqq_N2, zqq_N4, zqq_N6}; return r;')
-    df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {jets_rp_cand_N0, jets_rp_cand_N2, jets_rp_cand_N4, jets_rp_cand_N6}; return r;')
+    df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {zqq_jets_N0, zqq_jets_N2, zqq_jets_N4, zqq_jets_N6}; return r;')
+    # df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {jets_rp_cand_N0, jets_rp_cand_N2, jets_rp_cand_N4, jets_rp_cand_N6}; return r;')
     df = df.Define('zqq_algo_m',          'Vec_f r = {zqq_m_N0, zqq_m_N2, zqq_m_N4, zqq_m_N6}; return r;')
     df = df.Define('zqq_algo_p',          'Vec_f r = {zqq_p_N0, zqq_p_N2, zqq_p_N4, zqq_p_N6}; return r;')
     df = df.Define('zqq_algo_recoil_m',   'Vec_f r = {zqq_recoil_m_N0, zqq_recoil_m_N2, zqq_recoil_m_N4, zqq_recoil_m_N6}; return r;')
@@ -161,14 +162,14 @@ def best_algo_variables(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('zqq',          'zqq_algo[best_clustering_idx]')
     df = df.Define('zqq_m',        'zqq_algo_m[best_clustering_idx]')
     df = df.Define('zqq_p',        'zqq_algo_p[best_clustering_idx]')
-    df = df.Define('zqq_theta',    'FCCAnalyses::ReconstructedParticle::get_theta(zqq)')
-    df = df.Define('zqq_costheta', 'FCCAnalyses::get_costheta(zqq_theta)')
+    df = df.Define('zqq_theta',    'FCCAnalyses::ReconstructedParticle::get_theta(zqq)[0]')
+    df = df.Define('zqq_costheta', 'FCCAnalyses::get_costheta(zqq)[0]')
     df = df.Define('zqq_recoil_m', 'zqq_algo_recoil_m[best_clustering_idx]')
 
     df = df.Define('zqq_jets',          'zqq_algo_jets[best_clustering_idx]')
     df = df.Define('zqq_jets_p',        'FCCAnalyses::ReconstructedParticle::get_p(zqq_jets)')
     df = df.Define('zqq_jets_theta',    'FCCAnalyses::ReconstructedParticle::get_theta(zqq_jets)')
-    df = df.Define('zqq_jets_costheta', 'FCCAnalyses::get_costheta(zqq_jets_theta)')
+    df = df.Define('zqq_jets_costheta', 'FCCAnalyses::get_costheta(zqq_jets)')
 
     df = df.Define('njets', 'njets_algo[best_clustering_idx]')
 
@@ -183,8 +184,8 @@ def jets_kinematics(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('subleading_idx',      '(zqq_jets_p[0] > zqq_jets_p[1]) ? 1 : 0')
     df = df.Define('leading_p',           'zqq_jets_p[leading_idx]')
     df = df.Define('subleading_p',        'zqq_jets_p[subleading_idx]')
-    df = df.Define('leading_theta',       'zqq_jets_costheta[leading_idx]')
-    df = df.Define('subleading_theta',    'zqq_jets_costheta[subleading_idx]')
+    df = df.Define('leading_theta',       'zqq_jets_theta[leading_idx]')
+    df = df.Define('subleading_theta',    'zqq_jets_theta[subleading_idx]')
     df = df.Define('leading_costheta',    'zqq_jets_costheta[leading_idx]')
     df = df.Define('subleading_costheta', 'zqq_jets_costheta[subleading_idx]')
 
@@ -220,8 +221,9 @@ def additional_variable(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('acopolarity',  'FCCAnalyses::acopolarity(zqq_jets)')
     df = df.Define('deltaR',       'FCCAnalyses::deltaR(zqq_jets)')
 
-    df = df.Define('missingEnergy',    'MissingET.energy')
-    df = df.Define('cosTheta_miss',    'FCCAnalyses::get_cosTheta_miss(MissingET)')
+    df = df.Define('missingEnergy_rp', f'FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)')
+    df = df.Define('missingEnergy',    'missingEnergy_rp[0].energy')
+    df = df.Define('cosTheta_miss',    'FCCAnalyses::get_cosTheta_miss(missingEnergy_rp)')
     df = df.Define('missingMass',      f'FCCAnalyses::missingMass({ecm}, ReconstructedParticles)')
 
     # Thrust
@@ -457,8 +459,8 @@ branch_list_qq =[
     'zqq_m', 'zqq_p', 'zqq_recoil_m',
     # 'zqq_recoil_m_mqq',  # 2D histogram
     'zqq_theta', 'zqq_costheta',
-    'leading_p', 'leading_costheta',
-    'subleading_p', 'subleading_costheta',
+    'leading_p', 'leading_theta', 'leading_costheta',
+    'subleading_p', 'subleading_theta', 'subleading_costheta',
     'delta_mWW', 'W1_m', 'W1_p', 'W2_m', 'W2_p',
     'W1_theta', 'W2_theta', 'W1_costheta', 'W2_costheta',
     'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',

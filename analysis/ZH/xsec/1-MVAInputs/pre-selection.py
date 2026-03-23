@@ -51,7 +51,7 @@ compGroup = 'group_u_FCC.local_gen'
 ################################
 
 processList = get_process_list(cat, ecm, train=True)
-processList = {f'wzp6_ee_qqH_ecm{ecm}': {'fraction': 1, 'chunks': 1}}
+processList = {f'wzp6_ee_qqH_ecm{ecm}': {'fraction': 0.05, 'chunks': 1}}
 
 
 
