@@ -2,10 +2,16 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os
+import os, sys
+
+# Add parent directory to path so package and sel modules are found
+# This is necessary for HTCondor batch jobs to find local modules
+script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
 
 from package.userConfig import loc, get_params
-from package.config import get_process_list
+# from package.config import get_process_list
 from sel.presel.leptonic import training_ll, branch_list_ll
 from sel.presel.hadronic import training_qq, branch_list_qq
 
@@ -35,12 +41,15 @@ procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 
 # Optional: Number of CPUs for parallel processing
 # (default is 4,  -1 uses all cores available)
-nCPUS = 20
+# nCPUS = 20
 
 # Run on HTCondor batch system (default is False)
-# runBatch = True
+if os.environ.get('RUN_BATCH'):
+    runBatch = True
+else:
+    runBatch = False
 # Batch queue name for HTCondor (default is workday)
-batchQueue = 'longlunch'
+batchQueue = 'espresso'  # 'longlunch'
 # Computing account for HTCondor (default is group_u_FCC.local_gen)
 compGroup = 'group_u_FCC.local_gen'
 
@@ -50,8 +59,8 @@ compGroup = 'group_u_FCC.local_gen'
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
-processList = get_process_list(cat, ecm, train=True)
-processList = {f'wzp6_ee_qqH_ecm{ecm}': {'fraction': 0.05, 'chunks': 1}}
+# processList = get_process_list(cat, ecm, train=True, batch=runBatch)
+processList = {f'wzp6_ee_qqH_ecm{ecm}': {'fraction': 0.1, 'chunks': 2}}
 
 
 

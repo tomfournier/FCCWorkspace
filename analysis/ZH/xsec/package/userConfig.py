@@ -184,15 +184,7 @@ class PathObj:
 class loc:
     """Path templates with placeholders ('cat', 'ecm', 'sel') and expansion methods."""
 
-    # Toggle between EOS and AFS storage
-    eos = True
-    if eos: repo = os.path.abspath('.')
-    # example: '/eos/home-t/u/username/FCC/FCCWorkspace/analysis/ZH/xsec'
-    else: repo = os.getenv('PWD')
-    # example: '/afs/cern.ch/user/u/username/eos/FCC/FCCWorkspace/analysis/ZH/xsec'
-
-    if 'xsec' not in repo:
-        print('WARNING: You are not executing the script from the good directory')
+    repo = str(Path(__file__).parent.parent.resolve())
 
     # Templates as LocPath strings with placeholders
     ROOT               = LocPath(repo)                    # Repo root
@@ -358,15 +350,28 @@ def get_params(
                 tuple[str, int, float]]:
 
     import json
-    from pathlib import Path
 
-    if env.get('RUN'):
-        cfg_file = Path(loc.RUN) / cfg_json
+    # Check if running in automated mode (RUN set) or on HTCondor
+    is_batch = '_CONDOR_SCRATCH_DIR' in env
+    is_automated = env.get('RUN') or is_batch
+
+    if is_automated:
+        # Local run: use loc.RUN
+        cfg_file = loc.RUN.astype(Path) / cfg_json
+        print(f'----->[Info] Getting config file from {cfg_file}')
+
+        # if is_batch:
+        #     print('----->[Info] Detecting BATCH mode')
+        #     repo_root = Path(__file__).parent.parent
+        #     cfg_file = repo_root / 'output/tmp/config_json/run' / cfg_json
+        #     print(f'----->[Info] Getting config file from {cfg_file}')
+        # else:
+
         if cfg_file.exists():
             cfg = json.loads(cfg_file.read_text())
             cat, ecm, lumi = cfg['cat'], cfg['ecm'], cfg['lumi']
         else:
-            raise FileNotFoundError(f"Couldn't find {cfg_file} file")
+            raise FileNotFoundError(f"Couldn't find config file at {cfg_file}")
     else:
         cat = input('Select channel [ee, mumu, qq]: ')
         while cat not in ['ee', 'mumu', 'qq']:

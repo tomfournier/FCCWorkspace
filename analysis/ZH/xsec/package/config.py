@@ -557,7 +557,7 @@ def _get_training_signals(cat: str, ecm: int) -> list[str]:
             raise ValueError(f'{ecm} is not supported for training. Use 240 or 365.')
     raise ValueError(f'{cat} is not a valid category. Use [ee, mumu, qq].')
 
-def _build_background_dict(cat: str, ecm: int, train: bool) -> dict[str, dict]:
+def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False) -> dict[str, dict]:
     '''Build background process dictionary for given category and mode.
 
     Separates common diboson/rare processes from category-specific ones to minimize duplication.
@@ -567,34 +567,39 @@ def _build_background_dict(cat: str, ecm: int, train: bool) -> dict[str, dict]:
         ecm: Center-of-mass energy.
         train: Training mode flag.
     '''
+
+    small  = 5  if batch else 1
+    middle = 40 if batch else 5
+    big    = 80 if batch else 10
+
     # Common diboson processes
     common = {
-        f'p8_ee_ZZ_ecm{ecm}': {'frac': 1, 'nb': 1 if train else 5},
-        f'p8_ee_WW_ecm{ecm}': {'frac': 1, 'nb': 5 if train else 10},
+        f'p8_ee_ZZ_ecm{ecm}': {'frac': 1, 'nb': 1 if train else middle},
+        f'p8_ee_WW_ecm{ecm}': {'frac': 1, 'nb': 5 if train else big},
     }
 
     # Training mode: category-specific backgrounds only
     if train:
         category_specific = {
             'ee': {
-                f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1, 'nb': 5},
-                f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 1, 'nb': 10},
-                f'wzp6_egamma_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': 5},
-                f'wzp6_gammae_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': 5},
-                f'wzp6_gaga_ee_60_ecm{ecm}':       {'frac': 1, 'nb': 5},
+                f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1, 'nb': middle},
+                f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 1, 'nb': big},
+                f'wzp6_egamma_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
+                f'wzp6_gammae_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
+                f'wzp6_gaga_ee_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
             },
             'mumu': {
-                f'p8_ee_WW_mumu_ecm{ecm}':         {'frac': 1, 'nb': 5},
-                f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 1, 'nb': 10},
-                f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': 5},
-                f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': 5},
-                f'wzp6_gaga_mumu_60_ecm{ecm}':     {'frac': 1, 'nb': 5},
+                f'p8_ee_WW_mumu_ecm{ecm}':         {'frac': 1, 'nb': middle},
+                f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 1, 'nb': big},
+                f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
+                f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
+                f'wzp6_gaga_mumu_60_ecm{ecm}':     {'frac': 1, 'nb': middle},
             },
             'qq': {
-                f'wzp6_ee_qq_ecm{ecm}':            {'frac': 1, 'nb': 10},
-                f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': 5},
-                f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': 5},
-                f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': 5},
+                f'wzp6_ee_qq_ecm{ecm}':            {'frac': 1, 'nb': big},
+                f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
+                f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
+                f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
             },
         }
         return {**common, **category_specific.get(cat, {})}
@@ -602,19 +607,19 @@ def _build_background_dict(cat: str, ecm: int, train: bool) -> dict[str, dict]:
     # Non-training mode: all ll backgrounds for ee/mumu, mixed for qq
     # All lepton-pair backgrounds (ee, mumu, tautau)
     ll_bkgs = {
-        f'p8_ee_WW_ee_ecm{ecm}':            {'frac': 1, 'nb': 5},
-        f'p8_ee_WW_mumu_ecm{ecm}':          {'frac': 1, 'nb': 5},
-        f'wzp6_ee_ee_Mee_30_150_ecm{ecm}':  {'frac': 1, 'nb': 10},
-        f'wzp6_ee_mumu_ecm{ecm}':           {'frac': 1, 'nb': 10},
-        f'wzp6_ee_tautau_ecm{ecm}':         {'frac': 1, 'nb': 1},
-        f'wzp6_egamma_eZ_Zee_ecm{ecm}':     {'frac': 1, 'nb': 5},
-        f'wzp6_gammae_eZ_Zee_ecm{ecm}':     {'frac': 1, 'nb': 5},
-        f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':   {'frac': 1, 'nb': 5},
-        f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':   {'frac': 1, 'nb': 5},
-        f'wzp6_gaga_ee_60_ecm{ecm}':        {'frac': 1, 'nb': 5},
-        f'wzp6_gaga_mumu_60_ecm{ecm}':      {'frac': 1, 'nb': 5},
-        f'wzp6_gaga_tautau_60_ecm{ecm}':    {'frac': 1, 'nb': 1},
-        f'wzp6_ee_nuenueZ_ecm{ecm}':        {'frac': 1, 'nb': 1},
+        f'p8_ee_WW_ee_ecm{ecm}':            {'frac': 1, 'nb': middle},
+        f'p8_ee_WW_mumu_ecm{ecm}':          {'frac': 1, 'nb': middle},
+        f'wzp6_ee_ee_Mee_30_150_ecm{ecm}':  {'frac': 1, 'nb': big},
+        f'wzp6_ee_mumu_ecm{ecm}':           {'frac': 1, 'nb': big},
+        f'wzp6_ee_tautau_ecm{ecm}':         {'frac': 1, 'nb': small},
+        f'wzp6_egamma_eZ_Zee_ecm{ecm}':     {'frac': 1, 'nb': middle},
+        f'wzp6_gammae_eZ_Zee_ecm{ecm}':     {'frac': 1, 'nb': middle},
+        f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':   {'frac': 1, 'nb': middle},
+        f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':   {'frac': 1, 'nb': middle},
+        f'wzp6_gaga_ee_60_ecm{ecm}':        {'frac': 1, 'nb': middle},
+        f'wzp6_gaga_mumu_60_ecm{ecm}':      {'frac': 1, 'nb': middle},
+        f'wzp6_gaga_tautau_60_ecm{ecm}':    {'frac': 1, 'nb': small},
+        f'wzp6_ee_nuenueZ_ecm{ecm}':        {'frac': 1, 'nb': small},
     }
 
     if cat in ['ee', 'mumu']:
@@ -622,15 +627,15 @@ def _build_background_dict(cat: str, ecm: int, train: bool) -> dict[str, dict]:
     elif cat == 'qq':
         # For qq: all ll backgrounds + qq-specific ones
         qq_bkgs = {
-            f'wzp6_ee_qq_ecm{ecm}':          {'frac': 1, 'nb': 10},
-            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': 5},
-            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': 5},
-            f'wzp6_gaga_qq_60_ecm{ecm}':     {'frac': 1, 'nb': 1},
+            f'wzp6_ee_qq_ecm{ecm}':          {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': middle},
+            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': middle},
+            f'wzp6_gaga_qq_60_ecm{ecm}':     {'frac': 1, 'nb': small},
         }
         bkgs = {**common, **ll_bkgs, **qq_bkgs}
         # Special case: top production at 365 GeV
         if ecm == 365:
-            bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': 1}
+            bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
         return bkgs
 
     return common
@@ -642,6 +647,7 @@ def get_process_list(
         z_decays: tuple[str, ...] = Z_DECAYS,
         h_decays: tuple[str, ...] = H_DECAYS_ALL,
         train: bool = False,
+        batch: bool = False,
         onlysig: bool = False,
         onlybkg: bool = False,
         frac: dict[str, float] | None = None,
@@ -678,6 +684,8 @@ def get_process_list(
     if onlysig and onlybkg:
         raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
 
+    nb = 5 if batch else 1
+
     # Build signals
     if train:
         sigs = _get_training_signals(cat, ecm)
@@ -689,7 +697,7 @@ def get_process_list(
 
     # Assemble processes, applying custom overrides
     process_sig = {
-        s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1)}
+        s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, nb)}
         for s in sigs if s not in exclude
     }
     process_bkg = {
