@@ -226,6 +226,7 @@ inline Vec_rp resonanceBuilder_mass_recoil_hadronic::operator()(Vec_rp legs) {
     result.reserve(3);
     std::vector<std::vector<int>> pairs; // for each permutation, add the indices of the jets
     int n = legs.size();
+    
     if(n > 1) {
         ROOT::VecOps::RVec<bool> v(n);
         std::fill(v.end() - 2, v.end(), true); // helper variable for permutations

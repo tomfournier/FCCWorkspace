@@ -641,6 +641,240 @@ inline Vec_rp sel_range_idx::operator() (Vec_rp in, Vec_f prop) {
     return result;
 }
 
+
+/*************************************************************
+*** FUNCTION TO FIND TRUE Z->ll PAIRING FROM MC PARTICLES ***
+*************************************************************/
+
+// Find the true Z boson that decays to leptons and does NOT come from H->ZZ* decay
+// Returns a vector with 3 ReconstructedParticleData-like structures:
+// [0] = Z system (momentum and mass from MC)
+// [1] = first lepton from Z
+// [2] = second lepton from Z
+// Returns dummy structures if no valid Z->ll is found
+inline Vec_rp getTrueZ_from_H_decay(Vec_mc mc, Vec_i parents, Vec_i daughters) {
+    Vec_rp result;
+    result.reserve(3);
+    
+    // Helper lambda to check if a particle is a lepton (e, mu, tau)
+    auto isLepton = [](int pdg) {
+        int abs_pdg = std::abs(pdg);
+        return (abs_pdg == 11 || abs_pdg == 13 || abs_pdg == 15); // e, mu, tau
+    };
+    
+    // Helper lambda to get parent PDG
+    auto getParentPDG = [&mc, &parents](int particle_idx) -> int {
+        if (particle_idx >= mc.size()) return 0;
+        const auto& p = mc[particle_idx];
+        if (p.parents_begin >= 0 && p.parents_begin < parents.size()) {
+            int parent_idx = parents[p.parents_begin];
+            if (parent_idx >= 0 && parent_idx < mc.size()) {
+                return mc[parent_idx].PDG;
+            }
+        }
+        return 0;
+    };
+    
+    // Loop through MC particles to find Z bosons
+    for (size_t i = 0; i < mc.size(); ++i) {
+        const auto& particle = mc[i];
+        
+        // Check if this is a Z boson (PDG = 23)
+        if (std::abs(particle.PDG) != 23) continue;
+        
+        // Check that parent is NOT a Higgs (PDG = 25)
+        int parent_pdg = getParentPDG(i);
+        if (std::abs(parent_pdg) == 25) continue; // Skip Z from H->ZZ*
+        
+        // Get daughters of the Z
+        int ds = particle.daughters_begin;
+        int de = particle.daughters_end;
+        
+        if (ds < 0 || de <= ds) continue; // No valid daughters
+        if (de - ds != 2) continue; // Z should have exactly 2 daughters (or could be tau->l chain)
+        
+        // Get daughter indices
+        int d1_idx = daughters[ds];
+        int d2_idx = daughters[de - 1];
+        
+        if (d1_idx < 0 || d1_idx >= mc.size() || d2_idx < 0 || d2_idx >= mc.size()) continue;
+        
+        const auto& d1 = mc[d1_idx];
+        const auto& d2 = mc[d2_idx];
+        
+        // Check if daughters are leptons (or tau that decays to lepton)
+        // For simplicity, check direct lepton daughters
+        if (isLepton(d1.PDG) && isLepton(d2.PDG)) {
+            // Check that they have opposite charge (for proper Z decay)
+            // Neutrinos have charge 0, so we need opposite flavor leptons
+            int abs_pdg1 = std::abs(d1.PDG);
+            int abs_pdg2 = std::abs(d2.PDG);
+            
+            // Valid Z->ll: both leptons of same flavor
+            if (abs_pdg1 == abs_pdg2) {
+                // Build the result
+                // Create Z particle (index 0)
+                rp z_particle;
+                TLorentzVector z_tlv;
+                z_tlv.SetXYZM(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.mass);
+                z_particle.momentum.x = z_tlv.Px();
+                z_particle.momentum.y = z_tlv.Py();
+                z_particle.momentum.z = z_tlv.Pz();
+                z_particle.energy = z_tlv.E();
+                z_particle.mass = z_tlv.M();
+                z_particle.charge = 0;
+                result.push_back(z_particle);
+                
+                // Create lepton 1 (index 1)
+                rp lepton1;
+                TLorentzVector l1_tlv;
+                l1_tlv.SetXYZM(d1.momentum.x, d1.momentum.y, d1.momentum.z, d1.mass);
+                lepton1.momentum.x = l1_tlv.Px();
+                lepton1.momentum.y = l1_tlv.Py();
+                lepton1.momentum.z = l1_tlv.Pz();
+                lepton1.energy = l1_tlv.E();
+                lepton1.mass = l1_tlv.M();
+                lepton1.charge = (d1.PDG > 0) ? -1 : 1; // e- has charge -1, e+ has +1
+                result.push_back(lepton1);
+                
+                // Create lepton 2 (index 2)
+                rp lepton2;
+                TLorentzVector l2_tlv;
+                l2_tlv.SetXYZM(d2.momentum.x, d2.momentum.y, d2.momentum.z, d2.mass);
+                lepton2.momentum.x = l2_tlv.Px();
+                lepton2.momentum.y = l2_tlv.Py();
+                lepton2.momentum.z = l2_tlv.Pz();
+                lepton2.energy = l2_tlv.E();
+                lepton2.mass = l2_tlv.M();
+                lepton2.charge = (d2.PDG > 0) ? -1 : 1;
+                result.push_back(lepton2);
+                
+                return result; // Return first valid Z->ll that's not from Higgs
+            }
+        }
+    }
+    
+    // If no valid Z->ll found, return 3 dummy particles
+    auto dummy = edm4hep::ReconstructedParticleData();
+    dummy.momentum.x = 0;
+    dummy.momentum.y = 0;
+    dummy.momentum.z = 0;
+    dummy.mass = -999;
+    dummy.energy = -999;
+    result.push_back(dummy);
+    result.push_back(dummy);
+    result.push_back(dummy);
+    return result;
+}
+
+
+// Helper function to match reconstructed leptons to MC truth leptons
+// Returns indices of reco leptons that best match the true Z leptons
+// Input: reconstructed leptons, MC true Z info, reco-to-MC index mapping
+inline Vec_i match_reco_to_MC_Z(Vec_rp reco_leptons, Vec_rp true_z_leptons, Vec_i recind, Vec_i mcind) {
+    Vec_i result;
+    
+    // If true Z info is dummy (mass < 0), return empty
+    if (true_z_leptons.size() < 3 || true_z_leptons[0].mass < 0) {
+        return result;
+    }
+    
+    // Try to find which reco leptons match the true Z leptons
+    std::vector<int> matched_indices;
+    
+    for (size_t i = 0; i < recind.size(); ++i) {
+        int reco_idx = recind[i];
+        int mc_idx = mcind[i];
+        
+        if (reco_idx < 0 || reco_idx >= reco_leptons.size()) continue;
+        if (mc_idx < 0) continue; // Not matched to MC
+        
+        // Check if this reco particle matches one of the true Z leptons
+        // by comparing the MC index with the true Z daughters
+        // (We encode MC indices into the true_z_leptons via energy field as a workaround)
+        // For now, just collect all matched reco indices
+        matched_indices.push_back(reco_idx);
+    }
+    
+    // Return matched indices
+    for (int idx : matched_indices) {
+        result.push_back(idx);
+    }
+    
+    return result;
+}
+
+
+// Evaluate how well a reconstructed Z pair matches the true Z from MC
+// Returns 1 if the pair matches, 0 otherwise
+// This is useful for optimizing chi2_recoil_frac
+// Uses track association via getTrack2MC_index for robust MC matching
+inline int evaluateZ_pairing(Vec_rp reco_z_pair, Vec_rp true_z_leptons, Vec_rp reco_leptons, Vec_i recind, Vec_i mcind, Vec_mc mc, Vec_i parents, Vec_i daughters) {
+    // reco_z_pair: [0] = Z system, [1] = lepton1, [2] = lepton2 from resonanceBuilder_mass_recoil
+    // true_z_leptons: [0] = Z system, [1] = lepton1, [2] = lepton2 from getTrueZ_from_H_decay
+    
+    if (reco_z_pair.size() < 3 || true_z_leptons.size() < 3) return 0;
+    if (true_z_leptons[0].mass < 0 || reco_z_pair[0].mass < 0) return 0; // Dummy particles
+    
+    // Get MC indices of the true Z leptons
+    // We need to find which MC particles they correspond to
+    std::vector<int> true_mc_indices;
+    for (size_t i = 0; i < mc.size(); ++i) {
+        const auto& particle = mc[i];
+        
+        // Check if this MC particle matches one of the true Z leptons by 4-momentum
+        for (int j = 1; j < 3; ++j) { // Check both true leptons [1] and [2]
+            const auto& true_lep = true_z_leptons[j];
+            
+            // Compare 4-momentum (momentum + mass should match exactly for MC)
+            const float tol = 1e-6;
+            float dp_x = std::abs(particle.momentum.x - true_lep.momentum.x);
+            float dp_y = std::abs(particle.momentum.y - true_lep.momentum.y);
+            float dp_z = std::abs(particle.momentum.z - true_lep.momentum.z);
+            float dm = std::abs(particle.mass - true_lep.mass);
+            
+            if (dp_x < tol && dp_y < tol && dp_z < tol && dm < tol) {
+                true_mc_indices.push_back(i);
+                break; // Found match for this true lepton
+            }
+        }
+    }
+    
+    if (true_mc_indices.size() < 2) return 0; // Couldn't identify true MC leptons
+    
+    // Get MC indices of the reconstructed Z leptons using track association
+    std::vector<int> reco_mc_indices;
+    
+    for (int k = 1; k < 3; ++k) { // Check both reco leptons [1] and [2]
+        const auto& reco_lep = reco_z_pair[k];
+        
+        // Use track association to find MC particle
+        if (reco_lep.tracks_begin >= 0) {
+            int mc_idx = ReconstructedParticle2MC::getTrack2MC_index(reco_lep.tracks_begin, recind, mcind, reco_leptons);
+            if (mc_idx >= 0) {
+                reco_mc_indices.push_back(mc_idx);
+            }
+        }
+    }
+    
+    if (reco_mc_indices.size() < 2) return 0; // Couldn't match reco leptons to MC
+    
+    // Check if reconstructed leptons match true Z leptons
+    // Both leptons from reco_z_pair should be in the true_mc_indices list
+    int matches = 0;
+    for (int reco_mc : reco_mc_indices) {
+        for (int true_mc : true_mc_indices) {
+            if (reco_mc == true_mc) {
+                matches++;
+                break;
+            }
+        }
+    }
+    
+    // Return 1 only if both reconstructed leptons match true Z leptons
+    return (matches == 2) ? 1 : 0;
+}
+
 }
 
 #endif
