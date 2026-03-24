@@ -187,48 +187,53 @@ class loc:
     repo = str(Path(__file__).parent.parent.resolve())
 
     # Templates as LocPath strings with placeholders
-    ROOT               = LocPath(repo)                    # Repo root
-    PACKAGE            = LocPath(f"{repo}/package")       # Python package code
-    OUT                = LocPath(f"{repo}/output")        # Output root
-    PLOTS              = LocPath(f"{repo}/output/plots")  # Plots root
-    DATA               = LocPath(f"{repo}/output/data")   # Data artifacts
-    TMP                = LocPath(f"{repo}/output/tmp")    # Scratch state
+    ROOT                = LocPath(repo)                    # Repo root
+    PACKAGE             = LocPath(f"{repo}/package")       # Python package code
+    OUT                 = LocPath(f"{repo}/output")        # Output root
+    PLOTS               = LocPath(f"{repo}/output/plots")  # Plots root
+    DATA                = LocPath(f"{repo}/output/data")   # Data artifacts
+    TMP                 = LocPath(f"{repo}/output/tmp")    # Scratch state
 
-    JSON               = LocPath(f"{repo}/output/tmp/config_json")      # JSON configs
-    RUN                = LocPath(f"{repo}/output/tmp/config_json/run")  # Per-run configs
+    JSON                = LocPath(f"{repo}/output/tmp/config_json")      # JSON configs
+    RUN                 = LocPath(f"{repo}/output/tmp/config_json/run")  # Per-run configs
 
-    EVENTS             = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis")  # Analysis samples
-    EVENTS_TEST        = LocPath(f"{repo}/output/data/events/ecm/cat/test/analysis")  # Test samples for analysis
-    EVENTS_TRAINING    = LocPath(f"{repo}/output/data/events/ecm/cat/full/training")  # Training samples
-    EVENTS_TRAIN_TEST  = LocPath(f"{repo}/output/data/events/ecm/cat/test/training")  # Test samples for training
+    EVENTS              = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis")  # Analysis samples
+    EVENTS_TEST         = LocPath(f"{repo}/output/data/events/ecm/cat/test/analysis")  # Test samples for analysis
+    EVENTS_TRAINING     = LocPath(f"{repo}/output/data/events/ecm/cat/full/training")  # Training samples
+    EVENTS_TRAIN_TEST   = LocPath(f"{repo}/output/data/events/ecm/cat/test/training")  # Test samples for training
 
-    MVA                = LocPath(f"{repo}/output/data/MVA")                        # MVA root
-    MVA_INPUTS         = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/MVAInputs")  # MVA inputs folder
-    BDT                = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/BDT")        # Trained BDT
+    OPTIMISATION        = LocPath(f"{repo}/output/data/optimisation/ecm/cat/full")  # Optimisation samples
+    OPTIMISATION_TEST   = LocPath(f"{repo}/output/data/optimisation/ecm/cat/test")  # Test Optimisation samples
 
-    HIST               = LocPath(f"{repo}/output/data/histograms")                        # Histograms root
-    HIST_MVA           = LocPath(f"{repo}/output/data/histograms/MVAInputs/ecm/cat/")     # MVA input hists
-    HIST_PREPROCESSED  = LocPath(f"{repo}/output/data/histograms/preprocessed/ecm/cat")   # After preprocess
-    HIST_PROCESSED     = LocPath(f"{repo}/output/data/histograms/processed/ecm/cat/sel")  # After processing
+    MVA                 = LocPath(f"{repo}/output/data/MVA")                        # MVA root
+    MVA_INPUTS          = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/MVAInputs")  # MVA inputs folder
+    BDT                 = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/BDT")        # Trained BDT
 
-    PLOTS_MVA          = LocPath(f"{repo}/output/plots/MVAInputs/ecm/cat")       # Input var plots
-    PLOTS_BDT          = LocPath(f"{repo}/output/plots/evaluation/ecm/cat/sel")  # BDT perf plots
-    PLOTS_MEASUREMENT  = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis plots
+    HIST                = LocPath(f"{repo}/output/data/histograms")                           # Histograms root
+    HIST_MVA            = LocPath(f"{repo}/output/data/histograms/MVAInputs/ecm/cat/")        # MVA input hists
+    HIST_PREPROCESSED   = LocPath(f"{repo}/output/data/histograms/preprocessed/ecm/cat")      # After preprocess
+    HIST_PROCESSED      = LocPath(f"{repo}/output/data/histograms/processed/ecm/cat/sel")     # After processing
+    HIST_PROCESSED      = LocPath(f"{repo}/output/data/histograms/optimisation/ecm/cat/sel")  # Optimisation histograms
 
-    COMBINE            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root
-    COMBINE_NOMINAL    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")  # Nominal outputs
-    COMBINE_BIAS       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")     # Bias outputs
+    PLOTS_MVA           = LocPath(f"{repo}/output/plots/MVAInputs/ecm/cat")       # Input var plots
+    PLOTS_BDT           = LocPath(f"{repo}/output/plots/evaluation/ecm/cat/sel")  # BDT perf plots
+    PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis plots
+    PLOTS_OPTIMISATION  = LocPath(f"{repo}/output/plots/optimisation/ecm/cat")    # Optimisation plots
 
-    NOMINAL_LOG        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")       # Logs (nominal)
-    NOMINAL_RESULT     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/results")   # Results (nominal)
-    NOMINAL_DATACARD   = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/datacard")  # Datacards (nominal)
-    NOMINAL_WS         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/WS")        # Workspaces (nominal)
+    COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root
+    COMBINE_NOMINAL     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")  # Nominal outputs
+    COMBINE_BIAS        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")     # Bias outputs
 
-    BIAS_LOG           = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/log")           # Logs (bias)
-    BIAS_FIT_RESULT    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/fit")   # Fit outputs (bias)
-    BIAS_RESULT        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias")  # Bias summaries
-    BIAS_DATACARD      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Datacards (bias)
-    BIAS_WS            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Workspaces (bias)
+    NOMINAL_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")       # Logs (nominal)
+    NOMINAL_RESULT      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/results")   # Results (nominal)
+    NOMINAL_DATACARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/datacard")  # Datacards (nominal)
+    NOMINAL_WS          = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/WS")        # Workspaces (nominal)
+
+    BIAS_LOG            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/log")           # Logs (bias)
+    BIAS_FIT_RESULT     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/fit")   # Fit outputs (bias)
+    BIAS_RESULT         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias")  # Bias summaries
+    BIAS_DATACARD       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Datacards (bias)
+    BIAS_WS             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Workspaces (bias)
 
     @staticmethod
     def expand(
