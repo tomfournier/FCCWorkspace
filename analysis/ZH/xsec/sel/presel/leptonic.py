@@ -30,8 +30,8 @@ from .helper import setup_alias, cutflow
 ### HELPER FUNCTIONS ###
 ########################
 
-def _lesp_properties(df: 'ROOT.ROOT.RDataFrame'
-                     ) -> 'ROOT.ROOT.RDataFrame':
+def lesp_properties(df: 'ROOT.ROOT.RDataFrame'
+                    ) -> 'ROOT.ROOT.RDataFrame':
     """Define baseline lepton collections and isolation selections.
 
     Computes lepton kinematics (p, theta, phi) for all leptons before and after
@@ -70,9 +70,9 @@ def _lesp_properties(df: 'ROOT.ROOT.RDataFrame'
     return df
 
 
-def _recoil_builder(df: 'ROOT.ROOT.RDataFrame',
-                    ecm: int
-                    ) -> 'ROOT.ROOT.RDataFrame':
+def recoil_builder(df: 'ROOT.ROOT.RDataFrame',
+                   ecm: int
+                   ) -> 'ROOT.ROOT.RDataFrame':
     """Build Z candidates and veto Higgs-like leptons.
 
     Two-step Z reconstruction: First veto H->ll (mass 125±3 GeV), then build best
@@ -110,9 +110,9 @@ def _recoil_builder(df: 'ROOT.ROOT.RDataFrame',
     return df
 
 
-def _Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
-                  ecm: int
-                  ) -> 'ROOT.ROOT.RDataFrame':
+def Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
+                 ecm: int
+                 ) -> 'ROOT.ROOT.RDataFrame':
     """Compute Z-boson kinematics and recoil mass.
 
     Extracts Z four-vector properties (mass, momentum, angles) and computes
@@ -144,8 +144,8 @@ def _Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
     return df
 
 
-def _lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
-                             ) -> 'ROOT.ROOT.RDataFrame':
+def lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
+                            ) -> 'ROOT.ROOT.RDataFrame':
     """Extract leading/subleading lepton kinematics ordered by momentum.
 
     Identifies and indexes the higher/lower momentum leptons from Z decay,
@@ -181,9 +181,9 @@ def _lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
     return df
 
 
-def _additional_variables(df: 'ROOT.ROOT.RDataFrame',
-                          ecm: int
-                          ) -> 'ROOT.ROOT.RDataFrame':
+def additional_variables(df: 'ROOT.ROOT.RDataFrame',
+                         ecm: int
+                         ) -> 'ROOT.ROOT.RDataFrame':
     """Compute angular correlations, energy observables, and kinematic discriminants.
 
     Calculates three-body kinematics (acoplanarity, acolinearity, deltaR between
@@ -251,7 +251,7 @@ def training_ll(df: 'ROOT.ROOT.RDataFrame',
     """
 
     df = setup_alias(df, cat)
-    df = _lesp_properties(df)
+    df = lesp_properties(df)
 
     ##########
     ### CUT 0: all events
@@ -268,10 +268,10 @@ def training_ll(df: 'ROOT.ROOT.RDataFrame',
     df = df.Filter('leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()')
 
     # Build Z candidate with H veto, extract all kinematic observables
-    df = _recoil_builder(df, ecm)
-    df = _Z_kinematics(df, ecm)
-    df = _lead_sublead_properties(df)
-    df = _additional_variables(df, ecm)
+    df = recoil_builder(df, ecm)
+    df = Z_kinematics(df, ecm)
+    df = lead_sublead_properties(df)
+    df = additional_variables(df, ecm)
 
 
 
@@ -329,7 +329,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
         df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
         df = df.Filter('!ww_leptonic')
 
-    df = _lesp_properties(df)
+    df = lesp_properties(df)
 
     params.append(df.Histo1D(("leps_iso", "leps_iso", 4000, 0, 20), "leps_iso"))
     params.append(df.Histo1D(("leps_no", "leps_no", 20, 0, 20), "leps_no"))
@@ -352,10 +352,10 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     df, params = cutflow(df, params, 2)
 
     # Build Z candidate with H veto, extract all kinematic observables
-    df = _recoil_builder(df, ecm)
-    df = _Z_kinematics(df, ecm)
-    df = _lead_sublead_properties(df)
-    df = _additional_variables(df, ecm)
+    df = recoil_builder(df, ecm)
+    df = Z_kinematics(df, ecm)
+    df = lead_sublead_properties(df)
+    df = additional_variables(df, ecm)
 
 
 

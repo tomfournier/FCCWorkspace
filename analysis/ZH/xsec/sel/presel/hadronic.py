@@ -92,9 +92,10 @@ def make_pseudojets(df: 'ROOT.ROOT.RDataFrame',
     return df
 
 
-def exclusive_clustering(df: 'ROOT.ROOT.RDataFrame',
-                         njets: int
-                         ) -> 'ROOT.ROOT.RDataFrame':
+def cluster_and_recoil(df: 'ROOT.ROOT.RDataFrame',
+                       ecm: int,
+                       njets: int
+                       ) -> 'ROOT.ROOT.RDataFrame':
     if njets==0:  # inclusive
         df = df.Define('clustered_jets_N0', 'JetClustering::clustering_kt(0.6, 0, 5, 1, 0)(pseudo_jets)')
     else:
@@ -111,14 +112,8 @@ def exclusive_clustering(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define(f'jets_rp_N{njets}',         f'FCCAnalyses::jets2rp(jets_px_N{njets}, jets_py_N{njets}, jets_pz_N{njets}, jets_e_N{njets}, jets_m_N{njets})')
     df = df.Define(f'jets_rp_cand_N{njets}',    f'FCCAnalyses::select_jets(jets_rp_N{njets}, jetconstituents_N{njets}, {njets}, ReconstructedParticles)')  # reduces potentially the jet multiplicity
     df = df.Define(f'njets_cand_N{njets}',      f'jets_rp_cand_N{njets}.size()')
-    return df
 
-
-def define_variables(df: 'ROOT.ROOT.RDataFrame',
-                     ecm: int,
-                     njets: int
-                     ) -> 'ROOT.ROOT.RDataFrame':
-    df = df.Define(f'zbuilder_N{njets}', f'FCCAnalyses::resonanceBuilder_mass_recoil_hadronic(91.2, 125, 0.0, {ecm})(jets_rp_cand_N{njets})')
+    df = df.Define(f'zbuilder_N{njets}',        f'FCCAnalyses::resonanceBuilder_mass_recoil_hadronic(91.2, 125, 0.0, {ecm})(jets_rp_cand_N{njets})')
     df = df.Define(f'zqq_N{njets}',             f'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{{zbuilder_N{njets}[0]}}')  # the Z
     df = df.Define(f'zqq_jets_N{njets}',        f'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{{zbuilder_N{njets}[1],zbuilder_N{njets}[2]}}')  # the jets
     df = df.Define(f'zqq_m_N{njets}',           f'FCCAnalyses::ReconstructedParticle::get_mass(zqq_N{njets})[0]')
@@ -273,8 +268,7 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
 
     # Perform possible clusterings
     for i in [0, 2, 4, 6]:
-        df = exclusive_clustering(df, i)
-        df = define_variables(df, ecm, i)
+        df = cluster_and_recoil(df, ecm, i)
 
     df, _ = compare_algo(df, [], ecm)
 
@@ -377,8 +371,7 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
 
     # Perform possible clusterings
     for i in [0, 2, 4, 6]:
-        df = exclusive_clustering(df, i)
-        df = define_variables(df, i)
+        df = cluster_and_recoil(df, ecm, i)
 
     df, hists = compare_algo(df, hists, ecm)
 
