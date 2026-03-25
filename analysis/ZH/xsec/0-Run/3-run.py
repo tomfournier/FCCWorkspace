@@ -26,7 +26,6 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from package.userConfig import loc
-from package.tools.utils import mkdir
 from package.config import timer
 
 t = time.time()
@@ -51,6 +50,7 @@ parser.add_argument('--sels', help='Selection(s)', type=str, default='')
 parser.add_argument('--run', type=str, default='2-3',
                     choices=['1', '2', '3', '4', '1-2', '2-3', '3-4', '1-2-3', '2-3-4', '1-2-3-4'],
                     help='Pipeline stages: 1=pre-selection, 2=final-selection, 3=plots, 4=cutflow (default: 2-3)')
+parser.add_argument('--batch', action='store_true', help='run pre-selection on HTCondor')
 
 # Flags to control which plot types to skip (inverted logic: flag skips the plot except for --scan)
 parser.add_argument('--yields', help='Do not make yields plots',            action='store_true')
@@ -87,8 +87,7 @@ path = f'{loc.ROOT}/3-Measurement'
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cfg_dir: str,
-        cat: str,
+def run(cat: str,
         ecm: int,
         path: str,
         script: str,
@@ -110,22 +109,22 @@ def run(cfg_dir: str,
         int: Return code from the subprocess.
     '''
     # Create configuration directory if it doesn't exist
-    mkdir(cfg_dir)
-    cfg_file = Path(cfg_dir) / '3-run.json'
+    cfg_path = Path(loc.RUN) / '3-run.json'
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build configuration dictionary
     lumi = 10.8 if ecm == 240 else (3.12 if ecm==365 else -1)
-    config = {'cat': cat,
-              'ecm': ecm,
-              'lumi': lumi}
+    config = {'cat': cat, 'ecm': ecm, 'lumi': lumi}
 
     # Write configuration to temporary JSON file
-    cfg_file.write_text(json.dumps(config))
-    print(f'----->[Info] Wrote config file to {cfg_file}')
+    cfg_path.write_text(json.dumps(config))
+    print(f'----->[Info] Wrote config file to {cfg_path}')
 
     # Set up environment with RUN flag for automated mode detection
     env = os.environ.copy()
     env['RUN'] = '1'
+    if arg.batch:
+        env['RUN_BATCH'] = '1'
 
     script_path = f'{path}/{script}.py'
 
@@ -169,9 +168,7 @@ def run(cfg_dir: str,
         print('=' * length + '\n')
         return result.returncode
     finally:
-        # Cleanup: remove temporary configuration file
-        if cfg_file.exists():
-            cfg_file.unlink()
+        pass
 
 
 ######################

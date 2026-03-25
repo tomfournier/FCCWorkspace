@@ -11,12 +11,13 @@ if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 from package.userConfig import loc, get_params
-# from package.config import get_process_list
+from package.config import get_process_list
 from sel.presel.leptonic import training_ll, branch_list_ll
 from sel.presel.hadronic import training_qq, branch_list_qq
 
 # Load config from temporary JSON if running automated, else prompt
-cat, ecm = get_params(os.environ.copy(), '1-run.json')
+env = os.environ.copy()
+cat, ecm = get_params(env, '1-run.json')
 
 
 
@@ -44,10 +45,7 @@ procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 # nCPUS = 20
 
 # Run on HTCondor batch system (default is False)
-if os.environ.get('RUN_BATCH'):
-    runBatch = True
-else:
-    runBatch = False
+runBatch = True if env.get('RUN_BATCH') else False
 # Batch queue name for HTCondor (default is workday)
 batchQueue = 'espresso'  # 'longlunch'
 # Computing account for HTCondor (default is group_u_FCC.local_gen)
@@ -59,8 +57,7 @@ compGroup = 'group_u_FCC.local_gen'
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
-# processList = get_process_list(cat, ecm, train=True, batch=runBatch)
-processList = {f'wzp6_ee_qqH_ecm{ecm}': {'fraction': 0.1, 'chunks': 2}}
+processList = get_process_list(cat, ecm, train=True, batch=runBatch)
 
 
 

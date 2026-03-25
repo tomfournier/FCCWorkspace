@@ -98,7 +98,7 @@ def run(cat: str,
     Returns:
         int: Return code from the subprocess.
     '''
-    cfg_path = loc.RUN.astype(Path) / '1-run.json'
+    cfg_path = Path(loc.RUN) / '1-run.json'
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build configuration dictionary

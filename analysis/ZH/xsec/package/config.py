@@ -550,9 +550,9 @@ def _get_training_signals(cat: str, ecm: int) -> list[str]:
         return [f'wzp6_ee_{cat}H_ecm{ecm}']
     if cat == 'qq':
         if ecm == 240:
-            return [f'wzp6_qqH_ecm{ecm}']
+            return [f'wzp6_ee_qqH_ecm{ecm}']
         elif ecm == 365:
-            return [f'wzp6_{x}H_ecm{ecm}' for x in ['bb', 'cc', 'ss', 'qq']]
+            return [f'wzp6_ee_{x}H_ecm{ecm}' for x in ['bb', 'cc', 'ss', 'qq']]
         else:
             raise ValueError(f'{ecm} is not supported for training. Use 240 or 365.')
     raise ValueError(f'{cat} is not a valid category. Use [ee, mumu, qq].')
@@ -574,7 +574,7 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
 
     # Common diboson processes
     common = {
-        f'p8_ee_ZZ_ecm{ecm}': {'frac': 1, 'nb': 1 if train else middle},
+        f'p8_ee_ZZ_ecm{ecm}': {'frac': 1, 'nb': middle},
         f'p8_ee_WW_ecm{ecm}': {'frac': 1, 'nb': 5 if train else big},
     }
 
@@ -684,7 +684,7 @@ def get_process_list(
     if onlysig and onlybkg:
         raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
 
-    nb = 5 if batch else 1
+    nb = 4 if batch else 1
 
     # Build signals
     if train:
