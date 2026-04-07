@@ -5,7 +5,7 @@
 import os
 
 # Import user configuration paths and parameters
-from package.config import get_process_list
+from package.config import get_process_list, quarks
 from sel.presel.chi2 import (
     optimize_ll, optimize_qq,
     branch_list_ll, branch_list_qq
@@ -27,7 +27,9 @@ outputDir = loc.get('OPTIMISATION_TEST', cat, ecm)
 
 # Include custom C++ analysis functions
 includePaths = ['../../../../functions/functions.h',
-                '../../../../functions/functions_hadronic.h']
+                '../../../../functions/functions_hadronic.h',
+                '../../../../functions/utils.h',
+                '../../../../functions/optimisation.h']
 
 # Mandatory: Production tag for EDM4Hep centrally produced events
 # Points to YAML files for sample statistics
@@ -56,7 +58,10 @@ compGroup = 'group_u_FCC.local_gen'
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
-processList = get_process_list(cat, ecm)
+Z_decays = (cat,) if cat in ['ee', 'mumu'] else quarks
+processList = get_process_list(
+    cat, ecm, onlysig=True, z_decays=Z_decays, batch=True
+)
 
 
 
@@ -72,16 +77,16 @@ class RDFgraph():
     def analysers(df, dataset):
         '''Apply analysis graph construction to the dataframe.'''
         if cat in ['ee', 'mumu']:
-            df, params = optimize_ll(df, cat, ecm, dataset)
+            df = optimize_ll(df, cat, ecm, dataset)
         elif cat == 'qq':
-            df, params = optimize_qq(df, cat, ecm, dataset)
+            df = optimize_qq(df, cat, ecm, dataset)
         else:
             raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
-        return df, params
+        return df, []
 
     # _____________________________________________________
     # Mandatory: output function defining branches to save
-    def output():
+    def output() -> list[str]:
         '''Define output branches to save.'''
         if cat in ['ee', 'mumu']:
             return sorted(branch_list_ll)
