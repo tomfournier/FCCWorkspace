@@ -25,8 +25,11 @@ Usage:
 ####################################
 
 import os
-from pathlib import Path
+from pathlib import Path, PosixPath, WindowsPath
 from typing import overload, Type, Union
+
+# Select the appropriate Path base class for the OS
+_PathBase = WindowsPath if os.name == 'nt' else PosixPath
 
 
 
@@ -85,7 +88,7 @@ class LocPath(str):
         if type is str:
             return LocPath(self)
         elif type is Path:
-            return PathObj(Path(str(self)))
+            return PathObj(str(self))
         raise TypeError("Only 'str' or 'Path' supported")
 
     def get(self,
@@ -112,17 +115,14 @@ class LocPath(str):
         return LocPath(expanded).astype(type)
 
 
-# pathlib.Path-like class with get and astype methods
-class PathObj:
-    """Thin wrapper over `pathlib.Path` mirroring `LocPath` interface.
+# pathlib.Path subclass with get and astype methods
+class PathObj(_PathBase):
+    """Path subclass with get and astype methods, inheriting all Path functionality.
 
     Adds:
     - `get(...)`: expand a named template from `loc`
     - `astype(type)`: convert between PathObj (Path) and LocPath (str)
     """
-
-    def __init__(self, path: Union[Path, str]):
-        self.path = path if isinstance(path, Path) else Path(path)
 
     def astype(self,
                type: Type[Union[str, Path]]
@@ -138,9 +138,9 @@ class PathObj:
         """
         # Path → PathObj; str → LocPath; keep interface symmetric
         if type is Path:
-            return PathObj(self.path)
+            return PathObj(str(self))
         elif type is str:
-            return LocPath(str(self.path))
+            return LocPath(str(self))
         raise TypeError("Only 'str' or 'Path' supported")
 
     def get(self, name: str,
@@ -164,24 +164,50 @@ class PathObj:
         expanded = loc.expand(template, cat=cat, ecm=ecm, sel=sel)
         return LocPath(expanded).astype(type)
 
-    def __str__(self) -> str:
-        return str(self.path)
 
-    def __repr__(self) -> str:
-        return repr(self.path)
-
-    def __truediv__(self, other) -> 'PathObj':
-        return PathObj(self.path / other)
-
-    def __getattr__(self, name):
-        """Forward unknown attributes to underlying Path object."""
-        return getattr(self.path, name)
 
 ######################
 ### Path defintion ###
 ######################
 
-class loc:
+class locMeta(type):
+    """Metaclass for loc to handle type conversion based on default type setting."""
+
+    def __init__(cls, name, bases, dct):
+        super().__init__(name, bases, dct)
+        cls._default_type = str  # Default returns LocPath (str type)
+
+    def __getattribute__(cls, name):
+        """Intercept attribute access to convert templates based on default type."""
+        obj = super().__getattribute__(name)
+
+        # Convert templates (LocPath) based on default type
+        # Only convert uppercase attributes (templates), not methods or private attrs
+        if (isinstance(obj, LocPath) and not callable(obj) and
+                name.isupper() and not name.startswith('_')):
+            default_type = super().__getattribute__('_default_type')
+            # Convert to PathObj if default type is Path or PathObj
+            if default_type is Path or default_type is PathObj:
+                return PathObj(str(obj))
+
+        return obj
+
+    def set_default_type(cls, type_: Type[Union[str, Path]]) -> None:
+        """Set the default type for loc.ATTRIBUTE access and loc.get() calls.
+
+        Args:
+            type_: Either str (returns LocPath), Path (returns PathObj),
+                   or the classes themselves (LocPath, PathObj)
+
+        Raises:
+            ValueError: If type_ is not one of the supported types
+        """
+        if type_ not in (str, LocPath, Path, PathObj):
+            raise ValueError("type_ must be str, LocPath, Path, or PathObj")
+        cls._default_type = type_
+
+
+class loc(metaclass=locMeta):
     """Path templates with placeholders ('cat', 'ecm', 'sel') and expansion methods."""
 
     repo = str(Path(__file__).parent.parent.resolve())
@@ -202,8 +228,9 @@ class loc:
     EVENTS_TRAINING     = LocPath(f"{repo}/output/data/events/ecm/cat/full/training")  # Training samples
     EVENTS_TRAIN_TEST   = LocPath(f"{repo}/output/data/events/ecm/cat/test/training")  # Test samples for training
 
-    OPTIMISATION        = LocPath(f"{repo}/output/data/optimisation/ecm/cat/full")  # Optimisation samples
-    OPTIMISATION_TEST   = LocPath(f"{repo}/output/data/optimisation/ecm/cat/test")  # Test Optimisation samples
+    OPTIMISATION        = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/full")  # Optimisation samples
+    OPTIMISATION_TEST   = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/test")  # Test Optimisation samples
+    OPTIMISATION_RES    = LocPath(f"{repo}/output/data/optimisation/results/ecm/cat")      # Optimisation results directory
 
     MVA                 = LocPath(f"{repo}/output/data/MVA")                        # MVA root
     MVA_INPUTS          = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/MVAInputs")  # MVA inputs folder
@@ -274,7 +301,7 @@ class loc:
             cat: Union[str, None] = None,
             ecm: Union[int, None] = None,
             sel: Union[str, None] = None,
-            type: Type[Union[str, Path]] = str
+            type: Union[Type[Union[str, Path]], None] = None
             ) -> Union[LocPath,
                        PathObj]:
         """Fetch template by name, expand placeholders, and return as LocPath or PathObj.
@@ -282,13 +309,19 @@ class loc:
         Args:
             name: Template name (e.g., 'EVENTS')
             cat, ecm, sel: Placeholder values
-            type: Return type - str (default) returns LocPath, Path returns PathObj
+            type: Return type - str (default) returns LocPath, Path returns PathObj.
+                  If None, uses the default type set via set_default_type()
 
         Returns:
             LocPath or PathObj (both with astype() and get() methods)
         """
         template = getattr(cls, name)
         expanded = cls.expand(template, cat=cat, ecm=ecm, sel=sel)
+
+        # Use default type if not explicitly provided
+        if type is None:
+            type = cls._default_type
+
         return LocPath(expanded).astype(type)
 
 

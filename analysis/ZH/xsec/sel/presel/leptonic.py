@@ -139,7 +139,7 @@ def Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
     # Recoil mass: invariant mass of system recoiling against Z (Higgs candidate)
     df = df.Define('zll_recoil',   f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)')
     df = df.Define('zll_recoil_m',  'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
-    # Polar angle categorization: 0.8 < |cos(theta)| < 2.34 (barrel vs endcap)
+    # Polar angle categorization: 0.8 < theta < 2.34 (barrel vs endcap)
     df = df.Define('zll_category',  'FCCAnalyses::polarAngleCategorization(0.8, 2.34)(zll_leps)')
     return df
 
