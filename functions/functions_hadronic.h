@@ -1,4 +1,5 @@
 #include "FCCAnalyses/defines.h"
+#include "fastjet/PseudoJet.hh"
 #include <TLorentzVector.h>
 #include <edm4hep/ReconstructedParticleData.h>
 #include <cmath>
@@ -91,6 +92,21 @@ inline Vec_rp jets2rp(Vec_f px, Vec_f py, Vec_f pz, Vec_f e, Vec_f m) {
     return ret;
 }
 
+inline Vec_rp jets2rp(const ROOT::VecOps::RVec<fastjet::PseudoJet> &pseudojets) {
+    Vec_rp ret;
+    for (auto &jet : pseudojets) {
+        edm4hep::ReconstructedParticleData p;
+        p.momentum.x = jet.px();
+        p.momentum.y = jet.py();
+        p.momentum.z = jet.pz();
+        p.mass       = jet.m();
+        p.energy     = jet.E();
+        p.charge     = 0;
+        ret.push_back(p);
+    }
+    return ret;
+}
+
 
 inline Vec_tlv pair_WW_N4(Vec_rp in) {
     // assume 4 input jets
@@ -178,7 +194,7 @@ inline float pair_W_dphi(Vec_rp in) {
 }
 
 
-inline Vec_rp select_jets(Vec_rp in, std::vector<std::vector<int>> constituents, int njets_sel, Vec_rp reco) {
+inline Vec_rp select_jets(Vec_rp in, int njets_sel, Vec_rp reco) {
     // njets_sel = the current njets clustering algo
     Vec_rp ret;
     for(int i = 0; i < in.size(); i++) {
