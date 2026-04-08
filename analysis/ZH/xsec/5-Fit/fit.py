@@ -7,10 +7,9 @@ import os, sys, subprocess
 from time import time
 from uuid import uuid4
 from datetime import datetime
-from argparse import ArgumentParser
 
 from package.userConfig import loc
-from package.config import timer, warning
+from package.config import timer
 from package.tools.utils import mkdir
 
 # Start timer for performance tracking
@@ -22,35 +21,15 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser()
-# Define final state: ee or mumu
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
-                    choices=['ee', 'mumu'], type=str, default='')
-# Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
-                    choices=[240, 365], type=int, default=240)
-# Define selection strategy
-parser.add_argument('--sel', help='Selection with which you fit the histograms',
-                    type=str, default='Baseline')
-
-# Pseudodata parameters
-parser.add_argument('--pert',   help='Target pseudodata size',
-                    type=float, default=1.0)
-parser.add_argument('--target', help='Target pseudodata',
-                    type=str, default='')
-
-# Fit mode: nominal or bias test; combine channels; timer and print options
-parser.add_argument('--bias',    help='Nominal fit or bias test', action='store_true')
-parser.add_argument('--combine', '--comb',
-                                 help='Combine the channel to do the fit', action='store_true')
-parser.add_argument('--t',       help='Compute the elapsed time to run the code', action='store_true')
-parser.add_argument('--noprint', help='Do not display the uncertainty', action='store_true')
-arg = parser.parse_args()
-
-# Validate that either a final state or combine option is selected
-if arg.cat=='' and not arg.combine:
-    msg = 'Final state or combine were not selected, please select one to run this code'
-    warning(msg)
+from package.parsing import create_parser, parse_args
+parser = create_parser(
+    cat_multi=True,
+    allow_empty=True,
+    include_sel=True,
+    fit=True,
+    description='Fit Script'
+)
+arg = parse_args(parser, comb=True)
 
 # Set category to combined if combining channels
 if arg.combine: arg.cat = 'combined'

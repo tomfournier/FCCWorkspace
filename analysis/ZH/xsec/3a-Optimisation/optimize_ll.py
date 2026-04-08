@@ -20,7 +20,6 @@ import awkward as ak
 from glob import glob
 from tqdm import tqdm
 from pathlib import Path
-from argparse import ArgumentParser
 
 from package.userConfig import loc
 from package.config import timer
@@ -33,13 +32,13 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser()
-parser.add_argument('--cat', choices=['ee', 'mumu'], default='mumu')
-parser.add_argument('--ecm', choices=[240, 365], type=int, default=240)
-parser.add_argument('--procs', type=str, default='')
-parser.add_argument('--nevents', type=int, default=-1)
-parser.add_argument('--incr', type=float, default=0.1)
-arg = parser.parse_args()
+from package.parsing import create_parser, parse_args
+parser = create_parser(
+    cat_single=True,
+    optimize=True,
+    description='Optmisation Script'
+)
+arg = parse_args(parser, True)
 
 
 
@@ -53,16 +52,21 @@ class Optimizer:
     def __init__(
             self,
             proc: str,
-            inDir: str,
-            outDir: str,
+            inDir: Path,
+            outDir: Path,
             ecm: int = 240,
             nevents: int = -1):
         """Initialize optimizer with pure Python/uproot backend"""
 
         inFiles = glob(str(inDir / proc / '*'))
         if not inFiles:
-            print(f"Warning: No files found in {inDir / proc}/")
-            sys.exit(1)
+            print(f"----->[WARNING] No files found in {inDir / proc}/\n\tSearching for {inDir / proc+'.root'} file")
+            inFile: Path = inDir / proc+'.root'
+            if  inFile.exists():
+                inFiles = [str(inFile)]
+            else:
+                print(f"----->[ERROR]: No files found in {inDir / proc+'.root'}")
+                sys.exit(1)
 
         self.inFiles = inFiles
         self.outDir = Path(outDir) / proc
@@ -105,7 +109,7 @@ class Optimizer:
                 # Get total event count
                 self.total_events += file['eventsSelected'].value
 
-                # Read all branches at once (faster than individual reads)
+                # Read all branches at once
                 arrays = tree.arrays(branch_names, library='ak')
 
                 # Determine slice length
@@ -121,22 +125,21 @@ class Optimizer:
                 if nevents > 0 and event_count >= nevents:
                     break
 
-        # Concatenate all data and assign as attributes
+        # Concatenate all data and assign them as attributes
         for name in branch_names:
             setattr(self, name, ak.concatenate(data[name]))
 
         # Track actual number of events loaded (not metadata from file)
         self.n_events = len(self.mass)
-
         print(f"----->[Info] Loaded {self.n_events:,} events (total events in files: {self.total_events:,})")
 
 
-    def best_pair_idx(self, dm, drec, chi2_frac):
+    def best_pair_idx(self, dm, drec, frac):
         """
         Find best pair index for each event using precomputed distance matrices.
         Reformulated: chi2_frac * dm + (1-chi2_frac) * drec = drec + chi2_frac * (dm - drec)
         """
-        chi2 = drec + chi2_frac * (dm - drec)
+        chi2 = drec + frac * (dm - drec)
         return ak.argmin(chi2, axis=1)
 
 
@@ -151,21 +154,19 @@ class Optimizer:
         best_idx = self.best_pair_idx(dm, drec, frac)
 
         # Extract best pairs using vectorized awkward masking
-        local_idx = ak.local_index(self.mc1, axis=1)  # [[0,1,2,...], [0,1,2,...], ...]
-        mask_mc1 = local_idx == best_idx[:, None]           # Create mask for each event
+        local_idx = ak.local_index(self.mc1, axis=1)                # [[0,1,2,...], [0,1,2,...], ...]
+        mask_mc1 = local_idx == best_idx[:, None]                         # Create mask for each event
         mask_mc2 = local_idx == best_idx[:, None]
-        reco_mc1 = ak.flatten(self.mc1[mask_mc1])     # Extract and flatten
-        reco_mc2 = ak.flatten(self.mc2[mask_mc2])
-        reco_mc1 = np.asarray(reco_mc1)
-        reco_mc2 = np.asarray(reco_mc2)
+        reco_mc1 = np.asarray(ak.flatten(self.mc1[mask_mc1]))     # Extract and flatten
+        reco_mc2 = np.asarray(ak.flatten(self.mc2[mask_mc2]))
 
         # Get true MC indices
         true_mc1 = np.asarray(self.MC1)
         true_mc2 = np.asarray(self.MC2)
 
         # Vectorized matching: count how many reconstructed leptons match truth
-        match1 = (reco_mc1 == true_mc1) | (reco_mc1 == true_mc2)
-        match2 = (reco_mc2 == true_mc1) | (reco_mc2 == true_mc2)
+        match1: np.ndarray = (reco_mc1 == true_mc1) | (reco_mc1 == true_mc2)
+        match2: np.ndarray = (reco_mc2 == true_mc1) | (reco_mc2 == true_mc2)
 
         # Sum matches per event (0, 1, or 2)
         matches = match1.astype(int) + match2.astype(int)
@@ -232,9 +233,9 @@ class Optimizer:
             'lep2_theta': np.asarray(self.lep2_theta),
 
             # Reconstructed Z system (selected based on best pairing)
-            'z_e':     select_by_idx(self.z_e, best_idx),
-            'z_p':     select_by_idx(self.z_p, best_idx),
-            'z_pt':    select_by_idx(self.z_pt, best_idx),
+            'z_e':     select_by_idx(self.z_e,     best_idx),
+            'z_p':     select_by_idx(self.z_p,     best_idx),
+            'z_pt':    select_by_idx(self.z_pt,    best_idx),
             'z_theta': select_by_idx(self.z_theta, best_idx),
 
             # True Z system (not affected by pairing selection)

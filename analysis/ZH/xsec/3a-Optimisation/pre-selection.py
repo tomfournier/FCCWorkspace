@@ -5,7 +5,7 @@
 import os
 
 # Import user configuration paths and parameters
-from package.config import get_process_list, quarks
+from package.config import get_process_list
 from sel.presel.chi2 import (
     optimize_ll, optimize_qq,
     branch_list_ll, branch_list_qq
@@ -58,9 +58,13 @@ compGroup = 'group_u_FCC.local_gen'
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
-Z_decays = (cat,) if cat in ['ee', 'mumu'] else quarks
 processList = get_process_list(
-    cat, ecm, onlysig=True, z_decays=Z_decays, batch=True
+    cat, ecm, onlysig=True, batch=True,
+    include={
+        'sig': {
+            f'wzp6_ee_{cat}H_ecm{ecm}': {'fraction': 1, 'chunks': 5}
+        }
+    }
 )
 
 

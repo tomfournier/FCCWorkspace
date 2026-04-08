@@ -6,7 +6,6 @@ print('\n----->[Info] Loading modules')
 
 # Standard library imports for timing and command-line arguments
 from time import time
-from argparse import ArgumentParser
 
 # Data manipulation
 import pandas as pd
@@ -19,8 +18,7 @@ print('----->[Info] Loading custom modules')
 # Import configuration and utilities
 from package.userConfig import loc
 from package.config import (
-    timer, warning,
-    input_vars
+    timer, input_vars
 )
 # Utility functions for file handling and process dictionaries
 from package.tools.utils import (
@@ -43,18 +41,13 @@ from package.func.bdt import (
 ### ARGUMENT PARSING ###
 ########################
 
-# Command-line argument parsing
-parser = ArgumentParser()
-# Define final state: ee or mumu
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
-# Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
-parser.add_argument('--sels', help='Selection(s)', type=str, default='')
-arg = parser.parse_args()
-
-# Validate that final state was selected
-if arg.cat=='':
-    warning(log_msg='Final state was not selected, please select one to run this script')
+from package.parsing import create_parser, parse_args
+parser = create_parser(
+    cat_single=True,
+    include_sels=True,
+    description='BDT Input Processing Script'
+)
+arg = parse_args(parser, True)
 
 
 

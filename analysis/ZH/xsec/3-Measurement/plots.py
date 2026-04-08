@@ -3,7 +3,6 @@
 ##########################################################
 
 from time import time
-from argparse import ArgumentParser
 
 # Start timer for performance tracking
 t = time()
@@ -26,21 +25,13 @@ from package.tools.process import (
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser()
-# Define final state: ee, mumu, or both
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
-                    choices=['ee', 'mumu', 'ee-mumu'], type=str, default='ee-mumu')
-# Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
-                    choices=[240, 365], type=int, default=240)
-parser.add_argument('--sels', help='Selection(s)', type=str, default='')
-
-# Flags to control which plot types to skip (inverted logic: flag skips the plot except for --scan)
-parser.add_argument('--yields', help='Do not make yields plots',            action='store_true')
-parser.add_argument('--decay',  help='Do not make Higgs decays only plots', action='store_true')
-parser.add_argument('--make',   help='Do not make distribution plots',      action='store_true')
-parser.add_argument('--scan',   help='Make significance scan plots',        action='store_true')
-
+from package.parsing import create_parser
+parser = create_parser(
+    cat_multi=True,
+    include_sels=True,
+    plots=True,
+    description='Measurement plots Script'
+)
 arg = parser.parse_args()
 
 

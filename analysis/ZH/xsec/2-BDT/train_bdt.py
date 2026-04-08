@@ -5,8 +5,6 @@
 print('\n----->[Info] Loading modules')
 
 from time import time
-from argparse import ArgumentParser
-
 import pandas as pd
 
 # Start timer for performance tracking
@@ -17,7 +15,6 @@ print('----->[Info] Loading custom modules\n')
 from package.userConfig import loc
 from package.config import (
     timer,
-    warning,
     input_vars
 )
 from package.func.bdt import (
@@ -33,17 +30,13 @@ from package.func.bdt import (
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser()
-# Define final state: ee or mumu
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet', choices=['ee', 'mumu'], type=str, default='')
-# Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)', choices=[240, 365], type=int, default=240)
-parser.add_argument('--sels', help='Selection(s)', type=str, default='')
-arg = parser.parse_args()
-
-# Validate that final state is selected
-if arg.cat=='':
-    warning(log_msg='Final state was not selected, please select one to run this script')
+from package.parsing import create_parser, parse_args
+parser = create_parser(
+    cat_single=True,
+    include_sels=True,
+    description='BDT Training Script'
+)
+arg = parse_args(parser, True)
 
 
 

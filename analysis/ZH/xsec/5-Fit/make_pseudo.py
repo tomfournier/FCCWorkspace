@@ -2,18 +2,14 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, sys, subprocess
-
-from time import time
-from argparse import ArgumentParser
+import os, sys, time, subprocess
 
 # Start timing for performance tracking
-t = time()
+t = time.time()
 
 from package.userConfig import loc
 from package.config import (
-    timer, warning,
-    mk_processes,
+    timer, mk_processes,
     z_decays,
     h_decays,
     H_decays
@@ -26,55 +22,28 @@ from package.func.bias import pseudo_datacard
 ### ARGUMENT PARSING ###
 ########################
 
-# Initialize argument parser
-parser = ArgumentParser()
+from package.parsing import create_parser, parse_args
 
-# Final state selection
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
-                    choices=['ee', 'mumu'], type=str, default='')
-# Collision energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
-                    choices=[240, 365], type=int, default=240)
-# Selection criteria for histogram fitting
-parser.add_argument('--sel', help='Selection with which you fit the histograms',
-                    type=str, default='Baseline')
-
-# Combine channels for joint fit
-parser.add_argument('--combine', help='Combine the channel to do the fit', action='store_true')
-
-# Target Higgs decay mode for pseudodata
-parser.add_argument('--target',  help='Target pseudodata',
-                    type=str, default='bb')
-# Scaling factor for pseudodata
-parser.add_argument('--pert',    help='Target pseudodata size',
-                    type=float, default=1.0)
+parser = create_parser(
+    cat_single=True,
+    allow_empty=True,
+    include_sel=True,
+    fit=True,
+    bias=True,
+    polarization=True,
+    target='bb',
+    description='Pseudo-data Script'
+)
 # Use all Z decays for cross-section calculation
-parser.add_argument('--tot',     help='Do not consider all Z decays for making cross-section',
-                    action='store_true')
+parser.add_argument('--tot', help='Do not consider all Z decays for making cross-section', action='store_true')
 
-# To know if make_pseudo.py is runned from bias_test.py
-parser.add_argument('--no_btest', help='Do not run froom bias_test.py', action='store_true')
+# To know if make_pseudo.py is ran from bias_test.py
+parser.add_argument('--nobias', help='Do not run from bias_test.py', action='store_true')
 
 # Fit execution flags
-parser.add_argument('--onlyrun',  help='Only run the fit',   action='store_true')
-parser.add_argument('--run',      help='Run combine',        action='store_true')
-parser.add_argument('--freeze',   help='Freeze backgrounds', action='store_true')
-parser.add_argument('--float',    help='Float backgrounds',  action='store_true')
-parser.add_argument('--plot_dc',  help='Plot datacard',      action='store_true')
-
-# Polarization and luminosity scaling
-parser.add_argument('--polL', help='Scale to left polarization',  action='store_true')
-parser.add_argument('--polR', help='Scale to right polarization', action='store_true')
-parser.add_argument('--ILC',  help='Scale to ILC luminosity',     action='store_true')
-
-# Performance timing
-parser.add_argument('--t', help='Compute the elapsed time to run the code', action='store_true')
-arg = parser.parse_args()
-
-# Validate that either a category or combine mode is selected
-if arg.cat=='' and not arg.combine:
-    msg = 'Final state or combine were not selected, please select one to run this code'
-    warning(msg)
+parser.add_argument('--onlyrun', help='Only run the fit', action='store_true')
+parser.add_argument('--run',     help='Run the fit',      action='store_true')
+arg = parse_args(parser, comb=True)
 
 
 
@@ -107,7 +76,7 @@ decays = H_decays if arg.target=='inv' else h_decays
 
 # Process histograms and create pseudodata
 # (unless only running fit or combining)
-if not arg.combine and not arg.onlyrun and not arg.no_btest:
+if not arg.combine and not arg.onlyrun and not arg.nobias:
     scales = 'ILC' if arg.ILC else \
                 ('polL' if arg.polL else
                     ('polR' if arg.polR else ''))
@@ -130,7 +99,7 @@ if not arg.combine and not arg.onlyrun and not arg.no_btest:
 #####################
 
 # Run combine fit if requested
-if arg.run:
+if arg.run or arg.onlyrun:
     # Build command to execute fit.py
     cmd = ['python3', '5-Fit/fit.py']
 

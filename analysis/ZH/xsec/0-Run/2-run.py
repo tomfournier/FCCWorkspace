@@ -21,8 +21,6 @@ Usage:
 
 import os, sys, time, subprocess
 
-from argparse import ArgumentParser
-
 from package.userConfig import loc
 from package.config import timer
 
@@ -34,26 +32,15 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser(description='Run analysis pipeline with automated parameters')
-# Select lepton final states; dash-separated values run both channels
-parser.add_argument('--cat', type=str, default='ee-mumu',
-                    choices=['ee', 'mumu', 'ee-mumu', 'mumu-ee'],
-                    help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
-# Choose center-of-mass energy; dash-separated values run multiple energies sequentially
-parser.add_argument('--ecm', type=str, default='240-365',
-                    choices=['240', '365', '240-365', '365-240'],
-                    help='Center-of-mass energy in GeV (default: 240-365)')
-parser.add_argument('--sels', help='Selection(s)', type=str, default='')
-# Select pipeline stages: 1=process_input, 2=train_bdt, 3=evaluation; dash-separated runs multiple
-parser.add_argument('--run', type=str, default='1-2-3',
-                    choices=['1', '2', '3', '1-2', '2-3', '1-2-3'],
-                    help='Pipeline stages: 1=pre-selection, 2=final-selection, 3=plots (default: 1-2-3)')
-
-# Evaluation options (only used during stage 3)
-parser.add_argument('--metric', help='Do not plot the metrics plots',        action='store_true')
-parser.add_argument('--tree',   help='Plot the Decision Trees from the BDT', action='store_true')
-parser.add_argument('--check',  help='Plot the variables distribution',      action='store_true')
-parser.add_argument('--hl',     help='Plot the variables distribution for high and low score region', action='store_true')
+from package.parsing import create_parser
+parser = create_parser(
+    cat_multi=True,
+    ecm_multi=True,
+    include_sels=True,
+    bdt_eval=True,
+    run_stages=3,
+    description='Run BDT pipeline'
+)
 arg = parser.parse_args()
 
 

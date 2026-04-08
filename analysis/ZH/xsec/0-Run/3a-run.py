@@ -11,9 +11,9 @@ Conventions:
 - Scripts are executed in nested loops: ecm -> cat -> stage-specific script, then plots/cutflow.
 
 Usage:
-    python 3-run.py                                  # Default: all channels, all ecms, stages 2-3
-    python 3-run.py --cat ee --ecm 365 --run 1-2-3-4 # All stages including cutflow
-    python 3-run.py --cat ee-mumu --ecm 240-365      # Multiple channels and energies
+    python 3a-run.py                                  # Default: all channels, all ecms, stages 2-3
+    python 3a-run.py --cat ee --ecm 365 --run 1-2-3   # All stages including cutflow
+    python 3a-run.py --cat ee-mumu --ecm 240-365      # Multiple channels and energies
 '''
 
 ##########################################################
@@ -39,12 +39,11 @@ from package.parsing import create_parser
 parser = create_parser(
     cat_multi=True,
     ecm_multi=True,
-    include_sel=True,
-    plots=True,
-    cutfflow=True,
-    run_stages=4,
-    batch=True,
-    description='Run Measurement pipeline'
+    include_sels=True,
+    run_stages=3,
+    batch=True,  # Have to implement it
+    optimize=True,
+    description='Run Optimisation pipeline'
 )
 arg = parser.parse_args()
 
@@ -58,13 +57,13 @@ arg = parser.parse_args()
 cats = arg.cat.split('-')
 ecms = [int(e) for e in arg.ecm.split('-')]
 
-# Map stage numbers to script names (cutflow added as stage 4)
-script_map = {'1': 'pre-selection', '2': 'final-selection', '3': 'plots', '4': 'cutflow'}
+# Map stage numbers to script names
+script_map = {'1': 'pre-selection', '2': 'optimize_ll', '3': 'plots'}
 scripts = [script_map[s] for s in arg.run.split('-')]
 cmds = {'pre-selection': 'run', 'final-selection': 'final'}
 
 # Base path for analysis scripts
-path = f'{loc.ROOT}/3-Measurement'
+path = f'{loc.ROOT}/3a-Optimisation'
 
 
 
@@ -88,18 +87,17 @@ def run(cat: str,
         cat (str): Lepton channel identifier ('ee' or 'mumu').
         ecm (int): Center-of-mass energy in GeV (240 or 365).
         path (str): Base directory for stage scripts.
-        script (str): Stage script name ('pre-selection', 'final-selection', 'plots', 'cutflow').
+        script (str): Stage script name ('pre-selection', 'optimisation', 'plots').
 
     Returns:
         int: Return code from the subprocess.
     '''
     # Create configuration directory if it doesn't exist
-    cfg_path = Path(loc.RUN) / '3-run.json'
+    cfg_path = Path(loc.RUN) / '3a-run.json'
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build configuration dictionary
-    lumi = 10.8 if ecm == 240 else (3.12 if ecm==365 else -1)
-    config = {'cat': cat, 'ecm': ecm, 'lumi': lumi}
+    config = {'cat': cat, 'ecm': ecm}
 
     # Write configuration to temporary JSON file
     cfg_path.write_text(json.dumps(config))
@@ -114,7 +112,7 @@ def run(cat: str,
     script_path = f'{path}/{script}.py'
 
     # Display execution header with clear identification
-    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {lumi = }'
+    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = }'
     length = len(msg) + 2
     print('\n' + '=' * length)
     print(msg.center(length))
@@ -122,15 +120,12 @@ def run(cat: str,
 
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
-    if 'plots' in script:
-        if arg.yields: extra_args.append('--yields')
-        if arg.decay:  extra_args.append('--decay')
-        if arg.make:   extra_args.append('--make')
-        if arg.scan:   extra_args.append('--scan')
-    elif 'cutflow' in script:
-        if arg.tot:    extra_args.append('--tot')
-    if arg.sels!='':
-        extra_args.extend(['--sels', arg.sels])
+    if 'optimize' in script:
+        extra_args.extend(['--procs',   arg.procs])
+        extra_args.extend(['--nevents', str(arg.nevents)])
+        extra_args.extend(['--incr',    str(arg.incr)])
+    elif 'plots' in script:
+        extra_args.extend(['--procs', arg.procs])
 
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
@@ -142,7 +137,7 @@ def run(cat: str,
             cmd,
             env=env,
             stdout=sys.stdout,
-            stderr=sys.stderr,
+            stderr=sys.stderr
         )
         # Completion status marker
         status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
@@ -161,44 +156,17 @@ def run(cat: str,
 ######################
 
 if __name__ == '__main__':
-    is_there_plots   = 'plots' in scripts
-    is_there_cutflow = 'cutflow' in scripts
-
-    if is_there_plots:   scripts.remove('plots')
-    if is_there_cutflow: scripts.remove('cutflow')
-
-    # Nested loops: iterate over energies, channels, and pipeline stages
-    for ecm in ecms:
-        # BATCH info for pre/final-selection
-        if ('pre-selection' in scripts) or ('final-selection' in scripts):
-            task_count = len(cats) * len([s for s in scripts if s in ['pre-selection', 'final-selection']])
-            msg = f'BATCH: Running {task_count} task(s) for {ecm = }'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
+    try:
+        # Nested loops: iterate over energies, channels, and pipeline stages
+        for ecm in ecms:
             for cat in cats:
                 for script in scripts:
-                    result = run(loc.RUN, cat, ecm, path, script)
+                    result = run(cat, ecm, path, script)
                     if result != 0: sys.exit(result)
 
-        # BATCH info for plots
-        if is_there_plots:
-            msg = f'BATCH: Running plots for {ecm = } | cat = {arg.cat}'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
-            result = run(loc.RUN, arg.cat, ecm, path, 'plots')
-            if result != 0: sys.exit(result)
-        # BATCH info for cutflow
-        if is_there_cutflow:
-            msg = f'BATCH: Running cutflow for {ecm = } | cat = {arg.cat}'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
-            result = run(loc.RUN, arg.cat, ecm, path, 'cutflow')
-            if result != 0: sys.exit(result)
-
-    timer(t)
+    except KeyboardInterrupt:
+        pass  # Let finally block run without printing traceback
+    except Exception:
+        pass
+    finally:
+        timer(t)

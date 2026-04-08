@@ -2,23 +2,19 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, sys, subprocess
+import os, sys, time, subprocess
 
 import numpy as np
 import pandas as pd
 
-from time import time
-from argparse import ArgumentParser
-
 # Start timer for performance tracking
-t = time()
+t = time.time()
 
 from package.userConfig import loc
 
 from package.config import (
-    timer, warning,
+    timer, mk_processes,
     z_decays, h_decays, H_decays,
-    mk_processes,
 )
 from package.plots.plotting import Bias, PseudoRatio
 from package.tools.utils import mkdir
@@ -31,43 +27,19 @@ from package.func.bias import pseudo_datacard
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser()
-# Define final state: ee or mumu
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
-                    choices=['ee', 'mumu'], type=str, default='')
-# Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
-                    choices=[240, 365], type=int, default=240)
-# Define selection strategy
-parser.add_argument('--sel', help='Selection with which you fit the histograms',
-                    type=str, default='Baseline')
-
-# Bias test parameters
-parser.add_argument('--pert',    help='Prior uncertainty on ZH cross-section used for the bias test',
-                    type=float, default=1.05)
-
-# Fit execution flags
-parser.add_argument('--freeze',   help='Freeze backgrounds', action='store_true')
-parser.add_argument('--float',    help='Float backgrounds',  action='store_true')
-parser.add_argument('--plot_dc',  help='Plot datacard',      action='store_true')
-
-# Polarization and luminosity scaling
-parser.add_argument('--polL', help='Scale to left polarization',  action='store_true')
-parser.add_argument('--polR', help='Scale to right polarization', action='store_true')
-parser.add_argument('--ILC',  help='Scale to ILC luminosity',     action='store_true')
-
-# Additional fit options (freeze, float, plot_dc, polarization, etc.)
-parser.add_argument('--extra',   help='Extra argument for the fit',
-                    choices=['tot', 'onlyrun', 't'],
-                    nargs='*',  default=[])
-# Combine channels option
-parser.add_argument('--combine', '--comb', help='Combine the channel to do the fit', action='store_true')
-arg = parser.parse_args()
-
-# Validate input: require either a final state or combine option
-if arg.cat=='' and not arg.combine:
-    msg = 'Final state or combine were not selected, please select one to run this code'
-    warning(msg)
+from package.parsing import create_parser, parse_args
+parser = create_parser(
+    cat_single=True,
+    allow_empty=True,
+    include_sel=True,
+    fit=True,
+    bias=True,
+    bias_extra=True,
+    polarization=True,
+    target='bb',
+    pert=1.05
+)
+arg = parse_args(parser, comb=True)
 
 
 

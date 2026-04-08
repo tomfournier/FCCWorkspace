@@ -3,7 +3,6 @@
 ##########################################################
 
 from time import time
-from argparse import ArgumentParser
 
 # Start timer for performance tracking
 t = time()
@@ -24,18 +23,13 @@ from package.plots.cutflow import (
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser()
-# Define final state: ee, mumu, or both
-parser.add_argument('--cat',  help='Final state (ee, mumu)',
-                    choices=['ee', 'mumu', 'ee-mumu'], type=str, default='ee-mumu')
-# Define center of mass energy
-parser.add_argument('--ecm',  help='Center of mass energy (240, 365)',
-                    choices=[240, 365], type=int, default=240)
-parser.add_argument('--sels', help='Selection(s)', type=str, default='')
-
-# Include all Z decay modes in plots
-parser.add_argument('--tot', help='Include all the Z decays in the plots',
-                    action='store_true')
+from package.parsing import create_parser
+parser = create_parser(
+    cat_multi=True,
+    include_sels=True,
+    cutflow=True,
+    description='Cutflow Script'
+)
 arg = parser.parse_args()
 
 

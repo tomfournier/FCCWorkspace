@@ -6,7 +6,6 @@ import os
 
 from time import time
 from ROOT import TFile
-from argparse import ArgumentParser
 
 # Start timer for performance tracking
 t = time()
@@ -25,19 +24,13 @@ from package.tools.process import get_hist, concat
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser()
-# Define final state: ee, mumu or both
-parser.add_argument('--cat',  help='Final state (ee, mumu), qq is not available yet',
-                    choices=['ee', 'mumu', 'ee-mumu'], type=str, default='ee-mumu')
-# Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
-                    choices=[240, 365], type=int, default=240)
-parser.add_argument('--sels', help='Selection(s)', type=str, default='')
-
-# Polarization and luminosity scaling options
-parser.add_argument('--polL', help='Scale to left polarization',  action='store_true')
-parser.add_argument('--polR', help='Scale to right polarization', action='store_true')
-parser.add_argument('--ILC',  help='Scale to ILC cross-section',  action='store_true')
+from package.parsing import create_parser
+parser = create_parser(
+    cat_multi=True,
+    include_sels=True,
+    polarization=True,
+    description='Histogram Processing Script'
+)
 arg = parser.parse_args()
 
 

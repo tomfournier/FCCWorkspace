@@ -21,8 +21,6 @@ Usage:
 
 import os, sys, time, subprocess
 
-from argparse import ArgumentParser
-
 from package.userConfig import loc
 from package.config import timer
 
@@ -35,52 +33,17 @@ ENV = os.environ
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser(
-    description='Run fit pipeline with automated parallel execution'
-)
-# Lepton final states: empty string only valid with --combine for direct combined fit
-parser.add_argument(
-    '--cat', type=str, default='ee-mumu',
-    choices=['ee', 'mumu', 'ee-mumu', 'mumu-ee', ''],
-    help='Final state: ee, mumu, or both (default: ee-mumu)'
-)
-# Center-of-mass energy: dash-separated for multiple energies
-parser.add_argument(
-    '--ecm', type=str, default='240-365',
-    choices=['240', '365', '240-365', '365-240'],
-    help='Center-of-mass energy in GeV (default: 240-365)'
-)
-parser.add_argument('--sels', help='Selection(s)', type=str, default='')
-# Pipeline stages: 1=fit, 2=bias_test
-parser.add_argument(
-    '--run', type=str, default='2',
-    choices=['1', '2', '1-2'],
-    help='Stages: 1=fit, 2=bias_test (default: 2)'
-)
-# Pseudodata scaling for bias_test
-parser.add_argument(
-    '--pert', type=float, default=1.05,
-    help='Target pseudodata size (default: 1.05)'
-)
-# Fit options: combine channels, timing, quiet mode
-parser.add_argument(
-    '--combine', '--comb', action='store_true',
-    help='Combine channels for fit'
-)
-parser.add_argument(
-    '--t', action='store_true',
-    help='Display elapsed time'
-)
-parser.add_argument(
-    '--noprint', action='store_true',
-    help='Suppress uncertainty output'
-)
-# Additional fit/bias-test arguments
-parser.add_argument(
-    '--extra', nargs='*', default=[],
-    choices=['freeze', 'float', 'plot_dc', 'polL', 'polR',
-             'ILC', 'tot', 'onlyrun', 't'],
-    help='Extra fit arguments'
+from package.parsing import create_parser
+parser = create_parser(
+    cat_multi=True,
+    ecm_multi=True,
+    include_sels=True,
+    run_stages=2,
+    fit=True,
+    bias=True,
+    bias_extra=True,
+    polarization=True,
+    description='Run Fit pipeline'
 )
 arg = parser.parse_args()
 

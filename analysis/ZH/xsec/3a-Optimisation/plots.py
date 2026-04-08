@@ -17,15 +17,13 @@ Usage:
 print('----->[Info] Loading modules')
 
 # Standard library and scientific computing imports
+import sys, json, uproot
+
 from time import time
 from pathlib import Path
-import json
-import sys
-from argparse import ArgumentParser
 
 import numpy as np
 import matplotlib.pyplot as plt
-import uproot
 
 # Start execution timer
 t = time()
@@ -47,12 +45,11 @@ from package.plots.python.plotter import (
 ### ARGUMENT PARSING ###
 ########################
 
-# Command-line argument parsing
-parser = ArgumentParser()
-parser.add_argument('--cat', help='Final state (ee, mumu)',
-                    choices=['ee', 'mumu'], type=str, default='mumu')
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
-                    choices=[240, 365], type=int, default=240)
+from package.parsing import create_parser
+parser = create_parser(
+    cat_single=True,
+    description='Optimisation Plots Script'
+)
 parser.add_argument('--procs', help='Process(es) to plot', type=str, default='')
 arg = parser.parse_args()
 
@@ -149,7 +146,7 @@ def efficiency(
     fig, ax = _make_fig()
     try:
         # Plot efficiency curve
-        ax.scatter(chi2_fracs, efficiencies, marker='.')
+        ax.scatter(chi2_fracs, efficiencies*100, marker='.')
 
         # Highlight optimal point
         ax.scatter(optimal_chi2, optimal_eff, color='r', marker='*', s=150)
@@ -162,7 +159,7 @@ def efficiency(
         if full_range: ax.set_ylim(0, 1)
 
         set_labels(ax, r'$\chi^2_{recoil\_frac}$',
-                   'Pairing Efficiency', right=label)
+                   'Pairing Efficiency [%]', right=label)
         ax.legend()
 
         savefigs(fig, outDir, 'efficiency', format=plot_file)

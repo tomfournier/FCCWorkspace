@@ -23,7 +23,6 @@ Usage:
 
 import os, sys, json, time, subprocess
 
-from argparse import ArgumentParser
 from pathlib import Path
 
 from package.userConfig import loc
@@ -37,20 +36,15 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-parser = ArgumentParser(description='Run analysis pipeline with automated parameters')
-# Select lepton final states; dash-separated values run both channels
-parser.add_argument('--cat', type=str, default='ee-mumu',
-                    choices=['ee', 'mumu', 'qq', 'ee-mumu', 'mumu-ee'],
-                    help='Final state (ee, mumu) or both, qq is not available yet (default: ee-mumu)')
-# Choose center-of-mass energy; dash-separated values run multiple energies sequentially
-parser.add_argument('--ecm', type=str, default='240-365',
-                    choices=['240', '365', '240-365', '365-240'],
-                    help='Center-of-mass energy in GeV (default: 240-365)')
-# Select pipeline stages: 1=pre-selection, 2=final-selection, 3=plots; dash-separated runs multiple
-parser.add_argument('--run', type=str, default='2-3',
-                    choices=['1', '2', '3', '1-2', '2-3', '1-2-3'],
-                    help='Pipeline stages: 1=pre-selection, 2=final-selection, 3=plots (default: 2-3)')
-parser.add_argument('--batch', action='store_true', help='run pre-selection on HTCondor')
+from package.parsing import create_parser
+parser = create_parser(
+    cat_multi=True,
+    ecm_multi=True,
+    include_sels=True,
+    run_stages=3,
+    batch=True,
+    description='Run MVA Inputs pipeline'
+)
 arg = parser.parse_args()
 
 

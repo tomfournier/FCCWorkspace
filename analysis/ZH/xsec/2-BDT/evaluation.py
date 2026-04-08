@@ -12,8 +12,6 @@ if TYPE_CHECKING:
     import pandas as pd
     import xgboost as xgb
 
-from argparse import ArgumentParser
-
 # Start execution timer
 t = time()
 
@@ -46,25 +44,14 @@ from package.func.bdt import (
 ### ARGUMENT PARSING ###
 ########################
 
-# Command-line argument parsing
-parser = ArgumentParser()
-# Define final state: ee or mumu
-parser.add_argument('--cat', help='Final state (ee, mumu), qq is not available yet',
-                    choices=['ee', 'mumu'], type=str, default='')
-# Define center of mass energy
-parser.add_argument('--ecm', help='Center of mass energy (240, 365)',
-                    choices=[240, 365], type=int, default=240)
-parser.add_argument('--sels', help='Selection(s)', type=str, default='')
-
-parser.add_argument('--metric', help='Do not plot the metrics plots',        action='store_true')
-parser.add_argument('--tree',   help='Plot the Decision Trees from the BDT', action='store_true')
-parser.add_argument('--check',  help='Plot the variables distribution',      action='store_true')
-parser.add_argument('--hl',     help='Plot the variables distribution for high and low score region', action='store_true')
-arg = parser.parse_args()
-
-# Validate that final state was selected
-if arg.cat=='':
-    warning(log_msg='Final state was not selected, please select one to run this script')
+from package.parsing import create_parser, parse_args
+parser = create_parser(
+    cat_single=True,
+    include_sels=True,
+    bdt_eval=True,
+    description='BDT Evaluation Script'
+)
+arg = parse_args(parser, True)
 
 
 
