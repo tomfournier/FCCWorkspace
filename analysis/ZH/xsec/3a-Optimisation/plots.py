@@ -33,7 +33,7 @@ print('----->[Info] Loading custom modules')
 # Import configuration paths and plot settings
 from package.userConfig import loc, plot_file
 # Import utilities and plotting configurations
-from package.config import timer
+from package.config import timer, process_label
 from package.plots.python.plotter import (
     set_plt_style,
     set_labels,
@@ -48,9 +48,10 @@ from package.plots.python.plotter import (
 from package.parsing import create_parser
 parser = create_parser(
     cat_single=True,
+    optimize=True,
+    all_opt=False,
     description='Optimisation Plots Script'
 )
-parser.add_argument('--procs', help='Process(es) to plot', type=str, default='')
 arg = parser.parse_args()
 
 
@@ -149,7 +150,7 @@ def efficiency(
         ax.scatter(chi2_fracs, efficiencies*100, marker='.')
 
         # Highlight optimal point
-        ax.scatter(optimal_chi2, optimal_eff, color='r', marker='*', s=150)
+        ax.scatter(optimal_chi2, optimal_eff*100, color='r', marker='*', s=150)
 
         # Add vertical line at optimal point
         ax.axvline(x=optimal_chi2, color='gray', alpha=0.8,
@@ -159,7 +160,7 @@ def efficiency(
         if full_range: ax.set_ylim(0, 1)
 
         set_labels(ax, r'$\chi^2_{recoil\_frac}$',
-                   'Pairing Efficiency [%]', right=label)
+                   r'Pairing Efficiency [\%]', right=label)
         ax.legend()
 
         savefigs(fig, outDir, 'efficiency', format=plot_file)
@@ -175,7 +176,8 @@ def pairing_composition(
         n_incorrect: np.ndarray,
         n_total: np.ndarray,
         outDir: Path,
-        label) -> None:
+        label: str,
+         ) -> None:
     """Plot composition of pairing results (correct, partial, incorrect).
 
     Args:
@@ -207,8 +209,12 @@ def pairing_composition(
 
         # Labels and formatting
         set_labels(ax, r'$\chi^2_{recoil\_frac}$', 'Percentage of Events', right=label)
+
         ax.set_xlim(0, 1)
-        ax.set_ylim(0, 100)
+        # Adjust ymin based on minimum efficiency for better readability
+        min_efficiency = (n_correct / n_total * 100).min()
+        ymin = 0 if min_efficiency < 0.9 else int(min_efficiency - 1)
+        ax.set_ylim(ymin, 100)
         ax.legend(loc='lower center')
 
         # Save figure
@@ -250,8 +256,9 @@ def event_counts(
 
         # Labels and formatting
         set_labels(ax, r'$\chi^2_{recoil\_frac}$', 'Number of Events', right=label)
+        ax.set_yscale('log')
         ax.set_xlim(0, 1)
-        ax.set_ylim(0, None)
+        ax.set_ylim(0.5, None)
         ax.legend()
 
         # Save figure
@@ -450,17 +457,23 @@ def main():
 
     # Set LaTeX label
     if cat == 'mumu':
-        label = r'$Z(\mu^+\mu^-)H$'
+        label = r'$Z(\rightarrow\mu^+\mu^-)H'
     elif cat == 'ee':
-        label = r'$Z(e^+e^-)H$'
+        label = r'$Z(\rightarrow e^+e^-)H'
     else:
-        label = 'ZH'
+        raise ValueError(f'{cat = } is not supported, choose between [ee, mumu]')
 
     # Plot results for each process
     for proc in sorted(procs):
         proc_dir = inDir / proc
         results_file = proc_dir / 'results.json'
         out_dir = outDir / proc
+
+        proc_label = proc.replace(f'wzp6_ee_{cat}H', '').replace(f'_ecm{ecm}', '').replace('_H', '')
+        if proc_label:
+            Label = label + r'(\rightarrow ' + process_label[proc_label] + ')$'
+        else:
+            Label = label + r')$'
 
         if not results_file.exists():
             print(f"Warning: Results file not found for {proc}: {results_file}")
@@ -483,27 +496,27 @@ def main():
 
         # Generate optimization plots
         print(f"----->[Info] Generating optimization plots for {proc}")
-        efficiency(chi2_fracs, efficiencies, out_dir, label)
+        efficiency(chi2_fracs, efficiencies, out_dir, Label)
         pairing_composition(
             chi2_fracs, n_correct, n_partial, n_incorrect, n_total,
-            out_dir, label
+            out_dir, Label
         )
-        event_counts(chi2_fracs, n_correct, n_partial, n_incorrect, out_dir, label)
+        event_counts(chi2_fracs, n_correct, n_partial, n_incorrect, out_dir, Label)
 
         # Generate distribution comparison plots
-        print(f"----->[Info] Generating distribution comparison plots for {proc}")
-        dist_outDir  = out_dir / 'distributions'
-        old_file     = proc_dir / 'results_old.root'
-        optimal_file = proc_dir / 'results_optimal.root'
+        # print(f"----->[Info] Generating distribution comparison plots for {proc}")
+        # dist_outDir  = out_dir / 'distributions'
+        # old_file     = proc_dir / 'results_old.root'
+        # optimal_file = proc_dir / 'results_optimal.root'
 
-        if old_file.exists() and optimal_file.exists():
-            compare_dists(old_file, optimal_file, dist_outDir, label)
-        else:
-            print(f"Warning: Distribution files not found for {proc}")
-            if not old_file.exists():
-                print(f"  Missing: {old_file}")
-            if not optimal_file.exists():
-                print(f"  Missing: {optimal_file}")
+        # if old_file.exists() and optimal_file.exists():
+        #     compare_dists(old_file, optimal_file, dist_outDir, label)
+        # else:
+        #     print(f"Warning: Distribution files not found for {proc}")
+        #     if not old_file.exists():
+        #         print(f"  Missing: {old_file}")
+        #     if not optimal_file.exists():
+        #         print(f"  Missing: {optimal_file}")
 
 
 

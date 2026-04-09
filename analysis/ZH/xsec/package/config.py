@@ -323,6 +323,21 @@ modes_label = {
     'gaga_ee':     r'$\gamma\gamma\rightarrow e^+e^-$'
 }
 
+process_label = {
+    'bb':       r'b\bar{b}',
+    'cc':       r'c\bar{c}',
+    'ss':       r's\bar{s}',
+    'gg':       r'gg',
+    'mumu':     r'\mu^{+}\mu^{-}',
+    'tautau':   r'\tau^{+}\tau^{-}',
+    'WW':       r'WW^{*}',
+    'ZZ':       r'ZZ^{*}',
+    'ZZ_noInv': r'ZZ^{*}(No Inv)',
+    'Za':       r'Z\gamma',
+    'aa':       r'\gamma\gamma',
+    'inv':      r'Inv'
+}
+
 
 
 ########################
