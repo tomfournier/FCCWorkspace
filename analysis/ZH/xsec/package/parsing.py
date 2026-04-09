@@ -267,7 +267,7 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
     )
 
 
-def add_optimize_args(parser: ArgumentParser) -> None:
+def add_optimize_args(parser: ArgumentParser, all_args: bool = True) -> None:
     '''Add optimization arguments (procs, nevents, incr).'''
     args = parser.add_argument_group('Optimization arguments')
     args.add_argument(
@@ -276,18 +276,19 @@ def add_optimize_args(parser: ArgumentParser) -> None:
         default='',
         help='Processes to optimize for (comma-separated)'
     )
-    args.add_argument(
-        '--nevents',
-        type=int,
-        default=-1,
-        help='Max events to process (-1: all) (default: -1)'
-    )
-    args.add_argument(
-        '--incr',
-        type=float,
-        default=0.1,
-        help='Parameter increment (default: 0.1)'
-    )
+    if all_args:
+        args.add_argument(
+            '--nevents',
+            type=int,
+            default=-1,
+            help='Max events to process (-1: all) (default: -1)'
+        )
+        args.add_argument(
+            '--incr',
+            type=float,
+            default=0.1,
+            help='Parameter increment (default: 0.1)'
+        )
 
 
 def add_polarization(parser: ArgumentParser) -> None:
@@ -411,6 +412,7 @@ def create_parser(
         plots: bool = False,
         cutflow: bool = False,
         optimize: bool = False,
+        all_opt: bool = True,
         polarization: bool = False,
         fit: bool = False,
         bias: bool = False,
@@ -480,7 +482,7 @@ def create_parser(
     if cutflow:
         add_cutflow_args(parser)
     if optimize:
-        add_optimize_args(parser)
+        add_optimize_args(parser, all_opt)
     if polarization:
         add_polarization(parser)
     if fit:
