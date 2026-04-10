@@ -93,6 +93,18 @@ inline bool isFromInitial(int pdg) {
 }
 
 
+inline edm4hep::MCParticleData getParent(edm4hep::MCParticleData particle, Vec_mc mc, Vec_i parents) {
+    edm4hep::MCParticleData result;
+
+    int pb = parents[particle.parents_begin];
+    int pe = parents[particle.parents_end];
+
+    if (pe - pb > 1) return result;
+    result = mc[pb];
+    
+    return result;
+}
+
 
 // Get parent particle PDG
 inline int getParentPDG(int idx, Vec_mc mc, Vec_i parents){

@@ -175,17 +175,29 @@ inline ROOT::RVec<ZPairInfo> leptonicZBuilder::operator()(Vec_rp legs, Vec_i rec
         pair_info.z_system.charge = 0;
         pair_info.z_system.energy = z_lv.E();
         
-        pair_info.lepton1 = leg1;
-        pair_info.lepton2 = leg2;
+        if (lv1.P() > lv2.P()) {
+            pair_info.lepton1 = leg1;
+            pair_info.lepton2 = leg2;
+
+            pair_info.leg_idx1 = idx1;
+            pair_info.leg_idx2 = idx2;
+
+            if (mc_idx1 >= 0 || mc_idx1 < mc.size()) pair_info.mc_idx1 = mc_idx1;
+            if (mc_idx2 >= 0 || mc_idx2 < mc.size()) pair_info.mc_idx2 = mc_idx2;
+
+        } else {
+            pair_info.lepton1 = leg2;
+            pair_info.lepton2 = leg1;
+
+            pair_info.leg_idx1 = idx2;
+            pair_info.leg_idx2 = idx1;
+
+            if (mc_idx1 >= 0 || mc_idx1 < mc.size()) pair_info.mc_idx2 = mc_idx1;
+            if (mc_idx2 >= 0 || mc_idx2 < mc.size()) pair_info.mc_idx1 = mc_idx2;
+        }
         
         pair_info.z_mass = z_mass;
         pair_info.recoil = recoil_mass;
-        
-        pair_info.leg_idx1 = idx1;
-        pair_info.leg_idx2 = idx2;
-        
-        if (mc_idx1 >= 0 || mc_idx1 < mc.size()) pair_info.mc_idx1 = mc_idx1;
-        if (mc_idx2 >= 0 || mc_idx2 < mc.size()) pair_info.mc_idx2 = mc_idx2;
 
         all_pairs.emplace_back(pair_info);
 
@@ -194,97 +206,6 @@ inline ROOT::RVec<ZPairInfo> leptonicZBuilder::operator()(Vec_rp legs, Vec_i rec
     return all_pairs;
 }
 
-// Original version (kept for compatibility with chi2.py)
-inline ZPairInfo best_pair(ROOT::RVec<ZPairInfo> all_pairs, float chi2_frac, float z_mass, float recoil_mass) {
-    
-    ZPairInfo min_pair;
-    float min_chi2 = 9e99;
-    for (size_t i = 0; i < all_pairs.size(); ++i) {
-        ZPairInfo pair = all_pairs[i];
-        float dm   = std::pow(pair.z_mass - z_mass, 2);
-        float drec = std::pow(pair.recoil - recoil_mass, 2);
-        float chi2 = chi2_frac*dm + (1-chi2_frac)* drec;
-
-        if (min_chi2>chi2) {
-            min_pair = pair;
-            min_chi2 = chi2;
-        }
-    }
-    return min_pair;
-}
-
-// Version that works directly with flattened branches, returns the best pair index
-inline int best_pair_idx(Vec_f z_masses, Vec_f recoils, float chi2_frac, float z_mass, float recoil_mass) {
-    
-    int best_idx = -1;
-    float min_chi2 = 9e99;
-    
-    for (size_t i = 0; i < z_masses.size(); ++i) {
-        float dm   = std::pow(z_masses[i] - z_mass, 2);
-        float drec = std::pow(recoils[i] - recoil_mass, 2);
-        float chi2 = chi2_frac*dm + (1-chi2_frac)* drec;
-
-        if (min_chi2 > chi2) {
-            best_idx = i;
-            min_chi2 = chi2;
-        }
-    }
-    return best_idx;
-}
-
-// Overload: Handle case where mass is scalar, recoil is vector (RDataFrame type inference quirk)
-inline int best_pair_idx(float z_mass_scalar, Vec_f recoils, float chi2_frac, float z_mass, float recoil_mass) {
-    
-    int best_idx = -1;
-    float min_chi2 = 9e99;
-    
-    // When mass is scalar, it means all pairs have the same mass value
-    float dm = std::pow(z_mass_scalar - z_mass, 2);
-    
-    for (size_t i = 0; i < recoils.size(); ++i) {
-        float drec = std::pow(recoils[i] - recoil_mass, 2);
-        float chi2 = chi2_frac*dm + (1-chi2_frac)* drec;
-
-        if (min_chi2 > chi2) {
-            best_idx = i;
-            min_chi2 = chi2;
-        }
-    }
-    return best_idx;
-}
-
-// Overload: Handle case where mass is vector, recoil is scalar
-inline int best_pair_idx(Vec_f z_masses, float recoil_scalar, float chi2_frac, float z_mass, float recoil_mass) {
-    
-    int best_idx = -1;
-    float min_chi2 = 9e99;
-    
-    // When recoil is scalar, it means all pairs have the same recoil value
-    float drec = std::pow(recoil_scalar - recoil_mass, 2);
-    
-    for (size_t i = 0; i < z_masses.size(); ++i) {
-        float dm = std::pow(z_masses[i] - z_mass, 2);
-        float chi2 = chi2_frac*dm + (1-chi2_frac)* drec;
-
-        if (min_chi2 > chi2) {
-            best_idx = i;
-            min_chi2 = chi2;
-        }
-    }
-    return best_idx;
-}
-
-// Overload: Handle case where both mass and recoil are scalars
-inline int best_pair_idx(float z_mass_scalar, float recoil_scalar, float chi2_frac, float z_mass, float recoil_mass) {
-    
-    // When both are scalars, there's only one pair effectively
-    float dm   = std::pow(z_mass_scalar - z_mass, 2);
-    float drec = std::pow(recoil_scalar - recoil_mass, 2);
-    float chi2 = chi2_frac*dm + (1-chi2_frac)* drec;
-    
-    // Return 0 as best index (first and only pair)
-    return 0;
-}
 
 // Find the true Z boson from ZH production
 // Returns a vector with 3 ReconstructedParticleData-like structures:
@@ -308,7 +229,7 @@ inline TrueZInfo getTrueZ(TString cat, Vec_mc mc, Vec_i parents, Vec_i daughters
         // Only consider stable particle
         // if getLeptonOrigin = 0, the lepton comes directly comes from the initial state
         if (isStable(particle, daughters) && getLeptonOrigin(particle, mc, parents, false) == 0) {
-            cand.push_back(particle);
+            cand.push_back(getParent(particle, mc, parents));
             idx.push_back(i);
         }
     }
@@ -363,46 +284,6 @@ inline TrueZInfo getTrueZ(TString cat, Vec_mc mc, Vec_i parents, Vec_i daughters
     result.lepton2 = dummy;
 
     return result;
-}
-
-
-// Original version (kept for compatibility)
-inline int evaluatePairing(ZPairInfo best_pair, TrueZInfo trueZ) {
-    
-    if (trueZ.z_system.mass < 0 || best_pair.z_system.mass < 0) return 0; // Dummy particles
-    if (best_pair.mc_idx1 == -1 || best_pair.mc_idx2 == -1) return 0;  // Couldn't match reco leptons to MC
-    
-    // Get MC indices of the true and reconstructed Z leptons
-    Vec_i true_idx = trueZ.idx;
-    Vec_i reco_idx = {best_pair.mc_idx1, best_pair.mc_idx2};
-
-    // Check if reconstructed leptons match true Z leptons
-    int matches = 0;
-    for (int reco_mc : reco_idx) {
-        for (int true_mc : true_idx) {
-            if (reco_mc == true_mc) { matches++; break;}
-        }
-    }
-    // Return the number of matched leptons
-    return matches;
-}
-
-// Version that works directly with flattened branches
-// Returns number of matched leptons (0, 1, or 2)
-inline int evaluatePairing(int best_pair_idx, Vec_i mc_idx1s, Vec_i mc_idx2s,
-                           int true_mc_idx1, int true_mc_idx2) {
-    
-    if (best_pair_idx < 0 || best_pair_idx >= (int)mc_idx1s.size()) return 0;
-    
-    int reco_mc1 = mc_idx1s[best_pair_idx];
-    int reco_mc2 = mc_idx2s[best_pair_idx];
-    
-    // Check if reconstructed leptons match true Z leptons
-    int matches = 0;
-    if (reco_mc1 == true_mc_idx1 || reco_mc1 == true_mc_idx2) matches++;
-    if (reco_mc2 == true_mc_idx1 || reco_mc2 == true_mc_idx2) matches++;
-    
-    return matches;
 }
 
 
