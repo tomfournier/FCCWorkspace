@@ -217,7 +217,7 @@ def res_saving(mu: float,
         exit(0)
     else:
         # Display results unless suppressed by flag
-        if not arg.noprint:
+        if not arg.print:
             print('----->[Info] Results successfully extracted')
             print(f'\tmu = {mu} +/- {err}')
             print(f'----->[Info] Uncertainty obtained on ZH cross-section: {err*100:.2f} %')

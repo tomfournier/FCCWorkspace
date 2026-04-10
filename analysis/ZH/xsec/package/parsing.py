@@ -27,7 +27,7 @@ Examples:
         args = parser.parse_args()
 '''
 
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser, Namespace, BooleanOptionalAction
 
 
 # ========================================================== #
@@ -202,26 +202,26 @@ def add_bdt_eval(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('Evaluation arguments')
     args.add_argument(
         '--metric',
-        action='store_true',
-        default=False,
+        action=BooleanOptionalAction,
+        default=True,
         help='Plot metric distributions'
     )
     args.add_argument(
         '--tree',
-        action='store_true',
-        default=False,
+        action=BooleanOptionalAction,
+        default=True,
         help='Plot decision trees'
     )
 
     args.add_argument(
         '--check',
-        action='store_true',
+        action=BooleanOptionalAction,
         default=False,
         help='Plot variable distributions'
     )
     args.add_argument(
         '--hl',
-        action='store_true',
+        action=BooleanOptionalAction,
         default=False,
         help='Plot variable distributions for high/low score regions'
     )
@@ -232,26 +232,26 @@ def add_plots_args(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('Plots arguments')
     args.add_argument(
         '--yields',
-        action='store_true',
-        default=False,
-        help='Do not make yields plots'
+        action=BooleanOptionalAction,
+        default=True,
+        help='Make yields plots'
     )
     args.add_argument(
         '--decay',
-        action='store_true',
-        default=False,
-        help='Do not make Higgs decays only plots'
+        action=BooleanOptionalAction,
+        default=True,
+        help='Make Higgs decays only plots'
     )
     args.add_argument(
         '--make',
-        action='store_true',
-        default=False,
-        help='Do not make distribution plots',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Make distribution plots',
     )
     args.add_argument(
         '--scan',
-        action='store_true',
-        default=False,
+        action=BooleanOptionalAction,
+        default=True,
         help='Make significance scan plots',
     )
 
@@ -267,7 +267,9 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
     )
 
 
-def add_optimize_args(parser: ArgumentParser, all_args: bool = True) -> None:
+def add_optimize_args(
+        parser: ArgumentParser,
+        is_plot: bool = False) -> None:
     '''Add optimization arguments (procs, nevents, incr).'''
     args = parser.add_argument_group('Optimization arguments')
     args.add_argument(
@@ -276,7 +278,7 @@ def add_optimize_args(parser: ArgumentParser, all_args: bool = True) -> None:
         default='',
         help='Processes to optimize for (comma-separated)'
     )
-    if all_args:
+    if not is_plot:
         args.add_argument(
             '--nevents',
             type=int,
@@ -288,6 +290,19 @@ def add_optimize_args(parser: ArgumentParser, all_args: bool = True) -> None:
             type=float,
             default=0.1,
             help='Parameter increment (default: 0.1)'
+        )
+    if is_plot:
+        parser.add_argument(
+            '--metrics',
+            action=BooleanOptionalAction,
+            default=True,
+            help='Plot the optimisation metrics'
+        )
+        parser.add_argument(
+            '--dist',
+            action=BooleanOptionalAction,
+            default=True,
+            help='Plot the variables distribution'
         )
 
 
@@ -347,15 +362,15 @@ def add_fit_args(
     )
     args.add_argument(
         '-t', '--timer',
-        action='store_true',
-        default=False,
+        action=BooleanOptionalAction,
+        default=True,
         dest='t',
         help='Display elapsed time'
     )
     args.add_argument(
-        '--noprint',
-        action='store_true',
-        default=False,
+        '--print',
+        action=BooleanOptionalAction,
+        default=True,
         help='Suppress uncertainty output'
     )
 
@@ -412,7 +427,7 @@ def create_parser(
         plots: bool = False,
         cutflow: bool = False,
         optimize: bool = False,
-        all_opt: bool = True,
+        is_plot: bool = False,
         polarization: bool = False,
         fit: bool = False,
         bias: bool = False,
@@ -482,7 +497,7 @@ def create_parser(
     if cutflow:
         add_cutflow_args(parser)
     if optimize:
-        add_optimize_args(parser, all_opt)
+        add_optimize_args(parser, is_plot)
     if polarization:
         add_polarization(parser)
     if fit:
@@ -532,3 +547,49 @@ def parse_args(
 def include_polarizations(parser: ArgumentParser) -> None:
     '''Legacy function - use add_polarization() instead.'''
     add_polarization(parser)
+
+
+# ==================== #
+# LOGGING SETUP        #
+# ==================== #
+
+def set_log(args: Namespace) -> None:
+    """
+    Initialize logging system based on parsed arguments.
+
+    Call this right after parse_args() to configure logging with the verbosity
+    level specified by the user (via -v/--verbose flag).
+
+    This function should be called ONCE in your main analysis script,
+    before any other imports that need logging.
+
+    Parameters
+    ----------
+    args : Namespace
+        Parsed arguments from parse_args()
+
+    Examples
+    --------
+    In your main analysis script:
+
+        from package.parsing import create_parser, parse_args, setup_logger_from_args
+        from package.logger import get_logger
+
+        # Parse arguments
+        parser = create_parser(cat_single=True, include_sels=True)
+        args = parse_args(parser)
+
+        # Setup logging based on --verbose flag
+        setup_logger_from_args(args)
+
+        # Now you can use logging
+        LOGGER = get_logger(__name__)
+        LOGGER.info('Analysis starting')
+    """
+    from package.logger import setup_logging
+
+    # Check if args has verbose flag
+    verbose = getattr(args, 'verbose', False)
+
+    # Initialize logging with the verbose flag
+    setup_logging(verbose=verbose)
