@@ -5,7 +5,7 @@
 import os
 
 # Import user configuration paths and parameters
-from package.config import get_process_list
+from package.config import get_process_list, quarks
 from sel.presel.chi2 import (
     optimize_ll, optimize_qq,
     branch_list_ll, branch_list_qq
@@ -14,7 +14,7 @@ from package.userConfig import (
     loc, get_params
 )
 
-cat, ecm = get_params(os.environ.copy(), '3-run.json')
+cat, ecm = get_params(os.environ.copy(), '3a-run.json')
 
 
 
@@ -58,8 +58,9 @@ compGroup = 'group_u_FCC.local_gen'
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
+decays = [cat] if cat in ['ee', 'mumu'] else quarks
 processList = get_process_list(
-    cat, ecm, onlysig=True, batch=True,
+    cat, ecm, onlysig=True, batch=True, z_decays=decays,
     include={
         'sig': {
             f'wzp6_ee_{cat}H_ecm{ecm}': {'fraction': 1, 'chunks': 5}
@@ -73,20 +74,20 @@ processList = get_process_list(
 ### CLASS AND OUTPUT DEFINITION FOR PRE-SELECTION ###
 #####################################################
 
-class RDFgraph():
+class RDFanalysis():
     '''RDataFrame analysis class for pre-selection stage.'''
 
     # _________________________________________________________________
     # Mandatory: analysers function to define the analysers to process
-    def analysers(df, dataset):
+    def analysers(df):
         '''Apply analysis graph construction to the dataframe.'''
         if cat in ['ee', 'mumu']:
-            df = optimize_ll(df, cat, ecm, dataset)
+            df = optimize_ll(df, cat, ecm)
         elif cat == 'qq':
-            df = optimize_qq(df, cat, ecm, dataset)
+            df = optimize_qq(df, cat, ecm)
         else:
             raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
-        return df, []
+        return df
 
     # _____________________________________________________
     # Mandatory: output function defining branches to save

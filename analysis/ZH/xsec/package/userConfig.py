@@ -384,6 +384,7 @@ def get_params(
         env: os._Environ,
         cfg_json: str,
         is_final: bool = False,
+        qq_allowed: bool = False,
      ) -> Union[tuple[str, int],
                 tuple[str, int, float]]:
 
@@ -393,27 +394,22 @@ def get_params(
     is_batch = '_CONDOR_SCRATCH_DIR' in env
     is_automated = env.get('RUN') or is_batch
 
+    cat_allowed = ['ee', 'mumu']
+    if qq_allowed: cat_allowed.append('qq')
+
     if is_automated:
         # Local run: use loc.RUN
         cfg_file = loc.RUN.astype(Path) / cfg_json
         print(f'----->[Info] Getting config file from {cfg_file}')
-
-        # if is_batch:
-        #     print('----->[Info] Detecting BATCH mode')
-        #     repo_root = Path(__file__).parent.parent
-        #     cfg_file = repo_root / 'output/tmp/config_json/run' / cfg_json
-        #     print(f'----->[Info] Getting config file from {cfg_file}')
-        # else:
-
         if cfg_file.exists():
-            cfg = json.loads(cfg_file.read_text())
-            cat, ecm, lumi = cfg['cat'], cfg['ecm'], cfg['lumi']
+            cfg: dict = json.loads(cfg_file.read_text())
+            cat, ecm, lumi = cfg['cat'], cfg['ecm'], cfg.get('lumi', -1)
         else:
             raise FileNotFoundError(f"Couldn't find config file at {cfg_file}")
     else:
         cat = input('Select channel [ee, mumu, qq]: ')
-        while cat not in ['ee', 'mumu', 'qq']:
-            cat = input('Wrong input selected, choose between ee and mumu: ')
+        while cat not in cat_allowed:
+            cat = input(f'Wrong input selected, choose between [{", ".join(cat_allowed)}]: ')
         ecm = int(input('Select center-of-mass energy [240, 365]: '))
         while (ecm!=240) and (ecm!=365):
             ecm = int(input('Wrong input selected, choose between 240 and 365: '))

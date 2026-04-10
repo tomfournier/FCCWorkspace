@@ -131,5 +131,4 @@ def savefigs(
     # Save figure in each specified format
     for f in format:
         fig.savefig(f'{fpath}.{f}', bbox_inches='tight')
-        print(f"\tSaved {plotname.replace('_', ' ')} "
-              f'plot to {outDir}/{plotname}{suffix}.{f}')
+        print(f'\tSaved plot to {fpath}.{f}')

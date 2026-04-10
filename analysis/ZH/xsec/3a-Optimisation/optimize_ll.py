@@ -60,12 +60,12 @@ class Optimizer:
 
         inFiles = glob(str(inDir / proc / '*'))
         if not inFiles:
-            print(f"----->[WARNING] No files found in {inDir / proc}/\n\tSearching for {inDir / proc+'.root'} file")
-            inFile: Path = inDir / proc+'.root'
+            print(f"----->[WARNING] No files found in {inDir / proc}/\n\tSearching for {inDir / (proc+'.root')} file")
+            inFile: Path = inDir / (proc+'.root')
             if  inFile.exists():
                 inFiles = [str(inFile)]
             else:
-                print(f"----->[ERROR]: No files found in {inDir / proc+'.root'}")
+                print(f"----->[ERROR]: No files found in {inDir / (proc+'.root')}")
                 sys.exit(1)
 
         self.inFiles = inFiles
@@ -73,27 +73,26 @@ class Optimizer:
         self.outDir.mkdir(parents=True, exist_ok=True)
         self.ecm = ecm
 
-        print('----->[Info] Loading data from ROOT files')
+        print(f'\n----->[Info] Loading data for process {proc}')
         self.load_data(nevents)
         self.results = {}
 
 
     def load_data(self, nevents=-1):
         """Load data from ROOT files using uproot (optimized)"""
-        # Branch names to load - all kinematic variables are pre-computed
+        # Branch names to load
         branch_names = [
-            'mass', 'recoil', 'Mass', 'Recoil',
-            'mc1', 'mc2', 'MC1', 'MC2',
-            # Reconstructed leptons l1, l2
-            'l1_e', 'l1_p', 'l1_pt', 'l1_theta',
-            'l2_e', 'l2_p', 'l2_pt', 'l2_theta',
-            # True leptons lep1, lep2
-            'lep1_e', 'lep1_p', 'lep1_pt', 'lep1_theta',
-            'lep2_e', 'lep2_p', 'lep2_pt', 'lep2_theta',
-            # Reconstructed Z system
-            'z_e', 'z_p', 'z_pt', 'z_theta',
-            # True Z system
-            'Z_e', 'Z_p', 'Z_pt', 'Z_theta',
+            'n_pair',  # Number of pairs per event
+            'mass', 'recoil',  # Reco Z mass and recoil mass
+            'Mass', 'Recoil',  # True Z mass and recoil mass
+            'leading_mc', 'subleading_mc',  # Reco MC indices
+            'Leading_MC', 'Subleading_MC',  # True MC indices
+            'leading_p', 'leading_pt', 'leading_theta',           # Reco leading kinematics
+            'Leading_p', 'Leading_pt', 'Leading_theta',           # True leading kinematics
+            'subleading_p', 'subleading_pt', 'subleading_theta',  # Reco subleading kinematics
+            'Subleading_p', 'Subleading_pt', 'Subleading_theta',  # True subleading kinematics
+            'zll_p', 'zll_pt', 'zll_theta',  # Reco Z kinematics
+            'Zll_p', 'Zll_pt', 'Zll_theta',  # True Z kinematics
         ]
 
         # Accumulate data per branch
@@ -131,7 +130,15 @@ class Optimizer:
 
         # Track actual number of events loaded (not metadata from file)
         self.n_events = len(self.mass)
+
+        # Count events by number of pairs
+        n_pair = np.asarray(self.n_pair)
+        self.n_zero_pair  = int(np.sum(n_pair == 0))
+        self.n_one_pair   = int(np.sum(n_pair == 1))
+        self.n_multi_pair = int(np.sum(n_pair >  1))
+
         print(f"----->[Info] Loaded {self.n_events:,} events (total events in files: {self.total_events:,})")
+        print(f"----->[Info] Event breakdown: {self.n_zero_pair:,} with 0 pairs, {self.n_one_pair:,} with 1 pair, {self.n_multi_pair:,} with >1 pairs")
 
 
     def best_pair_idx(self, dm, drec, frac):
@@ -154,15 +161,16 @@ class Optimizer:
         best_idx = self.best_pair_idx(dm, drec, frac)
 
         # Extract best pairs using vectorized awkward masking
-        local_idx = ak.local_index(self.mc1, axis=1)                # [[0,1,2,...], [0,1,2,...], ...]
-        mask_mc1 = local_idx == best_idx[:, None]                         # Create mask for each event
+        local_idx = ak.local_index(self.leading_mc, axis=1)                # [[0,1,2,...], [0,1,2,...], ...]
+        mask_mc1 = local_idx == best_idx[:, None]                                # Create mask for each event
         mask_mc2 = local_idx == best_idx[:, None]
-        reco_mc1 = np.asarray(ak.flatten(self.mc1[mask_mc1]))     # Extract and flatten
-        reco_mc2 = np.asarray(ak.flatten(self.mc2[mask_mc2]))
+        reco_mc1 = np.asarray(ak.flatten(self.leading_mc[mask_mc1]))     # Extract and flatten
+        reco_mc2 = np.asarray(ak.flatten(self.subleading_mc[mask_mc2]))
 
         # Get true MC indices
-        true_mc1 = np.asarray(self.MC1)
-        true_mc2 = np.asarray(self.MC2)
+        true_mc1 = np.asarray(self.Leading_MC)
+        true_mc2 = np.asarray(self.Subleading_MC)
+        n_pair_array = np.asarray(self.n_pair)
 
         # Vectorized matching: count how many reconstructed leptons match truth
         match1: np.ndarray = (reco_mc1 == true_mc1) | (reco_mc1 == true_mc2)
@@ -171,22 +179,44 @@ class Optimizer:
         # Sum matches per event (0, 1, or 2)
         matches = match1.astype(int) + match2.astype(int)
 
-        # Count results using vectorized operations
-        n_correct   = int(np.sum(matches == 2))
-        n_partial   = int(np.sum(matches == 1))
-        n_incorrect = int(np.sum(matches == 0))
+        # Create masks for different pair categories
+        mask_zero  = n_pair_array == 0
+        mask_one   = n_pair_array == 1
+        mask_multi = n_pair_array >  1
 
+        # Helper function to compute metrics for a category
+        def compute_category_stats(matches, mask):
+            cat_matches = matches[mask]
+            n_correct   = int(np.sum(cat_matches == 2))
+            n_partial   = int(np.sum(cat_matches == 1))
+            n_incorrect = int(np.sum(cat_matches == 0))
+            n_total     = int(np.sum(mask))
+            efficiency  = n_correct / max(n_total, 1)
+            return {
+                'n_correct':   n_correct,
+                'n_partial':   n_partial,
+                'n_incorrect': n_incorrect,
+                'n_total':     n_total,
+                'efficiency':  efficiency,
+            }
+
+        # Compute stats for each category
         result = {
             'frac': frac,
-            'efficiency':  n_correct / max(self.n_events, 1),
-            'n_correct':   n_correct,
-            'n_partial':   n_partial,
-            'n_incorrect': n_incorrect,
-            'n_total': self.n_events,
+            'overall': {
+                'efficiency':  int(np.sum(matches == 2)) / max(self.n_events, 1),
+                'n_correct':   int(np.sum(matches == 2)),
+                'n_partial':   int(np.sum(matches == 1)),
+                'n_incorrect': int(np.sum(matches == 0)),
+                'n_total':     self.n_events,
+            },
+            'zero_pair':  compute_category_stats(matches, mask_zero),
+            'one_pair':   compute_category_stats(matches, mask_one),
+            'multi_pair': compute_category_stats(matches, mask_multi),
         }
         return result
 
-    def extract_distributions(self, chi2_frac: float):
+    def extract_distributions(self, chi2_frac: float) -> dict[str, np.ndarray]:
         """Extract kinematic variables for a given chi2_frac value, selecting best pairings"""
         # Precompute distances
         dm = (self.mass - 91.2) ** 2
@@ -211,38 +241,32 @@ class Optimizer:
 
         return {
             # Reconstructed leptons (selected based on best pairing)
-            'l1_e':     select_by_idx(self.l1_e,     best_idx),
-            'l1_p':     select_by_idx(self.l1_p,     best_idx),
-            'l1_pt':    select_by_idx(self.l1_pt,    best_idx),
-            'l1_theta': select_by_idx(self.l1_theta, best_idx),
+            'leading_p':     select_by_idx(self.leading_p,     best_idx),
+            'leading_pt':    select_by_idx(self.leading_pt,    best_idx),
+            'leading_theta': select_by_idx(self.leading_theta, best_idx),
 
-            'l2_e':     select_by_idx(self.l2_e,     best_idx),
-            'l2_p':     select_by_idx(self.l2_p,     best_idx),
-            'l2_pt':    select_by_idx(self.l2_pt,    best_idx),
-            'l2_theta': select_by_idx(self.l2_theta, best_idx),
+            'subleading_p':     select_by_idx(self.subleading_p,     best_idx),
+            'subleading_pt':    select_by_idx(self.subleading_pt,    best_idx),
+            'subleading_theta': select_by_idx(self.subleading_theta, best_idx),
 
             # True leptons (not affected by pairing selection)
-            'lep1_e':     np.asarray(self.lep1_e),
-            'lep1_p':     np.asarray(self.lep1_p),
-            'lep1_pt':    np.asarray(self.lep1_pt),
-            'lep1_theta': np.asarray(self.lep1_theta),
+            'Leading_p':     np.asarray(self.Leading_p),
+            'Leading_pt':    np.asarray(self.Leading_pt),
+            'Leading_theta': np.asarray(self.Leading_theta),
 
-            'lep2_e':     np.asarray(self.lep2_e),
-            'lep2_p':     np.asarray(self.lep2_p),
-            'lep2_pt':    np.asarray(self.lep2_pt),
-            'lep2_theta': np.asarray(self.lep2_theta),
+            'Subleading_p':     np.asarray(self.Subleading_p),
+            'Subleading_pt':    np.asarray(self.Subleading_pt),
+            'Subleading_theta': np.asarray(self.Subleading_theta),
 
             # Reconstructed Z system (selected based on best pairing)
-            'z_e':     select_by_idx(self.z_e,     best_idx),
-            'z_p':     select_by_idx(self.z_p,     best_idx),
-            'z_pt':    select_by_idx(self.z_pt,    best_idx),
-            'z_theta': select_by_idx(self.z_theta, best_idx),
+            'zll_p':     select_by_idx(self.zll_p,     best_idx),
+            'zll_pt':    select_by_idx(self.zll_pt,    best_idx),
+            'zll_theta': select_by_idx(self.zll_theta, best_idx),
 
             # True Z system (not affected by pairing selection)
-            'Z_e':     np.asarray(self.Z_e),
-            'Z_p':     np.asarray(self.Z_p),
-            'Z_pt':    np.asarray(self.Z_pt),
-            'Z_theta': np.asarray(self.Z_theta),
+            'Zll_p':     np.asarray(self.Zll_p),
+            'Zll_pt':    np.asarray(self.Zll_pt),
+            'Zll_theta': np.asarray(self.Zll_theta),
 
             # Pair variables (selected based on best pairing)
             'mass':   select_by_idx(self.mass,   best_idx),
@@ -261,7 +285,7 @@ class Optimizer:
         outFile.parent.mkdir(parents=True, exist_ok=True)
 
         # Prepare data for ROOT file (convert all to numpy arrays)
-        output_data = {}
+        output_data: dict[str, np.ndarray] = {}
         for key, values in distributions.items():
             if isinstance(values, ak.Array):
                 values = np.asarray(values)
@@ -310,18 +334,41 @@ class Optimizer:
 
 
     def save_results(self):
-        """Save results to JSON"""
+        """Save results to JSON with breakdown by number of pairs"""
         outFile = self.outDir / 'results.json'
 
         json_results = {}
         for chi2_frac, result in self.results.items():
             json_results[f"{chi2_frac:.2f}"] = {
-                'chi2_frac':   result['frac'],
-                'efficiency':  result['efficiency'],
-                'n_correct':   result['n_correct'],
-                'n_partial':   result['n_partial'],
-                'n_incorrect': result['n_incorrect'],
-                'n_total':     result['n_total']
+                'chi2_frac': result['frac'],
+                'overall': {
+                    'efficiency':  result['overall']['efficiency'],
+                    'n_correct':   result['overall']['n_correct'],
+                    'n_partial':   result['overall']['n_partial'],
+                    'n_incorrect': result['overall']['n_incorrect'],
+                    'n_total':     result['overall']['n_total']
+                },
+                'zero_pair': {
+                    'efficiency':  result['zero_pair']['efficiency'],
+                    'n_correct':   result['zero_pair']['n_correct'],
+                    'n_partial':   result['zero_pair']['n_partial'],
+                    'n_incorrect': result['zero_pair']['n_incorrect'],
+                    'n_total':     result['zero_pair']['n_total']
+                },
+                'one_pair': {
+                    'efficiency':  result['one_pair']['efficiency'],
+                    'n_correct':   result['one_pair']['n_correct'],
+                    'n_partial':   result['one_pair']['n_partial'],
+                    'n_incorrect': result['one_pair']['n_incorrect'],
+                    'n_total':     result['one_pair']['n_total']
+                },
+                'multi_pair': {
+                    'efficiency':  result['multi_pair']['efficiency'],
+                    'n_correct':   result['multi_pair']['n_correct'],
+                    'n_partial':   result['multi_pair']['n_partial'],
+                    'n_incorrect': result['multi_pair']['n_incorrect'],
+                    'n_total':     result['multi_pair']['n_total']
+                }
             }
 
         outFile.write_text(json.dumps(json_results, indent=4))
@@ -356,12 +403,12 @@ def main():
         optimizer.save_results()
 
         # Find optimal chi2_frac
-        best_frac = max(optimizer.results.items(), key=lambda x: x[1]['efficiency'])[0]
+        best_frac = max(optimizer.results.items(), key=lambda x: x[1]['overall']['efficiency'])[0]
         print(f"----->[Info] Optimal chi2_frac: {best_frac:.2f}")
 
-        # Save distributions for chi2_frac = 0.4
-        print("----->[Info] Saving distributions for chi2_frac = 0.4")
-        optimizer.save_distributions(0.4, 'results_old.root')
+        # Save distributions for chi2_frac = 0.6
+        print("----->[Info] Saving distributions for chi2_frac = 0.6")
+        optimizer.save_distributions(0.6, 'results_old.root')
 
         # Save distributions for optimal chi2_frac
         print(f"----->[Info] Saving distributions for optimal chi2_frac = {best_frac:.2f}")

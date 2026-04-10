@@ -101,6 +101,11 @@ def run(cat: str,
 
     # Build per-stage arguments and append optional evaluation flags when relevant
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
+
+    # Pass verbose flag to child process so logging is configured the same way
+    if arg.verbose:
+        extra_args.append('-v')
+
     if 'evaluation' in script:
         if arg.metric: extra_args.append('--metric')
         if arg.tree:   extra_args.append('--tree')

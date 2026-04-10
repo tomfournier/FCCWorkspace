@@ -78,20 +78,16 @@ def clustering(df: 'ROOT.ROOT.RDataFrame',
 def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
                 cat: str,
                 ecm: int,
-                dataset: str) -> 'ROOT.ROOT.RDataFrame':
+                ) -> 'ROOT.ROOT.RDataFrame':
 
     df = setup_alias(df, cat)
-
-    if 'p8_ee_WW_ecm' in dataset:  # remove muons/electrons from inclusive WW
-        df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
-        df = df.Filter('!ww_leptonic')
-
     df = get_leps(df)
 
     df = df.Filter('leps_no >= 1 && leps_sel_iso.size() > 0')
     df = df.Filter('leps_no >= 2 && abs(Sum(leps_q)) < leps.size()')
 
     df = df.Define('all_pairs', f'FCCAnalyses::leptonicZBuilder({ecm}, false)(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle)')
+    df = df.Define('n_pair',    'all_pairs.size()')
     df = df.Define('trueZ',     f'FCCAnalyses::getTrueZ("{cat}", Particle, Particle0, Particle1)')
 
     df = df.Filter('trueZ.z_system.mass >= 0')
@@ -101,54 +97,52 @@ def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('l1',     'FCCAnalyses::getZPairsLepton1(all_pairs)')
     df = df.Define('l2',     'FCCAnalyses::getZPairsLepton2(all_pairs)')
 
-    df = df.Define('z_e',     'FCCAnalyses::ReconstructedParticle::get_e(z_rp)')
-    df = df.Define('z_p',     'FCCAnalyses::ReconstructedParticle::get_p(z_rp)')
-    df = df.Define('z_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(z_rp)')
-    df = df.Define('z_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(z_rp)')
+    df = df.Define('zll_e',     'FCCAnalyses::ReconstructedParticle::get_e(z_rp)')
+    df = df.Define('zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(z_rp)')
+    df = df.Define('zll_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(z_rp)')
+    df = df.Define('zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(z_rp)')
 
-    df = df.Define('l1_e',     'FCCAnalyses::ReconstructedParticle::get_e(l1)')
-    df = df.Define('l1_p',     'FCCAnalyses::ReconstructedParticle::get_p(l1)')
-    df = df.Define('l1_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(l1)')
-    df = df.Define('l1_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(l1)')
+    df = df.Define('leading_e',     'FCCAnalyses::ReconstructedParticle::get_e(l1)')
+    df = df.Define('leading_p',     'FCCAnalyses::ReconstructedParticle::get_p(l1)')
+    df = df.Define('leading_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(l1)')
+    df = df.Define('leading_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(l1)')
 
-    df = df.Define('l2_e',     'FCCAnalyses::ReconstructedParticle::get_e(l2)')
-    df = df.Define('l2_p',     'FCCAnalyses::ReconstructedParticle::get_p(l2)')
-    df = df.Define('l2_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(l2)')
-    df = df.Define('l2_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(l2)')
+    df = df.Define('subleading_e',     'FCCAnalyses::ReconstructedParticle::get_e(l2)')
+    df = df.Define('subleading_p',     'FCCAnalyses::ReconstructedParticle::get_p(l2)')
+    df = df.Define('subleading_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(l2)')
+    df = df.Define('subleading_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(l2)')
 
     df = df.Define('mass',   'FCCAnalyses::getAllPairsZMass(all_pairs)')
     df = df.Define('recoil', 'FCCAnalyses::getAllPairsRecoil(all_pairs)')
 
-    df = df.Define('l1_idx', 'FCCAnalyses::getAllPairsLegIdx1(all_pairs)')
-    df = df.Define('l2_idx', 'FCCAnalyses::getAllPairsLegIdx2(all_pairs)')
-    df = df.Define('mc1',    'FCCAnalyses::getAllPairsMCIdx1(all_pairs)')
-    df = df.Define('mc2',    'FCCAnalyses::getAllPairsMCIdx2(all_pairs)')
+    df = df.Define('leading_mc',    'FCCAnalyses::getAllPairsMCIdx1(all_pairs)')
+    df = df.Define('subleading_mc', 'FCCAnalyses::getAllPairsMCIdx2(all_pairs)')
 
     # Extract serializable fields from trueZ
-    df = df.Define('trueZ_rp', 'FCCAnalyses::getTrueZRP(trueZ)')
-    df = df.Define('lep1',     'FCCAnalyses::getTrueZLepton1(trueZ)')
-    df = df.Define('lep2',     'FCCAnalyses::getTrueZLepton2(trueZ)')
-    df = df.Define('MC1',      'FCCAnalyses::getTrueZMCIdx1(trueZ)')
-    df = df.Define('MC2',      'FCCAnalyses::getTrueZMCIdx2(trueZ)')
+    df = df.Define('trueZ_rp',      'FCCAnalyses::getTrueZRP(trueZ)')
+    df = df.Define('lep1',          'FCCAnalyses::getTrueZLepton1(trueZ)')
+    df = df.Define('lep2',          'FCCAnalyses::getTrueZLepton2(trueZ)')
+    df = df.Define('Leading_MC',    'FCCAnalyses::getTrueZMCIdx1(trueZ)')
+    df = df.Define('Subleading_MC', 'FCCAnalyses::getTrueZMCIdx2(trueZ)')
 
-    df = df.Define('Z_e',     'FCCAnalyses::ReconstructedParticle::get_e(trueZ_rp)[0]')
-    df = df.Define('Z_p',     'FCCAnalyses::ReconstructedParticle::get_p(trueZ_rp)[0]')
-    df = df.Define('Z_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(trueZ_rp)[0]')
-    df = df.Define('Z_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(trueZ_rp)[0]')
+    df = df.Define('Zll_e',     'FCCAnalyses::ReconstructedParticle::get_e(trueZ_rp)[0]')
+    df = df.Define('Zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(trueZ_rp)[0]')
+    df = df.Define('Zll_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(trueZ_rp)[0]')
+    df = df.Define('Zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(trueZ_rp)[0]')
 
-    df = df.Define('Mass',      'FCCAnalyses::ReconstructedParticle::get_mass(trueZ_rp)[0]')
-    df = df.Define('z_recoil', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(trueZ_rp)')
-    df = df.Define('Recoil',    'FCCAnalyses::ReconstructedParticle::get_mass(z_recoil)[0]')
+    df = df.Define('Mass',        'FCCAnalyses::ReconstructedParticle::get_mass(trueZ_rp)[0]')
+    df = df.Define('zll_recoil', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(trueZ_rp)')
+    df = df.Define('Recoil',      'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
 
-    df = df.Define('lep1_e',     'FCCAnalyses::ReconstructedParticle::get_e(lep1)[0]')
-    df = df.Define('lep1_p',     'FCCAnalyses::ReconstructedParticle::get_p(lep1)[0]')
-    df = df.Define('lep1_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(lep1)[0]')
-    df = df.Define('lep1_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(lep1)[0]')
+    df = df.Define('Leading_e',     'FCCAnalyses::ReconstructedParticle::get_e(lep1)[0]')
+    df = df.Define('Leading_p',     'FCCAnalyses::ReconstructedParticle::get_p(lep1)[0]')
+    df = df.Define('Leading_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(lep1)[0]')
+    df = df.Define('Leading_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(lep1)[0]')
 
-    df = df.Define('lep2_e',     'FCCAnalyses::ReconstructedParticle::get_e(lep2)[0]')
-    df = df.Define('lep2_p',     'FCCAnalyses::ReconstructedParticle::get_p(lep2)[0]')
-    df = df.Define('lep2_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(lep2)[0]')
-    df = df.Define('lep2_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(lep2)[0]')
+    df = df.Define('Subleading_e',     'FCCAnalyses::ReconstructedParticle::get_e(lep2)[0]')
+    df = df.Define('Subleading_p',     'FCCAnalyses::ReconstructedParticle::get_p(lep2)[0]')
+    df = df.Define('Subleading_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(lep2)[0]')
+    df = df.Define('Subleading_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(lep2)[0]')
 
     return df
 
@@ -156,13 +150,9 @@ def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
 def optimize_qq(df: 'ROOT.ROOT.RDataFrame',
                 cat: str,
                 ecm: int,
-                dataset: str) -> 'ROOT.ROOT.RDataFrame':
+                ) -> 'ROOT.ROOT.RDataFrame':
 
     df = setup_alias(df, cat)
-
-    if 'p8_ee_WW_ecm' in dataset:  # remove muons/electrons from inclusive WW
-        df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
-        df = df.Filter('!ww_leptonic')
 
     df = df.Define('muons_all',     'FCCAnalyses::ReconstructedParticle::get(Muon0,     ReconstructedParticles)')
     df = df.Define('photons_all',   'FCCAnalyses::ReconstructedParticle::get(Photon0,   ReconstructedParticles)')
@@ -179,15 +169,26 @@ def optimize_qq(df: 'ROOT.ROOT.RDataFrame',
     return df
 
 
-reco_mc = ['MCRecoAssociations#0', 'MCRecoAssociations#1', 'ReconstructedParticles', 'Particle', 'Particle#0', 'Particle#1']
+#######################
+### OUTPUT BRANCHES ###
+#######################
+
 branch_list_ll = [
-    'leps', 'mass', 'recoil', 'Mass', 'Recoil',
-    'l1_idx', 'l2_idx', 'mc1', 'mc2', 'MC1', 'MC2',
-    'z_e', 'z_p', 'z_pt', 'z_theta', 'Z_e', 'Z_p', 'Z_pt', 'Z_theta',
-    'l1_e', 'l1_p', 'l1_pt', 'l1_theta', 'l2_e', 'l2_p', 'l2_pt', 'l2_theta',
-    'lep1_e', 'lep1_p', 'lep1_pt', 'lep1_theta', 'lep2_e', 'lep2_p', 'lep2_pt', 'lep2_theta',
+    'leps', 'n_pair',     # Leptons and number of reconstructed pair
+    'mass', 'recoil',     # Reco Z mass and recoil mass
+    'Mass', 'Recoil',     # True Z mass and recoil mass
+    'leading_mc', 'subleading_mc',      # Reco MC idx for leading and subleading lepton
+    'Leading_MC', 'Subleading_MC',      # True MC idx for leading and subleading lepton
+    'zll_p', 'zll_pt', 'zll_theta',     # Reco Z kinematics
+    'Zll_p', 'Zll_pt', 'Zll_theta',     # True Z kinematics
+    'leading_p', 'leading_pt', 'leading_theta',              # Reco leading lepton kinematics
+    'Leading_p', 'Leading_pt', 'Leading_theta',              # True leading lepton kinematics
+    'subleading_p', 'subleading_pt', 'subleading_theta',     # Reco subleading lepton kinematics
+    'Subleading_p', 'Subleading_pt', 'Subleading_theta',     # True subleading lepton kinematics
 ]
-branch_list_qq = ['jets_rp_cand_N0', 'jets_rp_cand_N2', 'jets_rp_cand_N4', 'jets_rp_cand_N6',
-                  'jets_N0', 'jets_N2', 'jets_N4', 'jets_N6',
-                  'clustered_jets_N0', 'clustered_jets_N2', 'clustered_jets_N4', 'clustered_jets_N6',
-                  'rps_sel', 'pseudo_jets'] + reco_mc
+branch_list_qq = [
+    'jets_rp_cand_N0', 'jets_rp_cand_N2', 'jets_rp_cand_N4', 'jets_rp_cand_N6',
+    'jets_N0', 'jets_N2', 'jets_N4', 'jets_N6',
+    'clustered_jets_N0', 'clustered_jets_N2', 'clustered_jets_N4', 'clustered_jets_N6',
+    'rps_sel', 'pseudo_jets'
+]
