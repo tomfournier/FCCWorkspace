@@ -82,6 +82,49 @@ inline QuarkLVectors makeQuarkLorentzVectors(Vec_mc mc, bool findGluons = false)
 }
 
 
+inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, float threshold = 0.99) {
+
+    Vec_i usedIdx;
+
+    for (auto &particle : leps) {
+
+        TLorentzVector p_tlv, tmp_tlv;
+        p_tlv.SetPxPyPzE(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.energy);
+        tmp_tlv.SetPxPyPzE(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.energy);
+
+        for (int ph_idx = 0; ph_idx < photons.size(); ph_idx++) {
+
+            // Pass already used photons
+            if (std::find(usedIdx.begin(), usedIdx.end(), ph_idx) != usedIdx.end()) continue;
+
+            rp photon = rps.at(photons[ph_idx]);
+            TLorentzVector ph_tlv;
+            ph_tlv.SetPxPyPzE(photon.momentum.x, photon.momentum.y, photon.momentum.z, photon.energy);
+
+            TVector3 v1 = tmp_tlv.Vect();
+            TVector3 v2 = ph_tlv.Vect();
+
+            float cosTheta = v1.Dot(v2) / ( v1.Mag()* v2.Mag());
+
+            if (cosTheta >= threshold) {
+                tmp_tlv += ph_tlv;
+                usedIdx.push_back(ph_idx);
+            }
+        }
+
+        if (p_tlv != tmp_tlv) {
+            particle.momentum.x = tmp_tlv.Px();
+            particle.momentum.y = tmp_tlv.Py();
+            particle.momentum.z = tmp_tlv.Pz();
+            particle.energy = tmp_tlv.Energy();
+        }
+
+    }
+
+    return leps;
+}
+
+
 
 /***********************
 *** LEPTONIC CHANNEL ***
