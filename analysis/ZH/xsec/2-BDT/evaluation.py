@@ -1,8 +1,6 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
-
-print('----->[Info] Loading modules')
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 # Standard library and scientific computing imports
 from time import time
@@ -15,7 +13,30 @@ if TYPE_CHECKING:
 # Start execution timer
 t = time()
 
-print('----->[Info] Loading custom modules')
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_single=True,
+    include_sels=True,
+    bdt_eval=True,
+    description='BDT Evaluation Script'
+)
+arg = parse_args(parser, True)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
 
 # Import configuration paths and plot settings
 from package.userConfig import loc, plot_file
@@ -37,21 +58,6 @@ from package.func.bdt import (
     print_stats,
     evaluate_bdt
 )
-
-
-
-########################
-### ARGUMENT PARSING ###
-########################
-
-from package.parsing import create_parser, parse_args
-parser = create_parser(
-    cat_single=True,
-    include_sels=True,
-    bdt_eval=True,
-    description='BDT Evaluation Script'
-)
-arg = parse_args(parser, True)
 
 
 
@@ -136,7 +142,7 @@ def plot_metrics(df: 'pd.DataFrame',
     if arg.check:
         from package.plots.eval import hist_check
         for var in vars:
-            print(f'------>Plotting histogram for {var}')
+            LOGGER.info(f'Plotting histogram for {var}')
             hist_check(
                 df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
                 yscale='linear', suffix='_lin', format=plot_file, strict=True
@@ -148,12 +154,12 @@ def plot_metrics(df: 'pd.DataFrame',
     if arg.hl:
         import numpy as np
         from package.plots.eval import hist_check
-        print('\n------>PLotting histogram in high/low BDT score region')
+        LOGGER.info('Plotting histogram innhigh/low BDT score region')
         bdt_cut = np.loadtxt(f'{inBDT}/BDT_cut.txt')
         df_high = df.query(f'BDTscore > {bdt_cut}')
         df_low  = df.query(f'BDTscore < {bdt_cut}')
         for var in vars:
-            print(f'------>Plotting histogram for {var}')
+            LOGGER.info(f'Plotting histogram for {var}')
             hist_check(
                 df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
                 yscale='linear', suff='high', suffix='_lin', format=plot_file, strict=True
@@ -192,24 +198,24 @@ if __name__=='__main__':
             Modes = modes.copy()
 
         # Load preprocessed data and print statistics
-        print(f'----->[Info] Getting DataFrame from {sel}\n')
+        LOGGER.info(f'Getting DataFrame from{sel}')
         df = load_data(inDir)
         print_stats(df, Modes)
 
         # Load trained BDT model
-        print('\n----->[Info] Loading BDT')
+        LOGGER.info('Loading BDT')
         bdt = load_model(inBDT)
 
         # Apply BDT to data and calculate scores
-        print('----->[Info] Evaluating BDT')
+        LOGGER.info('Evaluating BDT')
         df = evaluate_bdt(df, bdt, input_vars)
 
         # Extract training metrics
-        print('----->[Info] Extracting metrics from BDT')
+        LOGGER.info('Extracting metrics from BDT')
         results, epochs, x_axis, best_iteration = get_metrics(bdt)
 
         # Generate all evaluation plots
-        print('\n----->[Info] Plotting the metrics for the BDT')
+        LOGGER.info('Plotting the metrics for the BDT')
         plot_metrics(df, bdt, input_vars, results, x_axis, Modes, cat, outDir)
 
     # Print execution time

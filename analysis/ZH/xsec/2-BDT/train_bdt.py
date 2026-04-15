@@ -1,8 +1,6 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
-
-print('\n----->[Info] Loading modules')
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 from time import time
 import pandas as pd
@@ -10,7 +8,29 @@ import pandas as pd
 # Start timer for performance tracking
 t = time()
 
-print('----->[Info] Loading custom modules\n')
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_single=True,
+    include_sels=True,
+    description='BDT Training Script'
+)
+arg = parse_args(parser, True)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
 
 from package.userConfig import loc
 from package.config import (
@@ -23,20 +43,6 @@ from package.func.bdt import (
     train_model,
     save_model
 )
-
-
-
-########################
-### ARGUMENT PARSING ###
-########################
-
-from package.parsing import create_parser, parse_args
-parser = create_parser(
-    cat_single=True,
-    include_sels=True,
-    description='BDT Training Script'
-)
-arg = parse_args(parser, True)
 
 
 
@@ -86,8 +92,8 @@ def run(sels: list[str],
     """Train BDT models for each selection strategy."""
 
     # Display training variables
-    print('----->[Info] Training variable used for the training')
-    print('\t'+', '.join(var for var in vars)+'\n')
+    LOGGER.info('Training variable used for the training')
+    LOGGER.info(', '.join(var for var in vars))
 
     for sel in sels:
         # Define input and output directories
@@ -105,7 +111,7 @@ def run(sels: list[str],
         print_stats(df, Modes)
 
         # Split data into training and validation sets
-        print('\n----->[Info] Spltting data into training and validation sample')
+        LOGGER.info('Spltting data into training and validation sample')
         X_train, y_train, X_valid, y_valid = split_data(df, vars)
 
         # Train XGBoost model with early stopping
@@ -121,7 +127,7 @@ def run(sels: list[str],
         # Write feature map file for XGBoost evaluation
         fmap = pd.DataFrame({'vars':vars, 'Q':list('q' * len(vars))})
         fmap.to_csv(f'{outDir}/feature.txt', sep='\t', header=False)
-        print(f'----->[Info] Wrote variable input in {outDir}/feature.txt')
+        LOGGER.info(f'Wrote variable input in {outDir}/feature.txt')
 
 
 ######################

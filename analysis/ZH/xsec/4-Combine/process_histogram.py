@@ -1,6 +1,6 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 import os
 
@@ -10,21 +10,14 @@ from ROOT import TFile
 # Start timer for performance tracking
 t = time()
 
-from package.userConfig import loc
-from package.config import (
-    timer, mk_processes,
-    z_decays, H_decays
-)
-from package.tools.utils import mkdir
-from package.tools.process import get_hist, concat
-
 
 
 ########################
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     include_sels=True,
@@ -32,6 +25,23 @@ parser = create_parser(
     description='Histogram Processing Script'
 )
 arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+from package.userConfig import loc
+from package.config import (
+    timer, mk_processes,
+    z_decays, H_decays
+)
+from package.tools.utils import mkdir
+from package.tools.process import get_hist, concat
 
 
 
@@ -59,7 +69,8 @@ elif arg.polR:
 else:
     procs_scales  = {}
 if procs_scales!={}:
-    print('----->[Info] Will scale histograms to ILC cross section')
+    LOGGER.info('Will scale histograms to ILC cross section')
+
 
 
 # Define physics processes and their Higgs decay modes
@@ -121,12 +132,12 @@ def run(cats: str,
 
     # Process each final state category
     for cat in cats:
-        print(f'----->[Info] Processing histograms for {cat}')
+        LOGGER.info(f'Processing histograms for {cat}')
         inDir = loc.get('HIST_PREPROCESSED', cat, ecm)
 
         # Process each selection strategy
         for sel in sels:
-            print(f'\n----->[Info] Processing histograms for {sel}\n')
+            LOGGER.info(f'Processing histograms for {sel}')
 
             outDir = loc.get('HIST_PROCESSED', cat, ecm, sel)
             mkdir(outDir)
@@ -142,12 +153,12 @@ def run(cats: str,
                     existing_samples.append(sample)
 
             if not existing_samples:
-                print(f'----->[Warning] No sampples found for {sel} in {cat}')
+                LOGGER.warning(f'No sample found for {sel} in {cat}')
                 continue
 
             # Process each sample
             for sample in existing_samples:
-                print(f'----->[Info] Processing {sample}')
+                LOGGER.info(f'Processing {sample}')
                 hists = []
                 has_valid_hist = False
                 for hName in hNames:
@@ -181,7 +192,7 @@ def run(cats: str,
 
                 # Skip sample if no valid histograms found
                 if not has_valid_hist:
-                    print(f'----->[WARNING] No valid histograms found for {sample}, skipping file creation')
+                    LOGGER.warning(f'No valid histogram found for {sample}, skipping file creation')
                     continue
 
                 # Write histograms to ROOT file
@@ -190,7 +201,7 @@ def run(cats: str,
                 for hist in hists:
                     hist.Write()
                 f.Close()
-                print(f'----->[Info] Saved histograms in {fOut}\n')
+                LOGGER.info(f'Saved histograms in {fOut}')
 
 
 ######################

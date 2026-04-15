@@ -1,6 +1,6 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 import os, sys, time, subprocess
 
@@ -10,24 +10,14 @@ import pandas as pd
 # Start timer for performance tracking
 t = time.time()
 
-from package.userConfig import loc
-
-from package.config import (
-    timer, mk_processes,
-    z_decays, h_decays, H_decays,
-)
-from package.plots.plotting import Bias, PseudoRatio
-from package.tools.utils import mkdir
-from package.tools.process import preload_histograms, clear_histogram_cache, getMetaInfo
-from package.func.bias import pseudo_datacard
-
 
 
 ########################
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_single=True,
     allow_empty=True,
@@ -40,6 +30,25 @@ parser = create_parser(
     pert=1.05
 )
 arg = parse_args(parser, comb=True)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+from package.userConfig import loc
+from package.config import (
+    timer, mk_processes,
+    z_decays, h_decays, H_decays,
+)
+from package.plots.plotting import Bias, PseudoRatio
+from package.tools.utils import mkdir
+from package.tools.process import preload_histograms, clear_histogram_cache, getMetaInfo
+from package.func.bias import pseudo_datacard
 
 
 
@@ -96,7 +105,7 @@ def _setup_cache() -> None:
 
     # Preload the most used histograms
     hNames = ('zll_recoil_m',)
-    print('----->[Info] Preloading histograms and xsecs before bias loop')
+    LOGGER.info('Preloading histograms and cross-section before bias loop')
     preload_histograms(samples, h_inDir, hNames=hNames, rmww=True)
 
     # Warm up xsec cache for both rmww variants to avoid repeated computations in downstream calls
@@ -136,11 +145,11 @@ def run_fit(target: str,
 
     # Now run the fit via subprocess (fit.py only, datacard already exists)
     cmd = ['python3', '5-Fit/fit.py', '--bias', '--target', target,
-           '--pert', str(pert), '--ecm', str(ecm), '--noprint'] + cmd_args
+           '--pert', str(pert), '--ecm', str(ecm), '--no-print'] + cmd_args
 
     result = subprocess.run(cmd, check=False, capture_output=False, text=True, env=os.environ.copy())
     if result.returncode != 0:
-        print(f"----->[Error] Fit subprocess failed (exit {result.returncode}) while running {cmd}")
+        LOGGER.error(f'Fit subprocess failed (exit {result.returncode}) while running {cmd}')
         sys.exit(result.returncode)
 
     # Extract and return the fitted signal strength
@@ -167,18 +176,17 @@ def get_bias(inDir: str,
     _setup_cache()
 
     for idx, h_decay in enumerate(h_decays):
-        print(f'----->[Info] Running fit for {h_decay} channel')
+        LOGGER.info(f'Running fit for {h_decay} channel')
 
         # Run fit and compute bias as percentage difference from prior
         # Pass cat, ecm, sel, proc_scales to run_fit for cached histogram access
         mu = run_fit(h_decay, pert, cmd_args, cat, ecm, sel)
         bias[idx] = 100 * (mu - pert)
-
-        print(f'\n----->[Info] Bias obtained: {bias[idx]:.3f}\n')
+        LOGGER.info(f'Bias obtained: {bias[idx]:.3f}')
 
         # Generate pseudodata ratio plots (only for single channel, not combined)
         if not arg.combine:
-            print('----->[Info] Making plots for pseudo-signal')
+            LOGGER.info('Making plots for pseudo-signal')
             args = {
                 'inDir': inDir, 'outDir': outDir,
                 'cat': cat, 'target': h_decay,
@@ -192,12 +200,12 @@ def get_bias(inDir: str,
                 PseudoRatio(**args, sel=sel_full)
 
     # Save bias results to CSV file
-    print('----->[Info] Saving bias in a .csv file')
+    LOGGER.info('Saving bias in a .csv file')
     df = pd.DataFrame({'mode':h_decays, 'bias':bias})
 
     result_csv = f'{loc_result}/bias_results.csv'
     df.to_csv(result_csv, index=False)
-    print(f'----->[Info] Bias saved at {result_csv}')
+    LOGGER.info(f'Bias saved at {result_csv}')
 
     return df, bias
 
@@ -208,7 +216,7 @@ def bias_to_txt(outDir: str,
                 ) -> None:
     """Format and save bias results to a text file with fixed-width columns."""
 
-    print('----->[Info] Saving bias in a .txt file')
+    LOGGER.info('Saving bias in a .txt file')
 
     out = f'{outDir}/bias_results.txt'
     ndecays, col_w = len(h_decays), 15
@@ -230,7 +238,7 @@ def bias_to_txt(outDir: str,
         for row in [header, sep, row_3dec, row_2dec]:
             f.write(row + '\n')
 
-    print(f'----->[Info] Bias saved at {out}')
+    LOGGER.info(f'Bias saved at {out}')
 
 
 ######################
@@ -249,7 +257,7 @@ if __name__=='__main__':
     )
 
     # Generate bias summary plots
-    print('----->[Info] Making plot of the bias')
+    LOGGER.info('Making plot of the bias')
     Bias(df, nomDir, loc_result, H_decays, ecm=ecm, lumi=lumi)
 
     # Save bias results to formatted text file

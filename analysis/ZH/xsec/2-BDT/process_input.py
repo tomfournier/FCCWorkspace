@@ -1,19 +1,41 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
-
-print('\n----->[Info] Loading modules')
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 # Standard library imports for timing and command-line arguments
 from time import time
-
+import sys
 # Data manipulation
 import pandas as pd
 
 # Start execution timer
 t = time()
 
-print('----->[Info] Loading custom modules')
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_single=True,
+    include_sels=True,
+    description='BDT Input Processing Script'
+)
+arg = parse_args(parser, True)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+LOGGER.debug('Loading custom modules')
 
 # Import configuration and utilities
 from package.userConfig import loc
@@ -35,19 +57,7 @@ from package.func.bdt import (
     df_split_data
 )
 
-
-
-########################
-### ARGUMENT PARSING ###
-########################
-
-from package.parsing import create_parser, parse_args
-parser = create_parser(
-    cat_single=True,
-    include_sels=True,
-    description='BDT Input Processing Script'
-)
-arg = parse_args(parser, True)
+LOGGER.debug('Modules loaded')
 
 
 
@@ -120,7 +130,7 @@ def run(inDir: str,
         else:
             Modes = modes.copy()
         lenght = max(len(m) for m in Modes)
-        print(f'\n----->[Info] Modes used: {" ".join(Modes.keys())}\n')
+        LOGGER.info(f'Modes used: {" ".join(Modes.keys())}')
 
         # Process each decay mode
         for mode in Modes:
@@ -129,8 +139,10 @@ def run(inDir: str,
 
             # Load data and calculate efficiencies
             df[mode], eff[mode], N_events[mode] = counts_and_effs(files[mode], vars, only_eff=False)
-            print(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}')
-            print(f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%\n')
+            LOGGER.info(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}\n'
+                        f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%\n')
+
+            sys.exit(1)
 
             # Add signal/background labels and weights
             df[mode] = additional_info(df[mode], mode, sig)
@@ -138,10 +150,10 @@ def run(inDir: str,
         # Calculate optimal number of BDT inputs per mode
         N_BDT_inputs = BDT_input_numbers(df, Modes, sig, eff, xsec, frac)
 
-        print('\n----->[Info] Printing BDT inputs number for the different modes')
+        LOGGER.info('Printing BDT inputs number for the different modes')
         # Split data for each mode into training and validation sets
         for mode in Modes:
-            print(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}')
+            LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}')
             df[mode] = df_split_data(df[mode], N_BDT_inputs, eff, xsec, N_events, mode)
 
         # Combine all modes and save to pickle file

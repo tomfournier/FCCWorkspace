@@ -1,11 +1,36 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 from time import time
 
 # Start timer for performance tracking
 t = time()
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_multi=True,
+    include_sels=True,
+    cutflow=True,
+    description='Cutflow Script'
+)
+arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
 
 from package.userConfig import loc
 from package.config import (
@@ -16,21 +41,6 @@ from package.plots.cutflow import (
     get_cutflow,
     branches_from_cuts
 )
-
-
-
-########################
-### ARGUMENT PARSING ###
-########################
-
-from package.parsing import create_parser
-parser = create_parser(
-    cat_multi=True,
-    include_sels=True,
-    cutflow=True,
-    description='Cutflow Script'
-)
-arg = parser.parse_args()
 
 
 
@@ -108,7 +118,7 @@ def run(cats: list[str],
         ) -> None:
     '''Generate cutflow plots for each channel and selection strategy.'''
     for cat in cats:
-        print(f'\n----->[Info] Making plots for {cat} channel\n')
+        LOGGER.info(f'Making plots for {cat} channel')
         # Define process names (signal must be first)
         procs = [f'Z{cat}H' if not arg.tot else 'ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
         procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
@@ -120,7 +130,7 @@ def run(cats: list[str],
         # Extract required branches from cuts and variables
         branches = branches_from_cuts(cuts, variables)
         br_str = ', '.join(br for br in branches)
-        print(f'----->[Info] Only importing these branches from the .root file: \n\t{br_str}\n')
+        LOGGER.info(f'Only importing these branches from the .root file: {br_str}')
 
         # Generate cutflow plots and tables
         get_cutflow(

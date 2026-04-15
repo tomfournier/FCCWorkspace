@@ -1,16 +1,12 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 import os, sys, subprocess
 
 from time import time
 from uuid import uuid4
 from datetime import datetime
-
-from package.userConfig import loc
-from package.config import timer
-from package.tools.utils import mkdir
 
 # Start timer for performance tracking
 t = time()
@@ -21,7 +17,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     allow_empty=True,
@@ -30,18 +27,31 @@ parser = create_parser(
     description='Fit Script'
 )
 arg = parse_args(parser, comb=True)
+set_log(arg)
 
-# Set category to combined if combining channels
-if arg.combine: arg.cat = 'combined'
+LOGGER = get_logger(__name__)
 
-# Bundle arguments for directory lookup
-args = [arg.cat, arg.ecm, arg.sel]
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+from package.userConfig import loc
+from package.config import timer
+from package.tools.utils import mkdir
 
 
 
 ###############################
 ### DIRECTORY CONFIGURATION ###
 ###############################
+
+# Set category to combined if combining channels
+if arg.combine: arg.cat = 'combined'
+
+# Bundle arguments for directory lookup
+args = [arg.cat, arg.ecm, arg.sel]
 
 # Map fit mode (nominal vs bias) to corresponding directory locations
 location_map = {
@@ -106,7 +116,7 @@ def add_stamp(path: str,
     # Append stamp to log file
     with open(path, 'a') as log_file:
         log_file.write(stamp)
-    print(f'----->[Info] Added STAMP: {ts} | id={uniq} | status={status} | file={label}')
+    LOGGER.debug(f'Added STAMP: {ts} | id={uniq} | status={status} | file={label}')
 
 def fitting(
         dir: str,
@@ -128,15 +138,14 @@ def fitting(
             dc_mu = f'{dc_comb}/mumu/{tp}/datacard/datacard{tar}.txt'
             dc_ee = f'{dc_comb}/ee/{tp}/datacard/datacard{tar}.txt'
 
-            print('\n----->[Info] Combining datacards')
+            LOGGER.info('Combining datacards')
             with open(dc_combined, 'w') as out:
                 subprocess.run(['combineCards.py', dc_mu, dc_ee],
                                stdout=out, env=env, check=True)
 
         # Convert datacard to RooFit workspace
         with open(log_text, 'w') as log_out:
-            enter = '' if arg.combine else '\n'
-            print(f'{enter}----->[Info] Setting files for the fit')
+            LOGGER.info('Setting files for the fit')
             subprocess.run(['text2workspace.py', dc_combined, '-v', '10',
                             '--X-allow-no-background', '-m', '125', '-o', ws_file],
                            stdout=log_out, stderr=subprocess.STDOUT,
@@ -145,7 +154,7 @@ def fitting(
 
         # Run the maximum likelihood fit
         with open(result_log, 'w') as log_out:
-            print('----->[Info] Doing the fit')
+            LOGGER.info('Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '10', '-t', '0', '--expectSignal=1', '-n', 'Xsec'],
                            stdout=log_out, stderr=subprocess.STDOUT,
@@ -159,7 +168,7 @@ def fitting(
             text_status = f'error exit={exc.returncode}'
         elif fit_status=='not-run':
             fit_status = f'error exit={exc.returncode}'
-        print(f'----->[Error] Fit command failed with exit code {exc.returncode}')
+        LOGGER.error(f'Fit command failed with exit code {exc.returncode}')
         return exc.returncode
     finally:
         # Add execution stamps to log files for tracking
@@ -178,7 +187,7 @@ def res_extraction(res_log: str
                    ) -> tuple[float,
                               float]:
     """Extract signal strength (mu) and uncertainty from fit results log."""
-    print('----->[Info] Fit done, extracting results')
+    LOGGER.info('Fit done, extracting results')
     mu, err = -100, -100  # Initialize with error values
 
     # Parse log file for signal strength result
@@ -205,45 +214,47 @@ def res_extraction(res_log: str
 ### RESULTS SAVING ###
 ######################
 
-def res_saving(mu: float,
-               err: float,
-               res: str
-               ) -> None:
+def res_saving(
+        mu: float,
+        err: float,
+        res: str
+         ) -> None:
     """Save fitting results (signal strength and uncertainty) to output file."""
 
     # Check if results were successfully extracted
     if (mu==-100) and (err==-100):
-        print("----->[Error] Couldn't extract value of the fit, go to the log to have more informations")
-        exit(0)
+        LOGGER.error("Couldn't extract values of the fit, go to the log file to have more information")
+        exit(1)
     else:
         # Display results unless suppressed by flag
         if not arg.print:
-            print('----->[Info] Results successfully extracted')
-            print(f'\tmu = {mu} +/- {err}')
-            print(f'----->[Info] Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
+            LOGGER.info('Results successfully extracted\n'
+                        f'mu = {mu} +/- {err}')
+            LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
 
         # Write results to output file
         with open(f'{res}/results{tar}.txt', 'w') as f:
             f.write(f'{mu}\n{err}\n')
 
-        print(f'----->[Info] Saved results in {res}/results{tar}.txt')
+        LOGGER.info(f'Saved results in {res}/results{tar}.txt')
 
 
 ######################
 ### CODE EXECUTION ###
 ######################
 
-# Execute the fitting pipeline
-ret = fitting(dir, dc, ws, tp, dc_comb, env)
-if ret != 0:
-    sys.exit(ret)
+if __name__=='__main__':
+    # Execute the fitting pipeline
+    ret = fitting(dir, dc, ws, tp, dc_comb, env)
+    if ret != 0:
+        sys.exit(ret)
 
-# Extract results from fit
-mu, err = res_extraction(result_log)
+    # Extract results from fit
+    mu, err = res_extraction(result_log)
 
-# Save results to output file
-res_saving(mu, err, res)
+    # Save results to output file
+    res_saving(mu, err, res)
 
-# Print execution time if requested
-if __name__=='__main__' and arg.t:
-    timer(t)
+    # Print execution time if requested
+    if arg.t:
+        timer(t)

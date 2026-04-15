@@ -1,20 +1,11 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 import os, sys, time, subprocess
 
 # Start timing for performance tracking
 t = time.time()
-
-from package.userConfig import loc
-from package.config import (
-    timer, mk_processes,
-    z_decays,
-    h_decays,
-    H_decays
-)
-from package.func.bias import pseudo_datacard
 
 
 
@@ -22,9 +13,9 @@ from package.func.bias import pseudo_datacard
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args
-
-parser = create_parser(
+from package.parsing import ArgumentParser, create_parser, parse_args, set_log
+from package.logger import get_logger
+parser: ArgumentParser = create_parser(
     cat_single=True,
     allow_empty=True,
     include_sel=True,
@@ -44,6 +35,24 @@ parser.add_argument('--nobias', help='Do not run from bias_test.py', action='sto
 parser.add_argument('--onlyrun', help='Only run the fit', action='store_true')
 parser.add_argument('--run',     help='Run the fit',      action='store_true')
 arg = parse_args(parser, comb=True)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+from package.userConfig import loc
+from package.config import (
+    timer, mk_processes,
+    z_decays,
+    h_decays,
+    H_decays
+)
+from package.func.bias import pseudo_datacard
 
 
 
@@ -124,7 +133,7 @@ if arg.run or arg.onlyrun:
     # Execute fit command with error handling
     try:
         show_cmd = ' '.join(cmd)
-        print(f"----->[Info] Running fit command: {show_cmd}")
+        LOGGER.info(f'Running fit command: {show_cmd}')
         result = subprocess.run(
             cmd,
             check=False,
@@ -132,8 +141,8 @@ if arg.run or arg.onlyrun:
             text=True,
             env=os.environ.copy()
         )
-    except FileNotFoundError:
-        print('----->[Error] Could not find python or 5-Fit/fit.py')
+    except Exception as e:
+        LOGGER.error(f"Error during fit execution: {e}")
         sys.exit(1)
 
 # Print elapsed time if requested

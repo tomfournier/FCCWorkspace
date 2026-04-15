@@ -1,14 +1,38 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 from time import time
 
 # Start timer for performance tracking
 t = time()
 
-from package.userConfig import loc
 
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_multi=True,
+    include_sels=True,
+    plots=True,
+    description='Measurement plots Script'
+)
+arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+from package.userConfig import loc
 from package.config import (
     timer, mk_processes,
     z_decays, H_decays,
@@ -18,21 +42,6 @@ from package.tools.utils import high_low_sels
 from package.tools.process import (
     preload_histograms, clear_histogram_cache
 )
-
-
-
-########################
-### ARGUMENT PARSING ###
-########################
-
-from package.parsing import create_parser
-parser = create_parser(
-    cat_multi=True,
-    include_sels=True,
-    plots=True,
-    description='Measurement plots Script'
-)
-arg = parser.parse_args()
 
 
 
@@ -110,7 +119,7 @@ args = {
 def run(cats, sels, vars, processes, colors, legend):
     '''Generate distribution plots for all channels, selections, and variables.'''
     for cat in cats:
-        print(f'\n----->[Info] Making plots for {cat} channel\n')
+        LOGGER.info(f'Making plots for {cat} channel')
         # Define process names (signal must be first)
         procs = ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
@@ -122,7 +131,7 @@ def run(cats, sels, vars, processes, colors, legend):
             if not arg.yields or not arg.make or not arg.decay or arg.scan:
                 # Preload all histograms for this selection to avoid repeated file I/O
                 all_procs = [p for proc in processes.values() for p in proc]
-                print(f'\n----->[Info] Making plots for {sel} selection')
+                LOGGER.info(f'Making plots for {sel} selection')
                 preload_histograms(all_procs, inDir, suffix=f'_{sel}_histo', hNames=vars)
 
             # Generate yields plots unless skipped
@@ -133,7 +142,7 @@ def run(cats, sels, vars, processes, colors, legend):
             # Generate distribution and decay plots unless all skipped
             if not arg.make or not arg.decay or arg.scan:
                 for var in vars:
-                    print(f'\n----->[Info] Making plots for {var}')
+                    LOGGER.info(f'Making plots for {var}')
 
                     # Generate significance scan plots if requested
                     if arg.scan:
@@ -171,7 +180,7 @@ if __name__=='__main__':
     try:
         run(cats, sels, variables, processes, colors, labels)
     except Exception as e:
-        print(f'Error during plotting: {e}')
+        LOGGER.error(f'Error during plotting: {e}')
     finally:
         # Print execution time
         timer(t)
