@@ -14,8 +14,6 @@ Usage:
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-print('----->[Info] Loading modules')
-
 # Standard library and scientific computing imports
 import sys, json, uproot
 
@@ -28,7 +26,30 @@ import matplotlib.pyplot as plt
 # Start execution timer
 t = time()
 
-print('----->[Info] Loading custom modules')
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_single=True,
+    optimize=True,
+    is_plot=True,
+    description='Optimisation Plots Script'
+)
+arg = parse_args(parser, validate_cat=True)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
 
 # Import configuration paths and plot settings
 from package.userConfig import loc, plot_file
@@ -41,19 +62,10 @@ from package.plots.python.plotter import (
 )
 
 
-########################
-### ARGUMENT PARSING ###
-########################
 
-from package.parsing import create_parser, parse_args
-parser = create_parser(
-    cat_single=True,
-    optimize=True,
-    is_plot=True,
-    description='Optimisation Plots Script'
-)
-arg = parse_args(parser, validate_cat=True)
-
+################################
+### MATPLOTLIB STYLE SETTING ###
+################################
 
 set_plt_style()
 plt.ioff()
@@ -84,7 +96,7 @@ def load_results(results_file: Path) -> dict[str, dict]:
         Dictionary with results keyed by chi2_frac
     """
     if not results_file.exists():
-        print(f"Warning: Results file not found: {results_file}")
+        LOGGER.warning(f'Results file not found: {results_file}\nReturning empty data')
         return {}
 
     with open(results_file, 'r') as f:
@@ -157,12 +169,12 @@ def efficiency(
         ax.scatter(chi2_fracs, efficiencies*100, marker='.')
 
         # Highlight optimal point
-        ax.scatter(optimal_chi2, optimal_eff*100, color='r', marker='*', s=150)
-
-        # Add vertical line at optimal point
-        ax.axvline(x=optimal_chi2, color='gray', alpha=0.8,
+        ax.scatter(optimal_chi2, optimal_eff*100, color='r', marker='*', s=150,
                    label=(f'Optimal: $w_{{\\ell^{{+}}\\ell^{{-}}}}$ = {optimal_chi2:.2f}\n'
                           f'Max Eff.: $\\epsilon = {optimal_eff*100:.2f}\\%$'))
+
+        # Add vertical line at optimal point
+        ax.axvline(x=optimal_chi2, color='gray', alpha=0.8)
 
         ax.set_xlim(0, 1)
         if full_range: ax.set_ylim(0, 1)
@@ -183,6 +195,7 @@ def pairing_composition(
         n_partial: np.ndarray,
         n_incorrect: np.ndarray,
         n_total: np.ndarray,
+        efficiencies: np.ndarray,
         outDir: Path,
         label: str,
          ) -> None:
@@ -200,6 +213,10 @@ def pairing_composition(
     """
     if len(chi2_fracs) == 0 or np.all(n_total == 0):
         return
+
+    optimal_idx  = np.argmax(efficiencies)
+    optimal_chi2 = chi2_fracs[optimal_idx]
+    optimal_eff  = efficiencies[optimal_idx]
 
     # Create figure
     fig, ax = _make_fig()
@@ -219,6 +236,12 @@ def pairing_composition(
         ax.fill_between(chi2_fracs, correct + partial,
                         correct + partial + incorrect,
                         label='Both Incorrect', color='red', alpha=0.7)
+
+        # Optimal chi2 plot
+        if optimal_chi2 != 0:
+            ax.scatter(optimal_chi2, optimal_eff*100, color='red', marker='*', s=150,
+                       label=(f'Optimal: $w_{{\\ell^{{+}}\\ell^{{-}}}}$ = {optimal_chi2:.2f}\n'
+                              f'Max Eff.: $\\epsilon = {optimal_eff*100:.2f}\\%$'))
 
         # Labels and formatting
         set_labels(ax, r'$w_{\ell^{+}\ell^{-}}$', r'Percentage of Events [\%]', right=label)
@@ -292,13 +315,14 @@ def load_data(root_file: Path) -> dict[str, np.ndarray]:
         Dictionary mapping variable names to numpy arrays
     """
     if not root_file.exists():
-        print(f"Warning: ROOT file not found: {root_file}")
+        LOGGER.warning(f'ROOT file not found: {root_file}')
+        print(f"Warning: ROOT file not found: {root_file}\nReturning empty data")
         return {}
 
     try:
         with uproot.open(root_file) as file:
             if 'distributions' not in file:
-                print(f"Warning: 'distributions' not found in {root_file}")
+                LOGGER.warning(f"'distributions' not found in {root_file}\nReturning empty data")
                 return {}
 
             tree = file['distributions']
@@ -310,11 +334,12 @@ def load_data(root_file: Path) -> dict[str, np.ndarray]:
 
             return distributions
     except Exception as e:
-        print(f"Error loading ROOT file {root_file}: {e}")
+        LOGGER.error(f'Error loading ROOT file {root_file}: {e}')
         return {}
 
 
 def plot_comp(
+        old: np.ndarray,
         reco: np.ndarray,
         true: np.ndarray,
         var_name: str,
@@ -322,7 +347,7 @@ def plot_comp(
         outDir: Path,
         label: str,
         bins: int = 100,
-        scale: str = 'linear'
+        log_scale: str = 'linear',
          ) -> None:
     """Plot comparison between reconstructed and true distributions.
 
@@ -334,32 +359,38 @@ def plot_comp(
         label: LaTeX label for the final state
         bins: Number of bins for histogram
     """
+    # Check if arrays are not empty
+    if len(old) == 0 or len(reco) == 0 or len(true) == 0:
+        LOGGER.warning(f'Empty array for {var_name}, skipping plot')
+        return
+
     # Create figure with subplots
     fig, ax = _make_fig()
 
     try:
         # Determine common range for both histograms
-        xmin = min(reco.min(), true.min())
-        xmax = max(reco.max(), true.max())
+        xmin = min(old.min(), reco.min(), true.min())
+        xmax = max(old.max(), reco.max(), true.max())
 
         # Left plot: Overlay histograms
-        ax.hist(reco, bins=bins, range=(xmin, xmax),
-                alpha=0.6, label='Reconstructed', color='blue', density=True)
+        ax.hist(old, bins=bins, range=(xmin, xmax), histtype='step',
+                label=r'$w_{\ell^+\ell^-}=0.6$', color='blue', density=True)
+        ax.hist(reco, bins=bins, range=(xmin, xmax), histtype='step',
+                label=r'Optimal $w_{\ell^+\ell^-}$', color='red', density=True)
         ax.hist(true, bins=bins, range=(xmin, xmax),
-                alpha=0.6, label='True', color='red', density=True)
+                label='True', color='green', density=True)
 
-        set_labels(ax, xlabel, 'Density', right=label)
+        set_labels(ax, xlabel, 'Unit Area', right=label)
 
         ax.set_xlim(xmin, xmax)
-        if scale in ['linear', 'log']:
-            ax.set_yscale(scale)
-            scale = scale.replace('linear', 'lin')
+        if log_scale in ['linear', 'log']:
+            ax.set_yscale(log_scale)
         else:
-            raise ValueError(f'{scale = } value is not supported, choose between [lin, log]')
+            raise ValueError(f'{log_scale = } value is not supported, choose between [linear, log]')
         ax.legend()
 
         # Save figure
-        savefigs(fig, outDir, var_name, suffix='_'+scale, format=plot_file)
+        savefigs(fig, outDir, var_name, suffix='_'+log_scale, format=plot_file)
 
     finally:
         plt.close(fig)
@@ -369,6 +400,8 @@ def compare_dists(
         old_file: Path,
         optimal_file: Path,
         outDir: Path,
+        proc: str,
+        lumi: float,
         label: str) -> None:
     """Compare distributions between old (chi2_frac=0.4) and optimal chi2_frac.
 
@@ -383,7 +416,7 @@ def compare_dists(
     opt_dists = load_data(optimal_file)
 
     if not old_dists or not opt_dists:
-        print("Warning: Could not load distributions")
+        LOGGER.warning('Could not load distributions, skipping plot')
         return
 
     print("----->[Info] Generating distribution comparison plots")
@@ -410,43 +443,32 @@ def compare_dists(
     ]
 
     # Create subdirectories for old and optimal
-    old_outDir = outDir / 'old'
-    opt_outDir = outDir / 'optimal'
-    old_outDir.mkdir(parents=True, exist_ok=True)
-    opt_outDir.mkdir(parents=True, exist_ok=True)
+    outDir.mkdir(parents=True, exist_ok=True)
 
     # Generate comparison plots for each distribution
     for reco_var, true_var, display_name in comparisons:
         # Check if variables exist
         if reco_var not in old_dists or true_var not in old_dists:
-            print(f"Warning: Variables {reco_var} or {true_var} not found in old distributions")
+            LOGGER.warning(f'Variables {reco_var} or {true_var} not found in old distributions')
             continue
 
         if reco_var not in opt_dists or true_var not in opt_dists:
-            print(f"Warning: Variables {reco_var} or {true_var} not found in optimal distributions")
+            LOGGER.warning(f'Variables {reco_var} or {true_var} not found in optimal distributions')
             continue
 
         # Plot old distributions
-        for scale in ['linear', 'log']:
-            plot_comp(
-                old_dists[reco_var],
-                old_dists[true_var],
-                reco_var,
-                display_name,
-                old_outDir,
-                label,
-                scale=scale
-            )
+        for log_scale in ['linear', 'log']:
 
             # Plot optimal distributions
             plot_comp(
+                old_dists[reco_var],
                 opt_dists[reco_var],
                 opt_dists[true_var],
                 reco_var,
                 display_name,
-                opt_outDir,
+                outDir,
                 label,
-                scale=scale
+                log_scale=log_scale,
             )
 
 
@@ -464,7 +486,7 @@ def main():
     outDir = loc.get('PLOTS_OPTIMISATION', cat, ecm, type=Path)
 
     if not inDir.exists():
-        print(f"Error: Input directory not found: {inDir}")
+        LOGGER.error(f'Input directory not found: {inDir}')
         sys.exit(1)
 
     # Get processes to plot
@@ -474,7 +496,7 @@ def main():
         procs = arg.procs.split('-')
 
     if not procs:
-        print(f"Error: No processes found in {inDir}")
+        LOGGER.error(f'No process found in {inDir}')
         sys.exit(1)
 
     # Set LaTeX label
@@ -498,16 +520,16 @@ def main():
             Label = label + r')$'
 
         if not results_file.exists():
-            print(f"Warning: Results file not found for {proc}: {results_file}")
+            LOGGER.warning(f'Results file not found for {proc}: {results_file}\nSkipping {proc}')
             continue
 
-        print(f"\n----->[Info] Processing {proc}")
+        LOGGER.info(f'Processing {proc}')
 
         # Load results
         results = load_results(results_file)
 
         if not results:
-            print(f"Warning: No results loaded for {proc}")
+            LOGGER.warning(f'No result loaded for {proc}, skipping')
             continue
 
         # Create output directory
@@ -531,15 +553,15 @@ def main():
 
                 # Skip if no data for this category
                 if len(chi2_fracs) == 0 or np.all(n_total == 0):
-                    print(f"Warning: No data for {category} category in {proc}")
+                    LOGGER.warning(f'No data for {category} category in {proc}, skipping')
                     continue
 
                 # Generate optimization plots
-                print(f"----->[Info] Generating {category} plots for {proc}")
+                LOGGER.info(f'Generating {category} plots for {proc}')
                 efficiency(chi2_fracs, efficiencies, cat_outDir, Label)
                 pairing_composition(
                     chi2_fracs,
-                    n_correct, n_partial, n_incorrect, n_total,
+                    n_correct, n_partial, n_incorrect, n_total, efficiencies,
                     cat_outDir, Label
                 )
                 event_counts(
@@ -550,22 +572,25 @@ def main():
 
         if arg.dist:
             # Generate distribution comparison plots
-            print(f"----->[Info] Generating distribution comparison plots for {proc}")
+            LOGGER.info(f'Generating vairbale distribution comparison plots for {proc}')
             dist_outDir  = out_dir / 'distributions'
             old_file     = proc_dir / 'results_old.root'
             optimal_file = proc_dir / 'results_optimal.root'
 
+            lumi = 10.8 if ecm == 240 else (3.12 if ecm == 365 else -1)
+
             if old_file.exists() and optimal_file.exists():
-                compare_dists(old_file, optimal_file, dist_outDir, Label)
+                compare_dists(old_file, optimal_file, dist_outDir, proc, lumi, Label)
             else:
-                print(f"Warning: Distribution files not found for {proc}")
-                if not old_file.exists():
-                    print(f"  Missing: {old_file}")
-                if not optimal_file.exists():
-                    print(f"  Missing: {optimal_file}")
+                missing = ''
+                if not old_file.exists():     missing += f'Missing: {old_file}\n'
+                if not optimal_file.exists(): missing += f'Missing: {optimal_file}'
+                LOGGER.warning(f'Distribution file not found for {proc}\n{missing}')
 
 
-
+######################
+### CODE EXECUTION ###
+######################
 
 if __name__ == '__main__':
     try:

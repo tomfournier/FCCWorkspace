@@ -8,9 +8,9 @@ Usage:
     python3 optimize_ll.py
 """
 
-###########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
-###########################################################
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
 import sys, json, time, uproot
 
@@ -21,9 +21,6 @@ from glob import glob
 from tqdm import tqdm
 from pathlib import Path
 
-from package.userConfig import loc
-from package.config import timer
-
 t = time.time()
 
 
@@ -32,13 +29,26 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_single=True,
     optimize=True,
     description='Optmisation Script'
 )
 arg = parse_args(parser, True)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+from package.userConfig import loc
+from package.config import timer
 
 
 
@@ -60,12 +70,12 @@ class Optimizer:
 
         inFiles = glob(str(inDir / proc / '*'))
         if not inFiles:
-            print(f"----->[WARNING] No files found in {inDir / proc}/\n\tSearching for {inDir / (proc+'.root')} file")
+            LOGGER.warning(f'No file found in {inDir / proc}\nSearching for {inDir / (proc+".root")} file')
             inFile: Path = inDir / (proc+'.root')
             if  inFile.exists():
                 inFiles = [str(inFile)]
             else:
-                print(f"----->[ERROR]: No files found in {inDir / (proc+'.root')}")
+                LOGGER.error(f'No file found in {inDir / (proc+".root")}')
                 sys.exit(1)
 
         self.inFiles = inFiles
@@ -73,7 +83,7 @@ class Optimizer:
         self.outDir.mkdir(parents=True, exist_ok=True)
         self.ecm = ecm
 
-        print(f'\n----->[Info] Loading data for process {proc}')
+        LOGGER.info(f'Loading data for process {proc}')
         self.load_data(nevents)
         self.results = {}
 
@@ -116,9 +126,26 @@ class Optimizer:
                 if nevents > 0:
                     n_entries = min(n_entries, nevents - event_count)
 
-                # Accumulate sliced data
+                # Slice arrays
                 for name in branch_names:
-                    data[name].append(arrays[name][:n_entries])
+                    arrays[name] = arrays[name][:n_entries]
+
+                # Apply mass cut: remove pairs within 3 GeV of Higgs mass (125 GeV)
+                # Only apply to jagged (per-pair) branches
+                mass_cut = np.abs(arrays['mass'] - 125) > 3
+                jagged_branches = [
+                    'mass', 'recoil', 'leading_mc', 'subleading_mc',
+                    'leading_p', 'leading_pt', 'leading_theta',
+                    'subleading_p', 'subleading_pt', 'subleading_theta',
+                    'zll_p', 'zll_pt', 'zll_theta'
+                ]
+
+                # Accumulate filtered jagged data and unfiltered flat data
+                for name in branch_names:
+                    if name in jagged_branches:
+                        data[name].append(arrays[name][mass_cut])
+                    else:
+                        data[name].append(arrays[name])
 
                 event_count += n_entries
                 if nevents > 0 and event_count >= nevents:
@@ -127,6 +154,9 @@ class Optimizer:
         # Concatenate all data and assign them as attributes
         for name in branch_names:
             setattr(self, name, ak.concatenate(data[name]))
+
+        # Recalculate n_pair after filtering (number of pairs per event)
+        self.n_pair = ak.num(self.mass)
 
         # Track actual number of events loaded (not metadata from file)
         self.n_events = len(self.mass)
@@ -137,8 +167,10 @@ class Optimizer:
         self.n_one_pair   = int(np.sum(n_pair == 1))
         self.n_multi_pair = int(np.sum(n_pair >  1))
 
-        print(f"----->[Info] Loaded {self.n_events:,} events (total events in files: {self.total_events:,})")
-        print(f"----->[Info] Event breakdown: {self.n_zero_pair:,} with 0 pairs, {self.n_one_pair:,} with 1 pair, {self.n_multi_pair:,} with >1 pairs")
+        LOGGER.info(f'Loaded {self.n_events:,} events (total events in files: {self.total_events:,})')
+        LOGGER.info(f'Event breakdown: {self.n_zero_pair:,} with 0 pairs\n'
+                    f'                 {self.n_one_pair:,} with 1 pair\n'
+                    f'                 {self.n_multi_pair:,} with >1 pair')
 
 
     def best_pair_idx(self, dm, drec, frac):
@@ -160,6 +192,10 @@ class Optimizer:
         # Get best pair indices using precomputed distances
         best_idx = self.best_pair_idx(dm, drec, frac)
 
+        # Handle events with 0 pairs: mask them out
+        n_pairs = ak.num(self.leading_mc)
+        has_pairs = n_pairs > 0
+
         # Extract best pairs using vectorized awkward masking
         local_idx = ak.local_index(self.leading_mc, axis=1)                # [[0,1,2,...], [0,1,2,...], ...]
         mask_mc1 = local_idx == best_idx[:, None]                                # Create mask for each event
@@ -167,17 +203,19 @@ class Optimizer:
         reco_mc1 = np.asarray(ak.flatten(self.leading_mc[mask_mc1]))     # Extract and flatten
         reco_mc2 = np.asarray(ak.flatten(self.subleading_mc[mask_mc2]))
 
-        # Get true MC indices
+        # Get true MC indices and pair counts
         true_mc1 = np.asarray(self.Leading_MC)
         true_mc2 = np.asarray(self.Subleading_MC)
         n_pair_array = np.asarray(self.n_pair)
 
-        # Vectorized matching: count how many reconstructed leptons match truth
-        match1: np.ndarray = (reco_mc1 == true_mc1) | (reco_mc1 == true_mc2)
-        match2: np.ndarray = (reco_mc2 == true_mc1) | (reco_mc2 == true_mc2)
+        # Initialize matches array with 0 for all events
+        matches = np.zeros(self.n_events, dtype=int)
 
-        # Sum matches per event (0, 1, or 2)
-        matches = match1.astype(int) + match2.astype(int)
+        # Only compute matches for events that have pairs after filtering
+        if len(reco_mc1) > 0:
+            match1: np.ndarray = (reco_mc1 == true_mc1[has_pairs]) | (reco_mc1 == true_mc2[has_pairs])
+            match2: np.ndarray = (reco_mc2 == true_mc1[has_pairs]) | (reco_mc2 == true_mc2[has_pairs])
+            matches[has_pairs] = match1.astype(int) + match2.astype(int)
 
         # Create masks for different pair categories
         mask_zero  = n_pair_array == 0
@@ -187,15 +225,18 @@ class Optimizer:
         # Helper function to compute metrics for a category
         def compute_category_stats(matches, mask):
             cat_matches = matches[mask]
+            n_pairs = n_pair_array[mask]
             n_correct   = int(np.sum(cat_matches == 2))
             n_partial   = int(np.sum(cat_matches == 1))
-            n_incorrect = int(np.sum(cat_matches == 0))
+            n_incorrect = int(np.sum((cat_matches == 0) & (n_pairs > 0)))  # Only count as incorrect if pairs exist
+            n_no_pairs  = int(np.sum(n_pairs == 0))  # Events with no pairs after filtering
             n_total     = int(np.sum(mask))
-            efficiency  = n_correct / max(n_total, 1)
+            efficiency  = n_correct / max(n_total - n_no_pairs, 1)  # Exclude no-pair events from efficiency
             return {
                 'n_correct':   n_correct,
                 'n_partial':   n_partial,
                 'n_incorrect': n_incorrect,
+                'n_no_pairs':  n_no_pairs,
                 'n_total':     n_total,
                 'efficiency':  efficiency,
             }
@@ -225,6 +266,13 @@ class Optimizer:
         # Get best pair indices
         best_idx = self.best_pair_idx(dm, drec, chi2_frac)
 
+        # Fill None values (from events with 0 pairs) with 0 as placeholder
+        best_idx = ak.fill_none(best_idx, 0)
+
+        # Identify events with at least 1 pair after filtering
+        n_pairs = ak.num(self.mass)
+        has_pairs_mask = np.asarray(n_pairs > 0)
+
         # Helper function to select values based on best pairing index for each event
         def select_by_idx(array, indices):
             """Select elements from jagged array using indices for each event (vectorized)"""
@@ -249,30 +297,30 @@ class Optimizer:
             'subleading_pt':    select_by_idx(self.subleading_pt,    best_idx),
             'subleading_theta': select_by_idx(self.subleading_theta, best_idx),
 
-            # True leptons (not affected by pairing selection)
-            'Leading_p':     np.asarray(self.Leading_p),
-            'Leading_pt':    np.asarray(self.Leading_pt),
-            'Leading_theta': np.asarray(self.Leading_theta),
+            # True leptons (only for events with surviving pairs)
+            'Leading_p':     np.asarray(self.Leading_p)[has_pairs_mask],
+            'Leading_pt':    np.asarray(self.Leading_pt)[has_pairs_mask],
+            'Leading_theta': np.asarray(self.Leading_theta)[has_pairs_mask],
 
-            'Subleading_p':     np.asarray(self.Subleading_p),
-            'Subleading_pt':    np.asarray(self.Subleading_pt),
-            'Subleading_theta': np.asarray(self.Subleading_theta),
+            'Subleading_p':     np.asarray(self.Subleading_p)[has_pairs_mask],
+            'Subleading_pt':    np.asarray(self.Subleading_pt)[has_pairs_mask],
+            'Subleading_theta': np.asarray(self.Subleading_theta)[has_pairs_mask],
 
             # Reconstructed Z system (selected based on best pairing)
             'zll_p':     select_by_idx(self.zll_p,     best_idx),
             'zll_pt':    select_by_idx(self.zll_pt,    best_idx),
             'zll_theta': select_by_idx(self.zll_theta, best_idx),
 
-            # True Z system (not affected by pairing selection)
-            'Zll_p':     np.asarray(self.Zll_p),
-            'Zll_pt':    np.asarray(self.Zll_pt),
-            'Zll_theta': np.asarray(self.Zll_theta),
+            # True Z system (only for events with surviving pairs)
+            'Zll_p':     np.asarray(self.Zll_p)[has_pairs_mask],
+            'Zll_pt':    np.asarray(self.Zll_pt)[has_pairs_mask],
+            'Zll_theta': np.asarray(self.Zll_theta)[has_pairs_mask],
 
             # Pair variables (selected based on best pairing)
             'mass':   select_by_idx(self.mass,   best_idx),
             'recoil': select_by_idx(self.recoil, best_idx),
-            'Mass':   np.asarray(self.Mass),
-            'Recoil': np.asarray(self.Recoil)
+            'Mass':   np.asarray(self.Mass)[has_pairs_mask],
+            'Recoil': np.asarray(self.Recoil)[has_pairs_mask]
         }
 
     def save_distributions(self, chi2_frac: float, filename: str):
@@ -312,7 +360,7 @@ class Optimizer:
             # Write as ROOT tree
             file["distributions"] = structured_data
 
-        print(f"----->[Info] Distributions saved to: {outFile}")
+        LOGGER.info(f'Variables distribution saved to {outFile}')
 
 
     def optimize(
@@ -353,6 +401,7 @@ class Optimizer:
                     'n_correct':   result['zero_pair']['n_correct'],
                     'n_partial':   result['zero_pair']['n_partial'],
                     'n_incorrect': result['zero_pair']['n_incorrect'],
+                    'n_no_pairs':  result['zero_pair']['n_no_pairs'],
                     'n_total':     result['zero_pair']['n_total']
                 },
                 'one_pair': {
@@ -360,6 +409,7 @@ class Optimizer:
                     'n_correct':   result['one_pair']['n_correct'],
                     'n_partial':   result['one_pair']['n_partial'],
                     'n_incorrect': result['one_pair']['n_incorrect'],
+                    'n_no_pairs':  result['one_pair']['n_no_pairs'],
                     'n_total':     result['one_pair']['n_total']
                 },
                 'multi_pair': {
@@ -367,12 +417,13 @@ class Optimizer:
                     'n_correct':   result['multi_pair']['n_correct'],
                     'n_partial':   result['multi_pair']['n_partial'],
                     'n_incorrect': result['multi_pair']['n_incorrect'],
+                    'n_no_pairs':  result['multi_pair']['n_no_pairs'],
                     'n_total':     result['multi_pair']['n_total']
                 }
             }
 
         outFile.write_text(json.dumps(json_results, indent=4))
-        print(f"----->[Info] Results saved: {outFile}")
+        LOGGER.info(f'Results saved at {outFile}')
         return outFile
 
 
@@ -389,7 +440,7 @@ def main():
     outDir = loc.get('OPTIMISATION_RES', cat, ecm, type=Path)
 
     if not inDir.exists():
-        print(f"Error: Input directory not found: {inDir}")
+        LOGGER.error(f'Input directory not found at {inDir}')
         sys.exit(1)
 
     if arg.procs == '':
@@ -404,14 +455,14 @@ def main():
 
         # Find optimal chi2_frac
         best_frac = max(optimizer.results.items(), key=lambda x: x[1]['overall']['efficiency'])[0]
-        print(f"----->[Info] Optimal chi2_frac: {best_frac:.2f}")
+        LOGGER.info(f'Optimal chi2_frac: {best_frac:.2f}')
 
         # Save distributions for chi2_frac = 0.6
-        print("----->[Info] Saving distributions for chi2_frac = 0.6")
+        LOGGER.info('Saving variables distribution for chi2_frac = 0.6')
         optimizer.save_distributions(0.6, 'results_old.root')
 
         # Save distributions for optimal chi2_frac
-        print(f"----->[Info] Saving distributions for optimal chi2_frac = {best_frac:.2f}")
+        LOGGER.info(f'Saving variables distribution for optimal chi2_frac = {best_frac:.2f}')
         optimizer.save_distributions(best_frac, 'results_optimal.root')
 
 

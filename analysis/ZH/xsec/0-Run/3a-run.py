@@ -43,6 +43,7 @@ parser = create_parser(
     run_stages=3,
     batch=True,  # Have to implement it
     optimize=True,
+    is_run=True,
     description='Run Optimisation pipeline'
 )
 arg = parser.parse_args()
@@ -126,6 +127,10 @@ def run(cat: str,
         extra_args.extend(['--incr',    str(arg.incr)])
     elif 'plots' in script:
         extra_args.extend(['--procs', arg.procs])
+        if not arg.dist:
+            extra_args.append('--no-dist')
+        if not arg.metrics:
+            extra_args.append('--no-metrics')
 
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \

@@ -269,7 +269,9 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
 
 def add_optimize_args(
         parser: ArgumentParser,
-        is_plot: bool = False) -> None:
+        is_plot: bool = False,
+        is_run: bool = False
+         ) -> None:
     '''Add optimization arguments (procs, nevents, incr).'''
     args = parser.add_argument_group('Optimization arguments')
     args.add_argument(
@@ -278,7 +280,7 @@ def add_optimize_args(
         default='',
         help='Processes to optimize for (comma-separated)'
     )
-    if not is_plot:
+    if not is_plot or is_run:
         args.add_argument(
             '--nevents',
             type=int,
@@ -291,7 +293,7 @@ def add_optimize_args(
             default=0.1,
             help='Parameter increment (default: 0.1)'
         )
-    if is_plot:
+    if is_plot or is_run:
         parser.add_argument(
             '--metrics',
             action=BooleanOptionalAction,
@@ -428,6 +430,7 @@ def create_parser(
         cutflow: bool = False,
         optimize: bool = False,
         is_plot: bool = False,
+        is_run: bool = False,
         polarization: bool = False,
         fit: bool = False,
         bias: bool = False,
@@ -497,7 +500,7 @@ def create_parser(
     if cutflow:
         add_cutflow_args(parser)
     if optimize:
-        add_optimize_args(parser, is_plot)
+        add_optimize_args(parser, is_plot, is_run)
     if polarization:
         add_polarization(parser)
     if fit:
