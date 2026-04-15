@@ -218,6 +218,8 @@ def pairing_composition(
     optimal_chi2 = chi2_fracs[optimal_idx]
     optimal_eff  = efficiencies[optimal_idx]
 
+    old_eff = efficiencies[chi2_fracs==0.6][0]
+
     # Create figure
     fig, ax = _make_fig()
 
@@ -242,6 +244,10 @@ def pairing_composition(
             ax.scatter(optimal_chi2, optimal_eff*100, color='red', marker='*', s=150,
                        label=(f'Optimal: $w_{{\\ell^{{+}}\\ell^{{-}}}}$ = {optimal_chi2:.2f}\n'
                               f'Max Eff.: $\\epsilon = {optimal_eff*100:.2f}\\%$'))
+        if old_eff:
+            ax.scatter(0.6, old_eff*100, color='green', marker='*', s=150,
+                       label=(f'Baseline: $w_{{\\ell^{{+}}\\ell^{{-}}}}$ = 0.6\n'
+                              f'$\\epsilon = {old_eff*100:.2f}\\%$'))
 
         # Labels and formatting
         set_labels(ax, r'$w_{\ell^{+}\ell^{-}}$', r'Percentage of Events [\%]', right=label)
@@ -316,7 +322,6 @@ def load_data(root_file: Path) -> dict[str, np.ndarray]:
     """
     if not root_file.exists():
         LOGGER.warning(f'ROOT file not found: {root_file}')
-        print(f"Warning: ROOT file not found: {root_file}\nReturning empty data")
         return {}
 
     try:
@@ -411,7 +416,7 @@ def compare_dists(
         outDir: Output directory for plots
         label: LaTeX label for the final state
     """
-    print("----->[Info] Loading distribution files")
+    LOGGER.info('Loading distribution files')
     old_dists = load_data(old_file)
     opt_dists = load_data(optimal_file)
 
@@ -419,7 +424,7 @@ def compare_dists(
         LOGGER.warning('Could not load distributions, skipping plot')
         return
 
-    print("----->[Info] Generating distribution comparison plots")
+    LOGGER.info('Generating distribution comparison plots')
 
     # Define variable pairs (reconstructed, true)
     comparisons = [

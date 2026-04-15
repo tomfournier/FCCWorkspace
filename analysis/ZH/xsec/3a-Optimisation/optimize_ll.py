@@ -168,9 +168,9 @@ class Optimizer:
         self.n_multi_pair = int(np.sum(n_pair >  1))
 
         LOGGER.info(f'Loaded {self.n_events:,} events (total events in files: {self.total_events:,})')
-        LOGGER.info(f'Event breakdown: {self.n_zero_pair:,} with 0 pairs\n'
-                    f'                 {self.n_one_pair:,} with 1 pair\n'
-                    f'                 {self.n_multi_pair:,} with >1 pair')
+        LOGGER.info(f'Event breakdown: {self.n_zero_pair:<10,} with  0 pairs\n'
+                    f'                 {self.n_one_pair:<10,} with  1 pair\n'
+                    f'                 {self.n_multi_pair:<10,} with >1 pair')
 
 
     def best_pair_idx(self, dm, drec, frac):
