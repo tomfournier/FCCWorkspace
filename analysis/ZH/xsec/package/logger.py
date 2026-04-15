@@ -120,7 +120,7 @@ def setup_logging(verbose: bool = False, logger_name: str = 'FCCAnalysis') -> No
 
     # Create formatter with the custom multi-line formatter
     formatter = MultiLineFormatter(
-        fmt='[%(levelname)-8s] %(name)s: %(message)s'
+        fmt='[%(levelname)s]: %(message)s'
     )
 
     # Create and configure stream handler (console output)
