@@ -30,9 +30,10 @@ def get_leps(df: 'ROOT.ROOT.RDataFrame'
     """
     # Define all lepton properties (before cuts)
     df = df.Define('leps_all', 'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
+    df = df.Define('leps_FSR', 'FCCAnalyses::recoverFSR(leps_all, Photon0, ReconstructedParticles, 0.99)')
 
     # Apply momentum cut (p > 20 GeV) to reduce soft backgrounds
-    df = df.Define('leps', 'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_all)')
+    df = df.Define('leps', 'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_FSR)')
 
     # Select isolated leptons: Irel < 0.25 (relative isolation ratio)
     df = df.Define('leps_q',       'FCCAnalyses::ReconstructedParticle::get_charge(leps)')
