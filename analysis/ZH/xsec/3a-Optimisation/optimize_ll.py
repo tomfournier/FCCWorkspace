@@ -436,7 +436,7 @@ def main():
     """Main analysis function"""
     cat, ecm, nevents = arg.cat, arg.ecm, arg.nevents
 
-    inDir = loc.get('OPTIMISATION_TEST', cat, ecm, type=Path)
+    inDir = loc.get('OPTIMISATION_TREE', cat, ecm, type=Path)
     outDir = loc.get('OPTIMISATION_RES', cat, ecm, type=Path)
 
     if not inDir.exists():

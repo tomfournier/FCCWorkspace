@@ -23,7 +23,7 @@ cat, ecm = get_params(os.environ.copy(), '3a-run.json')
 #############################
 
 # Output directory for training events (default is local directory)
-outputDir = loc.get('OPTIMISATION_TEST', cat, ecm)
+outputDir = loc.get('OPTIMISATION_TREE', cat, ecm)
 
 # Include custom C++ analysis functions
 includePaths = ['../../../../functions/functions.h',
