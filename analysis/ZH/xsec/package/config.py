@@ -45,6 +45,10 @@ from time import time
 from functools import lru_cache
 from typing import Sequence, Union
 
+from .logger import get_logger
+
+LOGGER = get_logger(__name__)
+
 
 
 #############################
@@ -55,8 +59,9 @@ from typing import Sequence, Union
 input_vars = (
     'leading_p',    'leading_theta',
     'subleading_p', 'subleading_theta',
-    'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',
-    'zll_m', 'zll_p', 'zll_theta'
+    'acolinearity', 'acoplanarity',
+    # 'zll_m',
+    'zll_p', 'zll_theta'
 )
 
 
@@ -99,12 +104,8 @@ _ZZ_COLOR   = None
 _ZG_COLOR   = None
 _RARE_COLOR = None
 
-def _init_colors(use_root: bool = False):
-    """Initialize ROOT colors on first access.
-
-    Args:
-        use_root: If True, use ROOT.TColor.GetColor(); if False, use numeric constants.
-    """
+def _init_colors():
+    """Initialize ROOT colors on first access."""
     global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR
     if _ZH_COLOR is None:
         root = _get_root()
@@ -114,11 +115,8 @@ def _init_colors(use_root: bool = False):
         _ZG_COLOR   = root.TColor.GetColor('#964a8b')  # Purple for Z/gamma
         _RARE_COLOR = root.TColor.GetColor('#9c9ca1')  # Gray for rare processes
 
-def _get_h_colors_dict(use_root: bool = False) -> dict:
+def _get_h_colors_dict() -> dict:
     """Lazy-load h_colors with color constants.
-
-    Args:
-        use_root: If True, use ROOT color constants; if False, use numeric codes.
 
     Returns:
         Dictionary mapping decay modes to color codes.
@@ -370,7 +368,8 @@ def warning(log_msg: str,
     msg += f'{log_msg:^{lenght}}\n'
     sep  = '=' * lenght
     msg += f'{sep:^{lenght}}\n'
-    print(msg)
+
+    LOGGER.error(msg)
 
     sys.exit(1)
 
@@ -407,7 +406,7 @@ def timer(t: float
     elapsed = f"Elapsed time: {' '.join(time_parts)}"
     lenght = len(elapsed) + 4
 
-    print(f'\n{" CODE ENDED ":=^{lenght}}\n{elapsed:^{lenght}}\n{"="*lenght}\n')
+    LOGGER.info(f'\n{" CODE ENDED ":=^{lenght}}\n{elapsed:^{lenght}}\n{"="*lenght}\n')
 
 
 

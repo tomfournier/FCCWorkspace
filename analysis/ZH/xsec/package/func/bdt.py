@@ -66,6 +66,9 @@ if TYPE_CHECKING:
     import xgboost as xgb
 
 from ..tools.utils import mkdir
+from ..logger import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -215,8 +218,9 @@ def df_split_data(
     '''
     from sklearn.model_selection import train_test_split
 
-    sampled = df.sample(n=N_BDT_inputs[mode], random_state=1)
+    sampled: pd.DataFrame = df.sample(n=N_BDT_inputs[mode], random_state=1)
     # Split 50/50 into training and validation sets
+    df0: pd.DataFrame; df1: pd.DataFrame
     df0, df1 = train_test_split(sampled, test_size=0.5, random_state=7)
 
     # Normalization weight per event
@@ -247,14 +251,14 @@ def print_stats(
         None
     '''
 
-    lenght = max(len(m) for m in modes)
-    print(f"{'NUMBER OF BDT INPUT EVENTS':=^45}")
+    lenght, n = max(len(m) for m in modes), 110
+    LOGGER.info(f"{' NUMBER OF BDT INPUT EVENTS ':=^{n}}")
     train = df['valid'] == False
     for m in modes:
         m_mask = df['sample']==m
-        print(f"{f'Number of training for {m:<{lenght+2}} : {int((m_mask &  train).sum())}':^45}")
-        print(f"{f'Number of validation for {m:<{lenght}} : {int((m_mask & ~train).sum())}':^45}")
-        print(f"{'=' * 45:^45}")
+        LOGGER.info(f"{f'Number of training for {m:<{lenght+2}} : {int((m_mask &  train).sum()):<10,}':^45}"
+                    f"  {f'Number of validation for {m:<{lenght}} : {int((m_mask & ~train).sum()):<10,}':^45}".center(n))
+    LOGGER.info(f"{'=' * n:^{n}}\n")
 
 # ____________________________
 def split_data(
@@ -320,7 +324,7 @@ def train_model(
         early_stopping_rounds=early
     )
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
-    print('----->[Info] Beginning the training')
+    LOGGER.info('Beginning the training')
     bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True)
     return bdt
 
@@ -387,7 +391,7 @@ def load_model(inDir: str) -> 'xgb.XGBClassifier':
     '''
     import joblib
     fpath = f'{inDir}/xgb_bdt.joblib'
-    print(f'--->Loading BDT model {fpath}')
+    LOGGER.info(f'Loading BDT model {fpath}')
     return joblib.load(fpath)
 
 # ____________________________
@@ -409,7 +413,7 @@ def save_model(
     import joblib, ROOT
     mkdir(path)
     froot, fjob = f'{path}/xgb_bdt.root', f'{path}/xgb_bdt.joblib'
-    print(f'\n----->[Info] Saving BDT in a .root file at {froot}')
+    LOGGER.info(f'Saving BDT in a .root file at {froot}')
     # Save model in TMVA ROOT format
     ROOT.TMVA.Experimental.SaveXGBoost(
         bdt, 'ZH_Recoil_BDT', froot, num_inputs=len(vars)
@@ -423,7 +427,7 @@ def save_model(
     with ROOT.TFile(froot, 'UPDATE') as fOut:
         fOut.WriteObject(variables, 'variables')
 
-    print(f'------>[Info] Saving BDT in a .joblib file at {fjob}')
+    LOGGER.info(f'Saving BDT in a .joblib file at {fjob}')
     # Save model in joblib format for Python
     joblib.dump(bdt, fjob, compress=2)
 
@@ -489,7 +493,7 @@ def make_high_low(
     '''
 
     valid_sels = [sel for sel in sels if sel in cutList]
-    print(f'----->[Info] Adding selection with BDT separation for:\n\t{" ".join(valid_sels)}')
+    LOGGER.info(f'Adding selection with BDT separation for\n{" ".join(valid_sels)}')
     for sel in valid_sels:
         old_cut = cutList[sel]
         # Add high BDT score region (signal-like)

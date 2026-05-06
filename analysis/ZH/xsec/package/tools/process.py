@@ -31,7 +31,9 @@ if TYPE_CHECKING:
 
 
 from .utils import get_procDict
-from ..config import warning
+from ..logger import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 # Cache for process dictionaries to avoid repeated file I/O
@@ -94,7 +96,7 @@ def preload_histograms(
     import ROOT
     from tqdm import tqdm
 
-    print('\n----->[Info] Preloading histograms into cache...')
+    LOGGER.info('Preloading histograms into cache...')
 
     # Pre-cache WW scales (use global cache to persist across calls)
     ww_scales_cache = WW_SCALE_CACHE
@@ -147,7 +149,7 @@ def preload_histograms(
         for hName in hist_names_to_load:
             h = f.Get(hName)
             if not h:
-                print(f"----->[WARNING] couldn't load {hName} from {fInName}")
+                LOGGER.warning(f"Couldn't load {hName} from {fInName}")
                 continue
 
             # Clone and detach from file
@@ -166,7 +168,7 @@ def preload_histograms(
 
         f.Close()
 
-    print(f'----->[Info] Preloading complete. Cached {len(HIST_CACHE)} files.\n')
+    LOGGER.info(f'Preloading complete. Cached {len(HIST_CACHE)} files')
 
 
 # __________________________________
@@ -179,7 +181,7 @@ def clear_histogram_cache() -> None:
     global HIST_CACHE, WW_SCALE_CACHE
     HIST_CACHE.clear()
     WW_SCALE_CACHE.clear()
-    print('----->[Info] Histogram cache cleared.')
+    LOGGER.info('Histogram cache cleared')
 
 
 # _______________________________________________________
@@ -253,11 +255,11 @@ def get_hist(
     import ROOT
 
     fpath = os.path.join(inDir, f'{proc}{suffix}.root')
-    print(f'----->[Info] Getting {hName} from \n\t {fpath}')
+    LOGGER.info(f'Getting {hName} from {fpath}')
 
     # Verify input file exists
     if not os.path.exists(fpath):
-        warning(f'Input file not found: {fpath}')
+        LOGGER.warning(f'Input file not found: {fpath}')
         return None
 
     # Open ROOT file and check validity
@@ -270,7 +272,7 @@ def get_hist(
     # Retrieve histogram and check if found
     h = f.Get(hName)
     if h is None:
-        warning(f'Histogram {hName} not found in {fpath}')
+        LOGGER.warning(f'Histogram {hName} not found in {fpath}')
         f.Close()
         return None
 
@@ -280,7 +282,7 @@ def get_hist(
     # Apply WW cross-section correction if needed
     scale, xsec = 1.0, getMetaInfo(proc, rmww=False)
     if xsec!=0 and 'p8_ee_WW_ecm' in proc:
-        print(f'----->[Info] Rescaling {proc} sample to account for leptonic decay removing')
+        LOGGER.debug(f'Rescaline {proc} sample to account for leptonic decay removing')
         xsec_new = getMetaInfo(proc, rmww=True)
         scale = xsec_new / xsec
 
@@ -352,7 +354,7 @@ def getHist(
                     hist.Add(h)
                 continue
             elif not lazy:
-                warning(f'Histogram {hName} not found in cache for {proc}')
+                LOGGER.warning(f'Histogram {hName} not found in cache for {proc}')
                 continue
         fInName = os.path.join(inDir, f'{proc}{suffix}.root')
 
@@ -363,7 +365,8 @@ def getHist(
                 where.append('File existence')
                 continue
             else:
-                warning(f'ERROR: cannot open input file {fInName}')
+                LOGGER.error(f'Cannot find input file {fInName}')
+                exit(1)
 
         # Open ROOT file
         f = ROOT.TFile.Open(fInName)
@@ -375,7 +378,7 @@ def getHist(
                 where.append('File opening')
                 continue
             else:
-                warning(f'ERROR: cannot open input file {fInName}')
+                LOGGER.error(f'Cannot open input file {fInName}')
                 exit(1)
 
         # Retrieve histogram
@@ -387,7 +390,7 @@ def getHist(
                 where.append('Histogram retrieval')
                 continue
             else:
-                warning(f'Histogram {hName} not found in {fInName}')
+                LOGGER.warning(f'Histogram {hName} not found in {fInName}')
                 return None
 
         # Detach histogram from file
@@ -419,9 +422,7 @@ def getHist(
 
     if hist is None:
         msgs = [n+' | at step '+w for n, w in zip(names, where)]
-        print("----->[WARNING] Couldn't find histograms")
-        print("----->[WARNING] For processes\n\t"+'\n\t'.join(msgs))
-        print('----->[WARNING] Returning None')
+        LOGGER.warning("Couldn't find histograms for processes"+'\n'.join(msgs)+'\nReturning None')
         return None
 
     # Apply post-processing: rebinning and scaling
@@ -451,7 +452,7 @@ def concat(
     '''
     import ROOT
 
-    print(f'----->[Info] Concatenating {hName}')
+    LOGGER.info(f'Concatenating {hName}')
 
     # Calculate total number of bins
     tot_bins = sum([h.GetNbinsX() for h in h_list])
@@ -507,8 +508,7 @@ def proc_scale(
             scale = proc_scales.get(proc_name)
             if scale is not None:
                 hist.Scale(scale)
-                print(f'----->[Info] Scaled histogram '
-                      f'to ILC scale by a factor of {scale:.3f}')
+                LOGGER.info(f'Scaled histogram to ILC scale by a factor of {scale:.3f}')
             break
     return hist
 

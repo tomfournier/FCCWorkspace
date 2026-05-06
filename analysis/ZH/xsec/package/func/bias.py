@@ -49,6 +49,9 @@ if TYPE_CHECKING:
 
 from ..tools.utils import mkdir
 from ..tools.process import getMetaInfo, getHist
+from ..logger import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -90,8 +93,7 @@ def _scaling(
     sigs: list[list[str]],
     h_decays: list[str],
     target: str,
-    variation: float,
-    verbose: bool = True
+    variation: float
      ) -> tuple[float,
                 float,
                 float]:
@@ -101,8 +103,7 @@ def _scaling(
         sigs (list[list[str]]): Nested list of signal process names for each Higgs decay.
         h_decays (list[str]): List of Higgs decay channel names.
         target (str): Target Higgs decay channel to perturb.
-        variation (float): Scaling factor for total cross-section (e.g., 1.05 for +5%).
-        verbose (bool, optional): If True, print scaling information. Defaults to True.
+        variation (float): Scaling factor for total cross-section (e.g., 1.05 for +5%)
 
     Returns:
         tuple: (scale_target, xsec_tot, xsec_tot_new) where scale_target is the scaling factor applied to the target channel, xsec_tot is the original total cross-section, and xsec_tot_new is the new total cross-section after variation.
@@ -122,10 +123,9 @@ def _scaling(
     scale_target = 1.0 + xsec_delta / xsec_target  # Scale for target channel
     xsec_tot_new = xsec_tot * variation            # New total cross-section
 
-    if verbose:
-        print(f'----->[Info] Making pseudo data for {target} channel')
-        print(f'----->[Info] Perturbation: {(variation-1)*100:.2f} %, Scale: {scale_target:.3f}')
-        print(f'----->[Info] Target xsec: {xsec_target:.3e} pb-1')
+    LOGGER.debug(f'Making pseudo data for {target} channel')
+    LOGGER.debug(f'Perturbation: {(variation-1)*100:.2f} %, Scale: {scale_target:.3f}')
+    LOGGER.debug(f'Target xsec: {xsec_target:.3e} pb-1')
 
     return scale_target, xsec_tot, xsec_tot_new
 
@@ -237,8 +237,9 @@ def make_pseudodata(
     delta_pct = (hist_new.Integral() / hist_old.Integral() - 1.0) * 100
     scale_ratio = xsec_tot_new / xsec_tot
 
-    print(f'----->[Info] Signal increased by {delta_pct:.2f} %')
-    print(f'----->[CROSS-CHECK] Scale ratio {scale_ratio:.2f} vs target {variation}\n')
+    LOGGER.info(f'Signal increased by {delta_pct:.2f} %')
+    LOGGER.debug(f'Scale ratio {scale_ratio:.2f} vs target {variation}')
+
     return hist_pseudo
 
 # ____________________________
@@ -250,7 +251,6 @@ def make_datacard(
     categories: list[str],
     freezeBkgs: bool = False,
     floatBkgs: bool = False,
-    plot_dc: bool = False
      ) -> None:
     '''Generate a datacard for statistical analysis with Combine.
 
@@ -265,7 +265,6 @@ def make_datacard(
         categories (list[str]): List of category names (e.g., different channels).
         freezeBkgs (bool, optional): If True, freeze background normalizations. Defaults to False.
         floatBkgs (bool, optional): If True, float backgrounds as negative process indices. Defaults to False.
-        plot_dc (bool, optional): If True, print the datacard content to console. Defaults to False.
 
     Returns:
         None
@@ -335,11 +334,10 @@ def make_datacard(
 
     # Write datacard to file
     fOut = f'{outDir}/datacard_{target}.txt'
-    print(f'----->[Info] Saving datacard to {fOut}')
+    LOGGER.info(f'Saving datacard to {fOut}')
     with open(fOut, 'w') as f: f.write(dc)
 
-    # Optionally print datacard content
-    if plot_dc: print(f'\n{dc}\n')
+    LOGGER.debug(f'\n{dc}\n')
 
 # ___________________________________
 def pseudo_datacard(
@@ -356,7 +354,6 @@ def pseudo_datacard(
     scales: str = '',
     freeze: bool = False,
     float_bkg: bool = False,
-    plot_dc: bool = False
      ) -> None:
     '''
     Generate pseudodata histogram and datacard for a specific Higgs decay target.
@@ -374,7 +371,6 @@ def pseudo_datacard(
         proc_scales (dict): Process-specific scale factors.
         freeze (bool, optional): Freeze background normalizations. Defaults to False.
         float_bkg (bool, optional): Float backgrounds. Defaults to False.
-        plot_dc (bool, optional): Print datacard to console. Defaults to False.
     '''
 
     import ROOT
@@ -412,21 +408,20 @@ def pseudo_datacard(
 
     # Create output directory and save histograms
     mkdir(outDir)
-    print('----->[Info] Saving pseudo histograms')
+    LOGGER.info('Saving pseudo histograms')
     fOut = f'{outDir}/datacard_{target}.root'
 
     with ROOT.TFile(fOut, 'RECREATE'):
         for h in hists:
             h.Write()
 
-    print(f'----->[Info] Histograms saved in {fOut}')
+    LOGGER.info(f'Histograms saved in {fOut}')
 
     # Generate datacard for combine fit
-    print('----->[Info] Making datacard')
+    LOGGER.info('Making datacard')
     make_datacard(
         outDir, procs, target, 1.01, categories,
         freezeBkgs=freeze, floatBkgs=float_bkg,
-        plot_dc=plot_dc
     )
 
 # ___________________________

@@ -34,6 +34,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import matplotlib.pyplot as plt
 
+from ...logger import get_logger
+
+LOGGER = get_logger(__name__)
+
 
 
 ######################
@@ -131,4 +135,4 @@ def savefigs(
     # Save figure in each specified format
     for f in format:
         fig.savefig(f'{fpath}.{f}', bbox_inches='tight')
-        print(f'\tSaved plot to {fpath}.{f}')
+        LOGGER.info(f'Saved plot to {fpath}.{f}')

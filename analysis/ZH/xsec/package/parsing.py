@@ -39,16 +39,22 @@ def add_cat_argument(
         multi: bool = False,
         allow_empty: bool = False,
         default: str = '',
+        allow_qq: bool = True,
         group=None
          ) -> None:
     '''Add --cat/--cats argument for final state selection.'''
-    choices = ['ee', 'mumu', 'qq']
+
+    def_value = default or ('ee-mumu' if multi else '')
+
+    choices = ['ee', 'mumu', 'qq'] if allow_qq else ['ee', 'mumu']
     if multi:
-        choices.extend([
-            'ee-mumu', 'ee-qq',   'ee-mumu-qq', 'ee-qq-mumu',
-            'mumu-ee', 'mumu-qq', 'mumu-ee-qq', 'mumu-qq-ee',
-            'qq-ee',   'qq-mumu', 'qq-ee-mumu', 'qq-mumu-ee'
-        ])
+        choices.extend(['ee-mumu', 'mumu-ee'])
+        if allow_qq:
+            choices.extend([
+                'ee-qq', 'ee-mumu-qq', 'ee-qq-mumu',
+                'mumu-qq', 'mumu-ee-qq', 'mumu-qq-ee',
+                'qq-ee', 'qq-mumu', 'qq-ee-mumu', 'qq-mumu-ee'
+            ])
     if allow_empty:
         choices.append('')
 
@@ -56,15 +62,15 @@ def add_cat_argument(
         group = parser.add_argument_group('General arguments')
 
     # Use metavar to show a concise pattern instead of listing all choices
-    metavar = 'CHANNELS' if multi else '{ee,mumu,qq}'
-    help_text = ('Final state lepton category: ee, mumu, qq' +
+    metavar = 'CHANNELS' if multi else ('{ee, mumu, qq}' if allow_qq else '{ee, mumu}')
+    help_text = ('Final state lepton category: ee, mumu' + ', qq' if allow_qq else '' +
                  (' or combinations separated by dash like ee-mumu' if multi else '') +
-                 ' (default: "")')
+                 f' (default: "{def_value}")')
 
     group.add_argument(
         '--cat', '--cats',
         type=str,
-        default=default or ('ee-mumu' if multi else ''),
+        default=def_value,
         choices=choices,
         metavar=metavar,
         help=help_text
@@ -91,7 +97,7 @@ def add_ecm_argument(
     if group is None:
         group = parser.add_argument_group('General arguments')
 
-    metavar = 'ENERGIES' if multi else '{240,365}'
+    metavar = 'ENERGIES' if multi else '{240, 365}'
     help_text = ('Center-of-mass energy in GeV: 240 or 365' +
                  (' or combinations separated by dash like 240-365' if multi else '') +
                  ' (default: 240)')
@@ -134,7 +140,7 @@ def add_sels_argument(
         '--sels',
         type=str,
         default=default,
-        help='Selections to process (dash-separated for multiple) (default: "")'
+        help='Selections to process (dash-separated for multiple choices) (default: "")'
     )
 
 
@@ -209,7 +215,7 @@ def add_bdt_eval(parser: ArgumentParser) -> None:
     args.add_argument(
         '--tree',
         action=BooleanOptionalAction,
-        default=True,
+        default=False,
         help='Plot decision trees'
     )
 
@@ -251,7 +257,7 @@ def add_plots_args(parser: ArgumentParser) -> None:
     args.add_argument(
         '--scan',
         action=BooleanOptionalAction,
-        default=True,
+        default=False,
         help='Make significance scan plots',
     )
 
@@ -270,7 +276,8 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
 def add_optimize_args(
         parser: ArgumentParser,
         is_plot: bool = False,
-        is_run: bool = False
+        is_run: bool = False,
+        only_procs: bool = False
          ) -> None:
     '''Add optimization arguments (procs, nevents, incr).'''
     args = parser.add_argument_group('Optimization arguments')
@@ -280,7 +287,7 @@ def add_optimize_args(
         default='',
         help='Processes to optimize for (comma-separated)'
     )
-    if not is_plot or is_run:
+    if not (is_plot or is_run) and not only_procs:
         args.add_argument(
             '--nevents',
             type=int,
@@ -293,7 +300,7 @@ def add_optimize_args(
             default=0.1,
             help='Parameter increment (default: 0.1)'
         )
-    if is_plot or is_run:
+    if (is_plot or is_run) and not only_procs:
         parser.add_argument(
             '--metrics',
             action=BooleanOptionalAction,
@@ -336,7 +343,7 @@ def add_fit_args(
         default_target: str = '',
         default_pert: float = 1.0
          ) -> None:
-    '''Add fit arguments (pert, target, combine, bias, t, noprint).'''
+    '''Add fit arguments (pert, target, combine, bias, t, print).'''
     args = parser.add_argument_group('Fit arguments')
     args.add_argument(
         '--pert',
@@ -417,6 +424,7 @@ def create_parser(
         cat_single: bool = False,
         cat_multi: bool = False,
         cat_default: str = '',
+        allow_qq: bool = True,
         ecm_multi: bool = False,
         ecm_default: int | str | None = None,
         allow_empty: bool = False,
@@ -431,6 +439,7 @@ def create_parser(
         optimize: bool = False,
         is_plot: bool = False,
         is_run: bool = False,
+        only_procs: bool = False,
         polarization: bool = False,
         fit: bool = False,
         bias: bool = False,
@@ -448,6 +457,7 @@ def create_parser(
     Args:
         cat_single: Add --cat for single channel
         cat_multi: Add --cat for multi-channel (ee-mumu combinations)
+        cat_default: Default value for --cat (None: auto-sets to 'ee-mumu' if cat_multi=True, else '')
         ecm_multi: Add --ecm for multi-energy (240-365 combinations)
         allow_empty_cat: Allow empty string for --cat
         include_sel: Add --sel (single selection)
@@ -475,7 +485,7 @@ def create_parser(
 
     # Core arguments (share the same groups)
     if cat_single or cat_multi:
-        add_cat_argument(parser, multi=cat_multi, allow_empty=allow_empty, default=cat_default, group=general)
+        add_cat_argument(parser, multi=cat_multi, allow_empty=allow_empty, default=cat_default, allow_qq=allow_qq, group=general)
     if ecm_multi or (cat_single or cat_multi):
         add_ecm_argument(parser, multi=ecm_multi, default=ecm_default, group=general)
     add_verbose_argument(parser, group=general)
@@ -500,7 +510,7 @@ def create_parser(
     if cutflow:
         add_cutflow_args(parser)
     if optimize:
-        add_optimize_args(parser, is_plot, is_run)
+        add_optimize_args(parser, is_plot, is_run, only_procs)
     if polarization:
         add_polarization(parser)
     if fit:

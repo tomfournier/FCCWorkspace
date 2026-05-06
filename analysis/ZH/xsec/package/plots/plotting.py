@@ -53,6 +53,9 @@ from ..config import (
     vars_xlabel
 )
 from ..tools.utils import mkdir
+from ..logger import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -237,8 +240,7 @@ def get_args(
         elif arg['which']=='decay':
             arg = {}
         else:
-            print("WARNING: Wrong value given to 'which', "
-                  "acting as if 'both' were given")
+            LOGGER.warning("Wrong value given to 'which', acting as if 'both' were given")
 
 
     if 'sel' in arg:
@@ -320,8 +322,7 @@ def args_decay(
         elif arg['which']=='decay':
             del arg['which']
         else:
-            print("WARNING: Wrong value given to 'which', "
-                  "acting as if 'both' were given")
+            LOGGER.warning("Wrong value given to 'which', acting as if 'both' were given")
 
     if 'sel' in arg:
         if '*' in arg['sel']:
@@ -927,7 +928,7 @@ def AAAyields(
             use_cache=False
         )
         if hist is None:
-            print(f"----->[WARNING] Couldn't find histograms for {b}")
+            LOGGER.warning(f"Couldn't find histograms for {b}")
         integral = hist.Integral()
         entries  = hist.GetEntries()
 

@@ -45,6 +45,9 @@ if TYPE_CHECKING:
 from ..tools.utils import get_df, mkdir
 from ..tools.process import getMetaInfo
 from ..config import h_colors, h_labels
+from ..logger import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -673,7 +676,7 @@ def get_cutflow(
         procs_decays[0] = f'z{cat}h'
 
     # Collect metadata from all samples
-    print('----->[Info] Getting processed events')
+    LOGGER.info('Getting processed events')
     for proc in tqdm(procs_decays):
         for sample in processes[proc]:
             events[sample] = {}
@@ -693,11 +696,11 @@ def get_cutflow(
         else:
             col_map[sample] = set()
 
-    print('\n----->[Info] Getting cuts from dataframe')
+    LOGGER.info('Getting cuts from DataFrame')
     for proc in procs_decays:
-        print(f'\n----->[Info] From {proc}')
+        LOGGER.debug(f'From {proc}')
         for sample in processes[proc]:
-            print(f'------>[Info] sample {sample}')
+            LOGGER.info(f'From sample {sample}')
 
             flist = file_list.get(sample, [])
             has_file = bool(flist)
@@ -710,7 +713,7 @@ def get_cutflow(
             if has_file and is_there_events(sample, inDir):
                 for sel in sels:
                     if sel not in cuts: continue
-                    print(f'------->[Info] For selection: {sel}')
+                    LOGGER.info(f'For selection: {sel}')
                     # Initialize cut statistics storage
                     events[sample][sel] = {'raw_count': {}, 'cut': {}, 'err': {}, 'filter': {}}
                     raw_counts = {cut:0.0 for cut in cuts[sel].keys()}
@@ -762,7 +765,7 @@ def get_cutflow(
                             events[sample][sel]['err'][cut] = 0
 
     # Save event counts to JSON for bookkeeping
-    print('----->[Info] Dumping events in a json file')
+    LOGGER.info('Dumping events in a json file')
     out_json = f'{loc_json}/{ecm}/{cat}'
     dump_json(events, out_json, f'events_{cat}_{ecm}')
 
@@ -771,7 +774,7 @@ def get_cutflow(
         if sel not in cuts: continue
         if not tot:
             # Single-channel plots
-            print('----->[Info] Preparing dictionary for cutflow plots')
+            LOGGER.info('Preparing dictionary for cutflow plots')
             # Construct histograms from cut yields
             flow, flow_decay = get_flows(
                 procs, processes,
@@ -782,7 +785,7 @@ def get_cutflow(
                 loc_json=out_json+f'/{sel}'
             )
             # Render main cutflow with signal, backgrounds, and significance
-            print('----->[Info] Making Cutflow plot')
+            LOGGER.info('Making Cutflow plot')
             CutFlow(
                 flow, outDir, cat, sel,
                 procs, colors, legend, cuts, cuts_label,
@@ -792,7 +795,7 @@ def get_cutflow(
                 yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
             )
             # Render per-decay efficiency plots
-            print('----->[Info] Making CutflowDecays plot')
+            LOGGER.info('Making CutflowDecays plot')
             CutFlowDecays(
                 flow_decay, outDir, cat, sel,
                 H_decays, cuts, cuts_label,
@@ -805,7 +808,7 @@ def get_cutflow(
             procs_cat[0] = f'Z{cat}H'
 
             # Channel-specific cutflow
-            print('----->[Info] Preparing dictionary for cutflow plots')
+            LOGGER.info('Preparing dictionary for cutflow plots')
             flow, flow_decay = get_flows(
                 procs_cat, processes,
                 cuts, events,
@@ -815,7 +818,7 @@ def get_cutflow(
                 json_file=json_file,
                 loc_json=out_json+f'/{sel}'
             )
-            print('----->[Info] Making Cutflow plot')
+            LOGGER.info('Makinf Cutflow plot')
             CutFlow(
                 flow, outDir, cat, sel,
                 procs_cat, colors, legend, cuts, cuts_label,
@@ -823,7 +826,7 @@ def get_cutflow(
                 format=format, sig_scale=sig_scale,
                 yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
             )
-            print('----->[Info] Making CutflowDecays plot')
+            LOGGER.info('Makinf CutflowDecays plot')
             CutFlowDecays(
                 flow_decay, outDir, cat, sel,
                 H_decays, cuts, cuts_label,
@@ -840,7 +843,7 @@ def get_cutflow(
                 loc_json=loc_json+f'/{sel}',
                 tot=True
             )
-            print('----->[Info] Making Cutflow plot')
+            LOGGER.info('Making Cutflow plot')
             CutFlow(
                 flow_tot, outDir, cat, sel,
                 procs_tot, colors, legend, cuts, cuts_label,
@@ -849,7 +852,7 @@ def get_cutflow(
                 sig_scale=sig_scale,
                 yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
             )
-            print('----->[Info] Making CutflowDecays plot')
+            LOGGER.info('Making CutflowDecays plot')
             CutFlowDecays(
                 flow_decay_tot, outDir, cat, sel,
                 H_decays, cuts, cuts_label,

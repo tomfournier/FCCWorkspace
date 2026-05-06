@@ -47,7 +47,6 @@ import os
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
-
 from tqdm import tqdm
 
 if TYPE_CHECKING:
@@ -64,7 +63,9 @@ from ..tools.utils import (
     mkdir, Z,
     Significance
 )
+from ..logger import get_logger
 
+LOGGER = get_logger(__name__)
 
 
 ########################
@@ -120,7 +121,7 @@ def _get_splits(
     Returns:
         dict with precomputed masks and split DataFrames
     '''
-    global _splits_cache, _cache_id
+    global _cache_id
 
     # Use DataFrame memory address as cache key
     df_id = id(df)
@@ -204,7 +205,7 @@ def _plot_metric(
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
-    print(f'----->[Info] Plotting {metric_name}')
+    LOGGER.debug(f'Plotting {metric_name}')
     fig, ax = _make_fig(dpi=dpi)
     try:
         ax.plot(x_axis, results['validation_0'][metric_name],
@@ -353,7 +354,7 @@ def plot_roc_curve(
     roc_auc = auc(fpr, tpr)
     mask = tpr >= thresh
     fpr, tpr = fpr[mask], tpr[mask]
-    ax.plot(fpr, tpr, label=label+f', AUC={roc_auc*100:.2f} %',
+    ax.plot(fpr, tpr, label=label+f', AUC = {roc_auc*100:.2f} %',
             color=color, linestyle=linestyle, linewidth=4)
 
 # ______________________________
@@ -381,8 +382,7 @@ def roc(
         dpi (int, optional): Figure DPI. Defaults to 100.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
-
-    print('------>[Info] Plotting ROC')
+    LOGGER.debug('Plotting ROC curve')
     fig, ax = _make_fig(figsize=(12, 12), dpi=dpi)
     try:
         plot_roc_curve(df[df['valid'] == True],  'BDTscore', ax=ax,
@@ -415,7 +415,6 @@ def bdt_score(
     weight: bool = True,
     unity: bool = True,
     dpi: int = 100,
-    verbose: bool = False
      ) -> None:
     '''Plot BDT score distributions for train/validation signal and background.
 
@@ -434,9 +433,8 @@ def bdt_score(
         weight (bool, optional): Whether to apply per-event weights. Defaults to True.
         unity (bool, optional): Normalize each histogram to unit area. Defaults to True.
         dpi (int, optional): Figure DPI. Defaults to 100.
-        verbose (bool, optional): Print category sizes when True. Defaults to False.
     '''
-    print('------>[Info] Plotting BDT score')
+    LOGGER.debug('Plotting BDT score')
 
     # Get splits with single pass through data
     splits = _get_splits(df)
@@ -453,9 +451,8 @@ def bdt_score(
     fig, ax = _make_fig(dpi=dpi)
     try:
         for name, ls, c, d in params:
-            if verbose:
-                ratio = (len(d) / df_len) * 100.0
-                print(f'---------> {name:<25} {len(d):6d} Ratio: {ratio:5.2f}%')
+            ratio = (len(d) / df_len) * 100.0
+            LOGGER.debug(f'{name:<25} {len(d):6d} Ratio: {ratio:5.2f}%')
 
             wts = _get_wts(d, weight)
             ax.hist(d['BDTscore'].values,
@@ -522,7 +519,7 @@ def mva_score(
         dpi (int, optional): Figure DPI. Defaults to 100.
         weight (bool, optional): Whether to apply per-event weights. Defaults to True.
     '''
-    print('------>[Info] Plotting MVA score')
+    LOGGER.debug('Plotting MVA score')
 
     # Get splits with single pass
     splits = _get_splits(df)
@@ -621,12 +618,12 @@ def importance(
         dpi (int, optional): Figure DPI. Defaults to 100.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
-    print('------>[Info] Plotting feature importance')
+    LOGGER.debug('Plotting feature importance')
 
     import pandas as pd
 
     # Extract and sort feature importances by F-score (split count)
-    importance = bdt.get_booster().get_score(importance_type='weight')
+    importance: dict = bdt.get_booster().get_score(importance_type='weight')
     sorted_importance = sorted(importance.items(), key=lambda x: x[1])
 
     # Map feature indices to LaTeX labels and extract values in single pass
@@ -687,7 +684,7 @@ def significance(
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
     import numpy as np
-    print('------>[Info] Plotting Significance scan')
+    LOGGER.debug('Plotting Significance scan')
 
     # Extract validation signal and background samples
     df_sig = df[(df['isSignal'] == 1) & (df['valid'] == True)]
@@ -701,11 +698,11 @@ def significance(
     max_index = df_Z['Z'].idxmax()
     max_Z = df_Z.loc[max_index, 'Z']
 
-    print(f'max-Z: {max_Z:.3f} cut threshold: {max_index:.2f}')
+    LOGGER.debug(f'Max Z: {max_Z:,.3f}, cut threshold: {max_index:,.2f}')
 
     # Save optimal BDT cut threshold to file
     np.savetxt(f'{out_txt}/BDT_cut.txt', [float(max_index)])
-    print(f'----->[Info] Wrote BDT cut in {out_txt}/BDT_cut.txt')
+    LOGGER.debug(f'Wrote BDT cut at {out_txt}/BDT_cut.txt')
 
     fig, ax = _make_fig(dpi=dpi)
     try:
@@ -761,7 +758,7 @@ def efficiency(
         incr (float, optional): Step size for BDT cut thresholds. Defaults to 0.01.
     '''
     import numpy as np
-    print('------>[Info] Calculating efficiencies for each mode')
+    LOGGER.debug('Calculating efficiencies for each mode')
 
     # Create scan grid and filter valid data
     cuts = np.arange(range[0], range[1] + incr, incr)
@@ -771,7 +768,7 @@ def efficiency(
 
     # Vectorized efficiency: broadcast cuts against scores
     # Shape: (len(modes), len(cuts))
-    print('------>[Info] Plotting Efficiency')
+    LOGGER.debug('Plotting Efficiency')
     fig, ax = _make_fig(dpi=dpi)
     try:
         for mode in tqdm(modes):
@@ -826,9 +823,9 @@ def tree_plot(
     # Ensure n does not exceed total number of epochs
     if n > epochs:
         n = epochs
-        print('n > epochs: resetting n to match total epochs')
+        LOGGER.warning('n > epochs: resetting n to match total epoch')
 
-    print('------>[Info] Plotting structure of BDT')
+    LOGGER.debug('Plotting structure of BDT')
     # Generate evenly-spaced tree indices for visualization
     num_trees = np.linspace(0, epochs-1, n, dtype=int)
     for num_tree in tqdm(num_trees):
@@ -849,7 +846,7 @@ def tree_plot(
     # Move rendered images to output directory and clean up
     os.system(f'mv {outDir}/tmp/*.png {outDir}/feature/')
     os.system(f'rm -rf {outDir}/tmp')
-    print(f'------>[Info] Plotted structure of BDT in {outDir}/feature folder')
+    LOGGER.info(f'Plotted structure of BDT in {outDir}/feature')
 
 # _______________________________
 def hist_check(

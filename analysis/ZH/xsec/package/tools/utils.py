@@ -31,6 +31,10 @@ from typing import Callable, TYPE_CHECKING
 if TYPE_CHECKING:
     import pandas as pd
 
+from ..logger import get_logger
+
+LOGGER = get_logger(__name__)
+
 # __________________
 def get_paths(
     mode: str,
@@ -122,7 +126,8 @@ def get_procDict(
     proc_path = os.path.join(base_dir, procFile)
 
     if not os.path.isfile(proc_path):
-        raise FileNotFoundError(f'----> No procDict found: ==={proc_path}===')
+        LOGGER.error(f'No procDict found: {proc_path}')
+        exit(1)
 
     with open(proc_path, 'r') as f:
         procDict = json.load(f)
@@ -229,7 +234,8 @@ def to_pkl(
     mkdir(path)
     fpath = os.path.join(path, filename+'.pkl')
     df.to_pickle(fpath)
-    print(f'\n----->[Info] Preprocessed saved {fpath}\n')
+    LOGGER.info(f'Preprocessed saved {fpath}')
+
 
 # _________________
 def dump_json(
@@ -370,8 +376,8 @@ def Significance(
     b_vals, b_w = df_b[column].values, df_b[weight].values
 
     S0, B0 = s_w.sum(), b_w.sum()
-    print('initial: S0 = {:.2f}, B0 = {:.2f}'.format(S0, B0))
-    print('inclusive Z: {:.2f}'.format(func(S0, B0)))
+    LOGGER.debug(f'Initial:   S0 = {S0:.2f}, B0 = {B0:.2f}')
+    LOGGER.debug(f'Inclusive: Z  = {func(S0, B0):.2f}')
 
     # Bin data once and compute cumulative sums
     edges = np.linspace(*score_range, nbins + 1)

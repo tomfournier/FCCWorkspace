@@ -63,6 +63,9 @@ from functools import lru_cache
 from glob import glob
 
 from ...tools.utils import mkdir
+from ...logger import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -91,7 +94,7 @@ def _key_from_file(
         try:
             return int(f[key].array(entry_stop=1)[0])
         except Exception:
-            print(f"WARNING: Couldn't find {key} in {filepath}, returning 0")
+            LOGGER.warning(f"Couldn't find {key} in {filepath}, returning 0")
             return 0
 
 def _get_bin_index(cut_name: str) -> int:
@@ -153,7 +156,7 @@ def _cut_from_file(
                 continue
 
         # No valid histogram found
-        print("----->[WARNING] Didn't find cutFlow in custom_objects, returning 0")
+        LOGGER.warning("Didn't find cutFlow in custom_objects, returning 0")
         return 0
     except Exception:
         return 0
@@ -295,7 +298,6 @@ def get_count(
     file_list: list[str],
     cut_name: str,
     filter_expr: str,
-    columns: set | None = None
      ) -> tuple[int, 'np.ndarray' | None]:
     '''Get event count for a cut using histogram or dataframe filtering.
 
@@ -326,7 +328,7 @@ def get_count(
         count, df_mask = getcut(df, filter_expr, df_mask)
         return count, df_mask
     except Exception:
-        print("WARNING: Couldn't compute the count for this cut")
+        LOGGER.warning("Couldn't compute the count for this cut")
         return 0, df_mask
 
 # ___________________
@@ -362,7 +364,7 @@ def is_there_events(
                 isTTree.append(i)
         return len(isTTree)==len(filenames)
     else:
-        print(f'ERROR: Could not find ROOT file for {proc}')
+        LOGGER.error(f'Could not find ROOT file for {proc}')
         quit()
 
 # _________________________________

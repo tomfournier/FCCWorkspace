@@ -31,6 +31,10 @@ from typing import overload, Type, Union
 # Select the appropriate Path base class for the OS
 _PathBase = WindowsPath if os.name == 'nt' else PosixPath
 
+from .logger import get_logger
+
+LOGGER = get_logger(__name__)
+
 
 
 ##################
@@ -230,7 +234,11 @@ class loc(metaclass=locMeta):
 
     OPTIMISATION        = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/full")  # Optimisation samples
     OPTIMISATION_TEST   = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/test")  # Test Optimisation samples
-    OPTIMISATION_RES    = LocPath(f"{repo}/output/data/optimisation/results/ecm/cat")      # Optimisation results directory
+    OPTIMISATION_RES    = LocPath(f"{repo}/output/data/optimisation/results/ecm/cat")      # Optimisation results
+
+    FSR_TREE            = LocPath(f"{repo}/output/data/FSR/Inputs/ecm/cat/full")  # FSR samples
+    FSR_TEST            = LocPath(f"{repo}/output/data/FSR/Inputs/ecm/cat/test")  # Test FSR samples
+    FSR_RES             = LocPath(f"{repo}/output/data/FSR/results/ecm/cat")      # FSR results
 
     MVA                 = LocPath(f"{repo}/output/data/MVA")                        # MVA root
     MVA_INPUTS          = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/MVAInputs")  # MVA inputs folder
@@ -246,6 +254,7 @@ class loc(metaclass=locMeta):
     PLOTS_BDT           = LocPath(f"{repo}/output/plots/evaluation/ecm/cat/sel")  # BDT perf plots
     PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis plots
     PLOTS_OPTIMISATION  = LocPath(f"{repo}/output/plots/optimisation/ecm/cat")    # Optimisation plots
+    PLOTS_FSR           = LocPath(f"{repo}/output/plots/fsr/ecm/cat")             # FSR plots
 
     COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root
     COMBINE_NOMINAL     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")  # Nominal outputs
@@ -368,6 +377,7 @@ def get_params(
     env: os._Environ,
     cfg_json: str,
     is_final: bool = False,
+    qq_allowed: bool = False,
      ) -> tuple[str, int]:
     ...
 
@@ -376,6 +386,7 @@ def get_params(
     env: os._Environ,
     cfg_json: str,
     is_final: bool = True,
+    qq_allowed: bool = False,
      ) -> tuple[str, int, float]:
     ...
 
@@ -400,14 +411,14 @@ def get_params(
     if is_automated:
         # Local run: use loc.RUN
         cfg_file = loc.RUN.astype(Path) / cfg_json
-        print(f'----->[Info] Getting config file from {cfg_file}')
+        LOGGER.info(f'Getting config file from {cfg_file}')
         if cfg_file.exists():
             cfg: dict = json.loads(cfg_file.read_text())
             cat, ecm, lumi = cfg['cat'], cfg['ecm'], cfg.get('lumi', -1)
         else:
             raise FileNotFoundError(f"Couldn't find config file at {cfg_file}")
     else:
-        cat = input('Select channel [ee, mumu, qq]: ')
+        cat = input(f'Select channel [{", ".join(cat_allowed)}]: ')
         while cat not in cat_allowed:
             cat = input(f'Wrong input selected, choose between [{", ".join(cat_allowed)}]: ')
         ecm = int(input('Select center-of-mass energy [240, 365]: '))
