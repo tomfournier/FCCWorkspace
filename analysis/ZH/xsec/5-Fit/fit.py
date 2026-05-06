@@ -227,7 +227,7 @@ def res_saving(
         exit(1)
     else:
         # Display results unless suppressed by flag
-        if not arg.print:
+        if arg.print:
             LOGGER.info('Results successfully extracted\n'
                         f'mu = {mu} +/- {err}')
             LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
