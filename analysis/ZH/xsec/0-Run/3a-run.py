@@ -67,7 +67,7 @@ scripts = [script_map[s] for s in arg.run.split('-')]
 cmds = {'pre-selection': 'run', 'final-selection': 'final'}
 
 # Base path for analysis scripts
-path = f'{loc.ROOT}/3a-Optimisation'
+path = f'{loc.ROOT}/3a-Optimization'
 
 
 
