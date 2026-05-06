@@ -52,22 +52,14 @@ def get_leps(df: 'ROOT.ROOT.RDataFrame'
 def clustering(df: 'ROOT.ROOT.RDataFrame',
                njets: int
                ) -> 'ROOT.ROOT.RDataFrame':
-    if njets==0:  # inclusive
+    if njets == 0:  # inclusive
         df = df.Define('clustered_jets_N0', 'JetClustering::clustering_kt(0.6, 0, 5, 1, 0)(pseudo_jets)')
     else:
         df = df.Define(f'clustered_jets_N{njets}', f'JetClustering::clustering_ee_kt(2, {njets}, 0, 10)(pseudo_jets)')
 
-    df = df.Define(f'jets_N{njets}',            f'FCCAnalyses::JetClusteringUtils::get_pseudoJets(clustered_jets_N{njets})')
-    # df = df.Define(f'njets_N{njets}',           f'jets_N{njets}.size()')
-    # df = df.Define(f'jetconstituents_N{njets}', f'FCCAnalyses::JetClusteringUtils::get_constituents(clustered_jets_N{njets})')
-    # df = df.Define(f'jets_e_N{njets}',          f'FCCAnalyses::JetClusteringUtils::get_e(jets_N{njets})')
-    # df = df.Define(f'jets_px_N{njets}',         f'FCCAnalyses::JetClusteringUtils::get_px(jets_N{njets})')
-    # df = df.Define(f'jets_py_N{njets}',         f'FCCAnalyses::JetClusteringUtils::get_py(jets_N{njets})')
-    # df = df.Define(f'jets_pz_N{njets}',         f'FCCAnalyses::JetClusteringUtils::get_pz(jets_N{njets})')
-    # df = df.Define(f'jets_m_N{njets}',          f'FCCAnalyses::JetClusteringUtils::get_m(jets_N{njets})')
-    # df = df.Define(f'jets_rp_N{njets}',         f'FCCAnalyses::jets2rp(jets_px_N{njets}, jets_py_N{njets}, jets_pz_N{njets}, jets_e_N{njets}, jets_m_N{njets})')
-    df = df.Define(f'jets_rp_N{njets}',         f'FCCAnalyses::jets2rp(jets_N{njets})')
-    df = df.Define(f'jets_rp_cand_N{njets}',    f'FCCAnalyses::select_jets(jets_rp_N{njets}, {njets}, ReconstructedParticles)')  # reduces potentially the jet multiplicity
+    df = df.Define(f'jets_N{njets}',         f'FCCAnalyses::JetClusteringUtils::get_pseudoJets(clustered_jets_N{njets})')
+    df = df.Define(f'jets_rp_N{njets}',      f'FCCAnalyses::jets2rp(jets_N{njets})')
+    df = df.Define(f'jets_rp_cand_N{njets}', f'FCCAnalyses::select_jets(jets_rp_N{njets}, {njets}, ReconstructedParticles)')  # reduces potentially the jet multiplicity
     return df
 
 
@@ -75,6 +67,113 @@ def clustering(df: 'ROOT.ROOT.RDataFrame',
 ######################
 ### MAIN FUNCTIONS ###
 ######################
+
+def fsr_recovery(
+        df: 'ROOT.ROOT.RDataFrame',
+        cat: str
+         ) -> 'ROOT.ROOT.RDataFrame':
+
+    df = setup_alias(df, cat)
+
+    # Get the lepton and photons rps
+    df = df.Define('leps',    'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
+    df = df.Define('photons', 'FCCAnalyses::ReconstructedParticle::get(Photon0, ReconstructedParticles)')
+
+    # Get the true lepton and photon information
+    df = df.Define('leps_MC',     'FCCAnalyses::fromRP2MC(Lepton0, MCRecoAssociations1, Particle)')
+    df = df.Define('photons_MC',  'FCCAnalyses::fromRP2MC(Photon0, MCRecoAssociations1, Particle)')
+    df = df.Define('leps_FSR_MC', 'FCCAnalyses::getParent(leps_MC, Particle, Particle0)')  # Before FSR
+
+    # Lepton rps after ILC's FSR recovery
+    df = df.Define('leps_FSR', 'FCCAnalyses::recoverFSR(leps, Photon0, ReconstructedParticles, 0.99)')
+
+    # TO DO
+    df = df.Define('LEPS_iso',      'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles, MCRecoAssociations0, MCRecoAssociations1, Particle)')
+    df = df.Define('leps_iso',      'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)')
+    df = df.Define('lepton_origin', 'FCCAnalyses::getLeptonOrigin(leps_MC, Particle, Particle0, false)')
+
+    # Get the leptons and photons parent for merging comparison
+    # Extract parent indices from MC particles directly
+    df = df.Define('lep_parent', 'FCCAnalyses::getParentID(leps_MC, Particle, Particle0)')
+    df = df.Define('ph_parent',  'FCCAnalyses::getParentID(photons_MC, Particle, Particle0)')
+
+    # Determine if the photons come from ISR or FSR
+    df = df.Define('photon_origin', 'FCCAnalyses::getPhotonOrigin(photons_MC, Particle, Particle0)')
+    df = df.Define('fromISR',       'FCCAnalyses::fromISR(photon_origin)')
+    df = df.Define('fromFSR',       'FCCAnalyses::fromFSR(photon_origin)')
+
+    # Get the table of true association
+    df = df.Define('n_radiated',  'FCCAnalyses::nRadiated(lep_parent, ph_parent)')
+    df = df.Define('same_parent', 'FCCAnalyses::fromSameParent(lep_parent, ph_parent)')
+
+    # Get the leptons and photons momentum
+    df = df.Define('leps_p',     'FCCAnalyses::ReconstructedParticle::get_p(leps)')
+    df = df.Define('leps_FSR_p', 'FCCAnalyses::ReconstructedParticle::get_p(leps_FSR)')
+    df = df.Define('ph_p',       'FCCAnalyses::ReconstructedParticle::get_p(photons)')
+
+    # Get the MC leptons and photons momentum
+    df = df.Define('LEPS_p',     'FCCAnalyses::MCParticle::get_p(leps_MC)')
+    df = df.Define('PH_p',       'FCCAnalyses::MCParticle::get_p(photons_MC)')
+    df = df.Define('LEPS_FSR_p', 'FCCAnalyses::MCParticle::get_p(leps_FSR_MC)')
+
+    # Get the leptons and photons transverse momentum
+    df = df.Define('leps_pT',     'FCCAnalyses::ReconstructedParticle::get_pt(leps)')
+    df = df.Define('leps_FSR_pT', 'FCCAnalyses::ReconstructedParticle::get_pt(leps_FSR)')
+    df = df.Define('ph_pT',       'FCCAnalyses::ReconstructedParticle::get_pt(photons)')
+
+    # Get the MC leptons and photons transverse momentum
+    df = df.Define('LEPS_pT',     'FCCAnalyses::MCParticle::get_pt(leps_MC)')
+    df = df.Define('PH_pT',       'FCCAnalyses::MCParticle::get_pt(photons_MC)')
+    df = df.Define('LEPS_FSR_pT', 'FCCAnalyses::MCParticle::get_pt(leps_FSR_MC)')
+
+    # Get the leptons and photons polar angle
+    df = df.Define('leps_theta',     'FCCAnalyses::ReconstructedParticle::get_theta(leps)')
+    df = df.Define('leps_FSR_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(leps_FSR)')
+    df = df.Define('ph_theta',       'FCCAnalyses::ReconstructedParticle::get_theta(photons)')
+
+    # Get the MC leptons and photons polar angle
+    df = df.Define('LEPS_theta',     'FCCAnalyses::MCParticle::get_theta(leps_MC)')
+    df = df.Define('PH_theta',       'FCCAnalyses::MCParticle::get_theta(photons_MC)')
+    df = df.Define('LEPS_FSR_theta', 'FCCAnalyses::MCParticle::get_theta(leps_FSR_MC)')
+
+    df = df.Define('leps_iso_pair', 'FCCAnalyses::lepGaPair(leps_iso, ph_p, true)')
+    df = df.Define('leps_p_pair',   'FCCAnalyses::lepGaPair(leps_p, ph_p, true)')
+    df = df.Define('leps_pT_pair',  'FCCAnalyses::lepGaPair(leps_pT, ph_pT, true)')
+
+    df = df.Define('ph_p_pair',  'FCCAnalyses::lepGaPair(leps_p, ph_p, false)')
+    df = df.Define('ph_pT_pair', 'FCCAnalyses::lepGaPair(leps_pT, ph_pT, false)')
+
+
+
+    df = df.Define('LEPS_iso_pair', 'FCCAnalyses::lepGaPair(LEPS_iso, PH_p, true)')
+    df = df.Define('LEPS_p_pair',   'FCCAnalyses::lepGaPair(LEPS_p, PH_p, true)')
+    df = df.Define('LEPS_pT_pair',  'FCCAnalyses::lepGaPair(LEPS_pT, PH_pT, true)')
+
+    df = df.Define('PH_p_pair',  'FCCAnalyses::lepGaPair(LEPS_p, PH_p, false)')
+    df = df.Define('PH_pT_pair', 'FCCAnalyses::lepGaPair(LEPS_pT, PH_pT, false)')
+
+    # Convert rps to lorentz vector for angular correlation computations
+    df = df.Define('leps_tlv',       'FCCAnalyses::makeLorentzVectors(leps)')
+    df = df.Define('photons_tlv',    'FCCAnalyses::makeLorentzVectors(photons)')
+    df = df.Define('leps_MC_tlv',    'FCCAnalyses::MCParticle::get_tlv(leps_MC)')
+    df = df.Define('photons_MC_tlv', 'FCCAnalyses::MCParticle::get_tlv(photons_MC)')
+
+    # Get the angular correlation between the leptons and photons
+    df = df.Define('cosTheta',     'FCCAnalyses::getCosTheta(leps_tlv,     photons_tlv)')
+    df = df.Define('acolinearity', 'FCCAnalyses::getAcolinearity(leps_tlv, photons_tlv)')
+    df = df.Define('acoplanarity', 'FCCAnalyses::getAcoplanarity(leps_tlv, photons_tlv)')
+    df = df.Define('acopolarity',  'FCCAnalyses::getAcopolarity(leps_tlv,  photons_tlv)')
+    df = df.Define('deltaR',       'FCCAnalyses::getDeltaR(leps_tlv,       photons_tlv)')
+
+    # Get the MC angular correlation between the leptons and photons
+    df = df.Define('CosTheta',     'FCCAnalyses::getCosTheta(leps_MC_tlv,     photons_MC_tlv)')
+    df = df.Define('Acolinearity', 'FCCAnalyses::getAcolinearity(leps_MC_tlv, photons_MC_tlv)')
+    df = df.Define('Acoplanarity', 'FCCAnalyses::getAcoplanarity(leps_MC_tlv, photons_MC_tlv)')
+    df = df.Define('Acopolarity',  'FCCAnalyses::getAcopolarity(leps_MC_tlv,  photons_MC_tlv)')
+    df = df.Define('DeltaR',       'FCCAnalyses::getDeltaR(leps_MC_tlv,       photons_MC_tlv)')
+
+    return df
+
 
 def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
                 cat: str,
@@ -94,9 +193,9 @@ def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
     df = df.Filter('trueZ.z_system.mass >= 0')
 
     # Extract serializable fields from all_pairs
-    df = df.Define('z_rp',   'FCCAnalyses::getZPairsZSystem(all_pairs)')
-    df = df.Define('l1',     'FCCAnalyses::getZPairsLepton1(all_pairs)')
-    df = df.Define('l2',     'FCCAnalyses::getZPairsLepton2(all_pairs)')
+    df = df.Define('z_rp', 'FCCAnalyses::getZPairsZSystem(all_pairs)')
+    df = df.Define('l1',   'FCCAnalyses::getZPairsLepton1(all_pairs)')
+    df = df.Define('l2',   'FCCAnalyses::getZPairsLepton2(all_pairs)')
 
     df = df.Define('zll_e',     'FCCAnalyses::ReconstructedParticle::get_e(z_rp)')
     df = df.Define('zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(z_rp)')
@@ -192,4 +291,18 @@ branch_list_qq = [
     'jets_N0', 'jets_N2', 'jets_N4', 'jets_N6',
     'clustered_jets_N0', 'clustered_jets_N2', 'clustered_jets_N4', 'clustered_jets_N6',
     'rps_sel', 'pseudo_jets'
+]
+branch_list_fsr = [
+    'lep_parent', 'ph_parent',
+    'fromISR', 'fromFSR',
+    'same_parent', 'n_radiated',
+    'lepton_origin', 'leps_iso', 'LEPS_iso',
+    'leps_p_pair', 'leps_pT_pair', 'leps_iso_pair',
+    'LEPS_p_pair', 'LEPS_pT_pair', 'LEPS_iso_pair',
+    'ph_p_pair', 'ph_pT_pair', 'PH_p_pair', 'PH_pT_pair',
+    'leps_p', 'leps_FSR_p', 'ph_p', 'LEPS_p', 'PH_p', 'LEPS_FSR_p',
+    'leps_pT', 'leps_FSR_pT', 'ph_pT', 'LEPS_pT', 'PH_pT', 'LEPS_FSR_pT',
+    'leps_theta', 'leps_FSR_theta', 'ph_theta', 'LEPS_theta', 'PH_theta', 'LEPS_FSR_theta',
+    'cosTheta', 'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',
+    'CosTheta', 'Acolinearity', 'Acoplanarity', 'Acopolarity', 'DeltaR'
 ]
