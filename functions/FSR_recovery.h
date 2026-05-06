@@ -76,7 +76,7 @@ inline Vec_i hasRadiated(edm4hep::MCParticleData particle, Vec_mc mc, Vec_i pare
 *** FSR RECOVERY ***
 ********************/
 
-inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, float threshold = 0.99) {
+inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, float threshold = 0.08) {
 
     Vec_i usedIdx;
 
@@ -98,12 +98,9 @@ inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, float threshol
             TLorentzVector ph_tlv;
             ph_tlv.SetPxPyPzE(photon.momentum.x, photon.momentum.y, photon.momentum.z, photon.energy);
 
-            TVector3 v1 = tmp_tlv.Vect();
-            TVector3 v2 = ph_tlv.Vect();
+            float dr = tmp_tlv.DeltaR(ph_tlv);
 
-            float cosTheta = v1.Dot(v2) / ( v1.Mag()* v2.Mag());
-
-            if (cosTheta >= threshold) {
+            if (dr <= threshold) {
                 tmp_tlv += ph_tlv;
                 usedIdx.push_back(ph_idx);
             }
