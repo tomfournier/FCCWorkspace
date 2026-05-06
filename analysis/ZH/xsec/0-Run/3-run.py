@@ -40,9 +40,9 @@ from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     ecm_multi=True,
-    include_sel=True,
+    include_sels=True,
     plots=True,
-    cutfflow=True,
+    cutflow=True,
     run_stages=4,
     batch=True,
     description='Run Measurement pipeline'
@@ -173,16 +173,16 @@ if __name__ == '__main__':
         if ('pre-selection' in scripts) or ('final-selection' in scripts):
             for cat in cats:
                 for script in scripts:
-                    result = run(loc.RUN, cat, ecm, path, script)
+                    result = run(cat, ecm, path, script)
                     if result != 0: sys.exit(result)
 
         # BATCH info for plots
         if is_there_plots:
-            result = run(loc.RUN, arg.cat, ecm, path, 'plots')
+            result = run(arg.cat, ecm, path, 'plots')
             if result != 0: sys.exit(result)
         # BATCH info for cutflow
         if is_there_cutflow:
-            result = run(loc.RUN, arg.cat, ecm, path, 'cutflow')
+            result = run(arg.cat, ecm, path, 'cutflow')
             if result != 0: sys.exit(result)
 
     timer(t)
