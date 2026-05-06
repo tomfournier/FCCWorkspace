@@ -79,7 +79,7 @@ processes = mk_processes(
 variables = [
     'leading_p', 'leading_pT', 'leading_theta',                               # leading lepton variables
     'subleading_p', 'subleading_pT', 'subleading_theta',                      # subleading lepton variables
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta',                  # Z boson properties
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',  # 'zll_costheta',                  # Z boson properties
     # 'zll_phi', 'leading_phi', 'subleading_phi',                               # Azimutal angles
     'acolinearity', 'acoplanarity', 'deltaR',                                 # Angular separation variables
     'zll_recoil_m',                                                           # Recoil mass (Higgs candidate)
@@ -128,19 +128,19 @@ def run(cats, sels, vars, processes, colors, legend):
         outDir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
 
         for sel in sels:
-            if not arg.yields or not arg.make or not arg.decay or arg.scan:
+            if arg.yields or arg.make or arg.decay or arg.scan:
                 # Preload all histograms for this selection to avoid repeated file I/O
                 all_procs = [p for proc in processes.values() for p in proc]
                 LOGGER.info(f'Making plots for {sel} selection')
                 preload_histograms(all_procs, inDir, suffix=f'_{sel}_histo', hNames=vars)
 
             # Generate yields plots unless skipped
-            if not arg.yields:
+            if arg.yields:
                 from package.plots.plotting import AAAyields
                 AAAyields('zll_p', inDir, outDir, plots, legend, colors, cat, sel, ecm=ecm, lumi=lumi)
 
             # Generate distribution and decay plots unless all skipped
-            if not arg.make or not arg.decay or arg.scan:
+            if arg.make or arg.decay or arg.scan:
                 for var in vars:
                     LOGGER.info(f'Making plots for {var}')
 
@@ -151,7 +151,7 @@ def run(cats, sels, vars, processes, colors, legend):
                             significance(var, inDir, outDir, sel, procs, processes, reverse=reverse)
 
                     # Generate Higgs decay mode plots unless skipped
-                    if not arg.decay:
+                    if arg.decay:
                         from package.plots.plotting import args_decay, PlotDecays
                         kwarg_decay = args_decay(var, sel, ecm, lumi, args)
                         # Channel-specific decay plots (linear and log scale)
@@ -160,7 +160,7 @@ def run(cats, sels, vars, processes, colors, legend):
                             PlotDecays(var, inDir, outDir, sel, z_decays, H_decays, logY=logY, tot=True,  **kwarg_decay)
 
                     # Generate standard distribution plots unless skipped
-                    if not arg.make:
+                    if arg.make:
                         from package.plots.plotting import get_args, makePlot
                         kwarg = get_args(var, sel, ecm, lumi, args)
                         # Signal vs background plots (linear and log scale)
