@@ -36,7 +36,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     ecm_multi=True,
@@ -46,6 +47,9 @@ parser = create_parser(
     description='Run MVA Inputs pipeline'
 )
 arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -113,9 +117,7 @@ def run(cat: str,
     # Display execution header with clear identification
     msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {lumi = }'
     length = len(msg) + 2
-    print('\n' + '=' * length)
-    print(msg.center(length))
-    print('=' * length)
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
     try:
         # Execute fccanalysis with modified environment and stream output
@@ -129,9 +131,7 @@ def run(cat: str,
         status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
         msg = f'{status}: [{script}] {cat = } | {ecm = }'
         length = len(msg) + 2
-        print('=' * length)
-        print(msg.center(length))
-        print('=' * length + '\n')
+        LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
         return result.returncode
     finally:
         pass
@@ -144,13 +144,6 @@ def run(cat: str,
 if __name__ == '__main__':
     # Nested loops: iterate over energies, channels, and pipeline stages
     for ecm in ecms:
-        task_count = len(cats) * len(scripts)
-        msg = f'BATCH: Running {task_count} task(s) for {ecm = }'
-        length = len(msg) + 2
-        print('\n' + '█' * length)
-        print(msg.center(length))
-        print('█' * length)
-
         for cat in cats:
             for script in scripts:
                 result = run(cat, ecm, path, script)

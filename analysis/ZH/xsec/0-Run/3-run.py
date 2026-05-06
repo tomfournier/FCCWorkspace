@@ -35,7 +35,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     ecm_multi=True,
@@ -47,6 +48,9 @@ parser = create_parser(
     description='Run Measurement pipeline'
 )
 arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -103,7 +107,7 @@ def run(cat: str,
 
     # Write configuration to temporary JSON file
     cfg_path.write_text(json.dumps(config))
-    print(f'----->[Info] Wrote config file to {cfg_path}')
+    LOGGER.info(f'Wrote config file to {cfg_path}')
 
     # Set up environment with RUN flag for automated mode detection
     env = os.environ.copy()
@@ -116,9 +120,7 @@ def run(cat: str,
     # Display execution header with clear identification
     msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {lumi = }'
     length = len(msg) + 2
-    print('\n' + '=' * length)
-    print(msg.center(length))
-    print('=' * length)
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
@@ -148,9 +150,7 @@ def run(cat: str,
         status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
         msg = f'{status}: [{script}] {cat = } | {ecm = }'
         length = len(msg) + 2
-        print('=' * length)
-        print(msg.center(length))
-        print('=' * length + '\n')
+        LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
         return result.returncode
     finally:
         pass
@@ -171,12 +171,6 @@ if __name__ == '__main__':
     for ecm in ecms:
         # BATCH info for pre/final-selection
         if ('pre-selection' in scripts) or ('final-selection' in scripts):
-            task_count = len(cats) * len([s for s in scripts if s in ['pre-selection', 'final-selection']])
-            msg = f'BATCH: Running {task_count} task(s) for {ecm = }'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
             for cat in cats:
                 for script in scripts:
                     result = run(loc.RUN, cat, ecm, path, script)
@@ -184,20 +178,10 @@ if __name__ == '__main__':
 
         # BATCH info for plots
         if is_there_plots:
-            msg = f'BATCH: Running plots for {ecm = } | cat = {arg.cat}'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
             result = run(loc.RUN, arg.cat, ecm, path, 'plots')
             if result != 0: sys.exit(result)
         # BATCH info for cutflow
         if is_there_cutflow:
-            msg = f'BATCH: Running cutflow for {ecm = } | cat = {arg.cat}'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
             result = run(loc.RUN, arg.cat, ecm, path, 'cutflow')
             if result != 0: sys.exit(result)
 

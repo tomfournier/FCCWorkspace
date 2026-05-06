@@ -32,16 +32,21 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     ecm_multi=True,
+    allow_qq=False,
     include_sels=True,
     bdt_eval=True,
     run_stages=3,
     description='Run BDT pipeline'
 )
 arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -95,9 +100,7 @@ def run(cat: str,
     # Display execution header with clear identification
     msg = f'▶ STARTING: [{script}] {cat = } | {ecm = }'
     length = len(msg) + 2
-    print('\n' + '=' * length)
-    print(msg.center(length))
-    print('=' * length)
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
     # Build per-stage arguments and append optional evaluation flags when relevant
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
@@ -116,7 +119,7 @@ def run(cat: str,
 
     # Execute stage script; pipe outputs through to this terminal
     cmd = ['python', script_path] + extra_args
-    print(f'----->[Info] Executing command: {" ".join(cmd)}')
+    LOGGER.info(f'Executing command: {" ".join(cmd)}')
     result = subprocess.run(
         cmd,
         env=env,
@@ -127,9 +130,7 @@ def run(cat: str,
     status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
     msg = f'{status}: [{script}] {cat = } | {ecm = }'
     length = len(msg) + 2
-    print('=' * length)
-    print(msg.center(length))
-    print('=' * length + '\n')
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
     return result.returncode
 
 
@@ -140,13 +141,6 @@ def run(cat: str,
 if __name__ == '__main__':
     # Nested loops: iterate over energies, channels, and pipeline stages
     for ecm in ecms:
-        task_count = len(cats) * len(scripts)
-        msg = f'BATCH: Running {task_count} task(s) for {ecm = }'
-        length = len(msg) + 2
-        print('\n' + '█' * length)
-        print(msg.center(length))
-        print('█' * length)
-
         for cat in cats:
             for script in scripts:
                 result = run(cat, ecm, path, script)

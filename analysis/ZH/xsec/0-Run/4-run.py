@@ -39,7 +39,8 @@ ENV['RUN'] = '1'
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     ecm_multi=True,
@@ -50,6 +51,9 @@ parser = create_parser(
     description='Run Combine pipeline'
 )
 arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -118,9 +122,7 @@ def run(cfg_dir: str,
     # Display execution header with clear identification
     msg = f'▶ STARTING: [{script}] {cat = } | {ecm = }'
     length = len(msg) + 2
-    print('\n' + '=' * length)
-    print(msg.center(length))
-    print('=' * length)
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
@@ -146,9 +148,7 @@ def run(cfg_dir: str,
         status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
         msg = f'{status}: [{script}] {cat = } | {ecm = }'
         length = len(msg) + 2
-        print('=' * length)
-        print(msg.center(length))
-        print('=' * length + '\n')
+        LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
         return result.returncode
     finally:
         # Cleanup: remove temporary configuration file
@@ -164,20 +164,9 @@ if __name__ == '__main__':
     # Nested loops: iterate over energies, channels, and pipeline stages
     for ecm in ecms:
         if 'process_histogram' in scripts:
-            msg = f'BATCH: Running 1 task(s) for {ecm = } | script = process_histogram'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
             result = run(loc.RUN, arg.cat, ecm, '', path, 'process_histogram')
             if result != 0: sys.exit(result)
         if 'combine' in scripts:
-            task_count = len(cats) * len(sels)
-            msg = f'BATCH: Running {task_count} task(s) for {ecm = } | script = combine'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
             for cat in cats:
                 for sel in sels:
                     result = run(loc.RUN, cat, ecm, sel, path, 'combine')

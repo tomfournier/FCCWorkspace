@@ -33,7 +33,8 @@ ENV = os.environ
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     ecm_multi=True,
@@ -46,6 +47,9 @@ parser = create_parser(
     description='Run Fit pipeline'
 )
 arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -117,9 +121,7 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
     # Display execution header with clear identification
     msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {sel = }'
     length = len(msg) + 2
-    print('\n' + '=' * length)
-    print(msg.center(length))
-    print('=' * length)
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
     # Build base arguments common to all stages
     cmd = [sys.executable, script_path, '--ecm', str(ecm), '--sel', sel]
@@ -133,7 +135,7 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
     # Append stage-specific arguments
     if script == 'fit':
         if arg.t:       cmd.append('--t')
-        if arg.noprint: cmd.append('--noprint')
+        if arg.print: cmd.append('--print')
     elif script == 'bias_test':
         cmd.extend(['--pert', str(arg.pert)])
         if arg.extra:
@@ -147,9 +149,7 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
     status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
     msg = f'{status}: [{script}] {cat = } | {ecm = } | {sel = }'
     length = len(msg) + 2
-    print('=' * length)
-    print(msg.center(length))
-    print('=' * length + '\n')
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
     return result.returncode
 
@@ -162,15 +162,6 @@ if __name__ == '__main__':
     '''Sequential execution using nested loops with batch markers.'''
     for sel in sels:
         for script in scripts:
-            # Display batch execution info without allocating task list
-            task_count = len(ecms) * len(cats)
-            msg = f'BATCH: Running {task_count} task(s) for {sel = } | {script = }'
-            length = len(msg) + 2
-            print('\n' + '█' * length)
-            print(msg.center(length))
-            print('█' * length)
-
-            # Nested loops: ecm -> cat for deterministic ordering
             for ecm in ecms:
                 for cat in cats:
                     ret_code = run(cat, ecm, sel, script)
