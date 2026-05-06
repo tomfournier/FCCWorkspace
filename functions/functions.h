@@ -1,6 +1,8 @@
 #include "FCCAnalyses/defines.h"
 #include <TLorentzVector.h>
+#include <cstddef>
 #include <cstdlib>
+#include <edm4hep/MCParticleData.h>
 #include <edm4hep/ReconstructedParticleData.h>
 #include <cmath>
 // #include <iostream>
@@ -369,6 +371,11 @@ inline float visibleMass(Vec_rp in, float p_cutoff = 0.0) {
 }
 
 
+
+/*******************
+*** CUSTOM CLASS ***
+*******************/
+
 // compute the cone isolation for reco particles
 struct coneIsolation {
 
@@ -379,7 +386,8 @@ struct coneIsolation {
 
     float dr_min = 0;
     float dr_max = 0.4;
-    Vec_f operator() (Vec_rp in, Vec_rp rps) ;
+    Vec_f operator() (Vec_rp in, Vec_rp rps);
+    Vec_f operator() (Vec_rp in, Vec_rp rps, Vec_i recind, Vec_i mcind, Vec_mc mc);
 };
 
 inline coneIsolation::coneIsolation(float arg_dr_min, float arg_dr_max) : dr_min(arg_dr_min), dr_max( arg_dr_max ) { };
@@ -390,32 +398,66 @@ inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps) {
 
     // compute the isolation (see https://github.com/delphes/delphes/blob/master/modules/Isolation.cc#L154) 
     for(size_t i = 0; i < in.size(); ++i) {
-        ROOT::Math::PxPyPzEVector tlv_target;
+        TLorentzVector tlv_target;
         tlv_target.SetPxPyPzE(in.at(i).momentum.x, in.at(i).momentum.y, in.at(i).momentum.z, in.at(i).energy);
         double sumNeutral = 0.0;
         double sumCharged = 0.0;
 
-        for(size_t i = 0; i < rps.size(); ++i) {
-            ROOT::Math::PxPyPzEVector tlv;
-            tlv.SetPxPyPzE(rps.at(i).momentum.x, rps.at(i).momentum.y, rps.at(i).momentum.z, rps.at(i).energy);
-            double dr = coneIsolation::deltaR(tlv_target.Eta(), tlv_target.Phi(), tlv.Eta(), tlv.Phi());
+        for(size_t j = 0; j < rps.size(); ++j) {
+            TLorentzVector tlv;
+            tlv.SetPxPyPzE(rps.at(j).momentum.x, rps.at(j).momentum.y, rps.at(j).momentum.z, rps.at(j).energy);
+            double dr = tlv_target.DeltaR(tlv);
             if(dr < dr_min || dr > dr_max) continue;
-            if(rps.at(i).charge == 0) sumNeutral += tlv.P();
+            if(rps.at(j).charge == 0) sumNeutral += tlv.P();
             else sumCharged += tlv.P();
         }
 
         double sum = sumCharged + sumNeutral;
-        double ratio= sum / tlv_target.P();
+        double ratio = sum / tlv_target.P();
+        result.emplace_back(ratio);
+    }
+    return result;
+}
+inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps, Vec_i recind, Vec_i mcind, Vec_mc mc) {
+
+    Vec_f result;
+
+    for (size_t i = 0; i < in.size(); ++i) {
+        TLorentzVector tlv_target;
+
+        int track = in.at(i).tracks_begin;
+        int mc_index = FCCAnalyses::ReconstructedParticle2MC::getTrack2MC_index(track, recind, mcind, rps);
+
+        if (mc_index < 0 || mc_index >= mc.size()) continue;
+
+        auto p = mc.at(mc_index);
+        tlv_target.SetXYZM(p.momentum.x, p.momentum.y, p.momentum.z, p.mass);
+        double sumNeutral = 0.0, sumCharged = 0.0;
+
+        for (size_t j = 0; j < rps.size(); j++) {
+            TLorentzVector tlv;
+
+            if (j >= mcind.size()) continue;
+
+            int index = mcind.at(j);
+            if (index < 0 || index >= mc.size()) continue;
+
+            auto pp = mc.at(index);
+            tlv.SetXYZM(pp.momentum.x, pp.momentum.y, pp.momentum.z, pp.mass);
+
+            double dr = tlv_target.DeltaR(tlv);
+            if (dr < dr_min || dr > dr_max) continue;
+            if (pp.charge == 0) sumNeutral += tlv.P();
+            else sumCharged += tlv.P();
+        }
+
+        double sum = sumCharged + sumNeutral;
+        double ratio = sum / tlv_target.P();
         result.emplace_back(ratio);
     }
     return result;
 }
 
-
-
-/*******************
-*** CUSTOM CLASS ***
-*******************/
 
 // calculate the number of foward leptons
 struct polarAngleCategorization {
@@ -637,6 +679,27 @@ inline Vec_rp sel_range_idx::operator() (Vec_rp in, Vec_f prop) {
         else {
             result.emplace_back(p);
         }
+    }
+    return result;
+}
+
+// filter MC particles (in) based on momentum with a lower limit
+struct sel_p {
+    sel_p(float arg_min, float arg_max = 1e10);
+    float m_min = 0.;
+    float m_max = 1e10;
+    Vec_mc operator() (Vec_mc in);
+};
+
+inline sel_p::sel_p(float arg_min, float arg_max) : m_min(arg_min), m_max(arg_max) {};
+inline Vec_mc sel_p::operator() (Vec_mc in) {
+    Vec_mc result;
+
+    for (size_t i = 0; i < in.size(); ++i) {
+        auto & p = in[i];
+
+        float momentum = std::sqrt(std::pow(p.momentum.x, 2) + std::pow(p.momentum.y, 2) + std::pow(p.momentum.z, 2));
+        if(momentum > m_min && momentum < m_max) result.push_back(p);
     }
     return result;
 }

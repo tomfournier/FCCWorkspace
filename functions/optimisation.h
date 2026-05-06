@@ -63,6 +63,13 @@ struct JetMCInfo {
     float dr  = 9e99;     // ΔR used for matching
 };
 
+// Struct to hold FSR association statistics
+struct FSRStats {
+    int total_associated_photons = 0;  // Total number of photons associated with leptons
+    int actual_fsr_photons = 0;        // Photons that are genuine FSR (from same parent)
+    int good_associations = 0;         // Number of lepton-photon pairs with same parent
+};
+
 // Make Lorentz vectors from MC quarks (and optionally gluons)
 // Returns struct with vectors, PDG IDs, and MC indices
 inline QuarkLVectors makeQuarkLorentzVectors(Vec_mc mc, bool findGluons = false) {
