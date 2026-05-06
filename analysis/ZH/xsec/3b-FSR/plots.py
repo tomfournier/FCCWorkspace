@@ -866,13 +866,13 @@ def main():
         correlation_scan(data, proc_outDir, Label, cut)
 
         # Generate plots
-        # LOGGER.info(f'Generating plots for {proc_dir.name}')
-        # for scale in [False, True]:
-        #     photon_distributions(data, proc_outDir, Label, scale=scale)
-        #     lepton_distributions(data, proc_outDir, Label, scale=scale)
-        #     leptons_origin(data, proc_outDir, Label, scale=scale, iso_cut=cut)
-        #     correlation_distributions(data, proc_outDir, Label, scale=scale, iso_cut=cut)
-        #     n_radiated(data, proc_outDir, Label, scale=scale)
+        LOGGER.info(f'Generating plots for {proc_dir.name}')
+        for scale in [False, True]:
+            photon_distributions(data, proc_outDir, Label, scale=scale)
+            lepton_distributions(data, proc_outDir, Label, scale=scale)
+            leptons_origin(data, proc_outDir, Label, scale=scale, iso_cut=cut)
+            correlation_distributions(data, proc_outDir, Label, scale=scale, iso_cut=cut)
+            n_radiated(data, proc_outDir, Label, scale=scale)
 
         LOGGER.info(f'Plots for {proc_dir.name} saved to {proc_outDir}\n')
 
