@@ -4,7 +4,7 @@
 
 # Standard library imports for timing and command-line arguments
 from time import time
-import sys
+
 # Data manipulation
 import pandas as pd
 
@@ -22,6 +22,7 @@ from package.logger import get_logger
 parser = create_parser(
     cat_single=True,
     include_sels=True,
+    allow_qq=False,
     description='BDT Input Processing Script'
 )
 arg = parse_args(parser, True)
@@ -99,7 +100,7 @@ procDict_name = 'FCCee_procDict_winter2023_training_IDEA.json'
 
 def run(inDir: str,
         sels:  list[str],
-        modes: list[str],
+        modes: dict[str, str],
         vars:  list[str],
         sig: str,
         procDict_name: str
@@ -130,19 +131,19 @@ def run(inDir: str,
         else:
             Modes = modes.copy()
         lenght = max(len(m) for m in Modes)
-        LOGGER.info(f'Modes used: {" ".join(Modes.keys())}')
+        modes_list = list(Modes.keys())
+        LOGGER.info(f'Modes used: {" ".join(modes_list)}\n')
 
         # Process each decay mode
-        for mode in Modes:
+        for mode in modes_list:
             # Get input files
             files[mode] = get_paths(mode, inDir, Modes, f'_{sel}')
 
             # Load data and calculate efficiencies
             df[mode], eff[mode], N_events[mode] = counts_and_effs(files[mode], vars, only_eff=False)
+            space = '\n' if mode == modes_list[-1] else ''
             LOGGER.info(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}\n'
-                        f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%\n')
-
-            sys.exit(1)
+                        f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%{space}')
 
             # Add signal/background labels and weights
             df[mode] = additional_info(df[mode], mode, sig)
@@ -150,11 +151,15 @@ def run(inDir: str,
         # Calculate optimal number of BDT inputs per mode
         N_BDT_inputs = BDT_input_numbers(df, Modes, sig, eff, xsec, frac)
 
-        LOGGER.info('Printing BDT inputs number for the different modes')
+        LOGGER.debug('Printing BDT inputs number for the different modes')
         # Split data for each mode into training and validation sets
         for mode in Modes:
-            LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}')
-            df[mode] = df_split_data(df[mode], N_BDT_inputs, eff, xsec, N_events, mode)
+            space = '\n' if mode == modes_list[-1] else ''
+            LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}{space}')
+            df[mode] = df_split_data(
+                df[mode], N_BDT_inputs,
+                eff, xsec, N_events, mode
+            )
 
         # Combine all modes and save to pickle file
         dfsum = pd.concat([df[mode] for mode in Modes])

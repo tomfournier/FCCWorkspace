@@ -19,6 +19,7 @@ from package.logger import get_logger
 parser = create_parser(
     cat_single=True,
     include_sels=True,
+    allow_qq=False,
     description='BDT Training Script'
 )
 arg = parse_args(parser, True)
@@ -93,7 +94,7 @@ def run(sels: list[str],
 
     # Display training variables
     LOGGER.info('Training variable used for the training')
-    LOGGER.info(', '.join(var for var in vars))
+    LOGGER.info(', '.join(var for var in vars) + '\n')
 
     for sel in sels:
         # Define input and output directories
@@ -111,7 +112,7 @@ def run(sels: list[str],
         print_stats(df, Modes)
 
         # Split data into training and validation sets
-        LOGGER.info('Spltting data into training and validation sample')
+        LOGGER.debug('Splitting data into training and validation sample')
         X_train, y_train, X_valid, y_valid = split_data(df, vars)
 
         # Train XGBoost model with early stopping

@@ -25,6 +25,7 @@ parser = create_parser(
     cat_single=True,
     include_sels=True,
     bdt_eval=True,
+    allow_qq=False,
     description='BDT Evaluation Script'
 )
 arg = parse_args(parser, True)
@@ -112,12 +113,14 @@ def plot_metrics(df: 'pd.DataFrame',
     # Create output directory
     mkdir(outDir)
 
-    if not arg.metric:
+    if arg.metric:
         from package.plots.eval import (
             log_loss, classification_error,
             AUC, roc, bdt_score, mva_score,
             importance, significance, efficiency
         )
+
+        LOGGER.info('Plotting the metrics for the BDT\n')
 
         # Generate training performance plots
         log_loss(results, x_axis, label, outDir, best_iteration, format=plot_file)
@@ -136,47 +139,38 @@ def plot_metrics(df: 'pd.DataFrame',
 
     if arg.tree:
         from package.plots.eval import tree_plot
+        LOGGER.info('Plotting the different DT in the BDT')
         tree_plot(bdt, inBDT, outDir, epochs, 20, format=plot_file)
 
     # Generate input variable distribution checks
     if arg.check:
         from package.plots.eval import hist_check
+        LOGGER.info('Plotting histogram for input variables')
         for var in vars:
             LOGGER.info(f'Plotting histogram for {var}')
-            hist_check(
-                df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                yscale='linear', suffix='_lin', format=plot_file, strict=True
-            )
-            hist_check(
-                df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                yscale='log', suffix='_log', format=plot_file, strict=True
-            )
+            for yscale, suffix in [('linear', '_lin'), ('log', '_log')]:
+                hist_check(
+                    df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
+                    yscale=yscale, suffix=suffix, format=plot_file, strict=True
+                )
     if arg.hl:
         import numpy as np
         from package.plots.eval import hist_check
-        LOGGER.info('Plotting histogram innhigh/low BDT score region')
+        LOGGER.info('Plotting histogram for input variables in high/low BDT score region')
         bdt_cut = np.loadtxt(f'{inBDT}/BDT_cut.txt')
         df_high = df.query(f'BDTscore > {bdt_cut}')
         df_low  = df.query(f'BDTscore < {bdt_cut}')
         for var in vars:
             LOGGER.info(f'Plotting histogram for {var}')
-            hist_check(
-                df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                yscale='linear', suff='high', suffix='_lin', format=plot_file, strict=True
-            )
-            hist_check(
-                df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                yscale='log', suff='high', suffix='_log', format=plot_file, strict=True
-            )
-
-            hist_check(
-                df_low, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                yscale='linear', suff='low', suffix='_lin', format=plot_file, strict=True
-            )
-            hist_check(
-                df_low, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                yscale='log', suff='low', suffix='_log', format=plot_file, strict=True
-            )
+            for yscale, suffix in [('linear', '_lin'), ('log', '_log')]:
+                hist_check(
+                    df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
+                    yscale=yscale, suff='high', suffix=suffix, format=plot_file, strict=True
+                )
+                hist_check(
+                    df_low, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
+                    yscale=yscale, suff='low', suffix=suffix, format=plot_file, strict=True
+                )
 
 
 ######################
@@ -198,24 +192,22 @@ if __name__=='__main__':
             Modes = modes.copy()
 
         # Load preprocessed data and print statistics
-        LOGGER.info(f'Getting DataFrame from{sel}')
+        LOGGER.info(f'Getting DataFrame from {sel}')
         df = load_data(inDir)
         print_stats(df, Modes)
 
         # Load trained BDT model
-        LOGGER.info('Loading BDT')
         bdt = load_model(inBDT)
 
         # Apply BDT to data and calculate scores
-        LOGGER.info('Evaluating BDT')
+        LOGGER.debug('Evaluating BDT')
         df = evaluate_bdt(df, bdt, input_vars)
 
         # Extract training metrics
-        LOGGER.info('Extracting metrics from BDT')
+        LOGGER.debug('Extracting metrics from BDT')
         results, epochs, x_axis, best_iteration = get_metrics(bdt)
 
         # Generate all evaluation plots
-        LOGGER.info('Plotting the metrics for the BDT')
         plot_metrics(df, bdt, input_vars, results, x_axis, Modes, cat, outDir)
 
     # Print execution time
