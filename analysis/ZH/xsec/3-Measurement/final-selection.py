@@ -112,7 +112,7 @@ big_sample = (
 processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1} for i in samples}
 
 # Define BDT score from trained model and apply BDT cut
-sel_BDT = 'test2'
+sel_BDT = 'test'
 loc_BDT = loc.get('BDT', cat, ecm, sel_BDT)
 defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
 
@@ -136,12 +136,12 @@ vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' &&
 
 # Selection cut dictionary (key = selection name used in outputs)
 cutList = {
-    'Baseline':          Baseline_Cut,
+    # 'Baseline':          Baseline_Cut,
     # 'Baseline_vis':      vis,
     # 'Baseline_inv':      inv,
     # 'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
     # 'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
-    'test2':              Baseline_Cut
+    'test':              Baseline_Cut
 }
 
 # List of selections to split into high/low BDT score regions
@@ -149,7 +149,7 @@ sels = [
     'Baseline',
     'Baseline_miss',
     'Baseline_sep',
-    'test2'
+    'test'
 ]
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
@@ -160,10 +160,13 @@ cutList = make_high_low(cutList, bdt_cut, sels)
 ### DEFINE HISTOGRAM SETTINGS ###
 #################################
 
-customHists = {
+customHists: dict[str, dict[str, str | int | float]] = {
     'leps_iso': {'name':'ConeIsolation', 'title':'I_{rel}'},
     'leps_no':  {'name':'n_leptons', 'title':'N_{leptons}'}
 }
 
 # Output histogram definitions (name, title, binning)
-histoList = histos_ll
+histoList: dict[str, dict[str, str | int | float]] = histos_ll
+histoList['BDTscore'] = {'name':'BDTscore',
+                         'title':'BDT score',
+                         'bin':1000,'xmin':0,'xmax':1}
