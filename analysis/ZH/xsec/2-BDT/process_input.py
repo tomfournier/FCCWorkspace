@@ -171,8 +171,13 @@ def run(inDir: str,
 ######################
 
 if __name__=='__main__':
-    # Run preprocessing pipeline and prepare BDT inputs
-    run(inDir, sels, modes, input_vars, f'Z{cat}H', procDict_name)
-
-    # Print execution time
-    timer(t)
+    try:
+        # Run preprocessing pipeline and prepare BDT inputs
+        run(inDir, sels, modes, input_vars, f'Z{cat}H', procDict_name)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)

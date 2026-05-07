@@ -178,37 +178,43 @@ def plot_metrics(df: 'pd.DataFrame',
 ######################
 
 if __name__=='__main__':
-    # Evaluate BDT performance for each selection strategy
-    for sel in sels:
-        # Define input/output directories
-        inDir  = loc.get('MVA_INPUTS',  cat, ecm, sel)
-        outDir = loc.get('PLOTS_BDT',   cat, ecm, sel)
-        inBDT  = loc.get('BDT',         cat, ecm, sel)
-        data_path = loc.get('HIST_MVA', cat, ecm, sel)
+    try:
+        # Evaluate BDT performance for each selection strategy
+        for sel in sels:
+            # Define input/output directories
+            inDir  = loc.get('MVA_INPUTS',  cat, ecm, sel)
+            outDir = loc.get('PLOTS_BDT',   cat, ecm, sel)
+            inBDT  = loc.get('BDT',         cat, ecm, sel)
+            data_path = loc.get('HIST_MVA', cat, ecm, sel)
 
-        if cat=='ee' and ecm==365:
-            Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}
-        else:
-            Modes = modes.copy()
+            if cat=='ee' and ecm==365:
+                Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}
+            else:
+                Modes = modes.copy()
 
-        # Load preprocessed data and print statistics
-        LOGGER.info(f'Getting DataFrame from {sel}')
-        df = load_data(inDir)
-        print_stats(df, Modes)
+            # Load preprocessed data and print statistics
+            LOGGER.info(f'Getting DataFrame from {sel}')
+            df = load_data(inDir)
+            print_stats(df, Modes)
 
-        # Load trained BDT model
-        bdt = load_model(inBDT)
+            # Load trained BDT model
+            bdt = load_model(inBDT)
 
-        # Apply BDT to data and calculate scores
-        LOGGER.debug('Evaluating BDT')
-        df = evaluate_bdt(df, bdt, input_vars)
+            # Apply BDT to data and calculate scores
+            LOGGER.debug('Evaluating BDT')
+            df = evaluate_bdt(df, bdt, input_vars)
 
-        # Extract training metrics
-        LOGGER.debug('Extracting metrics from BDT')
-        results, epochs, x_axis, best_iteration = get_metrics(bdt)
+            # Extract training metrics
+            LOGGER.debug('Extracting metrics from BDT')
+            results, epochs, x_axis, best_iteration = get_metrics(bdt)
 
-        # Generate all evaluation plots
-        plot_metrics(df, bdt, input_vars, results, x_axis, Modes, cat, outDir)
+            # Generate all evaluation plots
+            plot_metrics(df, bdt, input_vars, results, x_axis, Modes, cat, outDir)
 
-    # Print execution time
-    timer(t)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)

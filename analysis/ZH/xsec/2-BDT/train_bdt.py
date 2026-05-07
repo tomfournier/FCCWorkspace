@@ -136,7 +136,13 @@ def run(sels: list[str],
 ######################
 
 if __name__=='__main__':
-    # Run BDT training pipeline
-    run(sels, modes, input_vars, config)
-    # Print execution time
-    timer(t)
+    try:
+        # Run BDT training pipeline
+        run(sels, modes, input_vars, config)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)
