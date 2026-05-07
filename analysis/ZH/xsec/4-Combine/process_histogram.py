@@ -158,7 +158,7 @@ def run(cats: str,
 
             # Process each sample
             for sample in existing_samples:
-                LOGGER.info(f'Processing {sample}')
+                LOGGER.debug(f'Processing {sample}')
                 hists = []
                 has_valid_hist = False
                 for hName in hNames:
@@ -209,7 +209,13 @@ def run(cats: str,
 ######################
 
 if __name__=='__main__':
-    # Run histogram processing pipeline
-    run(cats, sels, hNames, samples)
-    # Print execution time
-    timer(t)
+    try:
+        # Run histogram processing pipeline
+        run(cats, sels, hNames, samples)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)
