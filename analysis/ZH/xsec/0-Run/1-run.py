@@ -142,11 +142,17 @@ def run(cat: str,
 ######################
 
 if __name__ == '__main__':
-    # Nested loops: iterate over energies, channels, and pipeline stages
-    for ecm in ecms:
-        for cat in cats:
-            for script in scripts:
-                result = run(cat, ecm, path, script)
-                if result != 0: sys.exit(result)
-
-    timer(t)
+    try:
+        # Nested loops: iterate over energies, channels, and pipeline stages
+        for ecm in ecms:
+            for cat in cats:
+                for script in scripts:
+                    result = run(cat, ecm, path, script)
+                    if result != 0: sys.exit(result)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)

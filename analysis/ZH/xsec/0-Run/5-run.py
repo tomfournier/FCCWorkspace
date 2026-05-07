@@ -134,7 +134,7 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
 
     # Append stage-specific arguments
     if script == 'fit':
-        if arg.t:       cmd.append('--t')
+        cmd.append('--no-timer')
         if arg.print: cmd.append('--print')
     elif script == 'bias_test':
         cmd.extend(['--pert', str(arg.pert)])
@@ -159,17 +159,17 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
 ######################
 
 if __name__ == '__main__':
-    '''Sequential execution using nested loops with batch markers.'''
-    for sel in sels:
-        for script in scripts:
-            for ecm in ecms:
-                for cat in cats:
-                    ret_code = run(cat, ecm, sel, script)
-                    if ret_code != 0:
-                        msg = (
-                            f'Failed: {cat = } | {ecm = } | {sel = } | {script = }'
-                        )
-                        print(f'*** ERROR: {msg} ***\n')
-                        exit(1)
-
-    timer(t)
+    try:
+        for sel in sels:
+            for script in scripts:
+                for ecm in ecms:
+                    for cat in cats:
+                        result = run(cat, ecm, sel, script)
+                        if result != 0: sys.exit(result)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)

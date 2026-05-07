@@ -161,28 +161,34 @@ def run(cat: str,
 ######################
 
 if __name__ == '__main__':
-    is_there_plots   = 'plots' in scripts
-    is_there_cutflow = 'cutflow' in scripts
+    try:
+        is_there_plots   = 'plots' in scripts
+        is_there_cutflow = 'cutflow' in scripts
 
-    if is_there_plots:   scripts.remove('plots')
-    if is_there_cutflow: scripts.remove('cutflow')
+        if is_there_plots:   scripts.remove('plots')
+        if is_there_cutflow: scripts.remove('cutflow')
 
-    # Nested loops: iterate over energies, channels, and pipeline stages
-    for ecm in ecms:
-        # BATCH info for pre/final-selection
-        if ('pre-selection' in scripts) or ('final-selection' in scripts):
-            for cat in cats:
-                for script in scripts:
-                    result = run(cat, ecm, path, script)
-                    if result != 0: sys.exit(result)
+        # Nested loops: iterate over energies, channels, and pipeline stages
+        for ecm in ecms:
+            # BATCH info for pre/final-selection
+            if ('pre-selection' in scripts) or ('final-selection' in scripts):
+                for cat in cats:
+                    for script in scripts:
+                        result = run(cat, ecm, path, script)
+                        if result != 0: sys.exit(result)
 
-        # BATCH info for plots
-        if is_there_plots:
-            result = run(arg.cat, ecm, path, 'plots')
-            if result != 0: sys.exit(result)
-        # BATCH info for cutflow
-        if is_there_cutflow:
-            result = run(arg.cat, ecm, path, 'cutflow')
-            if result != 0: sys.exit(result)
-
-    timer(t)
+            # BATCH info for plots
+            if is_there_plots:
+                result = run(arg.cat, ecm, path, 'plots')
+                if result != 0: sys.exit(result)
+            # BATCH info for cutflow
+            if is_there_cutflow:
+                result = run(arg.cat, ecm, path, 'cutflow')
+                if result != 0: sys.exit(result)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)

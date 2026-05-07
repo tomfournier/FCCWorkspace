@@ -48,9 +48,10 @@ parser = create_parser(
     description='Run Optimisation pipeline'
 )
 arg = parser.parse_args()
-set_log(__name__)
+set_log(arg)
 
 LOGGER = get_logger(__name__)
+
 
 
 #############################
@@ -62,12 +63,12 @@ cats = arg.cat.split('-')
 ecms = [int(e) for e in arg.ecm.split('-')]
 
 # Map stage numbers to script names
-script_map = {'1': 'pre-selection', '2': 'optimize_ll', '3': 'plots'}
+script_map = {'1': 'pre-selection', '2': 'plots'}
 scripts = [script_map[s] for s in arg.run.split('-')]
-cmds = {'pre-selection': 'run', 'final-selection': 'final'}
+cmds = {'pre-selection': 'run'}
 
 # Base path for analysis scripts
-path = f'{loc.ROOT}/3a-Optimization'
+path = f'{loc.ROOT}/3a-FSR'
 
 
 
@@ -122,16 +123,8 @@ def run(cat: str,
 
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
-    if 'optimize' in script:
-        extra_args.extend(['--procs',   arg.procs])
-        extra_args.extend(['--nevents', str(arg.nevents)])
-        extra_args.extend(['--incr',    str(arg.incr)])
-    elif 'plots' in script:
+    if 'plots' in script:
         extra_args.extend(['--procs', arg.procs])
-        if not arg.dist:
-            extra_args.append('--no-dist')
-        if not arg.metrics:
-            extra_args.append('--no-metrics')
 
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
@@ -169,8 +162,9 @@ if __name__ == '__main__':
                     if result != 0: sys.exit(result)
 
     except KeyboardInterrupt:
-        pass  # Let finally block run without printing traceback
+        pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:
-        pass
+        LOGGER.error('Error occured during execution:', exc_info=True)
     finally:
+        # Print execution time
         timer(t)

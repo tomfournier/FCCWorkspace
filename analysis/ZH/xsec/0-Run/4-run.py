@@ -161,15 +161,21 @@ def run(cfg_dir: str,
 ######################
 
 if __name__ == '__main__':
-    # Nested loops: iterate over energies, channels, and pipeline stages
-    for ecm in ecms:
-        if 'process_histogram' in scripts:
-            result = run(loc.RUN, arg.cat, ecm, '', path, 'process_histogram')
-            if result != 0: sys.exit(result)
-        if 'combine' in scripts:
-            for cat in cats:
-                for sel in sels:
-                    result = run(loc.RUN, cat, ecm, sel, path, 'combine')
-                    if result != 0: sys.exit(result)
-
-    timer(t)
+    try:
+        # Nested loops: iterate over energies, channels, and pipeline stages
+        for ecm in ecms:
+            if 'process_histogram' in scripts:
+                result = run(loc.RUN, arg.cat, ecm, '', path, 'process_histogram')
+                if result != 0: sys.exit(result)
+            if 'combine' in scripts:
+                for cat in cats:
+                    for sel in sels:
+                        result = run(loc.RUN, cat, ecm, sel, path, 'combine')
+                        if result != 0: sys.exit(result)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)
