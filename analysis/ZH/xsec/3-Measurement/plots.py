@@ -105,7 +105,7 @@ args = {
     },
     'zll_recoil_m': {
         240: {
-            '*_high': {'xmin':120, 'xmax':140, 'strict': False}
+            '*_high': {'xmin':115, 'xmax':150, 'strict': False}
         }
     }
 }
@@ -179,8 +179,10 @@ if __name__=='__main__':
     # Run plotting for all categories, selections and variables
     try:
         run(cats, sels, variables, processes, colors, labels)
-    except Exception as e:
-        LOGGER.error(f'Error during plotting: {e}')
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
     finally:
         # Print execution time
         timer(t)

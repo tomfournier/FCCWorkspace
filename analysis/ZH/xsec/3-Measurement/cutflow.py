@@ -154,7 +154,13 @@ def run(cats: list[str],
 ######################
 
 if __name__=='__main__':
-    # Run cutflow analysis for all categories and selections
-    run(cats, sels, mk_processes(ecm=ecm), colors, labels)
-    # Print execution time
-    timer(t)
+    try:
+        # Run cutflow analysis for all categories and selections
+        run(cats, sels, mk_processes(ecm=ecm), colors, labels)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)
