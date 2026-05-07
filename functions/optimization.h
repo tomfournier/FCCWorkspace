@@ -63,13 +63,6 @@ struct JetMCInfo {
     float dr  = 9e99;     // ΔR used for matching
 };
 
-// Struct to hold FSR association statistics
-struct FSRStats {
-    int total_associated_photons = 0;  // Total number of photons associated with leptons
-    int actual_fsr_photons = 0;        // Photons that are genuine FSR (from same parent)
-    int good_associations = 0;         // Number of lepton-photon pairs with same parent
-};
-
 // Make Lorentz vectors from MC quarks (and optionally gluons)
 // Returns struct with vectors, PDG IDs, and MC indices
 inline QuarkLVectors makeQuarkLorentzVectors(Vec_mc mc, bool findGluons = false) {
@@ -86,49 +79,6 @@ inline QuarkLVectors makeQuarkLorentzVectors(Vec_mc mc, bool findGluons = false)
         result.indices.push_back(i);
     }
     return result;
-}
-
-
-inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, float threshold = 0.99) {
-
-    Vec_i usedIdx;
-
-    for (auto &particle : leps) {
-
-        TLorentzVector p_tlv, tmp_tlv;
-        p_tlv.SetPxPyPzE(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.energy);
-        tmp_tlv.SetPxPyPzE(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.energy);
-
-        for (int ph_idx = 0; ph_idx < photons.size(); ph_idx++) {
-
-            // Pass already used photons
-            if (std::find(usedIdx.begin(), usedIdx.end(), ph_idx) != usedIdx.end()) continue;
-
-            rp photon = rps.at(photons[ph_idx]);
-            TLorentzVector ph_tlv;
-            ph_tlv.SetPxPyPzE(photon.momentum.x, photon.momentum.y, photon.momentum.z, photon.energy);
-
-            TVector3 v1 = tmp_tlv.Vect();
-            TVector3 v2 = ph_tlv.Vect();
-
-            float cosTheta = v1.Dot(v2) / ( v1.Mag()* v2.Mag());
-
-            if (cosTheta >= threshold) {
-                tmp_tlv += ph_tlv;
-                usedIdx.push_back(ph_idx);
-            }
-        }
-
-        if (p_tlv != tmp_tlv) {
-            particle.momentum.x = tmp_tlv.Px();
-            particle.momentum.y = tmp_tlv.Py();
-            particle.momentum.z = tmp_tlv.Pz();
-            particle.energy = tmp_tlv.Energy();
-        }
-
-    }
-
-    return leps;
 }
 
 
@@ -163,12 +113,10 @@ struct TrueZInfo {
 struct leptonicZBuilder{
     float ecm;
     bool m_use_MC;
-    leptonicZBuilder(float arg_ecm, bool arg_use_MC);
-    ROOT::RVec<ZPairInfo> operator()(Vec_rp legs, Vec_i recind, Vec_i mcind, Vec_rp reco, Vec_mc mc);
-};
-
-inline leptonicZBuilder::leptonicZBuilder(float arg_ecm, bool arg_use_MC) {ecm = arg_ecm; m_use_MC = arg_use_MC;}
-inline ROOT::RVec<ZPairInfo> leptonicZBuilder::operator()(Vec_rp legs, Vec_i recind, Vec_i mcind, Vec_rp reco, Vec_mc mc) {
+    
+    leptonicZBuilder(float arg_ecm, bool arg_use_MC) : ecm(arg_ecm), m_use_MC(arg_use_MC) {}
+    
+    ROOT::RVec<ZPairInfo> operator()(Vec_rp legs, Vec_i recind, Vec_i mcind, Vec_rp reco, Vec_mc mc) {
     ROOT::RVec<ZPairInfo> all_pairs;
     int n = legs.size();
 
@@ -254,7 +202,8 @@ inline ROOT::RVec<ZPairInfo> leptonicZBuilder::operator()(Vec_rp legs, Vec_i rec
     } while(std::next_permutation(w.begin(), w.end()));
 
     return all_pairs;
-}
+    }
+};
 
 
 // Find the true Z boson from ZH production

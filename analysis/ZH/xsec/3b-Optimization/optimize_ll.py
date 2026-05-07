@@ -132,7 +132,7 @@ class Optimizer:
 
                 # Apply mass cut: remove pairs within 3 GeV of Higgs mass (125 GeV)
                 # Only apply to jagged (per-pair) branches
-                mass_cut = np.abs(arrays['mass'] - 125) > 3
+                # mass_cut = np.abs(arrays['mass'] - 125) > 3
                 jagged_branches = [
                     'mass', 'recoil', 'leading_mc', 'subleading_mc',
                     'leading_p', 'leading_pt', 'leading_theta',
@@ -143,7 +143,8 @@ class Optimizer:
                 # Accumulate filtered jagged data and unfiltered flat data
                 for name in branch_names:
                     if name in jagged_branches:
-                        data[name].append(arrays[name][mass_cut])
+                        data[name].append(arrays[name])
+                        # data[name].append(arrays[name][mass_cut])
                     else:
                         data[name].append(arrays[name])
 
@@ -168,7 +169,7 @@ class Optimizer:
         self.n_multi_pair = int(np.sum(n_pair >  1))
 
         LOGGER.info(f'Loaded {self.n_events:,} events (total events in files: {self.total_events:,})')
-        LOGGER.info(f'Event breakdown: {self.n_zero_pair:<10,} with  0 pairs\n'
+        LOGGER.info(f'Event breakdown: {self.n_zero_pair:<10,} with  0 pair\n'
                     f'                 {self.n_one_pair:<10,} with  1 pair\n'
                     f'                 {self.n_multi_pair:<10,} with >1 pair')
 
@@ -360,7 +361,7 @@ class Optimizer:
             # Write as ROOT tree
             file["distributions"] = structured_data
 
-        LOGGER.info(f'Variables distribution saved to {outFile}')
+        LOGGER.info(f'Variables distribution saved at {outFile}\n')
 
 
     def optimize(
@@ -423,7 +424,7 @@ class Optimizer:
             }
 
         outFile.write_text(json.dumps(json_results, indent=4))
-        LOGGER.info(f'Results saved at {outFile}')
+        LOGGER.info(f'Results saved at {outFile}\n')
         return outFile
 
 
@@ -436,7 +437,7 @@ def main():
     """Main analysis function"""
     cat, ecm, nevents = arg.cat, arg.ecm, arg.nevents
 
-    inDir = loc.get('OPTIMISATION_TREE', cat, ecm, type=Path)
+    inDir  = loc.get('OPTIMISATION',     cat, ecm, type=Path)
     outDir = loc.get('OPTIMISATION_RES', cat, ecm, type=Path)
 
     if not inDir.exists():
@@ -469,5 +470,10 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
     finally:
+        # Print execution time
         timer(t)

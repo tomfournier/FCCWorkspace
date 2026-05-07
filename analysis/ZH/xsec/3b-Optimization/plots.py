@@ -522,7 +522,7 @@ def main():
         if proc_label:
             Label = label + r'(\rightarrow ' + process_label[proc_label] + ')$'
         else:
-            Label = label + r')$'
+            Label = label + r'$'
 
         if not results_file.exists():
             LOGGER.warning(f'Results file not found for {proc}: {results_file}\nSkipping {proc}')
@@ -600,5 +600,10 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
     finally:
+        # Print execution time
         timer(t)

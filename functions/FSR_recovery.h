@@ -5,82 +5,30 @@
 #include <edm4hep/MCParticleData.h>
 #include <edm4hep/ReconstructedParticleData.h>
 #include <cmath>
-#include <utility>
+#include <stdexcept>
 #include "ROOT/RVec.hxx"
 #include "TVector3.h"
 #include "functions.h"
 #include "utils.h"
 
-#ifndef FCCPhysicsOptimisation_H
-#define FCCPhysicsOptimisation_H
+#ifndef FCCPhysicsFSRRecovery_H
+#define FCCPhysicsFSRRecovery_H
 
 namespace FCCAnalyses {
-
-
-/***********************
-*** HELPER FUNCTIONS ***
-************************/
-
-// Struct to hold FSR association statistics
-struct FSRStats {
-    int total_associated_photons = 0;  // Total number of photons associated with leptons
-    int actual_fsr_photons = 0;        // Photons that are genuine FSR (from same parent)
-    int good_associations = 0;         // Number of lepton-photon pairs with same parent
-};
-
-
-inline Vec_i getParentPhotonIdx(edm4hep::MCParticleData parent, Vec_mc mc, Vec_i daughters) {
-    Vec_i result;
-
-    int db = parent.daughters_begin;
-    int de = parent.daughters_end;
-
-    // Check if the parent has valid daughter range
-    if (db < 0 || de < 0 || db >= de || db >= (int)daughters.size()) return result;
-
-    for (int i = db; i < de; i++) {
-        if (i < 0 || i >= (int)daughters.size()) continue;
-        if (daughters[i] < 0 || daughters[i] >= (int)mc.size()) continue;
-        auto daughter = mc.at(daughters[i]);
-        if (isPhoton(daughter.PDG)) { result.push_back(daughters[i]); }
-    }
-    return result;
-}
-
-
-inline Vec_i hasRadiated(edm4hep::MCParticleData particle, Vec_mc mc, Vec_i parents, Vec_i daughters) {
-
-    auto parent = getParent(particle, mc, parents);
-    Vec_i radiated_ph;
-    
-    int pb = parent.daughters_begin;
-    int pe = parent.daughters_end;
-    
-    // Check if the parent is valid (daughters_begin and daughters_end should be reasonable)
-    if (pb < 0 || pe < 0 || pb >= pe || pb >= (int)daughters.size()) return radiated_ph;
-    
-    for (int i = pb; i < pe; i++) {
-        if (i < 0 || i >= (int)daughters.size()) continue;
-        if (daughters[i] < 0 || daughters[i] >= (int)mc.size()) continue;
-        auto daughter = mc.at(daughters[i]);
-        if (isPhoton(daughter.PDG)) {
-            radiated_ph.push_back(daughters[i]);
-        }
-    }
-    return radiated_ph;
-}
-
-
 
 /*******************
 *** FSR RECOVERY ***
 ********************/
 
-inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, float threshold = 0.08) {
+inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, Vec_f iso, int method = 0, float threshold = 0.2, float iso_thr = 1e10) {
 
     Vec_i usedIdx;
 
-    for (auto &particle : leps) {
+    for (size_t i = 0; i < leps.size(); i++) {
+
+        // only consider isolated leptons
+        if (iso.at(i) > iso_thr) continue;
+        auto particle = leps.at(i);
 
         TLorentzVector p_tlv, tmp_tlv;
         p_tlv.SetPxPyPzE(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.energy);
@@ -98,12 +46,58 @@ inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, float threshol
             TLorentzVector ph_tlv;
             ph_tlv.SetPxPyPzE(photon.momentum.x, photon.momentum.y, photon.momentum.z, photon.energy);
 
-            float dr = tmp_tlv.DeltaR(ph_tlv);
+            // use dR as merging criteria
+            if (method == 0) {
+                float dr = tmp_tlv.DeltaR(ph_tlv);
 
-            if (dr <= threshold) {
-                tmp_tlv += ph_tlv;
-                usedIdx.push_back(ph_idx);
+                if (dr <= threshold) {
+                    tmp_tlv += ph_tlv;
+                    usedIdx.push_back(ph_idx);
+                }
+            // use acolinearity as merging criteria
+            } else if (method == 1) {
+
+                TVector3 v1 = tmp_tlv.Vect(), v2 = ph_tlv.Vect();
+                float acol = std::acos(v1.Dot(v2) / (v2.Mag()*v2.Mag()) * (-1));
+
+                if (acol >= threshold) {
+                    tmp_tlv += ph_tlv;
+                    usedIdx.push_back(ph_idx);
+                }
+            // use acoplanarity as merging criteria
+            } else if (method == 2) {
+                
+                float acop = abs(tmp_tlv.Phi() - ph_tlv.Phi());
+                if (acop > M_PI) acop = 2 * M_PI - acop;
+                acop = M_PI - acop;
+
+                if (acop <= threshold) {
+                    tmp_tlv += ph_tlv;
+                    usedIdx.push_back(ph_idx);
+                }
+            // use acopolarity as merging criteria
+            } else if (method == 3) {
+                
+                float acop = abs(tmp_tlv.Theta() - ph_tlv.Theta());
+
+                if (acop <= threshold) {
+                    tmp_tlv += ph_tlv;
+                    usedIdx.push_back(ph_idx);
+                }
+            // use cosTheta between two vectors as merging criteria
+            } else if (method == 4) {
+
+                TVector3 v1 = tmp_tlv.Vect(), v2 = ph_tlv.Vect();
+                float cosTheta = v1.Dot(v2) / (v1.Mag() * v2.Mag());
+
+                if (cosTheta >= threshold) {
+                    tmp_tlv += ph_tlv;
+                    usedIdx.push_back(ph_idx);
+                }
+            } else {
+                throw std::invalid_argument("Invalid FSR recovery method. Method must be 0-4.");
             }
+
         }
 
         if (p_tlv != tmp_tlv) {
@@ -231,115 +225,6 @@ inline Vec_i getMCPhotons(Vec_mc mc, Vec_i daughters){
         if (!isPhoton(p.PDG)) continue;
         if (isStable(p, daughters)) result.push_back(i);
     }
-    return result;
-}
-
-
-/*****************************
-*** FSR RECOVERY VALIDATION ***
-*****************************/
-
-inline std::vector<std::pair<int, Vec_i>> recoverFSR_idx(Vec_rp leps, Vec_i photons, Vec_rp rps, float threshold = 0.99) {
-    std::vector<std::pair<int, Vec_i>> pairs;
-    Vec_i usedIdx;
-
-    TLorentzVector p_tlv, ph_tlv;
-    TVector3 v1, v2;
-
-    float cosTheta;
-    for (auto particle : leps) {
-        
-        p_tlv.SetPxPyPzE(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.energy);
-        v1 = p_tlv.Vect();
-
-        Vec_i ph_fsr;
-
-        for (int ph_idx = 0; ph_idx < photons.size(); ph_idx++) {
-            
-            // pass already used photons
-            if (std::find(usedIdx.begin(), usedIdx.end(), ph_idx) != usedIdx.end()) continue;
-
-            // Check if photon index is within bounds
-            if (photons[ph_idx] < 0 || photons[ph_idx] >= (int)rps.size()) continue;
-
-            // get the photon 3-momentum
-            rp photon = rps.at(photons[ph_idx]);
-            ph_tlv.SetPxPyPzE(photon.momentum.x, photon.momentum.y, photon.momentum.z, photon.energy);
-            v2 = ph_tlv.Vect();
-
-            cosTheta = v1.Dot(v2) / ( v1.Mag() * v2.Mag() );
-
-            if (cosTheta >= threshold) {
-                // merge the lepton and the photon
-                p_tlv += ph_tlv;
-                usedIdx.push_back(ph_idx);
-
-                // get the indice of the merged photons for MC verification
-                ph_fsr.push_back(photons[ph_idx]);
-            }
-        }
-        pairs.push_back({particle.tracks_begin, ph_fsr});
-    }
-
-    return pairs;
-}
-
-// Validate FSR associations by checking if leptons and photons come from the same parent
-// Returns FSRStats struct with:
-//   - total_associated_photons: total number of photons paired with leptons via collinearity
-//   - actual_fsr_photons: total photons that were actually radiated by the lepton
-//   - good_associations: number of associated photons that match the true radiated photons
-inline ROOT::RVec<Vec_i> validateFSRAssociations(
-    std::vector<std::pair<int, Vec_i>> pairs,
-    Vec_rp rps,
-    Vec_mc mc,
-    Vec_i parents,
-    Vec_i daughters,
-    Vec_i recind,
-    Vec_i mcind) {
-
-    ROOT::RVec<Vec_i> result;
-
-    for (const auto& pair : pairs) {
-
-        Vec_i stats;
-        stats.reserve(3);
-
-        int track_idx = pair.first;
-        int mc_lepton_idx = ReconstructedParticle2MC::getTrack2MC_index(track_idx, recind, mcind, rps);
-        
-        // Invalid lepton MC index
-        if (mc_lepton_idx < 0 || mc_lepton_idx >= (int)mc.size()) continue;
-
-        auto lepton = mc.at(mc_lepton_idx);
-        Vec_i radiated_ph = hasRadiated(lepton, mc, parents, daughters);
-
-        // Process each photon associated with this lepton
-        const Vec_i& photon_indices = pair.second;
-        stats.push_back(photon_indices.size());
-        stats.push_back(radiated_ph.size());
-
-        // Convert reco photon indices to MC indices for comparison
-        Vec_i mc_associated_photons;
-        for (int ph_idx : photon_indices) {
-            if (ph_idx < 0 || ph_idx >= (int)mcind.size()) continue;
-            int mc_ph_idx = mcind.at(ph_idx);
-            if (mc_ph_idx >= 0 && mc_ph_idx < (int)mc.size()) {
-                mc_associated_photons.push_back(mc_ph_idx);
-            }
-        }
-
-        // Compare: count how many associated photons match the true radiated photons
-        int good_associations = 0;
-        for (int assoc_ph : mc_associated_photons) {
-            if (std::find(radiated_ph.begin(), radiated_ph.end(), assoc_ph) != radiated_ph.end()) {
-                good_associations += 1;
-            }
-        }
-        stats.push_back(good_associations);
-        result.push_back(stats);
-    }
-
     return result;
 }
 

@@ -14,7 +14,7 @@ from package.userConfig import (
     loc, get_params
 )
 
-cat, ecm = get_params(os.environ.copy(), '3a-run.json')
+cat, ecm = get_params(os.environ.copy(), '3b-run.json')
 
 
 
@@ -23,13 +23,14 @@ cat, ecm = get_params(os.environ.copy(), '3a-run.json')
 #############################
 
 # Output directory for training events (default is local directory)
-outputDir = loc.get('OPTIMISATION_TREE', cat, ecm)
+outputDir = loc.get('OPTIMISATION', cat, ecm)
 
 # Include custom C++ analysis functions
 includePaths = ['../../../../functions/functions.h',
                 '../../../../functions/functions_hadronic.h',
                 '../../../../functions/utils.h',
-                '../../../../functions/optimisation.h']
+                '../../../../functions/FSR_recovery.h',
+                '../../../../functions/optimization.h']
 
 # Mandatory: Production tag for EDM4Hep centrally produced events
 # Points to YAML files for sample statistics

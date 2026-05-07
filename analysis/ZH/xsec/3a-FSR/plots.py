@@ -21,6 +21,7 @@ import sys
 from time import time
 from pathlib import Path
 from glob import glob
+from tqdm import tqdm
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -86,13 +87,17 @@ def _make_fig(figsize: tuple = (12, 8),
     return plt.subplots(figsize=figsize, dpi=dpi)
 
 
-def load_data(proc_dir: Path) -> dict[str, np.ndarray]:
+def load_data(proc_dir: Path, branches: list[str] | None = None) -> dict[str, np.ndarray]:
     """Load and concatenate data from all chunk files in process directory.
 
-    Handles jagged arrays by flattening them into 1D arrays for plotting.
+    Optimized for fast loading with low memory consumption by:
+    - Concatenating jagged arrays before flattening (cheaper than repeated flattens)
+    - Using awkward concatenation for metadata-only operations
+    - Sequential I/O (more efficient than threaded I/O for uproot)
 
     Args:
         proc_dir: Path to process directory containing chunk<N>.root files
+        branches: Optional list of specific branches to load. If None, loads all branches.
 
     Returns:
         Dictionary mapping variable names to flattened numpy arrays
@@ -114,38 +119,34 @@ def load_data(proc_dir: Path) -> dict[str, np.ndarray]:
         # Initialize data dictionary for concatenation
         accumulated_data: dict[str, list] = {}
 
-        # Read all chunk files
-        for chunk_file in chunk_files:
+        # Read all chunk files sequentially
+        for chunk_file in tqdm(chunk_files, desc='Loading chunks'):
             with uproot.open(chunk_file) as file:
                 tree = file['events']
 
-                # Read all branches
-                for key in tree.keys():
-                    try:
-                        # Read as awkward array
-                        arr = tree[key].array(library='ak')
+                # Determine which branches to load
+                keys_to_load = branches if branches else tree.keys()
 
+                # Read branches
+                for key in keys_to_load:
+                    if key not in tree:
+                        continue
+                    try:
+                        arr = tree[key].array(library='ak')
                         if key not in accumulated_data:
                             accumulated_data[key] = []
-
                         accumulated_data[key].append(arr)
-
                     except Exception as e:
                         LOGGER.warning(f'Could not read branch {key}: {e}')
 
-        # Concatenate all accumulated data
+        # Concatenate jagged arrays first (cheap, metadata only), then flatten once (expensive)
         final_data: dict[str, np.ndarray] = {}
         for branch_name, arrays in accumulated_data.items():
             concatenated = ak.concatenate(arrays)
-
-            # Flatten jagged arrays (convert to 1D numpy arrays for plotting)
-            if isinstance(concatenated, ak.Array):
-                # This is a jagged array, flatten it
-                flattened = ak.flatten(concatenated)
-                final_data[branch_name] = np.asarray(flattened)
-            else:
-                # Regular array
-                final_data[branch_name] = np.asarray(concatenated)
+            # Flatten jagged arrays to 1D numpy arrays
+            final_data[branch_name] = np.asarray(
+                ak.flatten(concatenated) if isinstance(concatenated, ak.Array) else concatenated
+            )
 
         LOGGER.info(f'Successfully loaded {len(final_data)} branches')
         return final_data
@@ -158,6 +159,59 @@ def load_data(proc_dir: Path) -> dict[str, np.ndarray]:
 ##########################
 ### PLOTTING FUNCTIONS ###
 ##########################
+
+def _plot_histograms(
+        ax: plt.Axes,
+        datasets: dict[str, tuple[np.ndarray, str, str]],
+        bins: int = 200,
+        log_scale: bool = False,
+        histtype: str = 'step',
+        alpha: float = 1.0,
+        density: bool = False,
+        linewidth: int = 2
+         ) -> tuple[float | None, float | None]:
+    """Helper function to plot multiple histogram datasets on same axes.
+
+    Args:
+        ax: Matplotlib axes
+        datasets: Dict mapping labels to (data, color, linestyle) tuples
+        bins: Number of bins
+        log_scale: Whether to use log scale
+        histtype: Histogram type ('step' or 'bar')
+        alpha: Transparency level for histograms
+        density: Whether to normalize histograms
+        linewidth: Line width for step histograms
+
+    Returns:
+        Tuple of (xmin, xmax) for data range
+    """
+    all_data = np.concatenate([data for data, _, _ in datasets.values() if len(data) > 0])
+    if len(all_data) == 0:
+        return 0, 1
+
+    # Use nanmin/nanmax to handle NaN values, but check if all values are NaN
+    xmin = np.nanmin(all_data)
+    xmax = np.nanmax(all_data)
+
+    if not np.isfinite(xmin) or not np.isfinite(xmax):
+        # All values are NaN, use default range
+        return None, None
+
+    for label, (data, color, style) in datasets.items():
+        if len(data) > 0:
+            if style == 'scatter':
+                n, b = np.histogram(data, bins=bins, range=(xmin, xmax))
+                B = (b[:-1] + b[1:]) / 2
+                ax.scatter(B, n, color=color, marker='.', label=label)
+            else:
+                ax.hist(data, bins=bins, range=(xmin, xmax), histtype=histtype,
+                        label=label, color=color, linewidth=linewidth, alpha=alpha, density=density)
+
+    if log_scale:
+        ax.set_yscale('log')
+
+    return xmin, xmax
+
 
 def photon_distributions(
         data: dict[str, np.ndarray],
@@ -193,55 +247,31 @@ def photon_distributions(
     ]
 
     for var_name, true_var, xlabel in variables:
-        if var_name not in data:
+        if var_name not in data or true_var not in data:
             LOGGER.debug(f'Variable {var_name} not found, skipping')
             continue
 
-        var_data  = data[var_name]
         true_data = data[true_var]
 
         # Validate array lengths match
         if len(true_data) != len(from_isr):
             LOGGER.warning(f'Array length mismatch for {var_name:<15}: '
-                           f'{len(var_data)} vs {len(from_isr)}, skipping')
+                           f'{len(true_data)} vs {len(from_isr)}, skipping')
             continue
 
-        isr_data   = true_data[from_isr]
-        fsr_data   = true_data[from_fsr]
-        other_data = true_data[from_other]
+        # Create datasets dict for helper function
+        datasets = {
+            'ISR':              (true_data[from_isr],   'blue',  'step'),
+            'FSR':              (true_data[from_fsr],   'green', 'step'),
+            'Other radiations': (true_data[from_other], 'red',   'step'),
+            'Reco':             (data[var_name],        'black', 'scatter'),
+        }
 
         fig, ax = _make_fig()
         try:
-
-            # Determine common range
-            all_data = np.concatenate([var_data, isr_data, fsr_data])
-
-            if len(all_data) == 0:
-                LOGGER.warning(f'No valid data for {var_name}, skipping')
-                plt.close(fig)
-                continue
-
-            xmin, xmax = np.min(all_data), np.max(all_data)
-
-            if len(isr_data) > 0:
-                ax.hist(isr_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label='ISR', color='blue', linewidth=2)
-            if len(fsr_data) > 0:
-                ax.hist(fsr_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label='FSR', color='green', linewidth=2)
-            if len(other_data) > 0:
-                ax.hist(other_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label='Other radiations', color='red', linewidth=2)
-            if len(var_data) > 0:
-                n, b = np.histogram(var_data, bins=bins, range=(xmin, xmax))
-                B = (b[:-1] + b[1:]) / 2
-                ax.scatter(B, n, color='black', marker='.', label='Reco')
-
+            xmin, xmax = _plot_histograms(ax, datasets, bins, scale)
             ax.set_xlim(xmin, xmax)
-
             set_labels(ax, xlabel, 'Number of Photons', right=label)
-            if scale:
-                ax.set_yscale('log')
             ax.legend()
 
             suffix = '_log' if scale else '_lin'
@@ -261,32 +291,43 @@ def leptons_origin(
         scale: bool = False,
         iso_cut: float | int = 1e10
          ) -> None:
-    """Plot photon distributions split by ISR/FSR origin.
-
-    Note: Arrays are flattened from jagged structure where each event can have
-    multiple photons. After flattening, index i corresponds to the i-th photon
-    across all events, so indices between fromISR/fromFSR and photon variables align.
+    """Plot lepton distributions split by origin.
 
     Args:
         data: Dictionary of numpy arrays from ROOT file (already flattened)
         outDir: Output directory for plots
         label: LaTeX label for the final state
         bins: Number of bins for histograms
+        scale: Whether to use log scale
+        iso_cut: Isolation cut value
     """
-    if 'fromISR' not in data or 'fromFSR' not in data:
-        LOGGER.warning('ISR/FSR origin branches not found, skipping photon distributions')
+    required_keys = ['leps_iso', 'LEPS_iso', 'LEPS_p', 'LEPS_pT', 'LEPS_theta', 'lepton_origin']
+    if not all(k in data for k in required_keys):
+        LOGGER.warning('Required branches not found for lepton origin plots')
         return
 
     cut = data['leps_iso'] < iso_cut
     CUT = data['LEPS_iso'] < iso_cut
     origin = np.abs(data['lepton_origin'])[CUT]
 
-    from_ini = origin == 0
-    from_tau = origin == 15
-    from_Z   = origin == 23
-    from_W   = origin == 24
-    from_H   = origin == 25
-    from_had = origin > 25
+    # Pre-compute origin masks
+    origin_masks = {
+        'From signal':        origin == 0,
+        'From $\\tau$ decay': origin == 15,
+        'From $Z$ decay':     origin == 23,
+        'From $W$ decay':     origin == 24,
+        'From $H$ decay':     origin == 25,
+        'From hadron decay':  origin > 25,
+    }
+
+    origin_colors = {
+        'From signal':        'red',
+        'From $\\tau$ decay': 'cyan',
+        'From $Z$ decay':     'blue',
+        'From $W$ decay':     'orange',
+        'From $H$ decay':     'green',
+        'From hadron decay':  'magenta',
+    }
 
     variables = [
         ('leps_p',     'LEPS_p',     r'$p_{\ell^{\pm}}$ [GeV]'),
@@ -296,69 +337,32 @@ def leptons_origin(
     ]
 
     for var_name, true_var, xlabel in variables:
-        if var_name not in data:
+        if var_name not in data or true_var not in data:
             LOGGER.debug(f'Variable {var_name} not found, skipping')
             continue
 
-        var_data  = data[var_name][cut]
+        var_data = data[var_name][cut]
         true_data = data[true_var][CUT]
 
-        # Validate array lengths match
         if len(true_data) != len(origin):
-            LOGGER.warning(f'Array length mismatch for {var_name:<15}: '
-                           f'{len(var_data)} vs {len(origin)}, skipping')
+            LOGGER.warning(f'Array length mismatch for {var_name:<15}: skipping')
             continue
 
-        ini_data = true_data[from_ini]
-        tau_data = true_data[from_tau]
-        Z_data   = true_data[from_Z]
-        W_data   = true_data[from_W]
-        H_data   = true_data[from_H]
-        had_data = true_data[from_had]
+        # Create datasets dict
+        datasets = {
+            label: (true_data[mask], color, 'step')
+            for label, mask in origin_masks.items()
+            if (color := origin_colors[label])
+        }
+        datasets['Reco'] = (var_data, 'black', 'scatter')
 
         fig, ax = _make_fig()
         try:
-
-            # Determine common range
-            all_data = np.concatenate([var_data, ini_data, tau_data, Z_data, W_data, H_data, had_data])
-
-            if len(all_data) == 0:
-                LOGGER.warning(f'No valid data for {var_name}, skipping')
-                plt.close(fig)
-                continue
-
-            xmin, xmax = np.min(all_data), np.max(all_data)
+            xmin, xmax = _plot_histograms(ax, datasets, bins, scale)
             if 'iso' in var_name:
-                xmax = 10
-
-            if len(ini_data) > 0:
-                ax.hist(ini_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label=r'From signal', color='red', linewidth=2)
-            if len(tau_data) > 0:
-                ax.hist(tau_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label=r'From $\tau$ decay', color='cyan', linewidth=2)
-            if len(Z_data) > 0:
-                ax.hist(Z_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label=r'From $Z$ decay', color='blue', linewidth=2)
-            if len(W_data) > 0:
-                ax.hist(W_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label=r'From $W$ decay', color='orange', linewidth=2)
-            if len(H_data) > 0:
-                ax.hist(H_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label=r'From $H$ decay', color='green', linewidth=2)
-            if len(had_data) > 0:
-                ax.hist(had_data, bins=bins, range=(xmin, xmax), histtype='step',
-                        label='From hadron decay', color='magenta', linewidth=2)
-            if len(var_data) > 0:
-                n, b = np.histogram(var_data, bins=bins, range=(xmin, xmax))
-                B = (b[:-1] + b[1:]) / 2
-                ax.scatter(B, n, color='black', marker='.', label='Reco')
-
+                xmax = 10 if xmax > 10 else xmax
             ax.set_xlim(xmin, xmax)
-
             set_labels(ax, xlabel, 'Number of Leptons', right=label)
-            if scale:
-                ax.set_yscale('log')
             ax.legend()
 
             suffix = '_log' if scale else '_lin'
@@ -368,83 +372,6 @@ def leptons_origin(
 
         finally:
             plt.close(fig)
-
-
-def lepton_distributions(
-        data: dict[str, np.ndarray],
-        outDir: Path,
-        label: str,
-        bins: int = 200,
-        scale: bool = False
-         ) -> None:
-    """Plot lepton distributions comparing reconstructed, true, and FSR-recovered quantities.
-
-    Note: Arrays are flattened from jagged structure where each event can have
-    multiple leptons. After flattening, index i corresponds to the i-th lepton
-    across all events, so indices align between all lepton variables.
-
-    Args:
-        data: Dictionary of numpy arrays from ROOT file (already flattened)
-        outDir: Output directory for plots
-        label: LaTeX label for the final state
-        bins: Number of bins for histograms
-    """
-    variables = [
-        ('leps_p',     'leps_FSR_p',     'LEPS_FSR_p',     r'$p_{\ell}$'),
-        ('leps_pT',    'leps_FSR_pT',    'LEPS_FSR_pT',    r'$p_{T,\ell}$'),
-        ('leps_theta', 'leps_FSR_theta', 'LEPS_FSR_theta', r'$\theta_{\ell}$'),
-    ]
-
-    for reco_var, reco_fsr_var, true_fsr_var, xlabel in variables:
-        # Check if all variables exist
-        required_vars = [reco_var, reco_fsr_var, true_fsr_var]
-        if not all(var in data for var in required_vars):
-            LOGGER.debug(f'Missing variables for {xlabel}, skipping')
-            continue
-
-        fig, ax = _make_fig()
-        try:
-            # Flatten arrays if needed
-            reco_data = data[reco_var]
-            reco_fsr_data = data[reco_fsr_var]
-            true_fsr_data = data[true_fsr_var]
-
-            # Determine common range
-            all_data = np.concatenate([reco_data, reco_fsr_data, true_fsr_data])
-
-            if len(all_data) == 0:
-                LOGGER.warning(f'No valid data for {reco_var}, skipping')
-                plt.close(fig)
-                continue
-
-            xmin, xmax = np.min(all_data), np.max(all_data)
-
-            # Reconstructed vs True
-            ax.hist(reco_data, bins=bins, range=(xmin, xmax), histtype='step',
-                    label='Reconstructed', color='blue', density=False, linewidth=2)
-
-            # FSR-recovered vs True FSR
-            ax.hist(reco_fsr_data, bins=bins, range=(xmin, xmax), histtype='step',
-                    label='FSR-Recovered (ILC)', color='red', density=False, linewidth=2, linestyle='dashed')
-            ax.hist(true_fsr_data, bins=bins, range=(xmin, xmax),
-                    label='True (pre-FSR)', color='green', density=False)
-
-            set_labels(ax, xlabel, 'Number of Leptons', right=label)
-            if scale:
-                ax.set_yscale('log')
-
-            ax.set_xlim(xmin, xmax)
-            ax.legend()
-
-            suffix = '_log' if scale else '_lin'
-            out = outDir / 'lepton'
-            out.mkdir(exist_ok=True, parents=True)
-            savefigs(fig, out, reco_var, suffix=suffix, format=plot_file)
-
-        finally:
-            plt.close(fig)
-
-
 
 
 def correlation_distributions(
@@ -466,6 +393,8 @@ def correlation_distributions(
         outDir: Output directory for plots
         label: LaTeX label for the final state
         bins: Number of bins for histograms
+        scale: Whether to use log scale
+        iso_cut: Isolation cut for lepton pairs
     """
     if 'same_parent' not in data:
         LOGGER.warning("'same_parent' branch not found, skipping correlation distributions")
@@ -498,30 +427,21 @@ def correlation_distributions(
 
         fig, ax = _make_fig()
         try:
-            # Determine common range
             all_data = np.concatenate([reco_data, true_data])
-            xmin, xmax = np.nanmin(all_data), np.nanmax(all_data)
+            xmin, xmax = np.nanmin(all_data), np.nanmax(all_data[all_data < 20])
 
-            # Same parent
-            if len(reco_data) > 0:
-                n, b = np.histogram(reco_data, bins=bins, range=(xmin, xmax))
-                B = (b[:-1] + b[1:]) / 2
-                ax.scatter(B, n, color='black', marker='.', label='Reco')
+            # Create datasets dict
+            datasets = {
+                'MC (Same parent)': (true_same, 'green', 'hist'),
+                'MC (Diff parent)': (true_diff, 'red',   'hist'),
+                'Reco':             (reco_data, 'black', 'scatter'),
+            }
 
-            if len(true_same) > 0:
-                ax.hist(true_same, bins=bins, range=(xmin, xmax), alpha=0.8,
-                        label='MC (Same parent)', color='green', density=False)
-
-            # Different parent
-            if len(true_diff) > 0:
-                ax.hist(true_diff, bins=bins, range=(xmin, xmax), alpha=0.8,
-                        label='MC (Diff parent)', color='red', density=False)
+            xmin, xmax = _plot_histograms(ax, datasets, bins, scale,
+                                          histtype='bar', alpha=0.8, density=False)
 
             set_labels(ax, xlabel, 'Number of Pairs', right=label)
-
             ax.set_xlim(xmin, xmax)
-            if scale:
-                ax.set_yscale('log')
             ax.legend(loc='upper center')
 
             suffix = '_log' if scale else '_lin'
@@ -533,6 +453,43 @@ def correlation_distributions(
             plt.close(fig)
 
 
+def _compute_cumsum_and_z(
+        data: np.ndarray,
+        is_signal: np.ndarray,
+        bins: np.ndarray,
+        reverse: bool = False
+         ) -> tuple[np.ndarray,
+                    np.ndarray,
+                    np.ndarray,
+                    np.ndarray]:
+    """Helper to compute cumulative sums and significance.
+
+    Args:
+        data: Data array
+        is_signal: Boolean mask for signal
+        bins: Bin edges
+        reverse: If True, compute right-to-left cumsum
+
+    Returns:
+        Tuple of (S_cumsum, B_cumsum, Z_cumsum, bin_centers)
+    """
+    hist_sig, _ = np.histogram(data[is_signal], bins=bins)
+    hist_bkg, _ = np.histogram(data[~is_signal], bins=bins)
+
+    if reverse:
+        S_cumsum, B_cumsum = np.cumsum(hist_sig), np.cumsum(hist_bkg)
+    else:
+        S_cumsum = np.cumsum(hist_sig[::-1])[::-1]
+        B_cumsum = np.cumsum(hist_bkg[::-1])[::-1]
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        Z_cumsum = S_cumsum / np.sqrt(S_cumsum + B_cumsum)
+        Z_cumsum = np.where(np.isfinite(Z_cumsum), Z_cumsum, 0)
+
+    bin_centers = (bins[1:] + bins[:-1]) / 2
+    return S_cumsum, B_cumsum, Z_cumsum, bin_centers
+
+
 def correlation_scan(
         data: dict[str, np.ndarray],
         outDir: Path,
@@ -540,24 +497,20 @@ def correlation_scan(
         iso_cut: float | int = 1e10,
         incr: float | int = 0.01
          ) -> None:
-    """Plot correlation distributions split by same_parent criterion.
-
-    Note: Arrays are flattened from jagged structure where each event can have
-    multiple photons. After flattening, index i corresponds to the i-th photon
-    across all events, so indices between same_parent and correlation variables align.
+    """Plot correlation scan with significance optimization.
 
     Args:
         data: Dictionary of numpy arrays from ROOT file (already flattened)
         outDir: Output directory for plots
         label: LaTeX label for the final state
-        bins: Number of bins for histograms
+        iso_cut: Isolation cut
+        incr: Increment for cut values
     """
     if 'same_parent' not in data:
-        LOGGER.warning("'same_parent' branch not found, skipping correlation distributions")
+        LOGGER.warning("'same_parent' branch not found, skipping correlation scan")
         return
 
     cut = data['LEPS_iso_pair'] < iso_cut
-
     same_parent = data['same_parent'].astype(bool)[cut]
     diff_parent = ~same_parent
 
@@ -571,47 +524,33 @@ def correlation_scan(
 
     for var, reverse, xlabel in variables:
         if var not in data:
-            LOGGER.warning(f'Variables {var} not found, skipping')
+            LOGGER.warning(f'Variable {var} not found, skipping')
             continue
 
         true_data = data[var][cut]
-        cuts = np.arange(np.floor(np.nanmin(true_data)), np.ceil(np.nanmax(true_data)) + incr, incr)
+        cuts = np.arange(np.floor(np.nanmin(true_data)),
+                         np.ceil(np.nanmax(true_data[true_data < 20])) + incr, incr)
 
         total_S, total_B = np.sum(same_parent), np.sum(diff_parent)
-        LOGGER.info(f'Initial: Total S = {total_S:,}, B = {total_B:,}, Z = {total_S / np.sqrt(total_S + total_B) * 100:.2f}')
-        LOGGER.info(f'Computing efficiency vs {var} with {len(cuts)-1} bins...')
+        LOGGER.debug(f'Initial: Total S = {total_S:,}, B = {total_B:,}, Z = {total_S / np.sqrt(total_S + total_B) * 100:.2f}')
+        LOGGER.debug(f'Computing efficiency vs {var} with {len(cuts)-1} bins...')
 
-        # Create 1D histograms
-        hist_sig, _ = np.histogram(true_data[same_parent], bins=cuts)
-        hist_bkg, _ = np.histogram(true_data[diff_parent], bins=cuts)
-
-        # Compute cumulative sums for cuts
-        if reverse:
-            S_cumsum, B_cumsum = np.cumsum(hist_sig), np.cumsum(hist_bkg)
-        else:
-            S_cumsum, B_cumsum = np.cumsum(hist_sig[::-1])[::-1], np.cumsum(hist_bkg[::-1])[::-1]
-
-        Z_cumsum = np.zeros_like(S_cumsum, dtype=float)
-        with np.errstate(divide='ignore', invalid='ignore'):
-            Z_cumsum = S_cumsum / np.sqrt(S_cumsum + B_cumsum)
-            Z_cumsum[np.isnan(Z_cumsum)] = 0
-            Z_cumsum[np.isinf(Z_cumsum)] = 0
-
-        cuts_center = (cuts[1:] + cuts[:-1]) / 2
-
+        S_cumsum, B_cumsum, Z_cumsum, cuts_center = _compute_cumsum_and_z(
+            true_data, same_parent, cuts, reverse
+        )
 
         fig, ax = _make_fig()
         try:
-            # Determine x-range based on non-zero Z_cumsum values (exclude NaN/inf regions)
+            # Compute plot range
             valid_idx = Z_cumsum > 0
             if np.any(valid_idx):
                 valid_x = cuts_center[valid_idx]
                 xmin, xmax = valid_x[0], valid_x[-1]
             else:
                 xmin, xmax = cuts_center[0], cuts_center[-1]
-            # Add small margin for clarity
             margin = (xmax - xmin) * 0.02
             ax.set_xlim(xmin - margin, xmax + margin)
+
             ax_twin = ax.twinx()
 
             line1 = ax.scatter(cuts_center, Z_cumsum, color='blue', label='Significance Z')
@@ -620,7 +559,7 @@ def correlation_scan(
             ax.yaxis.label.set_color('blue')
 
             line2 = ax_twin.scatter(cuts_center, S_cumsum, color='green', label='True pairing')
-            line3 = ax_twin.scatter(cuts_center, B_cumsum, color='red',   label='Fake pairing')
+            line3 = ax_twin.scatter(cuts_center, B_cumsum, color='red', label='Fake pairing')
             set_labels(ax_twin, ylabel='Count', left=' ')
             ax_twin.tick_params(axis='y')
             ax_twin.set_yscale('log')
@@ -633,19 +572,24 @@ def correlation_scan(
             opt_s, opt_b = S_cumsum[max_idx], B_cumsum[max_idx]
 
             rel = r'$\leq$' if reverse else r'$\geq$'
+            eff = opt_s / (opt_s + opt_b) * 100
+            lab = f'Max Z = {opt_z:,.0f}\neff = {eff:.2f}' + r'\%' + '\n' + f'{xlabel} {rel} {opt_iso:.2f}'
             line4 = ax.scatter([opt_iso], [opt_z], color='red', s=150, marker='*',
-                               label=fr'Max Z = {opt_z:,.0f} at {xlabel} {rel} {opt_iso:.2f}', zorder=5)
+                               label=lab, zorder=5)
 
             # Combine legends
             lines = [line1, line2, line3, line4]
             labels = [l.get_label() for l in lines]
-            ax.legend(lines, labels, loc='lower right')
+            # ymin, ymax = ax.get_ylim()
+            # ax.set_ylim(ymin, ymax * 2)
+            ymin, ymax = ax_twin.get_ylim()
+            ax_twin.set_ylim(ymin, ymax * 100)
+            ax.legend(lines, labels, loc='upper center')
 
             # Save figure
             out = outDir / 'efficiency'
             out.mkdir(exist_ok=True, parents=True)
             savefigs(fig, out, f'significance_{var}', format=plot_file)
-            plt.close(fig)
 
             rel = '<=' if reverse else '>='
             LOGGER.info(f'Optimal cut: {var} {rel} {opt_iso:.3f} with Z = {opt_z:,.0f} (S = {opt_s:,}, B = {opt_b:,})')
@@ -712,14 +656,13 @@ def significance(
         data: Dictionary of numpy arrays from ROOT file
         outDir: Output directory for plots
         label: LaTeX label for the final state
-        bins: Number of bins for iso axis
-        scale: Whether to use logarithmic scale
+        incr: Increment for iso cut
     """
 
     # Check for required variables
     required_vars = ['lepton_origin', 'LEPS_iso']
     if not all(var in data for var in required_vars):
-        LOGGER.warning('Missing required variables for efficiency computation')
+        LOGGER.warning('Missing required variables for significance computation')
         return
 
     # Extract data
@@ -730,30 +673,14 @@ def significance(
     # Define bins for isolation
     iso_cuts = np.arange(np.floor(np.nanmin(leps_iso)), np.ceil(np.nanmax(leps_iso)) + incr, incr)
 
-    # Calculate cumulative S, B, and Z for each iso cut
     total_S, total_B = np.sum(~from_had), np.sum(from_had)
+    LOGGER.debug(f'Initial: Total S = {total_S:,}, B = {total_B:,}, Z = {total_S / np.sqrt(total_S + total_B) * 100:.2f}')
+    LOGGER.debug(f'Computing efficiency vs isolation with {len(iso_cuts)-1} bins...')
 
-    LOGGER.info(f'Initial: Total S = {total_S:,}, B = {total_B:,}, Z = {total_S / np.sqrt(total_S + total_B) * 100:.2f}')
-    LOGGER.info(f'Computing efficiency vs isolation with {len(iso_cuts)-1} bins...')
+    S_cumsum, B_cumsum, Z_cumsum, iso_centers = _compute_cumsum_and_z(
+        leps_iso, ~from_had, iso_cuts, reverse=True
+    )
 
-    # Create 1D histograms
-    hist_sig, _ = np.histogram(leps_iso[~from_had], bins=iso_cuts)
-    hist_bkg, _ = np.histogram(leps_iso[from_had],  bins=iso_cuts)
-
-    # Compute cumulative sums for cuts: keep pairs with iso <= iso_cut
-    S_cumsum, B_cumsum = np.cumsum(hist_sig), np.cumsum(hist_bkg)
-
-    # Calculate efficiency: eff = S / (S + B)
-    Z_cumsum = np.zeros_like(S_cumsum, dtype=float)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        Z_cumsum = S_cumsum / np.sqrt(S_cumsum + B_cumsum)
-        Z_cumsum[np.isnan(Z_cumsum)] = 0
-        Z_cumsum[np.isinf(Z_cumsum)] = 0
-
-    # Compute bin centers for plotting
-    iso_centers = (iso_cuts[:-1] + iso_cuts[1:]) / 2
-
-    # Create main plot with significance and S/B
     fig, ax = _make_fig()
     ax.set_xlim(None, 10)
     ax_twin = ax.twinx()
@@ -764,7 +691,7 @@ def significance(
     ax.yaxis.label.set_color('blue')
 
     line2 = ax_twin.scatter(iso_centers, S_cumsum, color='green', label='Not from jet')
-    line3 = ax_twin.scatter(iso_centers, B_cumsum, color='red',   label='From jet')
+    line3 = ax_twin.scatter(iso_centers, B_cumsum, color='red', label='From jet')
     set_labels(ax_twin, ylabel='Count', left=' ')
     ax_twin.tick_params(axis='y')
     ax_twin.set_yscale('log')
@@ -812,7 +739,6 @@ def main():
         LOGGER.error(f'Input directory not found: {inDir}')
         sys.exit(1)
 
-    # Create output directory
     outDir.mkdir(exist_ok=True, parents=True)
 
     # Set LaTeX label
@@ -835,6 +761,15 @@ def main():
 
     LOGGER.info(f'Found {len(proc_dirs)} process(es) to process')
 
+    # Determine required branches to load
+    required_branches = [
+        'fromISR', 'fromFSR', 'ph_p', 'PH_p', 'ph_pT', 'PH_pT', 'ph_theta', 'PH_theta',
+        'leps_iso', 'LEPS_iso', 'LEPS_p', 'LEPS_pT', 'LEPS_theta', 'lepton_origin',
+        'same_parent', 'leps_iso_pair', 'LEPS_iso_pair', 'cosTheta', 'CosTheta',
+        'acolinearity', 'Acolinearity', 'acoplanarity', 'Acoplanarity',
+        'acopolarity', 'Acopolarity', 'deltaR', 'DeltaR', 'n_radiated'
+    ]
+
     # Process each directory
     for proc_dir in proc_dirs:
         if not proc_dir.exists():
@@ -850,26 +785,25 @@ def main():
         else:
             Label = label + r')$'
 
-        # Load data from all chunk files
-        data = load_data(proc_dir)
+        # Load data from all chunk files (only required branches)
+        data = load_data(proc_dir, branches=required_branches)
 
         if not data:
             LOGGER.warning(f'Could not load data from {proc_dir}, skipping')
             continue
 
-        # Create subdirectory for this process
         proc_outDir = outDir / proc_dir.name
         proc_outDir.mkdir(exist_ok=True, parents=True)
 
-        # Generate significance plot
-        cut = significance(data, proc_outDir, Label)
+        # Generate significance plot with optimal cut
+        cut = 1.80 if ecm == 240 else (0.95 if ecm == 365 else 1e10)
+        significance(data, proc_outDir, Label)
         correlation_scan(data, proc_outDir, Label, cut)
 
-        # Generate plots
+        # Generate all plots (linear and log scales)
         LOGGER.info(f'Generating plots for {proc_dir.name}')
         for scale in [False, True]:
             photon_distributions(data, proc_outDir, Label, scale=scale)
-            lepton_distributions(data, proc_outDir, Label, scale=scale)
             leptons_origin(data, proc_outDir, Label, scale=scale, iso_cut=cut)
             correlation_distributions(data, proc_outDir, Label, scale=scale, iso_cut=cut)
             n_radiated(data, proc_outDir, Label, scale=scale)
@@ -884,5 +818,10 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
     finally:
+        # Print execution time
         timer(t)

@@ -11,7 +11,8 @@ from .hadronic import veto_leptonic, make_pseudojets
 ### LEPTONIC HELPER FUNCTIONS ###
 #################################
 
-def get_leps(df: 'ROOT.ROOT.RDataFrame'
+def get_leps(df: 'ROOT.ROOT.RDataFrame',
+             ecm: int
              ) -> 'ROOT.ROOT.RDataFrame':
     """Define baseline lepton collections and isolation selections.
 
@@ -29,11 +30,19 @@ def get_leps(df: 'ROOT.ROOT.RDataFrame'
         - Isolated leptons: leps_sel_iso with count leps_sel_no
     """
     # Define all lepton properties (before cuts)
-    df = df.Define('leps_all', 'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
-    df = df.Define('leps_FSR', 'FCCAnalyses::recoverFSR(leps_all, Photon0, ReconstructedParticles, 0.99)')
+    df = df.Define('leps_all',     'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
+    df = df.Define('leps_all_iso', 'FCCAnalyses::conIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)')
+
+    # Recover the leptons' energy lost from FSR
+    if ecm == 240:
+        df = df.Define('leps_fsr', 'FCCAnalyses::recoverFSR(leps_all, Photon0, ReconstructedParticles, leps_all_iso, 1, 3.08, 1.80)')
+    elif ecm == 365:
+        df = df.Define('leps_fsr', 'FCCAnalyses::recoverFSR(leps_all, Photon0, ReconstructedParticles, leps_all_iso, 0, 0.25, 0.95)')
+    else:
+        raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
 
     # Apply momentum cut (p > 20 GeV) to reduce soft backgrounds
-    df = df.Define('leps', 'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_FSR)')
+    df = df.Define('leps', 'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_fsr)')
 
     # Select isolated leptons: Irel < 0.25 (relative isolation ratio)
     df = df.Define('leps_q',       'FCCAnalyses::ReconstructedParticle::get_charge(leps)')
@@ -80,84 +89,62 @@ def fsr_recovery(
     df = df.Define('photons', 'FCCAnalyses::ReconstructedParticle::get(Photon0, ReconstructedParticles)')
 
     # Get the true lepton and photon information
-    df = df.Define('leps_MC',     'FCCAnalyses::fromRP2MC(Lepton0, MCRecoAssociations1, Particle)')
-    df = df.Define('photons_MC',  'FCCAnalyses::fromRP2MC(Photon0, MCRecoAssociations1, Particle)')
-    df = df.Define('leps_FSR_MC', 'FCCAnalyses::getParent(leps_MC, Particle, Particle0)')  # Before FSR
+    df = df.Define('Leps_MC',    'FCCAnalyses::fromRP2MC(Lepton0, MCRecoAssociations1, Particle)')
+    df = df.Define('photons_MC', 'FCCAnalyses::fromRP2MC(Photon0, MCRecoAssociations1, Particle)')
+    df = df.Define('leps_MC',    'FCCAnalyses::getParent(Leps_MC, Particle, Particle0)')  # Before FSR
 
-    # Lepton rps after ILC's FSR recovery
-    df = df.Define('leps_FSR', 'FCCAnalyses::recoverFSR(leps, Photon0, ReconstructedParticles, 0.99)')
 
-    # TO DO
-    df = df.Define('LEPS_iso',      'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles, MCRecoAssociations0, MCRecoAssociations1, Particle)')
-    df = df.Define('leps_iso',      'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)')
-    df = df.Define('lepton_origin', 'FCCAnalyses::getLeptonOrigin(leps_MC, Particle, Particle0, false)')
+    # Get the origin of the leptons and photons
+    df = df.Define('lepton_origin', 'FCCAnalyses::getLeptonOrigin(Leps_MC, Particle, Particle0, false)')
+    df = df.Define('photon_origin', 'FCCAnalyses::getPhotonOrigin(photons_MC, Particle, Particle0)')
+
+    # Determine if the photons come from ISR or FSR
+    df = df.Define('fromISR', 'FCCAnalyses::fromISR(photon_origin)')
+    df = df.Define('fromFSR', 'FCCAnalyses::fromFSR(photon_origin)')
+
 
     # Get the leptons and photons parent for merging comparison
     # Extract parent indices from MC particles directly
-    df = df.Define('lep_parent', 'FCCAnalyses::getParentID(leps_MC, Particle, Particle0)')
+    df = df.Define('lep_parent', 'FCCAnalyses::getParentID(Leps_MC, Particle, Particle0)')
     df = df.Define('ph_parent',  'FCCAnalyses::getParentID(photons_MC, Particle, Particle0)')
-
-    # Determine if the photons come from ISR or FSR
-    df = df.Define('photon_origin', 'FCCAnalyses::getPhotonOrigin(photons_MC, Particle, Particle0)')
-    df = df.Define('fromISR',       'FCCAnalyses::fromISR(photon_origin)')
-    df = df.Define('fromFSR',       'FCCAnalyses::fromFSR(photon_origin)')
 
     # Get the table of true association
     df = df.Define('n_radiated',  'FCCAnalyses::nRadiated(lep_parent, ph_parent)')
     df = df.Define('same_parent', 'FCCAnalyses::fromSameParent(lep_parent, ph_parent)')
 
-    # Get the leptons and photons momentum
-    df = df.Define('leps_p',     'FCCAnalyses::ReconstructedParticle::get_p(leps)')
-    df = df.Define('leps_FSR_p', 'FCCAnalyses::ReconstructedParticle::get_p(leps_FSR)')
-    df = df.Define('ph_p',       'FCCAnalyses::ReconstructedParticle::get_p(photons)')
 
-    # Get the MC leptons and photons momentum
-    df = df.Define('LEPS_p',     'FCCAnalyses::MCParticle::get_p(leps_MC)')
-    df = df.Define('PH_p',       'FCCAnalyses::MCParticle::get_p(photons_MC)')
-    df = df.Define('LEPS_FSR_p', 'FCCAnalyses::MCParticle::get_p(leps_FSR_MC)')
 
-    # Get the leptons and photons transverse momentum
-    df = df.Define('leps_pT',     'FCCAnalyses::ReconstructedParticle::get_pt(leps)')
-    df = df.Define('leps_FSR_pT', 'FCCAnalyses::ReconstructedParticle::get_pt(leps_FSR)')
-    df = df.Define('ph_pT',       'FCCAnalyses::ReconstructedParticle::get_pt(photons)')
+    # Get the leptons isolation (Reco and MC)
+    df = df.Define('leps_iso', 'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)')
+    df = df.Define('LEPS_iso', 'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles, MCRecoAssociations0, MCRecoAssociations1, Particle)')
 
-    # Get the MC leptons and photons transverse momentum
-    df = df.Define('LEPS_pT',     'FCCAnalyses::MCParticle::get_pt(leps_MC)')
-    df = df.Define('PH_pT',       'FCCAnalyses::MCParticle::get_pt(photons_MC)')
-    df = df.Define('LEPS_FSR_pT', 'FCCAnalyses::MCParticle::get_pt(leps_FSR_MC)')
+    # Get the leptons and photons momentum (Reco and MC)
+    df = df.Define('leps_p', 'FCCAnalyses::ReconstructedParticle::get_p(leps)')
+    df = df.Define('ph_p',   'FCCAnalyses::ReconstructedParticle::get_p(photons)')
+    df = df.Define('LEPS_p', 'FCCAnalyses::MCParticle::get_p(leps_MC)')
+    df = df.Define('PH_p',   'FCCAnalyses::MCParticle::get_p(photons_MC)')
 
-    # Get the leptons and photons polar angle
-    df = df.Define('leps_theta',     'FCCAnalyses::ReconstructedParticle::get_theta(leps)')
-    df = df.Define('leps_FSR_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(leps_FSR)')
-    df = df.Define('ph_theta',       'FCCAnalyses::ReconstructedParticle::get_theta(photons)')
+    # Get the leptons and photons transverse momentum (Reco and MC)
+    df = df.Define('leps_pT', 'FCCAnalyses::ReconstructedParticle::get_pt(leps)')
+    df = df.Define('ph_pT',   'FCCAnalyses::ReconstructedParticle::get_pt(photons)')
+    df = df.Define('LEPS_pT', 'FCCAnalyses::MCParticle::get_pt(leps_MC)')
+    df = df.Define('PH_pT',   'FCCAnalyses::MCParticle::get_pt(photons_MC)')
 
-    # Get the MC leptons and photons polar angle
-    df = df.Define('LEPS_theta',     'FCCAnalyses::MCParticle::get_theta(leps_MC)')
-    df = df.Define('PH_theta',       'FCCAnalyses::MCParticle::get_theta(photons_MC)')
-    df = df.Define('LEPS_FSR_theta', 'FCCAnalyses::MCParticle::get_theta(leps_FSR_MC)')
+    # Get the leptons and photons polar angle (Reco and MC)
+    df = df.Define('leps_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(leps)')
+    df = df.Define('ph_theta',   'FCCAnalyses::ReconstructedParticle::get_theta(photons)')
+    df = df.Define('LEPS_theta', 'FCCAnalyses::MCParticle::get_theta(leps_MC)')
+    df = df.Define('PH_theta',   'FCCAnalyses::MCParticle::get_theta(photons_MC)')
 
+    # Get the lepton isolation for each lepton pair
     df = df.Define('leps_iso_pair', 'FCCAnalyses::lepGaPair(leps_iso, ph_p, true)')
-    df = df.Define('leps_p_pair',   'FCCAnalyses::lepGaPair(leps_p, ph_p, true)')
-    df = df.Define('leps_pT_pair',  'FCCAnalyses::lepGaPair(leps_pT, ph_pT, true)')
-
-    df = df.Define('ph_p_pair',  'FCCAnalyses::lepGaPair(leps_p, ph_p, false)')
-    df = df.Define('ph_pT_pair', 'FCCAnalyses::lepGaPair(leps_pT, ph_pT, false)')
-
-
-
     df = df.Define('LEPS_iso_pair', 'FCCAnalyses::lepGaPair(LEPS_iso, PH_p, true)')
-    df = df.Define('LEPS_p_pair',   'FCCAnalyses::lepGaPair(LEPS_p, PH_p, true)')
-    df = df.Define('LEPS_pT_pair',  'FCCAnalyses::lepGaPair(LEPS_pT, PH_pT, true)')
 
-    df = df.Define('PH_p_pair',  'FCCAnalyses::lepGaPair(LEPS_p, PH_p, false)')
-    df = df.Define('PH_pT_pair', 'FCCAnalyses::lepGaPair(LEPS_pT, PH_pT, false)')
+
 
     # Convert rps to lorentz vector for angular correlation computations
-    df = df.Define('leps_tlv',       'FCCAnalyses::makeLorentzVectors(leps)')
-    df = df.Define('photons_tlv',    'FCCAnalyses::makeLorentzVectors(photons)')
-    df = df.Define('leps_MC_tlv',    'FCCAnalyses::MCParticle::get_tlv(leps_MC)')
-    df = df.Define('photons_MC_tlv', 'FCCAnalyses::MCParticle::get_tlv(photons_MC)')
-
+    df = df.Define('leps_tlv',    'FCCAnalyses::makeLorentzVectors(leps)')
+    df = df.Define('photons_tlv', 'FCCAnalyses::makeLorentzVectors(photons)')
     # Get the angular correlation between the leptons and photons
     df = df.Define('cosTheta',     'FCCAnalyses::getCosTheta(leps_tlv,     photons_tlv)')
     df = df.Define('acolinearity', 'FCCAnalyses::getAcolinearity(leps_tlv, photons_tlv)')
@@ -165,6 +152,10 @@ def fsr_recovery(
     df = df.Define('acopolarity',  'FCCAnalyses::getAcopolarity(leps_tlv,  photons_tlv)')
     df = df.Define('deltaR',       'FCCAnalyses::getDeltaR(leps_tlv,       photons_tlv)')
 
+
+    # Convert mc to lorentz vector for angular correlation computations
+    df = df.Define('leps_MC_tlv',    'FCCAnalyses::MCParticle::get_tlv(leps_MC)')
+    df = df.Define('photons_MC_tlv', 'FCCAnalyses::MCParticle::get_tlv(photons_MC)')
     # Get the MC angular correlation between the leptons and photons
     df = df.Define('CosTheta',     'FCCAnalyses::getCosTheta(leps_MC_tlv,     photons_MC_tlv)')
     df = df.Define('Acolinearity', 'FCCAnalyses::getAcolinearity(leps_MC_tlv, photons_MC_tlv)')
@@ -181,7 +172,7 @@ def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
                 ) -> 'ROOT.ROOT.RDataFrame':
 
     df = setup_alias(df, cat)
-    df = get_leps(df)
+    df = get_leps(df, ecm)
 
     df = df.Filter('leps_no >= 1 && leps_sel_iso.size() > 0')
     df = df.Filter('leps_no >= 2 && abs(Sum(leps_q)) < leps.size()')
@@ -197,17 +188,14 @@ def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('l1',   'FCCAnalyses::getZPairsLepton1(all_pairs)')
     df = df.Define('l2',   'FCCAnalyses::getZPairsLepton2(all_pairs)')
 
-    df = df.Define('zll_e',     'FCCAnalyses::ReconstructedParticle::get_e(z_rp)')
     df = df.Define('zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(z_rp)')
     df = df.Define('zll_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(z_rp)')
     df = df.Define('zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(z_rp)')
 
-    df = df.Define('leading_e',     'FCCAnalyses::ReconstructedParticle::get_e(l1)')
     df = df.Define('leading_p',     'FCCAnalyses::ReconstructedParticle::get_p(l1)')
     df = df.Define('leading_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(l1)')
     df = df.Define('leading_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(l1)')
 
-    df = df.Define('subleading_e',     'FCCAnalyses::ReconstructedParticle::get_e(l2)')
     df = df.Define('subleading_p',     'FCCAnalyses::ReconstructedParticle::get_p(l2)')
     df = df.Define('subleading_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(l2)')
     df = df.Define('subleading_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(l2)')
@@ -225,7 +213,6 @@ def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('Leading_MC',    'FCCAnalyses::getTrueZMCIdx1(trueZ)')
     df = df.Define('Subleading_MC', 'FCCAnalyses::getTrueZMCIdx2(trueZ)')
 
-    df = df.Define('Zll_e',     'FCCAnalyses::ReconstructedParticle::get_e(trueZ_rp)[0]')
     df = df.Define('Zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(trueZ_rp)[0]')
     df = df.Define('Zll_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(trueZ_rp)[0]')
     df = df.Define('Zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(trueZ_rp)[0]')
@@ -234,12 +221,10 @@ def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('zll_recoil', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(trueZ_rp)')
     df = df.Define('Recoil',      'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
 
-    df = df.Define('Leading_e',     'FCCAnalyses::ReconstructedParticle::get_e(lep1)[0]')
     df = df.Define('Leading_p',     'FCCAnalyses::ReconstructedParticle::get_p(lep1)[0]')
     df = df.Define('Leading_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(lep1)[0]')
     df = df.Define('Leading_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(lep1)[0]')
 
-    df = df.Define('Subleading_e',     'FCCAnalyses::ReconstructedParticle::get_e(lep2)[0]')
     df = df.Define('Subleading_p',     'FCCAnalyses::ReconstructedParticle::get_p(lep2)[0]')
     df = df.Define('Subleading_pt',    'FCCAnalyses::ReconstructedParticle::get_pt(lep2)[0]')
     df = df.Define('Subleading_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(lep2)[0]')
@@ -293,16 +278,14 @@ branch_list_qq = [
     'rps_sel', 'pseudo_jets'
 ]
 branch_list_fsr = [
-    'lep_parent', 'ph_parent',
-    'fromISR', 'fromFSR',
-    'same_parent', 'n_radiated',
-    'lepton_origin', 'leps_iso', 'LEPS_iso',
-    'leps_p_pair', 'leps_pT_pair', 'leps_iso_pair',
-    'LEPS_p_pair', 'LEPS_pT_pair', 'LEPS_iso_pair',
-    'ph_p_pair', 'ph_pT_pair', 'PH_p_pair', 'PH_pT_pair',
-    'leps_p', 'leps_FSR_p', 'ph_p', 'LEPS_p', 'PH_p', 'LEPS_FSR_p',
-    'leps_pT', 'leps_FSR_pT', 'ph_pT', 'LEPS_pT', 'PH_pT', 'LEPS_FSR_pT',
-    'leps_theta', 'leps_FSR_theta', 'ph_theta', 'LEPS_theta', 'PH_theta', 'LEPS_FSR_theta',
-    'cosTheta', 'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',
-    'CosTheta', 'Acolinearity', 'Acoplanarity', 'Acopolarity', 'DeltaR'
+    'lep_parent', 'lepton_origin',          # Lepton origin (signal, tau, Z, W, H, jet)
+    'ph_parent',  'photon_origin',          # Photon origin (lep, H, jet, etc.)
+    'fromISR', 'fromFSR', 'same_parent',    # Photon origin (ISR, FSR) and check if pair comes from same parent
+    'leps_iso', 'leps_iso_pair',            # Reco lepton isolation
+    'LEPS_iso', 'LEPS_iso_pair',            # True lepton isolation
+    'leps_p', 'leps_pT', 'leps_theta', 'ph_p', 'ph_pT', 'ph_theta',         # Reco leptons and photons kinematics
+    'LEPS_p', 'LEPS_pT', 'LEPS_theta', 'PH_p', 'PH_pT', 'PH_theta',         # True leptons and photons kinematics
+    'cosTheta', 'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',    # Reco angular correlation between for all the lepton-photon pair
+    'CosTheta', 'Acolinearity', 'Acoplanarity', 'Acopolarity', 'DeltaR'     # True angular correlation between for all the lepton-photon pair
+    'n_radiated',    # Number of radiated photon for each lepton
 ]
