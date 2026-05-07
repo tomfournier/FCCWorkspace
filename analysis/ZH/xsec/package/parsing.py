@@ -287,7 +287,7 @@ def add_optimize_args(
         default='',
         help='Processes to optimize for (comma-separated)'
     )
-    if not (is_plot or is_run) and not only_procs:
+    if (not is_plot or is_run) and not only_procs:
         args.add_argument(
             '--nevents',
             type=int,
@@ -370,10 +370,9 @@ def add_fit_args(
         help='Run bias test instead of nominal fit'
     )
     args.add_argument(
-        '-t', '--timer',
+        '--timer',
         action=BooleanOptionalAction,
         default=True,
-        dest='t',
         help='Display elapsed time'
     )
     args.add_argument(

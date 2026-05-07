@@ -178,7 +178,6 @@ def clear_histogram_cache() -> None:
     Also clears WW scale cache to ensure consistent re-scaling on next run.
     Retrocompatible: signature and primary behavior unchanged.
     '''
-    global HIST_CACHE, WW_SCALE_CACHE
     HIST_CACHE.clear()
     WW_SCALE_CACHE.clear()
     LOGGER.info('Histogram cache cleared')
@@ -255,7 +254,7 @@ def get_hist(
     import ROOT
 
     fpath = os.path.join(inDir, f'{proc}{suffix}.root')
-    LOGGER.info(f'Getting {hName} from {fpath}')
+    LOGGER.debug(f'Getting {hName} from {fpath}')
 
     # Verify input file exists
     if not os.path.exists(fpath):
@@ -452,7 +451,7 @@ def concat(
     '''
     import ROOT
 
-    LOGGER.info(f'Concatenating {hName}')
+    LOGGER.debug(f'Concatenating {hName}')
 
     # Calculate total number of bins
     tot_bins = sum([h.GetNbinsX() for h in h_list])
