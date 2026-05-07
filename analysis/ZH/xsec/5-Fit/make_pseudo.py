@@ -108,7 +108,7 @@ if not arg.combine and not arg.onlyrun and not arg.nobias:
 #####################
 
 # Run combine fit if requested
-if arg.run or arg.onlyrun:
+if __name__=='__main__' and (arg.run or arg.onlyrun):
     # Build command to execute fit.py
     cmd = ['python3', '5-Fit/fit.py']
 
@@ -141,10 +141,11 @@ if arg.run or arg.onlyrun:
             text=True,
             env=os.environ.copy()
         )
-    except Exception as e:
-        LOGGER.error(f"Error during fit execution: {e}")
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
         sys.exit(1)
-
-# Print elapsed time if requested
-if __name__=='__main__' and arg.t:
-    timer(t)
+    finally:
+        # Print elapsed time if requested
+        if arg.timer: timer(t)

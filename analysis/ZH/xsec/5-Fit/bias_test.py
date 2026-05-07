@@ -246,24 +246,29 @@ def bias_to_txt(outDir: str,
 ######################
 
 if __name__=='__main__':
-    # Create output directory
-    mkdir(loc_result)
+    try:
+        # Create output directory
+        mkdir(loc_result)
 
-    # Run bias test for all decay modes
-    df, bias = get_bias(
-        inDir, h_inDir, loc_result, H_decays,
-        cat, sel, pert, cmd_args,
-        ecm=ecm, lumi=lumi
-    )
+        # Run bias test for all decay modes
+        df, bias = get_bias(
+            inDir, h_inDir, loc_result, H_decays,
+            cat, sel, pert, cmd_args,
+            ecm=ecm, lumi=lumi
+        )
 
-    # Generate bias summary plots
-    LOGGER.info('Making plot of the bias')
-    Bias(df, nomDir, loc_result, H_decays, ecm=ecm, lumi=lumi)
+        # Generate bias summary plots
+        LOGGER.info('Making plot of the bias')
+        Bias(df, nomDir, loc_result, H_decays, ecm=ecm, lumi=lumi)
 
-    # Save bias results to formatted text file
-    bias_to_txt(loc_result, bias, H_decays)
+        # Save bias results to formatted text file
+        bias_to_txt(loc_result, bias, H_decays)
 
-    clear_histogram_cache()
-
-    # Print execution time
-    timer(t)
+        clear_histogram_cache()
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)

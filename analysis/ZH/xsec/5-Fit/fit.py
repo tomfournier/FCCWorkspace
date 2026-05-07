@@ -244,17 +244,22 @@ def res_saving(
 ######################
 
 if __name__=='__main__':
-    # Execute the fitting pipeline
-    ret = fitting(dir, dc, ws, tp, dc_comb, env)
-    if ret != 0:
-        sys.exit(ret)
+    try:
+        # Execute the fitting pipeline
+        ret = fitting(dir, dc, ws, tp, dc_comb, env)
+        if ret != 0:
+            sys.exit(ret)
 
-    # Extract results from fit
-    mu, err = res_extraction(result_log)
+        # Extract results from fit
+        mu, err = res_extraction(result_log)
 
-    # Save results to output file
-    res_saving(mu, err, res)
+        # Save results to output file
+        res_saving(mu, err, res)
 
-    # Print execution time if requested
-    if arg.t:
-        timer(t)
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
+    finally:
+        # Print execution time if requested
+        if arg.timer: timer(t)
