@@ -1,0 +1,397 @@
+'''Core configuration for path templates and helpers.
+
+Provides:
+- Path templates via `loc` with placeholders: `cat`, `ecm`, `sel`.
+- Type-flexible expansion with `LocPath.get()` and `loc.get(...)`.
+- Bidirectional type conversion via `astype(str)` and `astype(Path)`.
+- Global parameters: `plot_file`, `frac`, `nb`, `ww`, `cat`, `ecm`, `lumi`.
+- Utilities: `get_loc()`, `event()`, `get_params()`.
+
+Conventions:
+- `lumi` is in ab^-1 (10.8 at 240 GeV; 3.12 at 365 GeV).
+- Templates are expanded with `loc.get()` or `LocPath.get()`.
+- Expanded paths can be str or pathlib.Path; both support `astype()`.
+
+Usage:
+- path = loc.EVENTS
+- path1 = loc.EVENTS.get(cat='ee', ecm=240, sel='Baseline')
+- path2 = loc.get('EVENTS', cat='ee', ecm=240, sel='Baseline', type=Path)
+- path3 = path1.astype(str)
+- path4 = path3.astype(Path)
+'''
+
+####################################
+### IMPORT MODULES AND FUNCTIONS ###
+####################################
+
+import os
+from pathlib import Path, PosixPath, WindowsPath
+from typing import overload, Type, Union
+
+# Select the appropriate Path base class for the OS
+_PathBase = WindowsPath if os.name == 'nt' else PosixPath
+
+from .logger import get_logger
+
+LOGGER = get_logger(__name__)
+
+
+
+##################
+### PARAMETERS ###
+##################
+
+# Output plot file formats
+plot_file = ['png']
+
+
+
+#############################
+##### LOCATION OF FILES #####
+#############################
+
+###############################
+### Custom class definition ###
+###############################
+
+# str-like class with get and astype methods
+class LocPath(str):
+    """String subclass for templates and expanded paths.
+
+    Adds:
+    - `get(...)`: expand placeholders in a template
+    - `astype(type)`: convert between LocPath (str) and PathObj (Path)
+    """
+
+    def astype(self,
+               type: Type[Union[str, Path]]
+               ) -> Union['LocPath',
+                          'PathObj']:
+        """Convert to str (LocPath) or Path (PathObj).
+
+        Args:
+            type: Either str or Path class
+
+        Returns:
+            LocPath or PathObj with an `astype()` method for roundtrip conversion
+        """
+        # str → LocPath; Path → PathObj; keep interface symmetric
+        if type is str:
+            return LocPath(self)
+        elif type is Path:
+            return PathObj(str(self))
+        raise TypeError("Only 'str' or 'Path' supported")
+
+    def get(self,
+            name: Union[str, None] = None,
+            cat: Union[str, None] = None,
+            ecm: Union[int, None] = None,
+            sel: Union[str, None] = None,
+            type: Type[Union[str, Path]] = str
+            ) -> Union['LocPath',
+                       'PathObj']:
+        """Expand placeholders in this template or a named template.
+
+        Args:
+            name: Template name ('EVENTS', etc.). If None, self is the template.
+            cat, ecm, sel: Placeholder values
+            type: Return type - str (default) or Path
+
+        Returns:
+            Expanded LocPath or PathObj (both with `astype()`)
+        """
+        # If name is None, expand self; otherwise fetch `loc.<name>`
+        template = self if name is None else getattr(loc, name, name)
+        expanded = loc.expand(template, cat=cat, ecm=ecm, sel=sel)
+        return LocPath(expanded).astype(type)
+
+
+# pathlib.Path subclass with get and astype methods
+class PathObj(_PathBase):
+    """Path subclass with get and astype methods, inheriting all Path functionality.
+
+    Adds:
+    - `get(...)`: expand a named template from `loc`
+    - `astype(type)`: convert between PathObj (Path) and LocPath (str)
+    """
+
+    def astype(self,
+               type: Type[Union[str, Path]]
+               ) -> Union[LocPath,
+                          'PathObj']:
+        """Convert to str (LocPath) or Path (PathObj).
+
+        Args:
+            type: Either str or Path class
+
+        Returns:
+            LocPath or PathObj with an `astype()` method for roundtrip conversion
+        """
+        # Path → PathObj; str → LocPath; keep interface symmetric
+        if type is Path:
+            return PathObj(str(self))
+        elif type is str:
+            return LocPath(str(self))
+        raise TypeError("Only 'str' or 'Path' supported")
+
+    def get(self, name: str,
+            cat: Union[str, None] = None,
+            ecm: Union[int, None] = None,
+            sel: Union[str, None] = None,
+            type: Type[Union[str, Path]] = str
+            ) -> Union[LocPath,
+                       'PathObj']:
+        """Fetch named template from `loc`, expand, and return.
+
+        Args:
+            name: Template name ('EVENTS', etc.)
+            cat, ecm, sel: Placeholder values
+            type: Return type - str (default) or Path
+
+        Returns:
+            Expanded LocPath or PathObj (both with `astype()`)
+        """
+        template = getattr(loc, name, name)
+        expanded = loc.expand(template, cat=cat, ecm=ecm, sel=sel)
+        return LocPath(expanded).astype(type)
+
+
+
+######################
+### Path defintion ###
+######################
+
+class locMeta(type):
+    """Metaclass for loc to handle type conversion based on default type setting."""
+
+    def __init__(cls, name, bases, dct):
+        super().__init__(name, bases, dct)
+        cls._default_type = str  # Default returns LocPath (str type)
+
+    def __getattribute__(cls, name):
+        """Intercept attribute access to convert templates based on default type."""
+        obj = super().__getattribute__(name)
+
+        # Convert templates (LocPath) based on default type
+        # Only convert uppercase attributes (templates), not methods or private attrs
+        if (isinstance(obj, LocPath) and not callable(obj) and
+                name.isupper() and not name.startswith('_')):
+            default_type = super().__getattribute__('_default_type')
+            # Convert to PathObj if default type is Path or PathObj
+            if default_type is Path or default_type is PathObj:
+                return PathObj(str(obj))
+
+        return obj
+
+    def set_default_type(cls, type_: Type[Union[str, Path]]) -> None:
+        """Set the default type for loc.ATTRIBUTE access and loc.get() calls.
+
+        Args:
+            type_: Either str (returns LocPath), Path (returns PathObj),
+                   or the classes themselves (LocPath, PathObj)
+
+        Raises:
+            ValueError: If type_ is not one of the supported types
+        """
+        if type_ not in (str, LocPath, Path, PathObj):
+            raise ValueError("type_ must be str, LocPath, Path, or PathObj")
+        cls._default_type = type_
+
+
+class loc(metaclass=locMeta):
+    """Path templates with placeholders ('cat', 'ecm', 'sel') and expansion methods."""
+
+    repo = str(Path(__file__).parent.parent.resolve())
+
+    # Templates as LocPath strings with placeholders
+    ROOT                = LocPath(repo)                    # Repo root
+    PACKAGE             = LocPath(f"{repo}/package")       # Python package code
+    OUT                 = LocPath(f"{repo}/output")        # Output root
+    PLOTS               = LocPath(f"{repo}/output/plots")  # Plots root
+    DATA                = LocPath(f"{repo}/output/data")   # Data artifacts
+    TMP                 = LocPath(f"{repo}/output/tmp")    # Scratch state
+
+    JSON                = LocPath(f"{repo}/output/tmp/config_json")      # JSON configs
+    RUN                 = LocPath(f"{repo}/output/tmp/config_json/run")  # Per-run configs
+
+    EVENTS              = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis")  # Analysis samples
+    EVENTS_TEST         = LocPath(f"{repo}/output/data/events/ecm/cat/test/analysis")  # Test samples for analysis
+
+    HIST                = LocPath(f"{repo}/output/data/histograms")                           # Histograms root
+    HIST_MEASUREMENT    = LocPath(f"{repo}/output/data/histograms/measurement/ecm/cat")       # Measurement histograms
+
+    PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis plots
+
+    COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root
+    COMBINE_NOMINAL     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")  # Nominal outputs
+    COMBINE_BIAS        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")     # Bias outputs
+
+    NOMINAL_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")       # Logs (nominal)
+    NOMINAL_RESULT      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/results")   # Results (nominal)
+    NOMINAL_DATACARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/datacard")  # Datacards (nominal)
+    NOMINAL_WS          = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/WS")        # Workspaces (nominal)
+
+    BIAS_LOG            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/log")           # Logs (bias)
+    BIAS_FIT_RESULT     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/fit")   # Fit outputs (bias)
+    BIAS_RESULT         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias")  # Bias summaries
+    BIAS_DATACARD       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Datacards (bias)
+    BIAS_WS             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Workspaces (bias)
+
+    @staticmethod
+    def expand(
+        template: Union[str, Path],
+        cat: Union[str, None] = None,
+        ecm: Union[int, None] = None,
+        sel: Union[str, None] = None
+         ) -> str:
+        """Replace placeholders in a template string.
+
+        Args:
+            template: Template string containing 'cat', 'ecm', 'sel' placeholders
+            cat, ecm, sel: Values to substitute. Raises ValueError if required but None.
+
+        Returns:
+            str: Template with placeholders replaced
+        """
+        tpl = str(template)
+        needs_cat = 'cat' in tpl
+        needs_ecm = 'ecm' in tpl
+        needs_sel = 'sel' in tpl
+
+        if needs_cat and cat is None:
+            raise ValueError("'cat' is required to expand this path")
+        if needs_ecm and ecm is None:
+            raise ValueError("'ecm' is required to expand this path")
+        if needs_sel and sel is None:
+            raise ValueError("'sel' is required to expand this path")
+
+        tpl = tpl.replace('cat', cat or '')
+        tpl = tpl.replace('ecm', str(ecm) if ecm is not None else '')
+        tpl = tpl.replace('sel', sel or '')
+        return tpl
+
+    @classmethod
+    def get(cls,
+            name: str,
+            cat: Union[str, None] = None,
+            ecm: Union[int, None] = None,
+            sel: Union[str, None] = None,
+            type: Union[Type[Union[str, Path]], None] = None
+            ) -> Union[LocPath,
+                       PathObj]:
+        """Fetch template by name, expand placeholders, and return as LocPath or PathObj.
+
+        Args:
+            name: Template name (e.g., 'EVENTS')
+            cat, ecm, sel: Placeholder values
+            type: Return type - str (default) returns LocPath, Path returns PathObj.
+                  If None, uses the default type set via set_default_type()
+
+        Returns:
+            LocPath or PathObj (both with astype() and get() methods)
+        """
+        template = getattr(cls, name)
+        expanded = cls.expand(template, cat=cat, ecm=ecm, sel=sel)
+
+        # Use default type if not explicitly provided
+        if type is None:
+            type = cls._default_type
+
+        return LocPath(expanded).astype(type)
+
+
+
+#################
+### FUNCTIONS ###
+#################
+
+# __________________________
+def event(procs: list[str],
+          path: str = '',
+          end: str = '.root'
+          ) -> list[str]:
+    '''Filter processes that contain valid ROOT event trees.
+
+    Args:
+        procs: List of process names to validate
+        path: Base path where process files are located
+        end: File extension (default: '.root')
+
+    Returns:
+       List[str]: List of valid process names with 'events' TTree
+    '''
+    import uproot
+    from glob import glob
+
+    newprocs = []
+    for proc in procs:
+        file = os.path.join(path, proc)
+        # Check for single file or directory with multiple files
+        filenames = [f'{file}{end}'] \
+            if os.path.exists(f'{file}{end}') \
+            else glob(f'{file}/*')
+
+        # Verify all files contain 'events' TTree
+        isTTree = [i for i, filename in enumerate(filenames)
+                   if 'events' in uproot.open(filename)]
+        if len(isTTree)==len(filenames):
+            newprocs.append(proc)
+    return newprocs
+
+@overload
+def get_params(
+    env: os._Environ,
+    cfg_json: str,
+    is_final: bool = False,
+    qq_allowed: bool = False,
+     ) -> tuple[str, int]:
+    ...
+
+@overload
+def get_params(
+    env: os._Environ,
+    cfg_json: str,
+    is_final: bool = True,
+    qq_allowed: bool = False,
+     ) -> tuple[str, int, float]:
+    ...
+
+# ______________________________________
+def get_params(
+        env: os._Environ,
+        cfg_json: str,
+        is_final: bool = False,
+        qq_allowed: bool = False,
+     ) -> Union[tuple[str, int],
+                tuple[str, int, float]]:
+
+    import json
+
+    # Check if running in automated mode (RUN set) or on HTCondor
+    is_batch = '_CONDOR_SCRATCH_DIR' in env
+    is_automated = env.get('RUN') or is_batch
+
+    cat_allowed = ['ee', 'mumu']
+    if qq_allowed: cat_allowed.append('qq')
+
+    if is_automated:
+        # Local run: use loc.RUN
+        cfg_file = loc.RUN.astype(Path) / cfg_json
+        LOGGER.info(f'Getting config file from {cfg_file}')
+        if cfg_file.exists():
+            cfg: dict = json.loads(cfg_file.read_text())
+            cat, ecm, lumi = cfg['cat'], cfg['ecm'], cfg.get('lumi', -1)
+        else:
+            raise FileNotFoundError(f"Couldn't find config file at {cfg_file}")
+    else:
+        cat = input(f'Select channel [{", ".join(cat_allowed)}]: ')
+        while cat not in cat_allowed:
+            cat = input(f'Wrong input selected, choose between [{", ".join(cat_allowed)}]: ')
+        ecm = int(input('Select center-of-mass energy [240, 365]: '))
+        while (ecm!=240) and (ecm!=365):
+            ecm = int(input('Wrong input selected, choose between 240 and 365: '))
+        lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
+
+    if is_final:
+        return cat, ecm, lumi
+    return cat, ecm
