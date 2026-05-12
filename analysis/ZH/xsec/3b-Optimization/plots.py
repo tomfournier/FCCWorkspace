@@ -1,13 +1,13 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
-Plotting script for chi2_recoil_frac optimization results.
+Unified plotting script for chi2 methods optimization results.
 
-This script reads the JSON results from optimize_ll.py and generates
-comprehensive plots to visualize the pairing efficiency as a function
-of the chi2_recoil_frac parameter.
+Combines plots_ll.py and plots_pll.py to generate plots for both mll and pll methods.
+This script reads JSON results from optimize.py and generates comprehensive plots
+to visualize pairing efficiency as a function of the chi2 parameter.
 
 Usage:
-    python3 plots.py --cat mumu --ecm 240 [--procs process1-process2]
+    python3 plots.py --cat mumu --ecm 240 [--method mll-pll] [--procs process1-process2]
 """
 
 ##########################################################
@@ -82,6 +82,31 @@ def _make_fig(figsize: tuple = (12, 8),
     return plt.subplots(figsize=figsize, dpi=dpi)
 
 
+def _get_chi2_params(chi2_method: str) -> dict[str, any]:
+    """Get chi2 method-specific parameters (labels, baseline values).
+
+    Args:
+        chi2_method: Either 'mll' or 'pll'
+
+    Returns:
+        Dictionary with 'latex_label', 'baseline_value', 'baseline_label'
+    """
+    if chi2_method == 'mll':
+        return {
+            'latex_label': r'$w_{m_{\ell^{+}\ell^{-}}}$',
+            'baseline_value': 0.6,
+            'baseline_label': r'$w_{m_{\ell^{+}\ell^{-}}}=0.6$'
+        }
+    elif chi2_method == 'pll':
+        return {
+            'latex_label': r'$w_{p_{\ell^{+}\ell^{-}}}$',
+            'baseline_value': 0.0,
+            'baseline_label': r'$w_{p_{\ell^+\ell^-}}=0$'
+        }
+    else:
+        raise ValueError(f"Unknown chi2_method: {chi2_method}")
+
+
 ##########################
 ### PLOTTING FUNCTIONS ###
 ##########################
@@ -144,23 +169,29 @@ def efficiency(
         efficiencies: np.ndarray,
         outDir: Path,
         label: str,
+        chi2_method: str,
         full_range: bool = False) -> None:
-    """Plot efficiency vs chi2_recoil_frac.
+    """Plot efficiency vs chi2 parameter.
 
     Args:
-        chi2_fracs: Array of chi2_recoil_frac values
+        chi2_fracs: Array of chi2 values
         efficiencies: Array of efficiency values
-        proc_name: Process name for title
-        cat: Final state category (ee or mumu)
         outDir: Output directory for plots
+        label: LaTeX label for the final state
+        chi2_method: Either 'mll' or 'pll'
+        full_range: Whether to use full y-axis range
     """
     if len(chi2_fracs) == 0:
         return
 
-    # Find optimal chi2_frac (maximum efficiency)
-    optimal_idx = np.argmax(efficiencies)
+    # Get method-specific parameters
+    params = _get_chi2_params(chi2_method)
+    latex_label = params['latex_label']
+
+    # Find optimal chi2 (maximum efficiency)
+    optimal_idx  = np.argmax(efficiencies)
     optimal_chi2 = chi2_fracs[optimal_idx]
-    optimal_eff = efficiencies[optimal_idx]
+    optimal_eff  = efficiencies[optimal_idx]
 
     # Create figure
     fig, ax = _make_fig()
@@ -170,17 +201,16 @@ def efficiency(
 
         # Highlight optimal point
         ax.scatter(optimal_chi2, optimal_eff*100, color='r', marker='*', s=150,
-                   label=(f'Optimal: $w_{{\\ell^{{+}}\\ell^{{-}}}}$ = {optimal_chi2:.2f}\n'
-                          f'Max Eff.: $\\epsilon = {optimal_eff*100:.2f}\\%$'))
+                   label=f'Optimal: {latex_label} = {optimal_chi2:.2f}\nMax Eff.: $\\epsilon = {optimal_eff*100:.2f}\\%$')
 
         # Add vertical line at optimal point
         ax.axvline(x=optimal_chi2, color='gray', alpha=0.8)
 
         ax.set_xlim(0, 1)
-        if full_range: ax.set_ylim(0, 1)
+        if full_range:
+            ax.set_ylim(0, 100)
 
-        set_labels(ax, r'$w_{\ell^{+}\ell^{-}}$',
-                   r'Pairing Efficiency [\%]', right=label)
+        set_labels(ax, latex_label, r'Pairing Efficiency [\%]', right=label)
         ax.legend()
 
         savefigs(fig, outDir, 'efficiency', format=plot_file)
@@ -198,27 +228,35 @@ def pairing_composition(
         efficiencies: np.ndarray,
         outDir: Path,
         label: str,
-         ) -> None:
+        chi2_method: str) -> None:
     """Plot composition of pairing results (correct, partial, incorrect).
 
     Args:
-        chi2_fracs: Array of chi2_recoil_frac values
+        chi2_fracs: Array of chi2 values
         n_correct: Number of correct pairings
         n_partial: Number of partial pairings
         n_incorrect: Number of incorrect pairings
         n_total: Total number of events
-        proc_name: Process name for title
-        cat: Final state category (ee or mumu)
+        efficiencies: Array of efficiency values
         outDir: Output directory for plots
+        label: LaTeX label for the final state
+        chi2_method: Either 'mll' or 'pll'
     """
     if len(chi2_fracs) == 0 or np.all(n_total == 0):
         return
+
+    # Get method-specific parameters
+    params = _get_chi2_params(chi2_method)
+    latex_label = params['latex_label']
+    baseline_value = params['baseline_value']
 
     optimal_idx  = np.argmax(efficiencies)
     optimal_chi2 = chi2_fracs[optimal_idx]
     optimal_eff  = efficiencies[optimal_idx]
 
-    old_eff = efficiencies[chi2_fracs==0.6][0]
+    # Get baseline efficiency
+    baseline_mask = np.isclose(chi2_fracs, baseline_value, atol=1e-6)
+    old_eff = efficiencies[baseline_mask][0] if np.any(baseline_mask) else None
 
     # Create figure
     fig, ax = _make_fig()
@@ -226,9 +264,9 @@ def pairing_composition(
     try:
         # Plot stacked area - use divide with where to avoid warnings
         with np.errstate(divide='ignore', invalid='ignore'):
-            correct   = np.divide(n_correct,   n_total, where=n_total!=0) * 100
-            partial   = np.divide(n_partial,   n_total, where=n_total!=0) * 100
-            incorrect = np.divide(n_incorrect, n_total, where=n_total!=0) * 100
+            correct =   np.divide(n_correct * 100,   n_total, where=n_total > 0, out=np.full_like(n_correct,   np.nan, dtype=float))
+            partial =   np.divide(n_partial * 100,   n_total, where=n_total > 0, out=np.full_like(n_partial,   np.nan, dtype=float))
+            incorrect = np.divide(n_incorrect * 100, n_total, where=n_total > 0, out=np.full_like(n_incorrect, np.nan, dtype=float))
 
         ax.fill_between(chi2_fracs, 0, correct,
                         label='Both Correct', color='green', alpha=0.7)
@@ -239,18 +277,17 @@ def pairing_composition(
                         correct + partial + incorrect,
                         label='Both Incorrect', color='red', alpha=0.7)
 
-        # Optimal chi2 plot
-        if optimal_chi2 != 0:
+        # Optimal chi2 marker
+        if optimal_chi2 != baseline_value:
             ax.scatter(optimal_chi2, optimal_eff*100, color='red', marker='*', s=150,
-                       label=(f'Optimal: $w_{{\\ell^{{+}}\\ell^{{-}}}}$ = {optimal_chi2:.2f}\n'
-                              f'Max Eff.: $\\epsilon = {optimal_eff*100:.2f}\\%$'))
-        if old_eff:
-            ax.scatter(0.6, old_eff*100, color='green', marker='*', s=150,
-                       label=(f'Baseline: $w_{{\\ell^{{+}}\\ell^{{-}}}}$ = 0.6\n'
-                              f'$\\epsilon = {old_eff*100:.2f}\\%$'))
+                       label=f'Optimal: {latex_label} = {optimal_chi2:.2f}\n$\\epsilon = {optimal_eff*100:.2f}\\%$')
+        # Baseline marker
+        if old_eff is not None:
+            ax.scatter(baseline_value, old_eff*100, color='green', marker='*', s=150,
+                       label=f'Baseline: {latex_label} = {baseline_value}\n$\\epsilon = {old_eff*100:.2f}\\%$')
 
         # Labels and formatting
-        set_labels(ax, r'$w_{\ell^{+}\ell^{-}}$', r'Percentage of Events [\%]', right=label)
+        set_labels(ax, latex_label, r'Percentage of Events [\%]', right=label)
 
         ax.set_xlim(0, 1)
         # Adjust ymin based on minimum efficiency for better readability
@@ -272,20 +309,25 @@ def event_counts(
         n_partial: np.ndarray,
         n_incorrect: np.ndarray,
         outDir: Path,
-        label: str) -> None:
+        label: str,
+        chi2_method: str) -> None:
     """Plot absolute event counts for different pairing outcomes.
 
     Args:
-        chi2_fracs: Array of chi2_recoil_frac values
+        chi2_fracs: Array of chi2 values
         n_correct: Number of correct pairings
         n_partial: Number of partial pairings
         n_incorrect: Number of incorrect pairings
-        proc_name: Process name for title
-        cat: Final state category (ee or mumu)
         outDir: Output directory for plots
+        label: LaTeX label for the final state
+        chi2_method: Either 'mll' or 'pll'
     """
     if len(chi2_fracs) == 0:
         return
+
+    # Get method-specific parameters
+    params = _get_chi2_params(chi2_method)
+    latex_label = params['latex_label']
 
     # Create figure
     fig, ax = _make_fig()
@@ -295,10 +337,9 @@ def event_counts(
         ax.scatter(chi2_fracs, n_correct,   color='green',  marker='.', label='Both Correct')
         ax.scatter(chi2_fracs, n_partial,   color='orange', marker='.', label='One Correct')
         ax.scatter(chi2_fracs, n_incorrect, color='red',    marker='.', label='Both Incorrect')
-        # ax.scatter(chi2_fracs, n_total,     color='blue',   marker='.', label='Total events', alpha=0.5)
 
         # Labels and formatting
-        set_labels(ax, r'$w_{\ell^{+}\ell^{-}}$', 'Number of Events', right=label)
+        set_labels(ax, latex_label, 'Number of Events', right=label)
         ax.set_yscale('log')
         ax.set_xlim(0, 1)
         ax.set_ylim(0.5, None)
@@ -312,7 +353,7 @@ def event_counts(
 
 
 def load_data(root_file: Path) -> dict[str, np.ndarray]:
-    """Load distributions from ROOT file produced by optimize_ll.py.
+    """Load distributions from ROOT file produced by optimize.py.
 
     Args:
         root_file: Path to ROOT file containing distributions
@@ -326,20 +367,10 @@ def load_data(root_file: Path) -> dict[str, np.ndarray]:
 
     try:
         with uproot.open(root_file) as file:
-            if 'distributions' not in file:
-                LOGGER.warning(f"'distributions' not found in {root_file}\nReturning empty data")
-                return {}
-
             tree = file['distributions']
-            distributions = {}
-
-            # Read all branches
-            for key in tree.keys():
-                distributions[key] = tree[key].array(library='np')
-
-            return distributions
+            return {name: np.asarray(tree[name]) for name in tree.keys()}
     except Exception as e:
-        LOGGER.error(f'Error loading ROOT file {root_file}: {e}')
+        LOGGER.error(f'Error loading ROOT file {root_file}:\n{e}')
         return {}
 
 
@@ -351,47 +382,122 @@ def plot_comp(
         xlabel: str,
         outDir: Path,
         label: str,
+        chi2_method: str,
         bins: int = 100,
-        log_scale: str = 'linear',
-         ) -> None:
-    """Plot comparison between reconstructed and true distributions.
+        log_scale: str = 'linear') -> None:
+    """Plot comparison between baseline, optimal, and true distributions.
 
     Args:
-        reconstructed: Array of reconstructed values
+        old: Array of baseline values
+        reco: Array of reconstructed values (optimal)
         true: Array of true values
         var_name: Name of the variable
+        xlabel: LaTeX label for x-axis
         outDir: Output directory for plots
         label: LaTeX label for the final state
+        chi2_method: Either 'mll' or 'pll'
         bins: Number of bins for histogram
+        log_scale: Either 'linear' or 'log' for y-scale
     """
     # Check if arrays are not empty
     if len(old) == 0 or len(reco) == 0 or len(true) == 0:
         LOGGER.warning(f'Empty array for {var_name}, skipping plot')
         return
 
-    # Create figure with subplots
+    # Get method-specific parameters
+    params = _get_chi2_params(chi2_method)
+    baseline_label = params['baseline_label']
+
+    # Create figure
     fig, ax = _make_fig()
 
     try:
-        # Determine common range for both histograms
+        # Determine common range for all histograms
         xmin = min(old.min(), reco.min(), true.min())
         xmax = max(old.max(), reco.max(), true.max())
 
-        # Left plot: Overlay histograms
+        # Plot histograms
         ax.hist(old, bins=bins, range=(xmin, xmax), histtype='step',
-                label=r'$w_{\ell^+\ell^-}=0.6$', color='blue', density=True)
+                label=baseline_label, color='blue', density=True)
         ax.hist(reco, bins=bins, range=(xmin, xmax), histtype='step',
-                label=r'Optimal $w_{\ell^+\ell^-}$', color='red', density=True)
+                label=r'Optimal', color='red', density=True)
         ax.hist(true, bins=bins, range=(xmin, xmax),
                 label='True', color='green', density=True)
 
         set_labels(ax, xlabel, 'Unit Area', right=label)
 
         ax.set_xlim(xmin, xmax)
-        if log_scale in ['linear', 'log']:
-            ax.set_yscale(log_scale)
-        else:
-            raise ValueError(f'{log_scale = } value is not supported, choose between [linear, log]')
+        if log_scale == 'log':
+            ax.set_yscale('log')
+        ax.legend()
+
+        # Save figure
+        savefigs(fig, outDir, var_name, suffix='_'+log_scale, format=plot_file)
+
+    finally:
+        plt.close(fig)
+
+
+def plot_origin(
+        old: np.ndarray,
+        reco: np.ndarray,
+        true: np.ndarray,
+        matches: np.ndarray,
+        var_name: str,
+        xlabel: str,
+        outDir: Path,
+        label: str,
+        chi2_method: str,
+        bins: int = 100,
+        log_scale: str = 'linear') -> None:
+    """Plot comparison between baseline, optimal, and true distributions.
+
+    Args:
+        old: Array of baseline values
+        reco: Array of reconstructed values (optimal)
+        true: Array of true values
+        var_name: Name of the variable
+        xlabel: LaTeX label for x-axis
+        outDir: Output directory for plots
+        label: LaTeX label for the final state
+        chi2_method: Either 'mll' or 'pll'
+        bins: Number of bins for histogram
+        log_scale: Either 'linear' or 'log' for y-scale
+    """
+    # Check if arrays are not empty
+    if len(old) == 0 or len(reco) == 0 or len(true) == 0:
+        LOGGER.warning(f'Empty array for {var_name}, skipping plot')
+        return
+
+    # Get method-specific parameters
+    params = _get_chi2_params(chi2_method)
+    baseline_label = params['baseline_label']
+
+    # Create figure
+    fig, ax = _make_fig()
+
+    try:
+        # Determine common range for all histograms
+        xmin = min(old.min(), reco.min(), true.min())
+        xmax = max(old.max(), reco.max(), true.max())
+
+        for m, leg, c in [(0, 'Both Incorrect', 'red'), (1, 'One Correct', 'orange'), (2, 'Both Correct', 'green')]:
+            matche = true[matches == m]
+            ax.hist(matche, bins=bins, range=(xmin, xmax), histtype='step',
+                    label=leg, color=c, linewidth=2)
+
+        # Plot histograms
+        n1, b = np.histogram(old,  bins=bins, range=(xmin, xmax))
+        n2, _ = np.histogram(reco, bins=bins, range=(xmin, xmax))
+        B = (b[1:] + b[:-1]) / 2
+        ax.scatter(B, n1, marker='.', color='tab:blue',   label=baseline_label)
+        ax.scatter(B, n2, marker='.', color='tab:orange', label=r'Optimal')
+
+        set_labels(ax, xlabel, 'Events', right=label)
+
+        ax.set_xlim(xmin, xmax)
+        if log_scale == 'log':
+            ax.set_yscale('log')
         ax.legend()
 
         # Save figure
@@ -404,17 +510,18 @@ def plot_comp(
 def compare_dists(
         old_file: Path,
         optimal_file: Path,
-        outDir: Path,
-        proc: str,
-        lumi: float,
-        label: str) -> None:
-    """Compare distributions between old (chi2_frac=0.4) and optimal chi2_frac.
+        out_comp: Path,
+        out_origin: Path,
+        label: str,
+        chi2_method: str) -> None:
+    """Compare distributions between baseline and optimal chi2 values.
 
     Args:
-        old_file: Path to results_old.root
+        old_file: Path to results_baseline.root
         optimal_file: Path to results_optimal.root
         outDir: Output directory for plots
         label: LaTeX label for the final state
+        chi2_method: Either 'mll' or 'pll'
     """
     LOGGER.info('Loading distribution files')
     old_dists = load_data(old_file)
@@ -447,33 +554,45 @@ def compare_dists(
         ('recoil', 'Recoil', r'$m_{recoil}$'),
     ]
 
-    # Create subdirectories for old and optimal
-    outDir.mkdir(parents=True, exist_ok=True)
+    # Create output directory
+    out_comp.mkdir(parents=True, exist_ok=True)
+    out_origin.mkdir(parents=True, exist_ok=True)
 
     # Generate comparison plots for each distribution
     for reco_var, true_var, display_name in comparisons:
-        # Check if variables exist
+        # Check if variables exist in both files
         if reco_var not in old_dists or true_var not in old_dists:
-            LOGGER.warning(f'Variables {reco_var} or {true_var} not found in old distributions')
+            LOGGER.warning(f'Variables {reco_var}/{true_var} not found in baseline file')
             continue
 
         if reco_var not in opt_dists or true_var not in opt_dists:
-            LOGGER.warning(f'Variables {reco_var} or {true_var} not found in optimal distributions')
+            LOGGER.warning(f'Variables {reco_var}/{true_var} not found in optimal file')
             continue
 
-        # Plot old distributions
+        # Plot for both linear and log scales
         for log_scale in ['linear', 'log']:
-
-            # Plot optimal distributions
             plot_comp(
                 old_dists[reco_var],
                 opt_dists[reco_var],
                 opt_dists[true_var],
                 reco_var,
                 display_name,
-                outDir,
+                out_comp,
                 label,
-                log_scale=log_scale,
+                chi2_method,
+                log_scale=log_scale
+            )
+            plot_origin(
+                old_dists[reco_var],
+                opt_dists[reco_var],
+                opt_dists[true_var],
+                opt_dists['matches'],
+                reco_var,
+                display_name,
+                out_origin,
+                label,
+                chi2_method,
+                log_scale=log_scale
             )
 
 
@@ -496,15 +615,29 @@ def main():
 
     # Get processes to plot
     if arg.procs == '':
-        procs = [p.name for p in inDir.iterdir() if p.is_dir()]
+        procs: list[str] = [p.name for p in inDir.iterdir() if p.is_dir()]
     else:
-        procs = arg.procs.split('-')
+        processes: list[str] = arg.procs.split('-')
+        procs = []
+        for x in processes:
+            if x.startswith('wzp6_ee_'):
+                # Full process name already provided
+                procs.append(x)
+            elif x == 'all':
+                # Special case: base process name without H{x} suffix
+                procs.append(f'wzp6_ee_{cat}H_ecm{ecm}')
+            else:
+                # Short name: just the 'x' part, convert to full name
+                procs.append(f'wzp6_ee_{cat}H_H{x}_ecm{ecm}')
 
     if not procs:
         LOGGER.error(f'No process found in {inDir}')
         sys.exit(1)
 
-    # Set LaTeX label
+    # Get chi2 methods to plot
+    chi2_methods: list[str] = arg.method.split('-')
+
+    # Set LaTeX label for final state
     if cat == 'mumu':
         label = r'$Z(\rightarrow\mu^+\mu^-)H'
     elif cat == 'ee':
@@ -512,85 +645,98 @@ def main():
     else:
         raise ValueError(f'{cat = } is not supported, choose between [ee, mumu]')
 
-    # Plot results for each process
-    for proc in sorted(procs):
-        proc_dir = inDir / proc
-        results_file = proc_dir / 'results.json'
-        out_dir = outDir / proc
+    # Plot results for each chi2 method
+    for chi2_method in chi2_methods:
+        LOGGER.info(f'{"="*34}\n' + f'Generating plots for chi2_{chi2_method}'.center(34) + f'\n{"="*34}\n')
 
-        proc_label = proc.replace(f'wzp6_ee_{cat}H', '').replace(f'_ecm{ecm}', '').replace('_H', '')
-        if proc_label:
-            Label = label + r'(\rightarrow ' + process_label[proc_label] + ')$'
-        else:
-            Label = label + r'$'
+        # Plot results for each process
+        for proc in procs:
+            proc_dir = inDir / proc / chi2_method
+            results_file = proc_dir / 'results.json'
+            out_dir = outDir / proc / chi2_method
 
-        if not results_file.exists():
-            LOGGER.warning(f'Results file not found for {proc}: {results_file}\nSkipping {proc}')
-            continue
-
-        LOGGER.info(f'Processing {proc}')
-
-        # Load results
-        results = load_results(results_file)
-
-        if not results:
-            LOGGER.warning(f'No result loaded for {proc}, skipping')
-            continue
-
-        # Create output directory
-        out_dir.mkdir(exist_ok=True, parents=True)
-
-        if arg.metrics:
-            # Define categories and their output folder names
-            categories = {
-                'overall':    'overall',
-                'one_pair':   'one',
-                'multi_pair': 'several'
-            }
-
-            # Generate optimization plots for each category
-            for category, folder_name in categories.items():
-                cat_outDir = out_dir / folder_name
-                cat_outDir.mkdir(exist_ok=True, parents=True)
-
-                # Extract arrays for this category
-                chi2_fracs, efficiencies, n_correct, n_partial, n_incorrect, n_total = extract_arrays(results, category)
-
-                # Skip if no data for this category
-                if len(chi2_fracs) == 0 or np.all(n_total == 0):
-                    LOGGER.warning(f'No data for {category} category in {proc}, skipping')
-                    continue
-
-                # Generate optimization plots
-                LOGGER.info(f'Generating {category} plots for {proc}')
-                efficiency(chi2_fracs, efficiencies, cat_outDir, Label)
-                pairing_composition(
-                    chi2_fracs,
-                    n_correct, n_partial, n_incorrect, n_total, efficiencies,
-                    cat_outDir, Label
-                )
-                event_counts(
-                    chi2_fracs,
-                    n_correct, n_partial, n_incorrect,
-                    cat_outDir, Label
-                )
-
-        if arg.dist:
-            # Generate distribution comparison plots
-            LOGGER.info(f'Generating vairbale distribution comparison plots for {proc}')
-            dist_outDir  = out_dir / 'distributions'
-            old_file     = proc_dir / 'results_old.root'
-            optimal_file = proc_dir / 'results_optimal.root'
-
-            lumi = 10.8 if ecm == 240 else (3.12 if ecm == 365 else -1)
-
-            if old_file.exists() and optimal_file.exists():
-                compare_dists(old_file, optimal_file, dist_outDir, proc, lumi, Label)
+            proc_label = proc.replace(f'wzp6_ee_{cat}H', '').replace(f'_ecm{ecm}', '').replace('_H', '')
+            if proc_label:
+                Label = label + r'(\rightarrow ' + process_label[proc_label] + ')$'
             else:
-                missing = ''
-                if not old_file.exists():     missing += f'Missing: {old_file}\n'
-                if not optimal_file.exists(): missing += f'Missing: {optimal_file}'
-                LOGGER.warning(f'Distribution file not found for {proc}\n{missing}')
+                Label = label + r'$'
+
+            if not results_file.exists():
+                LOGGER.warning(f'Results file not found: {results_file}')
+                continue
+
+            LOGGER.info(f'Processing {proc}')
+
+            # Load results
+            results = load_results(results_file)
+
+            if not results:
+                LOGGER.warning(f'No results loaded for {proc}')
+                continue
+
+            # Create output directory
+            out_dir.mkdir(exist_ok=True, parents=True)
+
+            # Generate plots
+            if arg.metrics:
+
+                # Define categories and their output folder names
+                categories = {
+                    'overall':    'overall',
+                    'one_pair':   'one',
+                    'multi_pair': 'several'
+                }
+
+                # Generate optimization plots for each category
+                for category, folder_name in categories.items():
+                    cat_outDir = out_dir / folder_name
+
+                    # Extract arrays for overall category
+                    chi2_fracs, efficiencies, n_correct, n_partial, n_incorrect, n_total = extract_arrays(results, category)
+
+                    # Skip if no data for this category
+                    if len(chi2_fracs) == 0 or np.all(n_total == 0):
+                        LOGGER.warning(f'No data for {category} category in {proc}, skipping')
+                        continue
+
+                    cat_outDir.mkdir(exist_ok=True, parents=True)
+
+                    # Generate optimization plots
+                    LOGGER.info(f'Generating {category} plots for {proc}')
+                    efficiency(
+                        chi2_fracs, efficiencies,
+                        cat_outDir, Label, chi2_method
+                    )
+                    pairing_composition(
+                        chi2_fracs,
+                        n_correct, n_partial, n_incorrect,
+                        n_total, efficiencies,
+                        cat_outDir, Label, chi2_method
+                    )
+                    event_counts(
+                        chi2_fracs,
+                        n_correct, n_partial, n_incorrect,
+                        cat_outDir, Label, chi2_method
+                    )
+
+            if arg.dist:
+                LOGGER.debug(f'Generating distribution comparison plots for {proc}')
+                baseline_file = proc_dir / 'results_baseline.root'
+                optimal_file  = proc_dir / 'results_optimal.root'
+                dist_outDir   = out_dir / 'distributions'
+                origin_outDir = out_dir / 'origins'
+
+                if baseline_file.exists() and optimal_file.exists():
+                    compare_dists(
+                        baseline_file, optimal_file,
+                        dist_outDir, origin_outDir,
+                        Label, chi2_method
+                    )
+                else:
+                    missing = ''
+                    if not baseline_file.exists(): missing += f'Missing: {baseline_file}\n'
+                    if not optimal_file.exists():  missing += f'Missing: {optimal_file}'
+                    LOGGER.warning(f'Distribution file not found for {proc}\n{missing}')
 
 
 ######################

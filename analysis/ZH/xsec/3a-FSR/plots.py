@@ -127,17 +127,17 @@ def load_data(proc_dir: Path, branches: list[str] | None = None) -> dict[str, np
                 # Determine which branches to load
                 keys_to_load = branches if branches else tree.keys()
 
+                # Read all branches at once
+                arrays = tree.arrays(keys_to_load, library='ak')
+
                 # Read branches
-                for key in keys_to_load:
-                    if key not in tree:
-                        continue
+                for name in keys_to_load:
                     try:
-                        arr = tree[key].array(library='ak')
-                        if key not in accumulated_data:
-                            accumulated_data[key] = []
-                        accumulated_data[key].append(arr)
+                        if name not in accumulated_data:
+                            accumulated_data[name] = []
+                        accumulated_data[name].append(arrays[name])
                     except Exception as e:
-                        LOGGER.warning(f'Could not read branch {key}: {e}')
+                        LOGGER.warning(f'Could not read branch {name}:\n{e}')
 
         # Concatenate jagged arrays first (cheap, metadata only), then flatten once (expensive)
         final_data: dict[str, np.ndarray] = {}

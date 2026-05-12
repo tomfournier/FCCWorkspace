@@ -287,6 +287,15 @@ def add_optimize_args(
         default='',
         help='Processes to optimize for (comma-separated)'
     )
+    args.add_argument(
+        '--method',
+        '--methods',
+        type=str,
+        default='mll-pll',
+        choices=['mll', 'pll', 'mll-pll', 'pll-mll'],
+        metavar='METHODS',
+        help="chi2 method to use (default: 'mll-pll')"
+    )
     if (not is_plot or is_run) and not only_procs:
         args.add_argument(
             '--nevents',
@@ -297,7 +306,7 @@ def add_optimize_args(
         args.add_argument(
             '--incr',
             type=float,
-            default=0.1,
+            default=0.01,
             help='Parameter increment (default: 0.1)'
         )
     if (is_plot or is_run) and not only_procs:

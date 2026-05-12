@@ -31,7 +31,7 @@ def get_leps(df: 'ROOT.ROOT.RDataFrame',
     """
     # Define all lepton properties (before cuts)
     df = df.Define('leps_all',     'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
-    df = df.Define('leps_all_iso', 'FCCAnalyses::conIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)')
+    df = df.Define('leps_all_iso', 'FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)')
 
     # Recover the leptons' energy lost from FSR
     if ecm == 240:
@@ -259,7 +259,7 @@ def optimize_qq(df: 'ROOT.ROOT.RDataFrame',
 #######################
 
 branch_list_ll = [
-    'leps', 'n_pair',     # Leptons and number of reconstructed pair
+    'n_pair',             # Number of reconstructed pair
     'mass', 'recoil',     # Reco Z mass and recoil mass
     'Mass', 'Recoil',     # True Z mass and recoil mass
     'leading_mc', 'subleading_mc',      # Reco MC idx for leading and subleading lepton

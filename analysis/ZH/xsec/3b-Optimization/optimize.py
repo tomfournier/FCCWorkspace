@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Optimizing chi2_recoil_frac for true Z pairing in e+e- -> ZH analysis (Pure Python version)
+Unified optimization script for chi2 methods in e+e- -> ZH analysis
 
+Combines optimize_ll.py and optimize_pll.py to run both chi2 methods independently.
 This script uses uproot and awkward arrays to avoid ROOT's type inference issues.
 
 Usage:
-    python3 optimize_ll.py
+    python3 optimize.py
 """
 
 #################################
@@ -65,8 +66,16 @@ class Optimizer:
             inDir: Path,
             outDir: Path,
             ecm: int = 240,
-            nevents: int = -1):
-        """Initialize optimizer with pure Python/uproot backend"""
+            nevents: int = -1,
+            chi2_method: str = 'mll'):
+        """Initialize optimizer with pure Python/uproot backend
+
+        Parameters:
+        -----------
+        chi2_method : str
+            'mll' for chi2_recoil (dM + dRecoil)
+            'pll' for chi2_pll (dM + dRecoil + dP)
+        """
 
         inFiles = glob(str(inDir / proc / '*'))
         if not inFiles:
@@ -79,34 +88,20 @@ class Optimizer:
                 sys.exit(1)
 
         self.inFiles = inFiles
-        self.outDir = Path(outDir) / proc
+        self.outDir = Path(outDir) / proc / chi2_method
         self.outDir.mkdir(parents=True, exist_ok=True)
         self.ecm = ecm
+        self.chi2_method = chi2_method
 
-        LOGGER.info(f'Loading data for process {proc}')
+        LOGGER.info(f'Loading data for process {proc} ({chi2_method = })')
         self.load_data(nevents)
         self.results = {}
 
 
     def load_data(self, nevents=-1):
         """Load data from ROOT files using uproot (optimized)"""
-        # Branch names to load
-        branch_names = [
-            'n_pair',  # Number of pairs per event
-            'mass', 'recoil',  # Reco Z mass and recoil mass
-            'Mass', 'Recoil',  # True Z mass and recoil mass
-            'leading_mc', 'subleading_mc',  # Reco MC indices
-            'Leading_MC', 'Subleading_MC',  # True MC indices
-            'leading_p', 'leading_pt', 'leading_theta',           # Reco leading kinematics
-            'Leading_p', 'Leading_pt', 'Leading_theta',           # True leading kinematics
-            'subleading_p', 'subleading_pt', 'subleading_theta',  # Reco subleading kinematics
-            'Subleading_p', 'Subleading_pt', 'Subleading_theta',  # True subleading kinematics
-            'zll_p', 'zll_pt', 'zll_theta',  # Reco Z kinematics
-            'Zll_p', 'Zll_pt', 'Zll_theta',  # True Z kinematics
-        ]
-
         # Accumulate data per branch
-        data = {name: [] for name in branch_names}
+        data: dict[str, list] = {}
 
         self.total_events = 0
         event_count = 0
@@ -118,8 +113,9 @@ class Optimizer:
                 # Get total event count
                 self.total_events += file['eventsSelected'].value
 
-                # Read all branches at once
-                arrays = tree.arrays(branch_names, library='ak')
+                # Read all branches
+                branch_names = [name for name in tree.keys() if '/' not in name]
+                arrays = tree.arrays(library='ak')
 
                 # Determine slice length
                 n_entries = len(arrays[branch_names[0]])
@@ -130,21 +126,23 @@ class Optimizer:
                 for name in branch_names:
                     arrays[name] = arrays[name][:n_entries]
 
-                # Apply mass cut: remove pairs within 3 GeV of Higgs mass (125 GeV)
-                # Only apply to jagged (per-pair) branches
-                # mass_cut = np.abs(arrays['mass'] - 125) > 3
-                jagged_branches = [
-                    'mass', 'recoil', 'leading_mc', 'subleading_mc',
-                    'leading_p', 'leading_pt', 'leading_theta',
-                    'subleading_p', 'subleading_pt', 'subleading_theta',
-                    'zll_p', 'zll_pt', 'zll_theta'
-                ]
+                # Determine which branches are jagged
+                jagged_branches = [name for name in branch_names if not isinstance(ak.num(arrays[name], axis=-1), int)]
 
-                # Accumulate filtered jagged data and unfiltered flat data
+                # Apply mass cut: remove pairs within 3 GeV of Higgs mass (125 GeV)
+                mass_cut = (np.abs(arrays['mass'] - 125) > 3)  # & (arrays['recoil'] > 120)
+
+                # Apply mass cut to jagged arrays
+                filtered_arrays = {}
+                for name in jagged_branches:
+                    filtered_arrays[name] = arrays[name][mass_cut]
+
+                # Accumulate filtered data
                 for name in branch_names:
+                    if name not in data:
+                        data[name] = []
                     if name in jagged_branches:
-                        data[name].append(arrays[name])
-                        # data[name].append(arrays[name][mass_cut])
+                        data[name].append(filtered_arrays[name])
                     else:
                         data[name].append(arrays[name])
 
@@ -153,7 +151,7 @@ class Optimizer:
                     break
 
         # Concatenate all data and assign them as attributes
-        for name in branch_names:
+        for name in data.keys():
             setattr(self, name, ak.concatenate(data[name]))
 
         # Recalculate n_pair after filtering (number of pairs per event)
@@ -169,39 +167,55 @@ class Optimizer:
         self.n_multi_pair = int(np.sum(n_pair >  1))
 
         LOGGER.info(f'Loaded {self.n_events:,} events (total events in files: {self.total_events:,})')
-        LOGGER.info(f'Event breakdown: {self.n_zero_pair:<10,} with  0 pair\n'
-                    f'                 {self.n_one_pair:<10,} with  1 pair\n'
-                    f'                 {self.n_multi_pair:<10,} with >1 pair')
+        LOGGER.info(f'Event breakdown: {self.n_zero_pair:<10,} events with  0 pair\n'
+                    f'                 {self.n_one_pair:<10,} events with  1 pair\n'
+                    f'                 {self.n_multi_pair:<10,} events with >1 pair')
 
 
-    def best_pair_idx(self, dm, drec, frac):
+    def best_pair_idx(
+            self,
+            frac: float,
+            dm: ak.Array,
+            drec: ak.Array,
+            dp: ak.Array | None = None
+             ) -> ak.Array:
         """
         Find best pair index for each event using precomputed distance matrices.
-        Reformulated: chi2_frac * dm + (1-chi2_frac) * drec = drec + chi2_frac * (dm - drec)
+
+        For mll method: chi2 = drec + frac * (dm - drec)
+        For pll method: chi2 = (1 - frac) * (drec + 0.6 * (dm - drec)) + frac * dp
         """
-        chi2 = drec + frac * (dm - drec)
+        if self.chi2_method == 'mll':
+            chi2 = drec + frac * (dm - drec)
+        elif self.chi2_method == 'pll':
+            chi2 = (1 - frac) * (drec + 0.6 * (dm - drec)) + frac * dp
+        else:
+            raise ValueError(f"Unknown chi2_method: {self.chi2_method}")
+
         return ak.argmin(chi2, axis=1)
 
 
     def test_chi2(
             self,
             frac: float,
-            dm: np.ndarray,
-            drec: np.ndarray):
-        """Test chi2_recoil_frac using precomputed distance matrices (fully vectorized)"""
+            dm: ak.Array,
+            drec: ak.Array,
+            dp: ak.Array | None = None
+             ) -> dict[str, float | int | dict[str, float | int]]:
+        """Test chi2_frac using precomputed distance matrices (fully vectorized)"""
 
         # Get best pair indices using precomputed distances
-        best_idx = self.best_pair_idx(dm, drec, frac)
+        best_idx = self.best_pair_idx(frac, dm, drec, dp)
 
         # Handle events with 0 pairs: mask them out
         n_pairs = ak.num(self.leading_mc)
         has_pairs = n_pairs > 0
 
         # Extract best pairs using vectorized awkward masking
-        local_idx = ak.local_index(self.leading_mc, axis=1)                # [[0,1,2,...], [0,1,2,...], ...]
-        mask_mc1 = local_idx == best_idx[:, None]                                # Create mask for each event
+        local_idx = ak.local_index(self.leading_mc, axis=1)
+        mask_mc1 = local_idx == best_idx[:, None]
         mask_mc2 = local_idx == best_idx[:, None]
-        reco_mc1 = np.asarray(ak.flatten(self.leading_mc[mask_mc1]))     # Extract and flatten
+        reco_mc1 = np.asarray(ak.flatten(self.leading_mc[mask_mc1]))
         reco_mc2 = np.asarray(ak.flatten(self.subleading_mc[mask_mc2]))
 
         # Get true MC indices and pair counts
@@ -224,22 +238,23 @@ class Optimizer:
         mask_multi = n_pair_array >  1
 
         # Helper function to compute metrics for a category
-        def compute_category_stats(matches, mask):
+        def compute_category_stats(
+                matches: np.ndarray,
+                mask: np.ndarray
+                 ) -> dict[str, float | int]:
+
             cat_matches = matches[mask]
             n_pairs = n_pair_array[mask]
             n_correct   = int(np.sum(cat_matches == 2))
-            n_partial   = int(np.sum(cat_matches == 1))
-            n_incorrect = int(np.sum((cat_matches == 0) & (n_pairs > 0)))  # Only count as incorrect if pairs exist
-            n_no_pairs  = int(np.sum(n_pairs == 0))  # Events with no pairs after filtering
+            n_no_pairs  = int(np.sum(n_pairs == 0))
             n_total     = int(np.sum(mask))
-            efficiency  = n_correct / max(n_total - n_no_pairs, 1)  # Exclude no-pair events from efficiency
             return {
                 'n_correct':   n_correct,
-                'n_partial':   n_partial,
-                'n_incorrect': n_incorrect,
+                'n_partial':   int(np.sum(cat_matches == 1)),
+                'n_incorrect': int(np.sum((cat_matches == 0) & (n_pairs > 0))),
                 'n_no_pairs':  n_no_pairs,
                 'n_total':     n_total,
-                'efficiency':  efficiency,
+                'efficiency':  n_correct / max(n_total - n_no_pairs, 1),
             }
 
         # Compute stats for each category
@@ -258,14 +273,25 @@ class Optimizer:
         }
         return result
 
-    def extract_distributions(self, chi2_frac: float) -> dict[str, np.ndarray]:
+    def extract_distributions(
+            self,
+            chi2_frac: float,
+            mZ: float | int = 91.2,
+            mH: float | int = 125) -> dict[str, np.ndarray]:
         """Extract kinematic variables for a given chi2_frac value, selecting best pairings"""
         # Precompute distances
-        dm = (self.mass - 91.2) ** 2
-        drec = (self.recoil - 125) ** 2
+        dm   = (self.mass   - mZ) ** 2
+        drec = (self.recoil - mH) ** 2
+
+        # For pll method, also compute momentum distance
+        if self.chi2_method == 'pll':
+            pll = 51 if self.ecm == 240 else (146 if self.ecm == 365 else -1)
+            dp = (self.zll_p - pll) ** 2
+        else:
+            dp = None
 
         # Get best pair indices
-        best_idx = self.best_pair_idx(dm, drec, chi2_frac)
+        best_idx = self.best_pair_idx(chi2_frac, dm, drec, dp)
 
         # Fill None values (from events with 0 pairs) with 0 as placeholder
         best_idx = ak.fill_none(best_idx, 0)
@@ -274,17 +300,35 @@ class Optimizer:
         n_pairs = ak.num(self.mass)
         has_pairs_mask = np.asarray(n_pairs > 0)
 
+        # Compute matches for best pairings (same logic as in test_chi2)
+        local_idx = ak.local_index(self.leading_mc, axis=1)
+        mask_mc1 = local_idx == best_idx[:, None]
+        mask_mc2 = local_idx == best_idx[:, None]
+        reco_mc1 = np.asarray(ak.flatten(self.leading_mc[mask_mc1]))
+        reco_mc2 = np.asarray(ak.flatten(self.subleading_mc[mask_mc2]))
+
+        # Get true MC indices
+        true_mc1 = np.asarray(self.Leading_MC)
+        true_mc2 = np.asarray(self.Subleading_MC)
+
+        # Initialize matches array
+        matches = np.zeros(self.n_events, dtype=int)
+
+        # Only compute matches for events that have pairs after filtering
+        if len(reco_mc1) > 0:
+            match1: np.ndarray = (reco_mc1 == true_mc1[has_pairs_mask]) | (reco_mc1 == true_mc2[has_pairs_mask])
+            match2: np.ndarray = (reco_mc2 == true_mc1[has_pairs_mask]) | (reco_mc2 == true_mc2[has_pairs_mask])
+            matches[has_pairs_mask] = match1.astype(int) + match2.astype(int)
+
         # Helper function to select values based on best pairing index for each event
         def select_by_idx(array, indices):
             """Select elements from jagged array using indices for each event (vectorized)"""
             if not isinstance(array, ak.Array):
                 array = ak.Array(array)
 
-            indices = np.asarray(indices, dtype=int)
-            # Create mask where local index matches the best index for each event
+            indices   = np.asarray(indices, dtype=int)
             local_idx = ak.local_index(array, axis=1)
             mask = local_idx == indices[:, None]
-            # Extract the selected element for each event and flatten
             selected = ak.flatten(array[mask])
             return np.asarray(selected)
 
@@ -321,10 +365,13 @@ class Optimizer:
             'mass':   select_by_idx(self.mass,   best_idx),
             'recoil': select_by_idx(self.recoil, best_idx),
             'Mass':   np.asarray(self.Mass)[has_pairs_mask],
-            'Recoil': np.asarray(self.Recoil)[has_pairs_mask]
+            'Recoil': np.asarray(self.Recoil)[has_pairs_mask],
+
+            # Match information (0=no match, 1=partial, 2=full match) - filtered to events with pairs
+            'matches': matches[has_pairs_mask]
         }
 
-    def save_distributions(self, chi2_frac: float, filename: str):
+    def save_distributions(self, chi2_frac: float, filename: str) -> None:
         """Save kinematic distributions to a ROOT file for a given chi2_frac"""
         # Extract distributions
         distributions = self.extract_distributions(chi2_frac)
@@ -361,24 +408,32 @@ class Optimizer:
             # Write as ROOT tree
             file["distributions"] = structured_data
 
-        LOGGER.info(f'Variables distribution saved at {outFile}\n')
+        LOGGER.info(f'Variables distribution saved at {outFile}')
 
 
     def optimize(
             self,
             chi2_values: list[float] | np.ndarray,
             mass: int | float = 91.2,
-            recoil: int | float = 125):
-        """Run optimization loop over chi2_recoil_frac values (with precomputed distances)"""
+            recoil: int | float = 125,
+            precision: int = 2):
+        """Run optimization loop over chi2_frac values (with precomputed distances)"""
 
         # Precompute squared distances once to avoid recalculation in each iteration
-        dm = (self.mass - mass) ** 2
+        dm   = (self.mass   - mass) ** 2
         drec = (self.recoil - recoil) ** 2
 
-        for chi2_frac in tqdm(chi2_values):
-            result = self.test_chi2(chi2_frac, dm, drec)
-            self.results[chi2_frac] = result
+        # For pll method, also precompute momentum distance
+        if self.chi2_method == 'pll':
+            pll = 51 if self.ecm == 240 else (146 if self.ecm == 365 else -1)
+            dp = (self.zll_p - pll) ** 2
+        else:
+            dp = None
 
+        for chi2_frac in tqdm(chi2_values):
+            result = self.test_chi2(chi2_frac, dm, drec, dp)
+            chi2_frac_rounded = round(chi2_frac, precision)
+            self.results[chi2_frac_rounded] = result
         return self.results
 
 
@@ -388,40 +443,11 @@ class Optimizer:
 
         json_results = {}
         for chi2_frac, result in self.results.items():
-            json_results[f"{chi2_frac:.2f}"] = {
-                'chi2_frac': result['frac'],
-                'overall': {
-                    'efficiency':  result['overall']['efficiency'],
-                    'n_correct':   result['overall']['n_correct'],
-                    'n_partial':   result['overall']['n_partial'],
-                    'n_incorrect': result['overall']['n_incorrect'],
-                    'n_total':     result['overall']['n_total']
-                },
-                'zero_pair': {
-                    'efficiency':  result['zero_pair']['efficiency'],
-                    'n_correct':   result['zero_pair']['n_correct'],
-                    'n_partial':   result['zero_pair']['n_partial'],
-                    'n_incorrect': result['zero_pair']['n_incorrect'],
-                    'n_no_pairs':  result['zero_pair']['n_no_pairs'],
-                    'n_total':     result['zero_pair']['n_total']
-                },
-                'one_pair': {
-                    'efficiency':  result['one_pair']['efficiency'],
-                    'n_correct':   result['one_pair']['n_correct'],
-                    'n_partial':   result['one_pair']['n_partial'],
-                    'n_incorrect': result['one_pair']['n_incorrect'],
-                    'n_no_pairs':  result['one_pair']['n_no_pairs'],
-                    'n_total':     result['one_pair']['n_total']
-                },
-                'multi_pair': {
-                    'efficiency':  result['multi_pair']['efficiency'],
-                    'n_correct':   result['multi_pair']['n_correct'],
-                    'n_partial':   result['multi_pair']['n_partial'],
-                    'n_incorrect': result['multi_pair']['n_incorrect'],
-                    'n_no_pairs':  result['multi_pair']['n_no_pairs'],
-                    'n_total':     result['multi_pair']['n_total']
-                }
-            }
+            res = {pair: {
+                **{k: result[pair][k] for k in ['efficiency', 'n_correct', 'n_partial', 'n_incorrect', 'n_total']},
+                **({'n_no_pairs': result[pair]['n_no_pairs']} if pair != 'overall' else {})
+            } for pair in ['overall', 'zero_pair', 'one_pair', 'multi_pair']}
+            json_results[f"{chi2_frac:.2f}"] = {'chi2_frac': result['frac']} | res
 
         outFile.write_text(json.dumps(json_results, indent=4))
         LOGGER.info(f'Results saved at {outFile}\n')
@@ -447,24 +473,79 @@ def main():
     if arg.procs == '':
         procs = [Path(p).name for p in glob(str(inDir / '*'))]
     else:
-        procs = arg.procs.split('-')
+        processes: list[str] = arg.procs.split('-')
+        procs = []
+        for x in processes:
+            if x.startswith('wzp6_ee_'):
+                # Full process name already provided
+                procs.append(x)
+            elif x == 'all':
+                # Special case: base process name without H{x} suffix
+                procs.append(f'wzp6_ee_{cat}H_ecm{ecm}')
+            else:
+                # Short name: just the 'x' part, convert to full name
+                procs.append(f'wzp6_ee_{cat}H_H{x}_ecm{ecm}')
+
+    # Calculate rounding precision from arg.incr
+    incr_str = f"{arg.incr:.10f}".rstrip('0').rstrip('.')
+    precision = len(incr_str.split('.')[-1]) if '.' in incr_str else 0
+
+    # Store results for both methods
+    chi2_methods = arg.method.split('-')
+    all_results = {method: {} for method in chi2_methods}
+
+    # Run optimization for both chi2 methods
+    for chi2_method in chi2_methods:
+        LOGGER.info(f'{"="*38}\n'+f'Running optimization for chi2_{chi2_method}'.center(38)+f'\n{"="*38}\n')
+
+        baseline_value = 0.6 if chi2_method == 'mll' else 0
+
+        for proc in procs:
+            optimizer = Optimizer(proc, inDir, outDir, ecm, nevents=nevents, chi2_method=chi2_method)
+            optimizer.optimize(np.arange(0, 1+arg.incr, arg.incr), precision=precision)
+            optimizer.save_results()
+
+            # Find optimal chi2_frac
+            best_frac = max(optimizer.results.items(), key=lambda x: x[1]['multi_pair']['efficiency'])[0]
+            baseline_result = optimizer.results.get(round(baseline_value, precision), None)
+            optimal_result  = optimizer.results[best_frac]
+
+            # Store results for comparison
+            all_results[chi2_method][proc] = {
+                'baseline_value':      baseline_value,
+                'baseline_efficiency': baseline_result['multi_pair']['efficiency'],
+                'optimal_value':       best_frac,
+                'optimal_efficiency':  optimal_result['multi_pair']['efficiency']
+            }
+
+            LOGGER.info(f'Process: {proc}\n'
+                        f'  Baseline (chi2_{chi2_method} = {baseline_value:<{precision+2}}): {baseline_result["multi_pair"]["efficiency"]*100:.2f} %\n'
+                        f'  Optimal  (chi2_{chi2_method} = {best_frac:<{precision+2}}): {optimal_result["multi_pair"]["efficiency"]*100:.2f} %')
+
+            # Save distributions for baseline
+            LOGGER.debug(f'Saving variables distribution for chi2_{chi2_method} = {baseline_value}')
+            optimizer.save_distributions(round(baseline_value, precision), 'results_baseline.root')
+
+            # Save distributions for optimal chi2_frac
+            LOGGER.debug(f'Saving variables distribution for optimal chi2_{chi2_method} = {best_frac}')
+            optimizer.save_distributions(best_frac, 'results_optimal.root')
+
+    # Print summary comparison
+    LOGGER.info(f'{"="*26}\n'+'OPTIMIZATION SUMMARY'.center(26)+f'\n{"="*26}\n')
 
     for proc in procs:
-        optimizer = Optimizer(proc, inDir, outDir, ecm, nevents=nevents)
-        optimizer.optimize(np.arange(0, 1+arg.incr, arg.incr))
-        optimizer.save_results()
-
-        # Find optimal chi2_frac
-        best_frac = max(optimizer.results.items(), key=lambda x: x[1]['overall']['efficiency'])[0]
-        LOGGER.info(f'Optimal chi2_frac: {best_frac:.2f}')
-
-        # Save distributions for chi2_frac = 0.6
-        LOGGER.info('Saving variables distribution for chi2_frac = 0.6')
-        optimizer.save_distributions(0.6, 'results_old.root')
-
-        # Save distributions for optimal chi2_frac
-        LOGGER.info(f'Saving variables distribution for optimal chi2_frac = {best_frac:.2f}')
-        optimizer.save_distributions(best_frac, 'results_optimal.root')
+        LOGGER.info(f'Process: {proc}')
+        for chi2_method in chi2_methods:
+            if proc in all_results[chi2_method]:
+                res = all_results[chi2_method][proc]
+                if res['baseline_efficiency'] == 0:
+                    improvement = 0
+                else:
+                    improvement = (res["optimal_efficiency"] - res["baseline_efficiency"]) / res["baseline_efficiency"] * 100
+                LOGGER.info(f'chi2_{chi2_method}:\n'
+                            f'  Baseline (value = {res["baseline_value"]:<{precision+2}}): efficiency = {res["baseline_efficiency"]*100:.2f} %\n'
+                            f'  Optimal  (value = {res["optimal_value"]:<{precision+2}}): efficiency = {res["optimal_efficiency"]*100:.2f} %\n'
+                            f'  Improvement: {improvement:+.2f}%')
 
 
 if __name__ == '__main__':

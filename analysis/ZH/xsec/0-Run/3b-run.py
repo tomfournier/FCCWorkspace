@@ -62,7 +62,7 @@ cats = arg.cat.split('-')
 ecms = [int(e) for e in arg.ecm.split('-')]
 
 # Map stage numbers to script names
-script_map = {'1': 'pre-selection', '2': 'optimize_ll', '3': 'plots'}
+script_map = {'1': 'pre-selection', '2': 'optimize', '3': 'plots'}
 scripts = [script_map[s] for s in arg.run.split('-')]
 cmds = {'pre-selection': 'run', 'final-selection': 'final'}
 
@@ -123,11 +123,13 @@ def run(cat: str,
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
     if 'optimize' in script:
-        extra_args.extend(['--procs',   arg.procs])
+        extra_args.extend(['--procs',  arg.procs])
+        extra_args.extend(['--method', arg.method])
         extra_args.extend(['--nevents', str(arg.nevents)])
         extra_args.extend(['--incr',    str(arg.incr)])
     elif 'plots' in script:
-        extra_args.extend(['--procs', arg.procs])
+        extra_args.extend(['--procs',  arg.procs])
+        extra_args.extend(['--method', arg.method])
         if not arg.dist:
             extra_args.append('--no-dist')
         if not arg.metrics:

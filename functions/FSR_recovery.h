@@ -23,16 +23,17 @@ namespace FCCAnalyses {
 inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, Vec_f iso, int method = 0, float threshold = 0.2, float iso_thr = 1e10) {
 
     Vec_i usedIdx;
+    Vec_rp result;
 
     for (size_t i = 0; i < leps.size(); i++) {
 
-        // only consider isolated leptons
-        if (iso.at(i) > iso_thr) continue;
         auto particle = leps.at(i);
+        
+        // only consider isolated leptons
+        if (iso.at(i) > iso_thr) { result.push_back(particle); continue; }
 
-        TLorentzVector p_tlv, tmp_tlv;
+        TLorentzVector p_tlv;
         p_tlv.SetPxPyPzE(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.energy);
-        tmp_tlv.SetPxPyPzE(particle.momentum.x, particle.momentum.y, particle.momentum.z, particle.energy);
 
         for (int ph_idx = 0; ph_idx < photons.size(); ph_idx++) {
 
@@ -48,66 +49,64 @@ inline Vec_rp recoverFSR(Vec_rp &leps, Vec_i photons, Vec_rp rps, Vec_f iso, int
 
             // use dR as merging criteria
             if (method == 0) {
-                float dr = tmp_tlv.DeltaR(ph_tlv);
+                float dr = p_tlv.DeltaR(ph_tlv);
 
                 if (dr <= threshold) {
-                    tmp_tlv += ph_tlv;
+                    p_tlv += ph_tlv;
                     usedIdx.push_back(ph_idx);
                 }
             // use acolinearity as merging criteria
             } else if (method == 1) {
 
-                TVector3 v1 = tmp_tlv.Vect(), v2 = ph_tlv.Vect();
-                float acol = std::acos(v1.Dot(v2) / (v2.Mag()*v2.Mag()) * (-1));
+                TVector3 v1 = p_tlv.Vect(), v2 = ph_tlv.Vect();
+                float acol = std::acos(v1.Dot(v2) / (v1.Mag()*v2.Mag()) * (-1));
 
                 if (acol >= threshold) {
-                    tmp_tlv += ph_tlv;
+                    p_tlv += ph_tlv;
                     usedIdx.push_back(ph_idx);
                 }
             // use acoplanarity as merging criteria
             } else if (method == 2) {
                 
-                float acop = abs(tmp_tlv.Phi() - ph_tlv.Phi());
+                float acop = std::abs(p_tlv.Phi() - ph_tlv.Phi());
                 if (acop > M_PI) acop = 2 * M_PI - acop;
                 acop = M_PI - acop;
 
                 if (acop <= threshold) {
-                    tmp_tlv += ph_tlv;
+                    p_tlv += ph_tlv;
                     usedIdx.push_back(ph_idx);
                 }
             // use acopolarity as merging criteria
             } else if (method == 3) {
                 
-                float acop = abs(tmp_tlv.Theta() - ph_tlv.Theta());
+                float acop = std::abs(p_tlv.Theta() - ph_tlv.Theta());
 
                 if (acop <= threshold) {
-                    tmp_tlv += ph_tlv;
+                    p_tlv += ph_tlv;
                     usedIdx.push_back(ph_idx);
                 }
             // use cosTheta between two vectors as merging criteria
             } else if (method == 4) {
 
-                TVector3 v1 = tmp_tlv.Vect(), v2 = ph_tlv.Vect();
+                TVector3 v1 = p_tlv.Vect(), v2 = ph_tlv.Vect();
                 float cosTheta = v1.Dot(v2) / (v1.Mag() * v2.Mag());
 
                 if (cosTheta >= threshold) {
-                    tmp_tlv += ph_tlv;
+                    p_tlv += ph_tlv;
                     usedIdx.push_back(ph_idx);
                 }
             } else {
                 throw std::invalid_argument("Invalid FSR recovery method. Method must be 0-4.");
             }
-
         }
 
-        if (p_tlv != tmp_tlv) {
-            particle.momentum.x = tmp_tlv.Px();
-            particle.momentum.y = tmp_tlv.Py();
-            particle.momentum.z = tmp_tlv.Pz();
-            particle.energy = tmp_tlv.Energy();
-        }
+        particle.momentum.x = p_tlv.Px();
+        particle.momentum.y = p_tlv.Py();
+        particle.momentum.z = p_tlv.Pz();
+        particle.energy = p_tlv.Energy();
+        result.push_back(particle);
     }
-    return leps;
+    return result;
 }
 
 
