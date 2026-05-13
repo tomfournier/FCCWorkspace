@@ -245,7 +245,8 @@ def additional_variable(df: 'ROOT.ROOT.RDataFrame',
 
 def training_qq(df: 'ROOT.ROOT.RDataFrame',
                 cat: str,
-                ecm: int
+                ecm: int,
+                test: bool = False
                 ) -> 'ROOT.ROOT.RDataFrame':
 
     df = setup_alias(df, cat)
@@ -291,47 +292,54 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 3: Z mass window
     ##########
-    # if ecm == 240:   df = df.Filter('zqq_m_best > 20 && zqq_m_best < 140')  # loose
-    # elif ecm == 365: df = df.Filter('zqq_m_best > 20 && zqq_m_best < 200')  # loose
-    # else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
+    if test:
+        if   ecm == 240: df = df.Filter('zqq_m_best > 20 && zqq_m_best < 140')  # loose
+        elif ecm == 365: df = df.Filter('zqq_m_best > 20 && zqq_m_best < 200')  # loose
+        else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
 
     ##########
     ### CUT 4: Z momentum (CoM dependent)
     ##########
-    # if ecm == 240:   df = df.Filter('zqq_p_best < 90 && zqq_p_best > 20')
-    # elif ecm == 365: df = df.Filter('zqq_p_best > 60 && zqq_p_best < 160')
-    # else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
+    if test:
+        if   ecm == 240: df = df.Filter('zqq_p_best < 90 && zqq_p_best > 20')
+        elif ecm == 365: df = df.Filter('zqq_p_best > 60 && zqq_p_best < 160')
+        else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
 
     ##########
     ### CUT 5: Z Polar angle
     ##########
-    # df = df.Filter('z_costheta < 0.85')
+    if test:
+        df = df.Filter('z_costheta < 0.85')
 
     ##########
     ### CUT 6: Acolinearity
     ##########
-    # df = df.Filter('acolinearity > 0.35')
+    if test:
+        df = df.Filter('acolinearity > 0.35')
 
     ##########
     ### CUT 7: Acoplanarity
     ##########
-    # df = df.Filter('acoplanarity < 5')
+    if test:
+        df = df.Filter('acoplanarity < 5')
 
     ##########
     ### CUT 8: WW pair removal
     ##########
-    # df = df.Filter('delta_mWW > 6')
+    if test:
+        df = df.Filter('delta_mWW > 6')
 
     ##########
     ### CUT 9: Polar angle of the missing energy
     ##########
-    # df = df.Filter('cosTheta_miss < 0.995')
+    if test:
+        df = df.Filter('cosTheta_miss < 0.995')
 
     ###########
     ### CUT 10: Thrust (365 GeV)
     ###########
-    # if ecm == 365:
-    #     df = df.Filter('thrust_magn < 0.85')
+    if test:
+        if ecm == 365: df = df.Filter('thrust_magn < 0.85')
 
     return df
 
@@ -339,7 +347,8 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
 def presel_qq(df: 'ROOT.ROOT.RDataFrame',
               cat: str,
               ecm: int,
-              dataset: str
+              dataset: str,
+              test: bool = False
               ) -> tuple['ROOT.ROOT.RDataFrame',
                          list['ROOT.TH1',
                               'ROOT.TParameter']]:
@@ -395,55 +404,63 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 3: Z mass window
     ##########
-    # if ecm == 240:   df = df.Filter('zqq_m_best > 20 && zqq_m_best < 140')  # loose
-    # elif ecm == 365: df = df.Filter('zqq_m_best > 20 && zqq_m_best < 200')  # loose
-    # else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
-    # df, hists = cutflow(df, hists, 3)
+    if test:
+        if ecm == 240:   df = df.Filter('zqq_m_best > 20 && zqq_m_best < 140')  # loose
+        elif ecm == 365: df = df.Filter('zqq_m_best > 20 && zqq_m_best < 200')  # loose
+        else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
+        df, hists = cutflow(df, hists, 3)
 
     ##########
     ### CUT 4: Z momentum (CoM dependent)
     ##########
-    # if ecm == 240:   df = df.Filter('zqq_p_best < 90 && zqq_p_best > 20')
-    # elif ecm == 365: df = df.Filter('zqq_p_best > 60 && zqq_p_best < 160')
-    # else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
-    # df, hists = cutflow(df, hists, 4)
+    if test:
+        if ecm == 240:   df = df.Filter('zqq_p_best < 90 && zqq_p_best > 20')
+        elif ecm == 365: df = df.Filter('zqq_p_best > 60 && zqq_p_best < 160')
+        else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
+        df, hists = cutflow(df, hists, 4)
 
     ##########
     ### CUT 5: Z Polar angle
     ##########
-    # df = df.Filter('z_costheta < 0.85')
-    # df, hists = cutflow(df, hists, 5)
+    if test:
+        df = df.Filter('z_costheta < 0.85')
+        df, hists = cutflow(df, hists, 5)
 
     ##########
     ### CUT 6: Acolinearity
     ##########
-    # df = df.Filter('acolinearity > 0.35')
-    # df, hists = cutflow(df, hists, 6)
+    if test:
+        df = df.Filter('acolinearity > 0.35')
+        df, hists = cutflow(df, hists, 6)
 
     ##########
     ### CUT 7: Acoplanarity
     ##########
-    # df = df.Filter('acoplanarity < 5')
-    # df, hists = cutflow(df, hists, 7)
+    if test:
+        df = df.Filter('acoplanarity < 5')
+        df, hists = cutflow(df, hists, 7)
 
     ##########
     ### CUT 8: WW pair removal
     ##########
-    # df = df.Filter('delta_mWW > 6')
-    # df, hists = cutflow(df, hists, 8)
+    if test:
+        df = df.Filter('delta_mWW > 6')
+        df, hists = cutflow(df, hists, 8)
 
     ##########
     ### CUT 9: Polar angle of the missing energy
     ##########
-    # df = df.Filter('cosTheta_miss < 0.995')
-    # df, hists = cutflow(df, hists, 9)
+    if test:
+        df = df.Filter('cosTheta_miss < 0.995')
+        df, hists = cutflow(df, hists, 9)
 
     ###########
     ### CUT 10: Thrust (365 GeV)
     ###########
-    # if ecm == 365:
-    #     df = df.Filter('thrust_magn < 0.85')
-    #     df, hists = cutflow(df, hists, 10)
+    if test:
+        if ecm == 365:
+            df = df.Filter('thrust_magn < 0.85')
+            df, hists = cutflow(df, hists, 10)
 
     return df, hists
 

@@ -148,6 +148,7 @@ def add_run_argument(
         parser: ArgumentParser,
         n_stages: int = 3,
         default: str = '2-3',
+        add_test: bool = False,
         group=None
          ) -> None:
     '''Add --run argument for pipeline stage selection.'''
@@ -173,6 +174,13 @@ def add_run_argument(
         metavar='STAGES',
         help=help_text
     )
+    if add_test:
+        group.add_argument(
+            '--test',
+            action='store_true',
+            default=False,
+            help='Set test to True for pre-selection'
+        )
 
 
 def add_verbose_argument(parser: ArgumentParser, group=None) -> None:
@@ -440,6 +448,7 @@ def create_parser(
         include_sels: bool = False,
         run_stages: int = 0,
         run_default: str = '2-3',
+        add_test: bool = False,
         batch: bool = False,
         bdt_eval: bool = False,
         plots: bool = False,
@@ -506,7 +515,7 @@ def create_parser(
 
     # Execution arguments (share the same group)
     if run_stages > 0:
-        add_run_argument(parser, n_stages=run_stages, default=run_default, group=exec)
+        add_run_argument(parser, n_stages=run_stages, default=run_default, add_test=add_test, group=exec)
     if batch:
         add_batch_argument(parser, group=exec)
 

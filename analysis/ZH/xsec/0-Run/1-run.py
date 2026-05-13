@@ -43,6 +43,7 @@ parser = create_parser(
     ecm_multi=True,
     include_sels=True,
     run_stages=3,
+    add_test=True,
     batch=True,
     description='Run MVA Inputs pipeline'
 )
@@ -101,7 +102,7 @@ def run(cat: str,
 
     # Build configuration dictionary
     lumi = 10.8 if ecm == 240 else (3.12 if ecm==365 else -1)
-    config = {'cat': cat, 'ecm': ecm, 'lumi': lumi}
+    config = {'cat': cat, 'ecm': ecm, 'lumi': lumi, 'test': arg.test}
 
     # Write configuration to temporary JSON file(s)
     cfg_path.write_text(json.dumps(config))

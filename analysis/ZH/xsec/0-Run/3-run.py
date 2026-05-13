@@ -44,6 +44,7 @@ parser = create_parser(
     plots=True,
     cutflow=True,
     run_stages=4,
+    add_test=True,
     batch=True,
     description='Run Measurement pipeline'
 )
@@ -103,7 +104,7 @@ def run(cat: str,
 
     # Build configuration dictionary
     lumi = 10.8 if ecm == 240 else (3.12 if ecm==365 else -1)
-    config = {'cat': cat, 'ecm': ecm, 'lumi': lumi}
+    config = {'cat': cat, 'ecm': ecm, 'lumi': lumi, 'test': arg.test}
 
     # Write configuration to temporary JSON file
     cfg_path.write_text(json.dumps(config))

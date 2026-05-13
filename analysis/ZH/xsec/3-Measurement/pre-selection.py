@@ -2,13 +2,7 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
 ###########################################################
 
-import os, sys
-
-# Add parent directory to path so package and sel modules are found
-# This is necessary for HTCondor batch jobs to find local modules
-script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
+import os
 
 # Import user configuration paths and parameters
 from package.userConfig import loc, get_params
@@ -18,7 +12,7 @@ from sel.presel.hadronic import presel_qq, branch_list_qq
 
 # Load config from temporary JSON if running automated, else prompt
 env = os.environ.copy()
-cat, ecm = get_params(env, '3-run.json')
+cat, ecm, test = get_params(env, '3-run.json')
 
 
 
@@ -27,7 +21,8 @@ cat, ecm = get_params(env, '3-run.json')
 #############################
 
 # Output directory for training events (default is local directory)
-outputDir = loc.get('EVENTS_TEST', cat, ecm)
+if test: outputDir = loc.get('EVENTS_TEST', cat, ecm)
+else:    outputDir = loc.get('EVENTS',      cat, ecm)
 
 # Include custom C++ analysis functions
 includePaths = ['../../../../functions/functions.h',
@@ -73,9 +68,9 @@ class RDFgraph():
     def analysers(df, dataset):
         '''Apply analysis graph construction to the dataframe.'''
         if cat in ['ee', 'mumu']:
-            df, params = presel_ll(df, cat, ecm, dataset)
+            df, params = presel_ll(df, cat, ecm, dataset, test)
         elif cat == 'qq':
-            df, params = presel_qq(df, cat, ecm, dataset)
+            df, params = presel_qq(df, cat, ecm, dataset, test)
         else:
             raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
         return df, params

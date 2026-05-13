@@ -17,7 +17,7 @@ from sel.presel.hadronic import training_qq, branch_list_qq
 
 # Load config from temporary JSON if running automated, else prompt
 env = os.environ.copy()
-cat, ecm = get_params(env, '1-run.json')
+cat, ecm, test = get_params(env, '1-run.json')
 
 
 
@@ -26,8 +26,8 @@ cat, ecm = get_params(env, '1-run.json')
 #############################
 
 # Output directory for training events (default is local directory)
-outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
-# outputDir = loc.get('EVENTS_TRAINING', cat, ecm)
+if test: outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
+else:    outputDir = loc.get('EVENTS_TRAINING',   cat, ecm)
 
 # Include custom C++ analysis functions
 includePaths = ['../../../../functions/functions.h',
@@ -73,9 +73,9 @@ class RDFanalysis():
     def analysers(df):
         """Apply analysis graph construction to the dataframe."""
         if cat in ['ee', 'mumu']:
-            df = training_ll(df, cat, ecm)
+            df = training_ll(df, cat, ecm, test)
         elif cat == 'qq':
-            df = training_qq(df, cat, ecm)
+            df = training_qq(df, cat, ecm, test)
         else:
             raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
         return df
