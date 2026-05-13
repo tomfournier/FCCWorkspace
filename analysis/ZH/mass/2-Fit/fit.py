@@ -156,7 +156,9 @@ def fitting(
         with open(result_log, 'w') as log_out:
             LOGGER.info('Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
-                            '-v', '10', '-t', '0', '--expectSignal=1', '-n', 'Xsec'],
+                            '-v', '10', '-t', '0', '--expectSignal=1', '-n', 'Xsec',
+                            '--rMin', '0', '--rMax', '2', '--alignEdges', '1', '--squareDistPoiStep',
+                            '--algo', 'grid', '--points', '50', '--autoRange', '3'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
         fit_status = 'ok'

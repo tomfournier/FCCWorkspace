@@ -220,22 +220,14 @@ class loc(metaclass=locMeta):
     HIST                = LocPath(f"{repo}/output/data/histograms")                           # Histograms root
     HIST_MEASUREMENT    = LocPath(f"{repo}/output/data/histograms/measurement/ecm/cat")       # Measurement histograms
 
-    PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis plots
+    PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")   # Analysis plots
+    PLOTS_FIT           = LocPath(f"{repo}/output/plots/fit/ecm/cat/sel")       # Fit plots
 
-    COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root
-    COMBINE_NOMINAL     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")  # Nominal outputs
-    COMBINE_BIAS        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")     # Bias outputs
-
-    NOMINAL_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")       # Logs (nominal)
-    NOMINAL_RESULT      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/results")   # Results (nominal)
-    NOMINAL_DATACARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/datacard")  # Datacards (nominal)
-    NOMINAL_WS          = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/WS")        # Workspaces (nominal)
-
-    BIAS_LOG            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/log")           # Logs (bias)
-    BIAS_FIT_RESULT     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/fit")   # Fit outputs (bias)
-    BIAS_RESULT         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias")  # Bias summaries
-    BIAS_DATACARD       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Datacards (bias)
-    BIAS_WS             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Workspaces (bias)
+    COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")           # Combine root
+    COMBINE_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/log")       # Logs (nominal)
+    COMBINE_RESULT      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/results")   # Results (nominal)
+    COMBINE_DATACARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/datacard")  # Datacards (nominal)
+    COMBINE_WS          = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/WS")        # Workspaces (nominal)
 
     @staticmethod
     def expand(
