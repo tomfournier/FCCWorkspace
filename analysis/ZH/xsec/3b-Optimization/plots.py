@@ -482,7 +482,7 @@ def plot_origin(
         xmax = max(old.max(), reco.max(), true.max())
 
         for m, leg, c in [(0, 'Both Incorrect', 'red'), (1, 'One Correct', 'orange'), (2, 'Both Correct', 'green')]:
-            matche = true[matches == m]
+            matche = reco[matches == m]
             ax.hist(matche, bins=bins, range=(xmin, xmax), histtype='step',
                     label=leg, color=c, linewidth=2)
 

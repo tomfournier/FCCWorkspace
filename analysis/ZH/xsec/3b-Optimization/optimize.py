@@ -130,7 +130,7 @@ class Optimizer:
                 jagged_branches = [name for name in branch_names if not isinstance(ak.num(arrays[name], axis=-1), int)]
 
                 # Apply mass cut: remove pairs within 3 GeV of Higgs mass (125 GeV)
-                mass_cut = (np.abs(arrays['mass'] - 125) > 3)  # & (arrays['recoil'] > 120)
+                mass_cut = (np.abs(arrays['mass'] - 125) > 3)
 
                 # Apply mass cut to jagged arrays
                 filtered_arrays = {}
