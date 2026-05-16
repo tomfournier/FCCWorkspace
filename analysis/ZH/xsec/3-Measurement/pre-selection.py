@@ -37,7 +37,7 @@ procDict = 'FCCee_procDict_winter2023_IDEA.json'
 
 # Optional: Number of CPUs for parallel processing
 # (default is 4,  -1 uses all cores available)
-# nCPUS = 20
+nCPUS = 20
 
 # Run on HTCondor batch system (default is False)
 runBatch = True if env.get('RUN_BATCH') else False

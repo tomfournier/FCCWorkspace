@@ -119,7 +119,7 @@ def run(cat: str,
     script_path = f'{path}/{script}.py'
 
     # Display execution header with clear identification
-    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {lumi = }'
+    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {lumi = } | test = {arg.test}'
     length = len(msg) + 2
     LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
@@ -149,7 +149,7 @@ def run(cat: str,
         )
         # Completion status marker
         status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
-        msg = f'{status}: [{script}] {cat = } | {ecm = }'
+        msg = f'{status}: [{script}] {cat = } | {ecm = } | test = {arg.test}'
         length = len(msg) + 2
         LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
         return result.returncode

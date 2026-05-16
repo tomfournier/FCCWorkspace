@@ -2,13 +2,7 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, sys
-
-# Add parent directory to path so package and sel modules are found
-# This is necessary for HTCondor batch jobs to find local modules
-script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
+import os
 
 from package.userConfig import loc, get_params
 from package.config import get_process_list
@@ -42,7 +36,7 @@ procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 
 # Optional: Number of CPUs for parallel processing
 # (default is 4,  -1 uses all cores available)
-# nCPUS = 20
+nCPUS = 20
 
 # Run on HTCondor batch system (default is False)
 runBatch = True if env.get('RUN_BATCH') else False

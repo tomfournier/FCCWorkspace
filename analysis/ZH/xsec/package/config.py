@@ -587,10 +587,10 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     big    = 80 if batch else 10
 
     # Common diboson processes
-    common = {
-        f'p8_ee_ZZ_ecm{ecm}': {'frac': 1, 'nb': middle},
-        f'p8_ee_WW_ecm{ecm}': {'frac': 1, 'nb': 5 if train else big},
-    }
+    common: dict[str, dict[str, int]] = {}
+    common[f'p8_ee_ZZ_ecm{ecm}'] = {'frac': 1, 'nb': middle}
+    if not train:
+        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 1, 'nb': big}
 
     # Training mode: category-specific backgrounds only
     if train:

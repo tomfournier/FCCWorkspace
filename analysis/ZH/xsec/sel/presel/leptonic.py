@@ -303,8 +303,8 @@ def training_ll(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 5: Recoil mass window (365 GeV)
     ##########
-    # if ecm == 365: df = df.Filter('zll_recoil_m > 100 && zll_recoil_m < 150')
-    # df, params = cutflow(df, params, 5)
+    if test:
+        if ecm == 365: df = df.Filter('zll_recoil_m > 100 && zll_recoil_m < 150')
 
     return df
 
@@ -398,8 +398,9 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 5: Recoil mass window (365 GeV)
     ##########
-    # if ecm == 365: df = df.Filter('zll_recoil_m > 100 && zll_recoil_m < 150')
-    # df, params = cutflow(df, params, 5)
+    if test:
+        if ecm == 365: df = df.Filter('zll_recoil_m > 100 && zll_recoil_m < 150')
+        df, params = cutflow(df, params, 5)
 
     return df, params
 
