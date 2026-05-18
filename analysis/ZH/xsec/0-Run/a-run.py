@@ -11,9 +11,9 @@ Conventions:
 - Scripts are executed in nested loops: ecm -> cat -> stage-specific script, then plots/cutflow.
 
 Usage:
-    python 3a-run.py                                  # Default: all channels, all ecms, stages 2-3
-    python 3a-run.py --cat ee --ecm 365 --run 1-2-3   # All stages including cutflow
-    python 3a-run.py --cat ee-mumu --ecm 240-365      # Multiple channels and energies
+    python a-run.py                                  # Default: all channels, all ecms, stages 2-3
+    python a-run.py --cat ee --ecm 365 --run 1-2-3   # All stages including cutflow
+    python a-run.py --cat ee-mumu --ecm 240-365      # Multiple channels and energies
 '''
 
 ##########################################################
@@ -48,9 +48,10 @@ parser = create_parser(
     description='Run Optimisation pipeline'
 )
 arg = parser.parse_args()
-set_log(__name__)
+set_log(arg)
 
 LOGGER = get_logger(__name__)
+
 
 
 #############################
@@ -62,12 +63,12 @@ cats = arg.cat.split('-')
 ecms = [int(e) for e in arg.ecm.split('-')]
 
 # Map stage numbers to script names
-script_map = {'1': 'pre-selection', '2': 'optimize', '3': 'plots'}
+script_map = {'1': 'pre-selection', '2': 'plots'}
 scripts = [script_map[s] for s in arg.run.split('-')]
-cmds = {'pre-selection': 'run', 'final-selection': 'final'}
+cmds = {'pre-selection': 'run'}
 
 # Base path for analysis scripts
-path = f'{loc.ROOT}/3b-Optimization'
+path = f'{loc.ROOT}/a-FSR'
 
 
 
@@ -97,7 +98,7 @@ def run(cat: str,
         int: Return code from the subprocess.
     '''
     # Create configuration directory if it doesn't exist
-    cfg_path = Path(loc.RUN) / '3b-run.json'
+    cfg_path = Path(loc.RUN) / 'a-run.json'
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build configuration dictionary
@@ -122,18 +123,8 @@ def run(cat: str,
 
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
-    if 'optimize' in script:
-        extra_args.extend(['--procs',  arg.procs])
-        extra_args.extend(['--method', arg.method])
-        extra_args.extend(['--nevents', str(arg.nevents)])
-        extra_args.extend(['--incr',    str(arg.incr)])
-    elif 'plots' in script:
-        extra_args.extend(['--procs',  arg.procs])
-        extra_args.extend(['--method', arg.method])
-        if not arg.dist:
-            extra_args.append('--no-dist')
-        if not arg.metrics:
-            extra_args.append('--no-metrics')
+    if 'plots' in script:
+        extra_args.extend(['--procs', arg.procs])
 
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
