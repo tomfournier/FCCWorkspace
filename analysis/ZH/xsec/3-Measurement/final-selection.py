@@ -17,7 +17,7 @@ from package.config import (
     input_vars
 )
 
-cat, ecm, lumi = get_params(os.environ.copy(), '3-run.json', is_final=True)
+cat, ecm, lumi, test = get_params(os.environ.copy(), '3-run.json', is_final=True)
 
 
 
@@ -26,8 +26,8 @@ cat, ecm, lumi = get_params(os.environ.copy(), '3-run.json', is_final=True)
 #############################
 
 # Input directory for pre-selection outputs
-inputDir  = loc.get('EVENTS_TEST', cat, ecm)
-# inputDir  = loc.get('EVENTS', cat, ecm)
+if test: inputDir  = loc.get('EVENTS_TEST', cat, ecm)
+else:    inputDir  = loc.get('EVENTS',           cat, ecm)
 
 # Output directory for final-selection histograms
 outputDir = loc.get('HIST_PREPROCESSED', cat, ecm)
@@ -136,20 +136,17 @@ vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' &&
 
 # Selection cut dictionary (key = selection name used in outputs)
 cutList = {
-    # 'Baseline':          Baseline_Cut,
-    # 'Baseline_vis':      vis,
-    # 'Baseline_inv':      inv,
-    # 'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
-    # 'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
+    'Baseline':          Baseline_Cut,
+    'Baseline_vis':      vis,
+    'Baseline_inv':      inv,
+    'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
+    'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
     'test':              Baseline_Cut
 }
 
 # List of selections to split into high/low BDT score regions
 sels = [
-    'Baseline',
-    'Baseline_miss',
-    'Baseline_sep',
-    'test'
+    'Baseline', 'Baseline_miss', 'Baseline_sep', 'test'
 ]
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)

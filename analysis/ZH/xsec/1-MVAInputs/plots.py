@@ -10,7 +10,7 @@ from package.userConfig import (
     plot_file
 )
 
-cat, ecm, lumi = get_params(os.environ.copy(), '1-run.json', is_final=True)
+cat, ecm, lumi, _ = get_params(os.environ.copy(), '1-run.json', is_final=True)
 
 
 
@@ -45,17 +45,20 @@ variables = sorted([
     # 'leading_phi', 'subleading_phi',
 
     # Z boson properties
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta',
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta', 'zll_category',
     # 'zll_phi',
 
     # Angular correlation
     'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',
 
     # Recoil mass (Higgs candidate)
-    'zll_recoil_m',
+    'zll_recoil_m', 'zll_recoil_p',
+
+    # Energy inbalance variables
+    'e_long', 'e_trans', 'e_tan',
 
     # Visible and invisible information
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',  # 'missingEnergy',
+    'visibleEnergy', 'visibleEnergy_tot', 'cosTheta_miss', 'missingMass', 'missingEnergy',
 
     # Higgsstrahlungness
     'H'
@@ -71,16 +74,14 @@ variables = sorted([
 # The name of the selections should be the same than in the final selection
 selections = {}
 selections['ZH'] = [
-    # 'sel0',
-    # 'Baseline',
-    'test'
+    'sel0', 'Baseline', 'test'
 ]
 
 # Extra labels to display under plot titles per selection
 extralabel = {}
-extralabel['sel0'] = 'No cut'
+extralabel['sel0']     = 'No cut'
 extralabel['Baseline'] = 'Baseline'
-extralabel['test'] = 'New #Delta#theta_{l^{+}l^{-}} definition'
+extralabel['test']     = 'test'
 
 # Plot configuration: signal and backgrounds per analysis
 plots = {}

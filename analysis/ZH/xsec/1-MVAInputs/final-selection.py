@@ -8,7 +8,7 @@ import os
 from package.userConfig import loc, get_params
 from sel.final.leptonic import histos_ll
 
-cat, ecm, lumi = get_params(os.environ.copy(), '1-run.json', is_final=True)
+cat, ecm, lumi, test = get_params(os.environ.copy(), '1-run.json', is_final=True)
 
 
 
@@ -17,15 +17,16 @@ cat, ecm, lumi = get_params(os.environ.copy(), '1-run.json', is_final=True)
 #############################
 
 # Input directory for pre-selection outputs
-inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
-# inputDir = loc.get('EVENTS_TRAINING', cat, ecm)
+if test: inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
+else:    inputDir = loc.get('EVENTS_TRAINING',   cat, ecm)
+
 # Output directory for final-selection histograms
 outputDir = loc.get('HIST_MVA', cat, ecm)
 
 # Link to the dictonary that contains all the cross section informations etc...
 # path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
-procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 # If procDict is incomplete, can use procDictAdd to add information on the missing samples
+procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 
 # Parallel processing configuration (default nCPUS=4)
 nCPUS = 10
@@ -75,9 +76,9 @@ Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
 
 # Selection cuts dictionary (key = selection name used in outputs)
 cutList = {
-    # 'sel0':     'return true;',
-    # 'Baseline': Baseline_Cut,
-    'test': Baseline_Cut
+    'sel0':     'return true;',
+    'Baseline':  Baseline_Cut,
+    'test':      Baseline_Cut
 }
 
 
