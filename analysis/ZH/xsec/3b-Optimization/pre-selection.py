@@ -14,7 +14,8 @@ from package.userConfig import (
     loc, get_params
 )
 
-cat, ecm = get_params(os.environ.copy(), '3b-run.json')
+env = os.environ.copy()
+cat, ecm = get_params(env, '3b-run.json')
 
 
 
@@ -41,11 +42,11 @@ prodTag = 'FCCee/winter2023/IDEA/'
 procDict = 'FCCee_procDict_winter2023_IDEA.json'
 
 # Optional: Number of CPUs for parallel processing
-# (default is 4,  -1 uses all cores available)
+# (default is 4, -1 uses all cores available)
 nCPUS = 20
 
 # Run on HTCondor batch system (default is False)
-runBatch = False
+runBatch = True if env.get('RUN_BATCH') else False
 
 # Batch queue name for HTCondor (default is workday)
 batchQueue = 'longlunch'

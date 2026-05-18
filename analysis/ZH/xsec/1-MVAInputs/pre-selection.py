@@ -35,7 +35,7 @@ prodTag = 'FCCee/winter2023_training/IDEA/'
 procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 
 # Optional: Number of CPUs for parallel processing
-# (default is 4,  -1 uses all cores available)
+# (default is 4, -1 uses all cores available)
 nCPUS = 20
 
 # Run on HTCondor batch system (default is False)
