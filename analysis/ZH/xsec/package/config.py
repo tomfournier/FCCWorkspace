@@ -60,8 +60,7 @@ input_vars = (
     'leading_p',    'leading_theta',
     'subleading_p', 'subleading_theta',
     'acolinearity', 'acoplanarity',
-    # 'zll_m',
-    'zll_p', 'zll_theta'
+    'zll_m', 'zll_p', 'zll_theta'
 )
 
 
