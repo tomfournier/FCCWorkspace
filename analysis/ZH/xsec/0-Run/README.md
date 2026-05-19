@@ -1,170 +1,336 @@
 # Analysis Pipeline Scripts
 
-This directory contains wrapper scripts that automate the complete ZH analysis pipeline. Each script orchestrates a specific stage of the analysis across multiple channels and center-of-mass energies.
+This directory contains wrapper scripts that automate the complete ZH analysis pipeline. Each script orchestrates a specific stage of the analysis across multiple channels and center-of-mass energies, handling batch execution with proper logging and error tracking.
 
 ## Overview
 
-The analysis runs sequentially through five stages, each with its own runner script:
+The analysis pipeline consists of five main stages (plus two optional study pipelines):
 
-1. **1-run.py** – MVA Input Generation & Plotting
-2. **2-run.py** – BDT Training & Evaluation
-3. **3-run.py** – Physics Measurement
-4. **4-run.py** – Histogram Combination
+**Main Pipeline:**
+1. **1-run.py** – MVA Input Generation
+2. **2-run.py** – Boosted Decision Tree (BDT) Training & Evaluation
+3. **3-run.py** – Physics Measurement & Cutflow
+4. **4-run.py** – Histogram Combination & Datacards
 5. **5-run.py** – Statistical Fit & Bias Testing
+
+**Study Pipelines:**
+- **a-run.py** – FSR (Final State Radiation) Optimization
+- **b-run.py** – BDT Hyperparameter Optimization
 
 ## Usage
 
-All scripts must be executed from the **xsec/** folder to properly locate the `package/` module:
+All scripts must be executed from the **xsec/** root folder to properly locate the `package/` module:
 
 ```bash
 cd /path/to/xsec/
-python run/<N>-run.py [--cat CHANNEL] [--ecm ENERGY] [--run STAGES] [--script-args]
+python 0-Run/<N>-run.py [--cat CHANNEL] [--ecm ENERGY] [--run STAGES] [OPTIONS]
 ```
 
 ### Common Parameters
 
-- `--cat`: Lepton channel (`ee`, `mumu`, `ee-mumu`, `mumu-ee`)
-  - Default: `ee-mumu` (runs both sequentially)
-  - Example: `--cat ee` (electron channel only)
-  - Example: `--cat mumu-ee` (runs mumu first, then ee)
+All runner scripts accept the following parameters:
 
-- `--ecm`: Center-of-mass energy in GeV (`240`, `365`, `240-365`, `365-240`)
-  - Default: `240-365` (runs 240 then 365 sequentially)
-  - Example: `--ecm 365` (high-energy only)
-  - Example: `--ecm 365-240` (runs 365 first, then 240)
+- `--cat`: Lepton channel(s) (`ee`, `mumu`, or combinations)
+  - Single: `--cat ee` (electron channel only)
+  - Multiple: `--cat ee-mumu` (runs ee first, then mumu sequentially)
+  - Default varies per script
+
+- `--ecm`: Center-of-mass energy(ies) in GeV (`240` or `365`, or combinations)
+  - Single: `--ecm 365` (high-energy only)
+  - Multiple: `--ecm 240-365` (runs 240 first, then 365 sequentially)
+  - Default varies per script
 
 - `--run`: Pipeline stages to execute (dash-separated for multiple)
-  - Stage options depend on the script (see below)
+  - Stage numbers depend on the script
   - Default varies per script
-  - Example: `--run 1-2` (first two stages)
-
-### Script-Specific Arguments
-
-Each script may support additional options. Use `--help` to see all available arguments:
-
-```bash
-python run/1-run.py --help
-```
-
-**Example:** Running 1-run.py with specific options:
-```bash
-python run/1-run.py --cat ee --ecm 240 --run 1-2 [additional script args]
-```
-
-Refer to individual script docstrings for script-specific arguments and their usage patterns.
-
-### Stage Dependencies
-
-⚠️ **Warning:** Running with `--run 2` (or higher stages) without first executing `--run 1` will raise an error, as each stage depends on the outputs of previous stages. Always run stages sequentially if it's your first time:
-
-```bash
-# Correct: Run all stages in order
-python run/1-run.py --cat ee --ecm 240 --run 1-2-3
-
-# Incorrect: Will fail
-python run/1-run.py --cat ee --ecm 240 --run 2
-```
+  - Example: `--run 1-2` (first two stages only)
 
 ## Script Details
 
-### 1-run.py – Event Selection & MVA Inputs
-Performs pre-selection and final-selection cuts, then generates MVA input histograms.
+### 1-run.py – MVA Input Generation
 
-**Stages:** 1=pre-selection, 2=final-selection, 3=plots (default: 2-3)
+Performs event selection and generates histograms with BDT input variables. Uses `fccanalysis` subcommands.
 
+**Stages:**
+- Stage 1 = `pre-selection`: Apply pre-selection cuts, compute kinematic variables
+- Stage 2 = `final-selection`: Fill histograms with BDT variables  
+- Stage 3 = `plots`: Generate distribution plots
+
+**Default:** `--run 2-3` (skips pre-selection by default)
+
+**Examples:**
 ```bash
-python 1-run.py --cat ee --ecm 240 --run 1-2-3
+# Pre-selection, final selection, and plots for both channels and energies
+python 1-run.py --cat ee-mumu --ecm 240-365 --run 1-2-3
+
+# Only final selection and plots for ee channel at 240 GeV
+python 1-run.py --cat ee --ecm 240
+
+# Pre-selection only for ee at 365 GeV
+python 1-run.py --cat ee --ecm 365 --run 1
 ```
 
-### 2-run.py – Boosted Decision Tree
-Processes MVA inputs, trains BDT models, and evaluates performance.
+### 2-run.py – Boosted Decision Tree (BDT) Training & Evaluation
 
-**Stages:** 1=process_input, 2=train_bdt, 3=evaluation (default: 1-2-3)
+Processes MVA input histograms, trains XGBoost models, and evaluates BDT performance. Supports optional evaluation metrics.
 
+**Stages:**
+- Stage 1 = `process_input`: Load histograms, balance samples, prepare for BDT training
+- Stage 2 = `train_bdt`: Train XGBoost classifier with early stopping
+- Stage 3 = `evaluation`: Evaluate BDT performance, generate plots
+
+**Default:** `--run 1-2-3` (all stages)
+
+**Optional Flags:**
+- `--metric`: Generate BDT performance metrics plots (used with stage 3)
+- `--tree`: Draw BDT decision trees (used with stage 3)
+- `--check`: Check variable distributions (used with stage 3)
+- `--hl`: Additional evaluation options (used with stage 3)
+- `--sels SELECTIONS`: Specific selection strategies to process
+
+**Examples:**
 ```bash
-python 2-run.py --cat ee-mumu --ecm 240-365 --run 1-3
+# Standard training and evaluation for both channels
+python 2-run.py --cat ee-mumu --ecm 240-365
+
+# Train and evaluate with metric plots
+python 2-run.py --cat ee --ecm 240 --run 2-3 --metric
+
+# Process and train only (no evaluation)
+python 2-run.py --cat mumu --ecm 365 --run 1-2
 ```
 
-### 3-run.py – Physics Measurement
-Applies BDT selection to events, generates measurement plots, and produces cutflow tables and plots.
+### 3-run.py – Physics Measurement & Cutflow
 
-**Stages:** 1=pre-selection, 2=final-selection, 3=plots, 4=cutflow (default: 2-3)
+Applies BDT selection to events, generates measurement plots, and analyzes event yields per cut stage.
 
+**Stages:**
+- Stage 1 = `pre-selection`: Apply pre-selection cuts, compute kinematic variables
+- Stage 2 = `final-selection`: Apply BDT selection, fill measurement histograms
+- Stage 3 = `plots`: Generate distribution plots
+- Stage 4 = `cutflow`: Analyze event yields and generate cutflow tables
+
+**Default:** `--run 2-3` (final-selection and plots)
+
+**Optional Flags:**
+- `--sels SELECTIONS`: Specific selection strategies
+- `--test`: Use test sample for validation
+- Plotting options (see script docstring)
+
+**Examples:**
 ```bash
-python 3-run.py --cat mumu --ecm 365 --run 1-2-3-4
+# Full measurement including cutflow analysis
+python 3-run.py --cat ee-mumu --ecm 240-365 --run 1-2-3-4
+
+# Measurement with plots only
+python 3-run.py --cat ee --ecm 365
+
+# Pre-selection and measurement without plots
+python 3-run.py --cat mumu --ecm 240 --run 1-2
 ```
 
-### 4-run.py – Histogram Combination
-Merges histograms across channels and selections, prepares input for fitting.
+### 4-run.py – Histogram Combination & Datacards
 
-**Stages:** 1=process_histogram, 2=combine (default: 2)
+Merges histograms across channels and selection strategies, splits into high/low BDT score regions, and creates combine datacards for fitting.
 
+**Stages:**
+- Stage 1 = `process_histogram`: Split histograms into high/low BDT regions
+- Stage 2 = `combine`: Create combine datacards from processed histograms
+
+**Default:** `--run 1-2` (both stages)
+
+**Selection Strategies:**
+By default processes: `Baseline`, `Baseline_miss`, `Baseline_sep`, `test`
+Customize with: `--sels SELECTION1-SELECTION2-...`
+
+**Optional Flags:**
+- `--sels SELECTIONS`: Specific selection strategies to process
+- `--polL` / `--polR`: Polarization left/right (for stage 1)
+- `--ILC`: ILC-specific settings (for stage 1)
+
+**Examples:**
 ```bash
-python 4-run.py --cat ee-mumu --ecm 240-365 --run 1-2
+# Process and combine for both channels and energies with default selections
+python 4-run.py --cat ee-mumu --ecm 240-365
+
+# Process only (prepare histograms)
+python 4-run.py --cat ee --ecm 240 --run 1
+
+# Combine only (requires pre-processed histograms) for specific selections
+python 4-run.py --cat ee-mumu --ecm 240-365 --run 2 --sels Baseline
 ```
 
-### 5-run.py – Statistical Fit & Validation
-Performs maximum-likelihood fits and bias tests to extract physics parameters.
+### 5-run.py – Statistical Fit & Bias Testing
 
-**Stages:** 1=fit, 2=bias_test (default: 1-2)
+Performs maximum-likelihood fits to extract physics parameters and runs bias tests to validate fit performance.
 
-**Important:** Due to environment incompatibility, 5-run.py must be executed in a **separate terminal** from the other scripts.
+**Stages:**
+- Stage 1 = `fit`: Perform ML fit and extract parameters
+- Stage 2 = `bias_test`: Run bias test with pseudo-experiments
 
+**Default:** `--run 1-2` (fit and bias test)
+
+**Optional Flags:**
+- `--combine`: Include combined channel fit ('comb')
+- `--sels SELECTIONS`: Specific selection strategies
+- Fit options: `--quiet`, timing options, etc. (see script docstring)
+- Bias test options: pseudo-experiment count, etc. (see script docstring)
+
+**⚠️ Important:** This script may require a separate terminal or environment due to compatibility issues with fitting libraries.
+
+**Examples:**
 ```bash
-python 5-run.py --cat ee --ecm 240 --run 2
+# Fit and bias test for all channels and energies
+python 5-run.py --cat ee-mumu --ecm 240-365
+
+# Fit only (no bias test)
+python 5-run.py --cat ee --ecm 365 --run 1
+
+# Fit with combined channel and bias test
+python 5-run.py --cat ee-mumu --ecm 240-365 --run 1-2 --combine
+```
+
+### a-run.py – FSR (Final State Radiation) Optimization
+
+Studies the impact of FSR corrections and optimizes FSR-related selection criteria.
+
+**Stages:**
+- Stage 1 = `pre-selection`: Apply pre-selection cuts with FSR studies
+- Stage 2 = `plots`: Generate FSR-related distribution plots
+
+**Default:** `--run 1-2` (both stages)
+
+**Optional Flags:**
+- `--sels SELECTIONS`: Specific selection strategies
+- FSR optimization options (see script docstring)
+
+**Examples:**
+```bash
+# Full FSR study for both channels
+python a-run.py --cat ee-mumu --ecm 240-365
+
+# Pre-selection only for FSR studies
+python a-run.py --cat ee --ecm 240 --run 1
+```
+
+### b-run.py – BDT Hyperparameter Optimization
+
+Performs chi-squared optimization to find optimal BDT hyperparameters and selection criteria.
+
+**Stages:**
+- Stage 1 = `pre-selection`: Apply pre-selection cuts for optimization studies
+- Stage 2 = `optimize`: Run BDT hyperparameter optimization
+- Stage 3 = `plots`: Generate optimization result visualization plots
+
+**Default:** `--run 1-2-3` (all stages)
+
+**Optional Flags:**
+- `--sels SELECTIONS`: Specific selection strategies
+- Optimization options (see script docstring)
+
+**Examples:**
+```bash
+# Full optimization pipeline for both channels
+python b-run.py --cat ee-mumu --ecm 240-365
+
+# Optimization results only (pre-selection and optimization done)
+python b-run.py --cat ee --ecm 365 --run 2-3
+
+# Pre-selection and optimization only
+python b-run.py --cat mumu --ecm 240 --run 1-2
 ```
 
 ## Key Features
 
-- **Batch Execution**: Automatically loops over multiple channels/energies
-- **Temporary Config**: Creates job-specific JSON configs passed to downstream scripts
-- **Environment Flag**: Sets `RUN='1'` to indicate automated mode
-- **Streaming Output**: Child process output printed in real-time
+- **Batch Execution**: Automatically iterates over multiple channels and energies in nested loops
+- **Temporary Configuration**: Creates job-specific JSON configs passed to downstream scripts
+- **Environment Flags**: Sets `RUN='1'` (and optionally `RUN_BATCH='1'`) to indicate automated execution mode
+- **Streaming Output**: Child process output piped in real-time to terminal
+- **Error Handling**: Stops pipeline on first error (non-zero exit code)
+- **Logging**: Clear execution markers with status (✓ COMPLETED / ✗ FAILED) and timing
 - **Modular Design**: Run individual stages or complete pipelines as needed
 
 ## Complete Pipeline Example
 
-Run the full analysis from event selection through fitting. Execute in the xsec/ folder:
+Run the full analysis from start to finish (execute in xsec/ folder):
 
 ```bash
 cd /path/to/xsec/
-python run/1-run.py --cat ee-mumu --ecm 240-365  # MVA inputs
-python run/2-run.py --cat ee-mumu --ecm 240-365  # BDT training
-python run/3-run.py --cat ee-mumu --ecm 240-365  # Measurement
-python run/4-run.py --cat ee-mumu --ecm 240-365  # Combine
+
+# Stage 1-4: Main analysis pipeline (can run in same terminal)
+python 0-Run/1-run.py --cat ee-mumu --ecm 240-365  # MVA inputs
+python 0-Run/2-run.py --cat ee-mumu --ecm 240-365  # BDT training  
+python 0-Run/3-run.py --cat ee-mumu --ecm 240-365  # Measurement
+python 0-Run/4-run.py --cat ee-mumu --ecm 240-365  # Combine
 ```
 
-Then in a **separate terminal** (due to environment compatibility):
+Then (optionally in a separate terminal):
 
 ```bash
 cd /path/to/xsec/
-python run/5-run.py --cat ee-mumu --ecm 240-365  # Fit
+python 0-Run/5-run.py --cat ee-mumu --ecm 240-365  # Fit & bias test
 ```
 
-Or run with custom selections:
+### Custom Analysis Examples
 
+**Quick validation (test sample):**
 ```bash
-python run/1-run.py --cat ee --ecm 365 --run 1-2
-python run/2-run.py --cat ee --ecm 365 --run 1-3
-python run/3-run.py --cat ee --ecm 365 --run 2-3-4
-python run/4-run.py --cat ee --ecm 365
+python 0-Run/1-run.py --cat ee --ecm 240 --test --run 2-3
 ```
 
-Then separately:
-
+**Full analysis with one channel:**
 ```bash
-python run/5-run.py --cat ee --ecm 365
+python 0-Run/1-run.py --cat ee --ecm 240-365 --run 1-2-3
+python 0-Run/2-run.py --cat ee --ecm 240-365
+python 0-Run/3-run.py --cat ee --ecm 240-365 --run 1-2-3-4
+python 0-Run/4-run.py --cat ee --ecm 240-365
+python 0-Run/5-run.py --cat ee --ecm 240-365
+```
+
+**BDT studies only:**
+```bash
+python 0-Run/a-run.py --cat ee-mumu --ecm 240-365  # FSR studies
+python 0-Run/b-run.py --cat ee-mumu --ecm 240-365  # Optimization studies
 ```
 
 ## Output Structure
 
-Each script generates outputs in the `output/` directory:
-- `data/` – Processed events and histograms
-- `plots/` – Generated plots and distributions
-- `tmp/` – Temporary configuration files, process dictionaries, and sample metadata
-  - `config_json/` – Job-specific configuration files (cleaned up after each stage)
-  - `events.json` – Events file generated by the cutflow stage (3-run.py --run 4)
+Each script generates outputs in the `output/` directory under the workspace root:
 
-## Configuration
+- **output/data/** – Processed events and histograms
+  - `events/` – Event data after selection cuts (stage-specific)
+  - `MVA/` – MVA input histograms per channel/energy
+  - `histograms/` – Processed histograms (MVAInputs, measurement, combine stages)
+  - `combine/` – Combine datacards and inputs
 
-Analysis parameters are defined in [package/userConfig.py](../package/userConfig.py) and [package/config.py](../package/config.py).
+- **output/plots/** – Generated plots and distributions
+  - `MVAInputs/`, `evaluation/`, `measurement/`, etc. – Stage-specific plots
+  - `fsr/`, `optimisation/` – Special study outputs
+
+- **output/tmp/** – Temporary files cleaned up after execution
+  - `config_json/` – Job-specific JSON configurations (removed after each job)
+  - `procDict/` – Process dictionaries and sample metadata
+
+## Environment Setup
+
+Scripts import configuration and utilities from the `package/` module:
+
+- **[package/config.py](../package/config.py)** – Analysis parameters and timing utilities
+- **[package/userConfig.py](../package/userConfig.py)** – Directory paths (`loc.ROOT`, etc.)
+- **[package/parsing.py](../package/parsing.py)** – Argument parsing and configuration handling
+- **[package/logger.py](../package/logger.py)** – Logging and terminal output formatting
+
+## Help & Troubleshooting
+
+Get detailed help for any script:
+
+```bash
+python 1-run.py --help  # Shows all available arguments
+```
+
+Common issues:
+
+- **"Stage dependencies" errors**: Run stages in order (1, then 2, then 3, etc.) unless outputs already exist
+- **"RUN='1' not detected"**: The scripts should automatically set this flag; check `package/parsing.py` if issues persist
+- **Missing outputs**: Check that the parent stage completed successfully (look for ✓ COMPLETED marker)
+- **Environment issues**: Some stages may require different Python environments; use separate terminal if needed

@@ -38,24 +38,27 @@ LOGGER = get_logger(__name__)
 
 LOGGER.debug('Loading custom modules')
 
-# Import configuration and utilities
+# Configuration and directory management
 from package.userConfig import loc
 from package.config import (
-    timer, input_vars
+    timer,                      # Performance timing utility
+    input_vars                  # List of variables for BDT training
 )
-# Utility functions for file handling and process dictionaries
+
+# File I/O and process dictionary utilities
 from package.tools.utils import (
-    get_paths,
-    to_pkl,
-    get_procDict,
-    update_keys
+    get_paths,                  # Find histogram files for each process
+    to_pkl,                     # Save dataframes to pickle format
+    get_procDict,               # Load process metadata
+    update_keys                 # Map process names to sample identifiers
 )
-# BDT-specific functions for data processing
+
+# BDT data preparation functions
 from package.func.bdt import (
-    counts_and_effs,
-    additional_info,
-    BDT_input_numbers,
-    df_split_data
+    counts_and_effs,            # Calculate event counts and efficiencies
+    additional_info,            # Add signal/background labels and weights
+    BDT_input_numbers,          # Determine optimal training set sizes
+    df_split_data               # Split data into training/validation sets
 )
 
 LOGGER.debug('Modules loaded')
@@ -66,17 +69,17 @@ LOGGER.debug('Modules loaded')
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-# Set analysis category and energy from arguments
-cat, ecm = arg.cat, arg.ecm
-inDir = loc.get('HIST_MVA', cat, ecm)
+# Analysis parameters from command-line arguments
+cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
+inDir = loc.get('HIST_MVA', cat, ecm)  # Input directory with MVA histograms
 
-# Selection strategies to process
+# Selection strategies to process (from command-line or defaults)
 if arg.sels=='':
-    sels = ['Baseline', 'test']
+    sels = ['Baseline', 'test']  # Default selections if not specified
 else:
-    sels = arg.sels.split('-')
+    sels = arg.sels.split('-')   # Parse selection names from command-line
 
-# Decay modes used in first stage training and their respective file names
+# Process modes for BDT training (signal and all major background processes)
 modes = {
     f'Z{cat}H':      f'wzp6_ee_{cat}H_ecm{ecm}',                 # Signal: ZH production
     'ZZ':            f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
@@ -88,8 +91,8 @@ modes = {
     f'gaga_{cat}':   f'wzp6_gaga_{cat}_60_ecm{ecm}'           # Background: diphoton
 }
 
-# Name of the dictionary that contains all the cross section information
-# Path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
+# Process dictionary with cross-sections and normalization info
+# Source: /cvmfs/fcc.cern.ch/FCCDicts
 procDict_name = 'FCCee_procDict_winter2023_training_IDEA.json'
 
 
@@ -105,54 +108,74 @@ def run(inDir: str,
         sig: str,
         procDict_name: str
         ) -> None:
-    """Process MVA input histograms and prepare BDT training data."""
+    """Process MVA input histograms and prepare balanced BDT training data.
 
-    # Load process dictionary and update keys with mode mapping
+    This function loads histograms produced by final-selection.py, calculates
+    event efficiencies, applies signal/background labels, and creates balanced
+    training/validation datasets for BDT training.
+
+    Args:
+        inDir: Directory containing input histograms from final-selection.py
+        sels: List of selection strategies to process
+        modes: Dictionary mapping process names to sample identifiers
+        vars: List of input variables for BDT training
+        sig: Signal process name (e.g., 'ZeeH' or 'ZmumuH')
+        procDict_name: Path to process dictionary with cross-sections
+
+    Returns:
+        None (writes preprocessed dataframes to pickle files in MVA_INPUTS directories)
+    """
+
+    # Load process dictionary and map sample names
     proc_dict = get_procDict(procDict_name)
     procDict  = update_keys(proc_dict, modes)
 
-    # Extract cross sections for each mode
+    # Extract cross sections for each process (used for normalization)
     xsec = {}
     for key, value in procDict.items():
         if key in modes: xsec[key] = value['crossSection']
 
-    # Set uniform fraction for all modes
+    # Set uniform reweighting fraction for all processes
+    # (can be adjusted to emphasize specific backgrounds)
     frac = {mode: 1.0 for mode in modes}
 
     for sel in sels:
-        # Define output path for preprocessed data
+        # Output directory for preprocessed pickle files
         outDir = loc.get('MVA_INPUTS', cat, ecm, sel)
 
-        # Initialize storage for each mode
+        # Initialize storage containers for each process
         files, df, eff, N_events = {}, {}, {}, {}
 
+        # Skip diphoton process at 365 GeV (efficiency too low, not enough events)
         if cat=='ee' and ecm==365:
             Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}
         else:
             Modes = modes.copy()
+
+        # Formatting for aligned console output
         lenght = max(len(m) for m in Modes)
         modes_list = list(Modes.keys())
         LOGGER.info(f'Modes used: {" ".join(modes_list)}\n')
 
-        # Process each decay mode
+        # Process each decay mode: load dataframe, compute weights
         for mode in modes_list:
-            # Get input files
+            # Locate histogram files for this process and selection
             files[mode] = get_paths(mode, inDir, Modes, f'_{sel}')
 
-            # Load data and calculate efficiencies
+            # Load data from TTrees and calculate survival efficiency
             df[mode], eff[mode], N_events[mode] = counts_and_effs(files[mode], vars, only_eff=False)
             space = '\n' if mode == modes_list[-1] else ''
             LOGGER.info(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}\n'
                         f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%{space}')
 
-            # Add signal/background labels and weights
+            # Add signal/background classification and event weights
             df[mode] = additional_info(df[mode], mode, sig)
 
-        # Calculate optimal number of BDT inputs per mode
+        # Calculate how many events to use from each process for balanced training
         N_BDT_inputs = BDT_input_numbers(df, Modes, sig, eff, xsec, frac)
 
         LOGGER.debug('Printing BDT inputs number for the different modes')
-        # Split data for each mode into training and validation sets
+        # Split data into training (50%) and validation (50%) sets per process
         for mode in Modes:
             space = '\n' if mode == modes_list[-1] else ''
             LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}{space}')
@@ -161,7 +184,7 @@ def run(inDir: str,
                 eff, xsec, N_events, mode
             )
 
-        # Combine all modes and save to pickle file
+        # Merge all processes and save to single pickle file for BDT training
         dfsum = pd.concat([df[mode] for mode in Modes])
         to_pkl(dfsum, outDir)
 

@@ -1,12 +1,11 @@
-'''Utility functions for tdata procession and analysis.
+'''Utility functions for data processing and analysis.
 
 Provides:
 - File and metadata I/O: `get_paths()`, `get_df()`, `mkdir()`, `load_data()`,
     `to_pkl()`, `dump_json()`, `load_json()`, `get_procDict()`, `update_keys()`,
     `get_xsec()`.
 - Significance calculators: `Z0()`, `Zmu()`, `Z()`, `Significance()`.
-- ROOT histogram helpers: `get_stack()`, `get_xrange()`, `get_yrange()`,
-    `get_range()`, `get_range_decay()`.
+- Selection utilities: `high_low_sels()`.
 
 Conventions:
 - ROOT input is expected to contain a TTree named 'events' (used by `get_df`).
@@ -14,8 +13,6 @@ Conventions:
     fall back to `/cvmfs/fcc.cern.ch/FCCDicts`.
 - `get_paths()` uses a `modes` mapping to build file globs and returns `.root`
     file paths, optionally appending a `suffix`.
-- Range utilities: `strict=True` excludes empty bins; `logY=True` ignores zero/
-    negative contents when computing minima; `stack=True` bases y-max on sums.
 - Significance helpers return `nan` for invalid inputs (e.g., `B<=0`).
 
 Lazy Imports:
@@ -401,6 +398,19 @@ def high_low_sels(
     sels: list[str],
     list_hl: str | list[str]
      ) -> list[str]:
+    '''Extend selection list with '_high' and '_low' variants.
+
+    For each selection name in list_hl that exists in sels, adds both
+    sel+'_high' and sel+'_low' variants to the list.
+
+    Args:
+        sels (list[str]): List of selection names to extend.
+        list_hl (str | list[str]): Selection name(s) to add high/low variants for.
+            Can be a single string or list of strings.
+
+    Returns:
+        list[str]: Extended selection list with '_high' and '_low' variants.
+    '''
     if isinstance(list_hl, str):
         list_hl = [list_hl]
 

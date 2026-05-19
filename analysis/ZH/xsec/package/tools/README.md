@@ -98,12 +98,17 @@ Batch-load histograms from multiple ROOT files into memory cache for efficient r
   - `procs` (list[str]): Process names to preload
   - `inDir` (str): Input directory path
   - `suffix` (str): File suffix. Default: `''`
-  - `hNames` (list[str]): Specific histogram names; if None, loads all. Default: `None`
-  - `rebin` (int): Rebinning factor to apply. Default: `1`
+  - `hNames` (list[str]): Specific histogram names to load; if None, loads all. Default: `None`
+  - `rebin` (int): Rebinning factor to apply to all histograms. Default: `1`
   - `rmww` (bool): Apply WW cross-section correction. Default: `True`
-- **Output:** Progress printed to stdout; histograms cached in `HIST_CACHE`
-- **Use Case:** Significantly speeds up plotting loops by eliminating repeated file opens
-- **Optimization:** WW scale factors computed once per process and reused
+- **Caching:** Stores histograms in global `HIST_CACHE` keyed by (proc, suffix, inDir)
+- **Processing:**
+  - Opens each ROOT file once
+  - Applies rebinning and WW corrections
+  - Detaches histograms with `SetDirectory(0)`
+  - Caches WW scale factors to avoid recomputation in subsequent calls
+- **Use Case:** Significantly speeds up plotting loops by eliminating repeated file I/O
+- **Output:** Prints progress with histogram count
 
 #### `get_hist(hName, proc, processes, inDir, suffix, rebin, proc_scales)`
 Retrieve single-process histogram with automatic scaling applied.
@@ -117,7 +122,9 @@ Retrieve single-process histogram with automatic scaling applied.
   - `rebin` (int): Rebinning factor. Default: `1`
   - `proc_scales` (dict[str, float]): Process scaling factors. Default: `{}`
 - **Returns:** Scaled ROOT histogram, or None if retrieval fails
-- **Auto-scaling:** Applies WW corrections and process-specific scales sequentially
+- **Processing:** Applies WW cross-section corrections, rebinning, then process-specific scales sequentially
+- **Error Handling:** Returns None if file not found, file cannot be opened, or histogram not found
+- **Auto-scaling:** WW scaling factor = (xsec with rmww) / (xsec without rmww)
 
 #### `getHist(hName, procs, inDir, suffix, rebin, lazy, proc_scale, rmww, use_cache)`
 Retrieve and sum histograms from multiple processes with cache support.
@@ -128,13 +135,17 @@ Retrieve and sum histograms from multiple processes with cache support.
   - `inDir` (str): Input directory
   - `suffix` (str): File suffix. Default: `''`
   - `rebin` (int): Rebinning factor. Default: `1`
-  - `lazy` (bool): Skip missing files silently (True) or warn (False). Default: `True`
-  - `proc_scale` (float): Global scaling factor. Default: `1.0`
+  - `lazy` (bool): Skip missing files silently (True) or exit with error (False). Default: `True`
+  - `proc_scale` (float): Global scaling factor applied after combining. Default: `1.0`
   - `rmww` (bool): Apply WW cross-section correction. Default: `True`
-  - `use_cache` (bool): Check cache before file access. Default: `True`
+  - `use_cache` (bool): Check `HIST_CACHE` before opening files. Default: `True`
 - **Returns:** Combined histogram, or None if no histograms found
-- **Cache Priority:** Checks `HIST_CACHE` first before opening files
-- **Lazy Mode:** Suppresses warnings for missing files/histograms in batch operations
+- **Caching Behavior:** 
+  - When `use_cache=True`, checks cache first and clones cached histograms to avoid modifying them
+  - Accumulates histograms from cache and file I/O
+  - Applies rebinning and global scaling as post-processing
+- **Lazy Mode:** When `lazy=True`, missing files are skipped silently; when `False`, errors cause exit
+- **Processing Order:** Cache/file retrieval → Sum histograms → Rebin → Apply global scale
 
 #### `clear_histogram_cache()`
 Clear all cached histograms and WW scaling factors to free memory.
@@ -145,14 +156,15 @@ Clear all cached histograms and WW scaling factors to free memory.
 ### Histogram Utilities
 
 #### `concat(h_list, hName, outName)`
-Concatenate multiple histograms into a single unrolled 1D histogram.
+Concatenate multiple 1D histograms into a single unrolled 1D histogram.
 
 - **Args:**
   - `h_list` (list[ROOT.TH1]): Histograms to concatenate
-  - `hName` (str): Name for logging/messaging
-  - `outName` (str): Output histogram name. Default: `''` (uses `hName`)
-- **Returns:** Unrolled 1D histogram combining all bin contents
-- **Use Case:** Prepare multi-dimensional input features for BDT training by flattening histograms
+  - `hName` (str): Name for logging/identification
+  - `outName` (str): Output histogram name. If empty, uses `hName`. Default: `''`
+- **Returns:** Unrolled 1D histogram with concatenated bin contents and errors
+- **Use Case:** Flatten multiple histograms (e.g., jet features) into single input for BDT training
+- **Implementation:** Creates TH1D with total bins = sum of all input histogram bins, copies bin contents sequentially
 
 #### `proc_scale(hist, proc, processes, proc_scales)`
 Apply process-specific scaling factor to a histogram.
@@ -160,11 +172,11 @@ Apply process-specific scaling factor to a histogram.
 - **Args:**
   - `hist` (ROOT.TH1): Histogram to scale
   - `proc` (str): Process name
-  - `processes` (dict[str, list[str]]): Process configuration mapping
-  - `proc_scales` (dict[str, float]): Scaling factors by process. Default: `{}`
-- **Returns:** Scaled histogram
-- **Output:** Prints scaling factor applied
-- **Matching:** Looks up process in configuration to find appropriate scale factor
+  - `processes` (dict[str, list[str]]): Process configuration mapping category names to process lists
+  - `proc_scales` (dict[str, float]): Scaling factors by process category. Default: `{}`
+- **Returns:** Scaled histogram (modified in place)
+- **Behavior:** Looks up process in `processes` dict, finds matching category, applies corresponding scale from `proc_scales`
+- **No-op:** If `proc_scales` is empty or process not found in mapping, histogram returned unchanged
 
 ### Conventions
 
@@ -199,21 +211,26 @@ Create directory if it does not exist.
 Load DataFrame from ROOT file with optional branch selection.
 
 - **Args:**
-  - `filename` (str): ROOT file path
-  - `branches` (list[str]): Specific branches to load; if empty, loads all. Default: `[]`
+  - `filename` (str): Path to ROOT file
+  - `branches` (list[str]): Specific branches to load; if empty, loads all branches. Default: `[]`
 - **Returns:** pd.DataFrame from 'events' tree
-- **Special Case:** Returns empty DataFrame if tree has no entries
+- **Special Cases:**
+  - If tree has no entries, returns empty DataFrame
+  - Uses uproot for ROOT file I/O with pandas library
+  - If no branches specified, all branches loaded from tree
 
 #### `get_procDict(procFile, fcc)`
 Load process dictionary from JSON file with environment variable support.
 
 - **Args:**
   - `procFile` (str): Dictionary filename
-  - `fcc` (str): Default FCC directory. Default: `'/cvmfs/fcc.cern.ch/FCCDicts'`
-- **Returns:** dict with process metadata
-- **Search Path:** Checks `$FCCDICTSDIR` environment variable first (uses first path if colon-separated)
-- **Raises:** FileNotFoundError if file not found
-- **Integration:** Complements `process.py`'s caching layer
+  - `fcc` (str): Default FCC directory path. Default: `'/cvmfs/fcc.cern.ch/FCCDicts'`
+- **Returns:** dict with process metadata (cross-sections, decay modes, etc.)
+- **Search Path:** 
+  - Checks `$FCCDICTSDIR` environment variable first (uses first path if colon-separated)
+  - Falls back to `fcc` parameter if env var not set
+- **Error Handling:** Logs error and calls `exit(1)` if file not found
+- **Integration:** Used by `process.py`'s `_get_procDict()` for caching
 
 #### `load_data(inDir, filename)`
 Load preprocessed data from pickle file.
@@ -250,24 +267,26 @@ Load dictionary from JSON file.
 ### Significance Calculation
 
 #### `Z0(S, B)`
-Calculate significance using the Z0 statistical method.
+Calculate significance using the Z0 (log-likelihood ratio) method.
 
 Formula: $\sqrt{2[(S+B)\ln(1+S/B) - S]}$
 
 - **Args:**
   - `S` (float): Signal count
   - `B` (float): Background count
-- **Returns:** float or NaN if B ≤ 0
+- **Returns:** float - calculated significance, or NaN if B ≤ 0
+- **Use Case:** Optimal for discovery-type analyses (standard in HEP)
 
 #### `Zmu(S, B)`
-Calculate significance using the Zmu statistical method.
+Calculate significance using the Zmu (profile likelihood ratio) method.
 
 Formula: $\sqrt{2[S - B\ln(1+S/B)]}$
 
 - **Args:**
   - `S` (float): Signal count
   - `B` (float): Background count
-- **Returns:** float or NaN if B ≤ 0
+- **Returns:** float - calculated significance, or NaN if B ≤ 0
+- **Use Case:** Alternative to Z0, often used for limit setting
 
 #### `Z(S, B)`
 Calculate significance using the simple statistical method.
@@ -277,22 +296,29 @@ Formula: $S/\sqrt{S+B}$
 - **Args:**
   - `S` (float): Signal count
   - `B` (float): Background count
-- **Returns:** float (0.0 if both ≤ 0; NaN if B < 0)
+- **Returns:** float - calculated significance:
+  - Returns 0.0 if both S and B ≤ 0
+  - Returns NaN if B < 0
+- **Use Case:** Quick approximation, less accurate than Z0/Zmu for small samples
 
 #### `Significance(df_s, df_b, column, weight, func, score_range, nbins)`
-Scan significance across score bins using specified calculation method.
+Calculate significance across score bins using specified calculation method.
 
 - **Args:**
   - `df_s` (pd.DataFrame): Signal data
   - `df_b` (pd.DataFrame): Background data
   - `column` (str): Score column name. Default: `'BDTscore'`
   - `weight` (str): Weight column name. Default: `'norm_weight'`
-  - `func` (Callable): Significance function (Z0, Zmu, Z). Default: `Z0`
-  - `score_range` (tuple): Score range (min, max). Default: `(0, 1)`
-  - `nbins` (int): Number of bins. Default: `50`
+  - `func` (Callable): Significance calculation function (Z0, Zmu, Z). Default: `Z0`
+  - `score_range` (tuple): Score range (min, max) for binning. Default: `(0, 1)`
+  - `nbins` (int): Number of histogram bins. Default: `50`
 - **Returns:** pd.DataFrame with columns `['S', 'B', 'Z']` indexed by bin edges
-- **Output:** Prints initial and inclusive significance values
-- **Optimization:** Uses vectorized numpy operations for efficiency
+- **Algorithm:**
+  - Bins signal and background data using specified range and bin count
+  - Computes cumulative sums from high to low score (decreasing threshold)
+  - Calculates significance at each threshold using provided function
+  - Logs initial and inclusive significance values
+- **Optimization:** Uses numpy vectorization for speed (single-pass binning, batch significance calculation)
 
 #### `update_keys(procDict, modes)`
 Update dictionary keys using reversed mode name mappings.
@@ -306,18 +332,23 @@ Update dictionary keys using reversed mode name mappings.
 Retrieve cross-section values for specified modes.
 
 - **Args:**
-  - `modes` (list): Modes to retrieve cross-sections for
-  - `training` (bool): Use training dataset dictionary. Default: `True`
-- **Returns:** dict mapping modes to cross-section values
-- **Dictionary Selection:** Chooses between training and nominal process dictionaries
+  - `modes` (list): Mode names to retrieve cross-sections for
+  - `training` (bool): Use training dataset process dictionary if True, nominal if False. Default: `True`
+- **Returns:** dict mapping mode names to cross-section values (in fb)
+- **Process Dictionary Selection:**
+  - `training=True`: Uses `'FCCee_procDict_winter2023_training_IDEA.json'`
+  - `training=False`: Uses `'FCCee_procDict_winter2023_IDEA.json'`
+- **Key Mapping:** Applies `update_keys()` transformation to dictionary before extracting values
 
 ### ROOT Histogram Range Utilities
 
 #### `get_stack(hists)`
-Create stacked histogram from list of input histograms.
+Create stacked histogram by summing multiple histograms.
 
-- **Args:** `hists` (list[ROOT.TH1]): Histograms to stack
-- **Returns:** Combined stacked histogram
+- **Args:** `hists` (list[ROOT.TH1]): Histograms to stack (must contain at least one)
+- **Returns:** Combined histogram with `'_stack'` suffix appended to name
+- **Implementation:** Clones first histogram, adds all others to it using ROOT's `Add()` method
+- **Detachment:** Result is detached with `SetDirectory(0)` to prevent cleanup issues
 - **Raises:** ValueError if list is empty
 
 #### `get_xrange(hist, strict, xmin, xmax)`
@@ -325,21 +356,30 @@ Determine x-axis range based on histogram bin content.
 
 - **Args:**
   - `hist` (ROOT.TH1): Histogram to analyze
-  - `strict` (bool): Only count non-zero bins. Default: `True`
-  - `xmin`, `xmax` (float | None): Boundary constraints. Default: `None`
-- **Returns:** tuple (x_min, x_max)
-- **Optimization:** Uses numpy vectorization for fast edge extraction
+  - `strict` (bool): If True, only count non-zero bins when determining range. Default: `True`
+  - `xmin` (float | None): Lower boundary constraint (inclusive). Default: `None`
+  - `xmax` (float | None): Upper boundary constraint (inclusive). Default: `None`
+- **Returns:** tuple (x_min, x_max) bin edge coordinates
+- **Algorithm:** 
+  - Extracts bin contents using numpy vectorization (excludes under/overflow)
+  - When `strict=True`, creates mask of non-zero bins and applies boundary constraints
+  - Returns edge positions of first and last valid bins
+- **Handles:** Fixed and variable bin widths automatically
 
 #### `get_yrange(hist, logY, ymin, ymax, scale_min, scale_max)`
-Determine y-axis range based on histogram content.
+Determine y-axis range based on histogram content with optional logarithmic scaling.
 
 - **Args:**
   - `hist` (ROOT.TH1): Histogram to analyze
-  - `logY` (bool): Logarithmic y-axis flag
-  - `ymin`, `ymax` (float | None): Value constraints
-  - `scale_min`, `scale_max` (float): Scaling factors. Default: `1.0`
-- **Returns:** tuple (y_min, y_max)
-- **Log Scale:** For `logY=True`, excludes zero and negative bin contents
+  - `logY` (bool): If True, use logarithmic scale and exclude zero/negative values
+  - `ymin` (float | None): Minimum y override. Default: `None`
+  - `ymax` (float | None): Maximum y override. Default: `None`
+  - `scale_min` (float): Scale factor for minimum (padding/zoom). Default: `1.0`
+  - `scale_max` (float): Scale factor for maximum (padding/zoom). Default: `1.0`
+- **Returns:** tuple (y_min, y_max) scaled bin values
+- **Log Scale Handling:** When `logY=True`, filters out zero and negative bin contents before computing min/max
+- **Linear Scale:** Uses all bin contents including zeros
+- **Scaling:** y_min = (min value) × scale_min, y_max = (max value) × scale_max
 
 #### `get_range(h_sigs, h_bkgs, logY, strict, stack, scale_min, scale_max, xmin, xmax, ymin, ymax)`
 Determine optimal plot range for combined signal and background histograms.
@@ -347,20 +387,34 @@ Determine optimal plot range for combined signal and background histograms.
 - **Args:**
   - `h_sigs` (list[ROOT.TH1]): Signal histograms
   - `h_bkgs` (list[ROOT.TH1]): Background histograms
-  - `logY` (bool): Logarithmic y-axis. Default: `False`
-  - `strict` (bool): Exclude empty bins. Default: `True`
-  - `stack` (bool): Base y-max on stacked histogram. Default: `False`
-  - `scale_min`, `scale_max` (float): Scaling factors. Default: `1.0`
-  - `xmin`, `xmax`, `ymin`, `ymax` (float | None): Constraints
-- **Returns:** tuple (xmin, xmax, ymin, ymax)
-- **Stacking:** If `stack=True`, computes y-max from stacked sum; otherwise from individual maxima
+  - `logY` (bool): Use logarithmic y-axis. Default: `False`
+  - `strict` (bool): Exclude empty bins from x-range calculation. Default: `True`
+  - `stack` (bool): Use stacked histogram for y-max determination. Default: `False`
+  - `scale_min`, `scale_max` (float): Scale factors for y-axis padding. Default: `1.0`
+  - `xmin`, `xmax` (float | None): X-axis constraint bounds. Default: `None`
+  - `ymin`, `ymax` (float | None): Y-axis constraint bounds. Default: `None`
+- **Returns:** tuple (xmin, xmax, ymin, ymax) ready for plotting
+- **Algorithm:**
+  - X-range: Computed from stacked histogram of all signal + background
+  - Y-min: Minimum of all individual histogram y-ranges (scaled by scale_min)
+  - Y-max: If `stack=True`, computed from stacked histogram; else maximum of all individual maxima (scaled by scale_max)
+- **Use Case:** Prepare axis ranges for overlaid signal/background plots
 
 #### `get_range_decay(h_sigs, logY, strict, scale_min, scale_max, xmin, xmax, ymin, ymax)`
-Determine plot range specifically for decay mode histograms.
+Determine optimal plot range for decay mode comparison histograms.
 
-- **Args:** Same as `get_range` (without background histograms)
+- **Args:**
+  - `h_sigs` (list[ROOT.TH1]): Signal/decay mode histograms to compare
+  - `logY` (bool): Use logarithmic y-axis. Default: `False`
+  - `strict` (bool): Exclude empty bins from x-range. Default: `True`
+  - `scale_min`, `scale_max` (float): Scale factors for y-axis. Default: `1.0`
+  - `xmin`, `xmax` (float | None): X-axis constraints. Default: `None`
+  - `ymin`, `ymax` (float | None): Y-axis constraints. Default: `None`
 - **Returns:** tuple (xmin, xmax, ymin, ymax)
-- **Use Case:** Optimized for comparing Higgs decay channels without background
+- **Algorithm:**
+  - X-range: From stacked histogram of all decay modes
+  - Y-range: Min/max across all individual decay histograms (no stacking for y-max)
+- **Use Case:** Compare multiple Higgs decay channels on same plot without background
 
 ### Utilities
 
@@ -444,8 +498,11 @@ The module implements a three-level caching system for production-grade performa
 - **Lazy imports:** Heavy dependencies imported only when needed (numpy, pandas, ROOT, uproot)
 - **Vectorized operations:** Significance and range calculations use numpy for vectorized speed
 - **WW scale persistence:** Per-process scaling factors cached during `preload_histograms()` and `getHist()` to avoid redundant computations
-- **Error handling:** Default lazy mode (warnings) rather than exceptions for robust batch job execution
-- **Backward compatibility:** All function signatures remain stable; new parameters use sensible defaults
+- **Error handling:** 
+  - `lazy=True` (default): Missing files/histograms logged as LOGGER warnings, processing continues
+  - `lazy=False`: Missing files/histograms cause LOGGER.error() and program exit with code 1
+- **Histogram safety:** All histograms detached with `SetDirectory(0)` to prevent ROOT cleanup issues
+- **Backward compatibility:** All function signatures stable with sensible defaults
 
 ## Dependencies
 

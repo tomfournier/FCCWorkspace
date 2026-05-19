@@ -83,7 +83,15 @@ plt.ioff()
 def _make_fig(figsize: tuple = (12, 8),
               dpi: int = 100
               ) -> tuple[plt.Figure, plt.Axes]:
-    """Create a matplotlib figure and axes."""
+    """Create matplotlib figure and axes with standard formatting.
+
+    Args:
+        figsize: Figure size as (width, height) in inches
+        dpi: Figure resolution in dots per inch
+
+    Returns:
+        Tuple of (matplotlib Figure, Axes objects)
+    """
     return plt.subplots(figsize=figsize, dpi=dpi)
 
 
@@ -170,20 +178,24 @@ def _plot_histograms(
         density: bool = False,
         linewidth: int = 2
          ) -> tuple[float | None, float | None]:
-    """Helper function to plot multiple histogram datasets on same axes.
+    """Plot multiple overlaid histograms on shared axes.
+
+    Handles different histogram styles (step, scatter) and manages NaN values
+    in data arrays. Supports both linear and log scales.
 
     Args:
-        ax: Matplotlib axes
-        datasets: Dict mapping labels to (data, color, linestyle) tuples
-        bins: Number of bins
-        log_scale: Whether to use log scale
-        histtype: Histogram type ('step' or 'bar')
-        alpha: Transparency level for histograms
-        density: Whether to normalize histograms
+        ax: Matplotlib axes to plot on
+        datasets: Dict mapping display labels to (data, color, style) tuples
+                  where style is 'step', 'bar', or 'scatter'
+        bins: Number of histogram bins
+        log_scale: If True, use logarithmic y-axis
+        histtype: Matplotlib histogram type ('step' or 'bar')
+        alpha: Transparency level for histograms (0-1)
+        density: If True, normalize histograms to unit area
         linewidth: Line width for step histograms
 
     Returns:
-        Tuple of (xmin, xmax) for data range
+        Tuple of (xmin, xmax) data range, or (None, None) if all data is NaN
     """
     all_data = np.concatenate([data for data, _, _ in datasets.values() if len(data) > 0])
     if len(all_data) == 0:
@@ -222,15 +234,20 @@ def photon_distributions(
          ) -> None:
     """Plot photon distributions split by ISR/FSR origin.
 
+    Compares reconstructed photon kinematics against true values, separated by
+    whether photons originate from Initial State Radiation (ISR), Final State
+    Radiation (FSR), or other sources.
+
     Note: Arrays are flattened from jagged structure where each event can have
     multiple photons. After flattening, index i corresponds to the i-th photon
-    across all events, so indices between fromISR/fromFSR and photon variables align.
+    across all events, so indices between origin masks and photon variables align.
 
     Args:
         data: Dictionary of numpy arrays from ROOT file (already flattened)
         outDir: Output directory for plots
         label: LaTeX label for the final state
         bins: Number of bins for histograms
+        scale: If True, use logarithmic y-axis
     """
     if 'fromISR' not in data or 'fromFSR' not in data:
         LOGGER.warning('ISR/FSR origin branches not found, skipping photon distributions')
@@ -291,15 +308,19 @@ def leptons_origin(
         scale: bool = False,
         iso_cut: float | int = 1e10
          ) -> None:
-    """Plot lepton distributions split by origin.
+    """Plot lepton distributions colored by particle origin.
+
+    Compares reconstructed lepton kinematics against true values, separated by
+    decay origin (direct from signal, tau/Z/W/H decay, or hadron decay). Applies
+    isolation cut to select clean leptons.
 
     Args:
         data: Dictionary of numpy arrays from ROOT file (already flattened)
         outDir: Output directory for plots
         label: LaTeX label for the final state
         bins: Number of bins for histograms
-        scale: Whether to use log scale
-        iso_cut: Isolation cut value
+        scale: If True, use logarithmic y-axis
+        iso_cut: Isolation cut threshold for relative isolation
     """
     required_keys = ['leps_iso', 'LEPS_iso', 'LEPS_p', 'LEPS_pT', 'LEPS_theta', 'lepton_origin']
     if not all(k in data for k in required_keys):
@@ -382,7 +403,11 @@ def correlation_distributions(
         scale: bool = False,
         iso_cut: float | int = 1e10
          ) -> None:
-    """Plot correlation distributions split by same_parent criterion.
+    """Plot lepton-photon correlation distributions split by origin criterion.
+
+    Analyzes angular and kinematic correlations between leptons and photons,
+    separated by whether photon and lepton share a common parent particle.
+    Useful for understanding photon-lepton associations in FSR recovery.
 
     Note: Arrays are flattened from jagged structure where each event can have
     multiple photons. After flattening, index i corresponds to the i-th photon
@@ -393,7 +418,7 @@ def correlation_distributions(
         outDir: Output directory for plots
         label: LaTeX label for the final state
         bins: Number of bins for histograms
-        scale: Whether to use log scale
+        scale: If True, use logarithmic y-axis
         iso_cut: Isolation cut for lepton pairs
     """
     if 'same_parent' not in data:
@@ -462,16 +487,20 @@ def _compute_cumsum_and_z(
                     np.ndarray,
                     np.ndarray,
                     np.ndarray]:
-    """Helper to compute cumulative sums and significance.
+    """Helper function to compute cumulative distributions and significance.
+
+    Calculates cumulative sum of signal and background histograms, then computes
+    significance as S/sqrt(S+B) for each bin. Optionally reverses cumulative
+    sum direction (left-to-right vs right-to-left cuts).
 
     Args:
-        data: Data array
-        is_signal: Boolean mask for signal
+        data: Data array to histogram
+        is_signal: Boolean mask for signal events
         bins: Bin edges
-        reverse: If True, compute right-to-left cumsum
+        reverse: If True, compute right-to-left cumsum instead of left-to-right
 
     Returns:
-        Tuple of (S_cumsum, B_cumsum, Z_cumsum, bin_centers)
+        Tuple of (S_cumsum, B_cumsum, Z_cumsum, bin_centers) arrays
     """
     hist_sig, _ = np.histogram(data[is_signal], bins=bins)
     hist_bkg, _ = np.histogram(data[~is_signal], bins=bins)
@@ -497,14 +526,18 @@ def correlation_scan(
         iso_cut: float | int = 1e10,
         incr: float | int = 0.01
          ) -> None:
-    """Plot correlation scan with significance optimization.
+    """Plot correlation-based cut optimization with significance calculations.
+
+    Scans correlation variable thresholds to find cuts that maximize signal
+    significance (S/sqrt(S+B)), showing efficiency curves for different
+    cut strategies (left-sided vs right-sided).
 
     Args:
         data: Dictionary of numpy arrays from ROOT file (already flattened)
         outDir: Output directory for plots
         label: LaTeX label for the final state
-        iso_cut: Isolation cut
-        incr: Increment for cut values
+        iso_cut: Isolation cut for lepton pairs
+        incr: Increment step for cut values
     """
     if 'same_parent' not in data:
         LOGGER.warning("'same_parent' branch not found, skipping correlation scan")
@@ -604,12 +637,16 @@ def n_radiated(
         label: str,
         scale: bool = False
          ) -> None:
-    """Plot distribution of number of radiated photons.
+    """Plot histogram of number of radiated photons per lepton pair.
+
+    Shows the distribution of photon multiplicities, useful for understanding
+    FSR activity and reconstruction efficiency as a function of radiation level.
 
     Args:
         data: Dictionary of numpy arrays from ROOT file
         outDir: Output directory for plots
         label: LaTeX label for the final state
+        scale: If True, use logarithmic y-axis
     """
     if 'n_radiated' not in data:
         LOGGER.warning('n_radiated branch not found, skipping n_radiated distribution')
@@ -647,16 +684,20 @@ def significance(
         label: str,
         incr: float | int = 0.1,
          ) -> float | int:
-    """Analyze significance vs isolation using cumulative cut analysis.
+    """Analyze and plot significance vs isolation cut using cumulative cut analysis.
 
-    Creates significance curves showing how significance changes when applying
-    cumulative cuts: keeping only pairs with leps_iso <= iso_cut.
+    Computes significance S/sqrt(S+B) as a function of isolation threshold,
+    where S = leptons not from hadronization and B = leptons from hadrons.
+    Identifies optimal isolation cut that maximizes significance.
 
     Args:
         data: Dictionary of numpy arrays from ROOT file
         outDir: Output directory for plots
         label: LaTeX label for the final state
-        incr: Increment for iso cut
+        incr: Increment for isolation cut values
+
+    Returns:
+        Optimal isolation cut value
     """
 
     # Check for required variables
@@ -728,7 +769,19 @@ def significance(
 ##########################
 
 def main():
-    """Main plotting function"""
+    """Main execution function.
+
+    Orchestrates FSR recovery plotting workflow:
+    1. Parse command-line arguments and setup logging
+    2. Load FSR recovery analysis output from ROOT trees
+    3. Generate plots for each process:
+       - Photon distributions split by ISR/FSR origin
+       - Lepton distributions split by decay origin
+       - Lepton-photon correlation distributions
+       - Significance optimization vs isolation cut
+       - Photon multiplicity distribution
+    4. Support both linear and logarithmic axis scales
+    """
     cat, ecm = arg.cat, arg.ecm
 
     # Get input and output directories

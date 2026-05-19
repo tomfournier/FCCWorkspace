@@ -4,60 +4,59 @@
 
 import os
 
-# Import user configuration paths and parameters
+# Load analysis configuration and preselection functions
 from package.userConfig import loc, get_params
 from package.config import get_process_list
 from sel.presel.leptonic import presel_ll, branch_list_ll
 from sel.presel.hadronic import presel_qq, branch_list_qq
 
-# Load config from temporary JSON if running automated, else prompt
+# Load analysis parameters: decay category, CoM energy, test flag
 env = os.environ.copy()
 cat, ecm, test = get_params(env, '3-run.json')
 
 
 
-#############################
-### SETUP CONFIG SETTINGS ###
-#############################
+##############################
+### CONFIGURE INPUT/OUTPUT ###
+##############################
 
-# Output directory for training events (default is local directory)
-if test: outputDir = loc.get('EVENTS_TEST', cat, ecm)
-else:    outputDir = loc.get('EVENTS',      cat, ecm)
+# Output: Preprocessed events for measurement and fit stages
+if test: outputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
+else:    outputDir = loc.get('EVENTS',      cat, ecm)  # Full event sample
 
-# Include custom C++ analysis functions
+# Custom C++ analysis functions for particle selection and calculations
 includePaths = ['../../../../functions/functions.h',
                 '../../../../functions/functions_hadronic.h']
 
-# Mandatory: Production tag for EDM4Hep centrally produced events
-# Points to YAML files for sample statistics
+# Production tag for accessing centrally produced EDM4Hep event samples
+# Points to YAML files containing sample statistics from /cvmfs/fcc.cern.ch
 prodTag = 'FCCee/winter2023/IDEA/'
-# Process dictionary containing cross section information
-# Path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
+
+# Process dictionary with cross-section and normalization information
+# Source: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = 'FCCee_procDict_winter2023_IDEA.json'
 
-# Optional: Number of CPUs for parallel processing
-# (default is 4, -1 uses all cores available)
-nCPUS = 20
+# Parallel processing configuration
+nCPUS = 20  # Number of CPUs for parallel processing (-1 uses all available)
 
-# Run on HTCondor batch system (default is False)
+# HTCondor batch system configuration (disabled by default)
 runBatch = True if env.get('RUN_BATCH') else False
-# Batch queue name for HTCondor (default is workday)
-batchQueue = 'longlunch'
-# Computing account for HTCondor (default is group_u_FCC.local_gen)
-compGroup = 'group_u_FCC.local_gen'
+batchQueue = 'longlunch'  # Queue for batch submission (alternatives: 'espresso')
+compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
 
 
-################################
-### SETUP SAMPLES TO PROCESS ###
-################################
+##########################
+### DEFINE SAMPLE LIST ###
+##########################
 
+# Retrieve all samples for this channel and energy from central configuration
 processList = get_process_list(cat, ecm)
 
 
 
 #####################################################
-### CLASS AND OUTPUT DEFINITION FOR PRE-SELECTION ###
+### RDF ANALYSIS CLASS FOR PRE-SELECTION WORKFLOW ###
 #####################################################
 
 class RDFgraph():

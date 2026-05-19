@@ -1,33 +1,32 @@
-'''Cutflow and selection efficiency plotting.
+'''Cutflow and selection efficiency analysis with visualization.
 
 Provides:
-- Event count aggregation across selection cuts: `get_cutflow()`, `get_flows()`.
-- Cutflow visualization with signal/background stacking: `CutFlow()`.
+- Cut expression parsing and variable extraction: `branches_from_cuts()`.
+- Event count aggregation across cut steps: `CutFlow()`.
 - Decay-mode efficiency analysis: `CutFlowDecays()`, `Efficiency()`.
-- Output table generation: `write_table()`.
-- Utility functions for cut expression parsing: `branches_from_cuts()`.
-- Integration with ROOT graphics and file I/O for large-scale analyses.
+- ASCII table generation: `write_table()`.
+- Integration with ROOT graphics backend for publication plots.
 
 Functions:
-- `get_cutflow()`: Main entry point; reads events, applies cuts, and generates plots/tables.
-- `CutFlow()`: Render stacked cutflow histogram with signal overlay and significance computation.
-- `CutFlowDecays()`: Plot efficiency curves normalized to first cut for each Higgs decay mode.
-- `Efficiency()`: Create efficiency summary plots with uncertainty bands and tabular summary.
-- `write_table()`: Format and write ASCII tables with configurable column widths and headers.
-- `branches_from_cuts()`: Extract variable names referenced in cut filter expressions.
+- `branches_from_cuts()`: Extract variable names referenced in cut filter expressions using regex.
+- `write_table()`: Format and write aligned ASCII tables with configurable column widths.
+- `CutFlow()`: Render stacked cutflow histogram with signal overlay, significance values, and yields table.
+- `CutFlowDecays()`: Plot efficiency curves (normalized to first cut) for each Higgs decay mode.
+- `Efficiency()`: Generate efficiency summary plots with pull diagrams and per-decay tables.
 
 Conventions:
-- Cut steps indexed sequentially (cut0, cut1, ...) with user-provided labels.
+- Cut steps indexed sequentially (cut0, cut1, ...) matching provided labels.
 - Yields computed with luminosity and cross-section scaling when available.
-- Uncertainties treated as Poisson (sqrt(N)) on raw counts, scaled linearly.
-- Significance computed per cut as S/sqrt(S+B) where S=signal, B=background total.
-- Efficiency normalized to first cut (cut0) for decay mode comparisons.
+- Uncertainties treated as Poisson (√N) on raw counts, scaled linearly.
+- Significance computed per cut as S/√(S+B) where S=signal, B=total background.
+- Efficiency normalized to first cut (cut0) for decay mode comparisons (%).
 - Channel-specific plots (ee/mumu) optionally combined into totals (tot).
+- ROOT histograms stored in flow dict with keys: flow[process]['hist'] = [TH1, ...].
 
 Usage:
 - Analyze event selection efficiency by computing cumulative event counts per cut step.
 - Generate publication-ready cutflow plots with stacked backgrounds and signal overlay.
-- Validate selection consistency across Higgs decay modes via efficiency tables.
+- Validate selection consistency across Higgs decay modes via efficiency tables and plots.
 - Export yield summaries and efficiency pulls as both plots and tabular data.
 '''
 
@@ -96,20 +95,27 @@ def write_table(
     footer_lines: list[str] | None = None,
     file_type: str = 'txt'
      ) -> None:
-    '''Write a formatted text table to file.
+    '''Write a formatted aligned ASCII table to file.
 
-    Creates a nicely aligned ASCII table with configurable column widths.
+    Creates nicely aligned columns with configurable widths and optional header separator
+    and footer lines. Useful for exporting analysis summary tables.
+
+    Format:
+    - Column 0 (narrow): Cut step names, decay channels, etc.
+    - Columns 1+: Data values, uncertainties, statistics.
+    - Rows shorter than header count are padded with empty strings.
+    - Header separator: dashed line below headers if header_sep=True.
 
     Args:
-        file_path (str): Output directory path.
+        file_path (str): Output directory path (created if missing).
         file_name (str): Base file name (without extension).
         headers (list[str]): Column header strings.
-        rows (list[list[str]]): List of table rows; short rows are automatically padded.
+        rows (list[list[str]]): List of table rows; shorter rows automatically padded.
         first_col_width (int, optional): Width of first column in characters. Defaults to 10.
         other_col_width (int, optional): Width of other columns in characters. Defaults to 25.
-        header_sep (bool, optional): If True, add dashed separator line below headers. Defaults to True.
-        footer_lines (list[str] | None, optional): Optional list of lines appended after the table. Defaults to None.
-        file_type (str, optional): File extension. Defaults to 'txt'.
+        header_sep (bool, optional): If True, add dashed line below headers. Defaults to True.
+        footer_lines (list[str] | None, optional): Optional lines appended after table. Defaults to None.
+        file_type (str, optional): File extension (e.g., 'txt', 'dat'). Defaults to 'txt'.
     '''
     mkdir(file_path)
     ncols = len(headers)
@@ -158,22 +164,32 @@ def CutFlow(
     yMax: float = 1e10
      ) -> None:
 
-    '''Render cutflow plot with signal, backgrounds, and significance.
+    '''Render cutflow histogram with stacked backgrounds, signal overlay, and significance.
 
-    Produces a stacked histogram showing yields across cut steps, overlaid with
-    signal histogram (optionally scaled). Computes and exports significance values
-    and yields with uncertainties to a text table.
+    Produces a stacked histogram showing event yields across sequential cut steps,
+    with optional signal scaling. Overlays a histogram outline for total background
+    and marks signal with scaled line style. Computes and exports significance
+    (S/√(S+B)) and yields with Poisson uncertainties.
+
+    Drawing Order:
+    1. Frame (dummy histogram for axis setup)
+    2. Background stack (filled)
+    3. Total background outline (black line)
+    4. Signal histogram (scaled, line style)
+    5. Legend
+
+    Yields Table Columns: Cut, Significance, Process1_yield±error, Process2_yield±error, ...
 
     Args:
-        flow (dict[str, dict[str, ROOT.TH1 | dict[str, float]]]): Histograms and properties indexed by process name.
+        flow (dict[str, dict[str, ROOT.TH1 | dict[str, float]]]): Histograms and metadata indexed by process name.
         outDir (str): Base directory for output plots and tables.
-        cat (str): Channel (``ee`` or ``mumu``).
+        cat (str): Detector channel ('ee' for electron or 'mumu' for muon).
         sel (str): Selection identifier for retrieving cut definitions and labels.
         procs (list[str]): Process names in order [signal, background1, background2, ...].
-        colors (dict[str, dict[str, ROOT.TColor]]): ROOT color mappings per process.
-        legend (dict[str, dict[str, str]]): Human-readable labels for legend.
-        cuts (dict[str, dict[str, str]]): Cut expression definitions per selection.
-        labels (dict[str, dict[str, str]]): Axis labels corresponding to each cut step.
+        colors (dict[str, dict[str, ROOT.TColor]]): ROOT color mappings nested by channel and process.
+        legend (dict[str, dict[str, str]]): Human-readable legend labels nested by channel and process.
+        cuts (dict[str, dict[str, str]]): Cut expression definitions per selection (sel -> dict[cut_name -> expression]).
+        labels (dict[str, dict[str, str]]): Axis labels per cut step (sel -> dict[cut_index -> label]).
         ecm (int, optional): Beam energy in GeV. Defaults to 240.
         lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
         outName (str, optional): Output file stem. Defaults to 'cutFlow'.
@@ -329,26 +345,33 @@ def CutFlowDecays(
     yMax: float | int = 150
      ) -> None:
 
-    '''Plot selection efficiencies across Higgs decay modes.
+    '''Plot selection efficiencies across Higgs decay modes as normalized curves.
 
-    Renders efficiency curves (normalized to first cut) for each decay channel
-    and exports detailed efficiency tables and pull plots.
+    Renders efficiency curves (normalized to first cut as 100%) for each Higgs decay
+    channel overlaid on a single plot. Computes average efficiency, spreads (min/max),
+    and generates detailed tables of efficiency values and uncertainties.
+
+    Drawing Elements:
+    - Efficiency curves per decay mode (colored lines)
+    - Average efficiency line (gray)
+    - Uncertainty band around average (shaded region)
+    - Statistics box with average ± uncertainty and min/max spreads
 
     Args:
         flow (dict[str, dict[str, ROOT.TH1 | dict[str, float]]]): Histograms indexed by decay channel.
-        outDir (str): Base directory for outputs.
-        cat (str): Channel (``ee`` or ``mumu``).
-        sel (str): Selection identifier.
-        h_decays (list[str]): Higgs decay mode identifiers to plot.
-        cuts (dict[str, dict[str, str]]): Cut definitions per selection.
-        labels (dict[str, dict[str, str]]): Axis labels per cut step.
-        suffix (str, optional): File name suffix. Defaults to ''.
+        outDir (str): Base directory for outputs (plots and tables).
+        cat (str): Detector channel ('ee' for electron or 'mumu' for muon).
+        sel (str): Selection identifier for cut definitions and labels.
+        h_decays (list[str]): Higgs decay mode identifiers to plot (e.g., ['bb', 'WW', 'tau']).
+        cuts (dict[str, dict[str, str]]): Cut expression definitions per selection.
+        labels (dict[str, dict[str, str]]): Axis labels corresponding to each cut step.
+        suffix (str, optional): String appended to file names. Defaults to ''.
         ecm (int, optional): Beam energy in GeV. Defaults to 240.
         lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
         outName (str, optional): Output file stem. Defaults to 'cutFlow_decays'.
-        format (list[str], optional): Image formats. Defaults to ['png'].
-        yMin (float | int, optional): Linear-scale Y-axis minimum (efficiency %). Defaults to 0.
-        yMax (float | int, optional): Linear-scale Y-axis maximum (efficiency %). Defaults to 150.
+        format (list[str], optional): Image formats (e.g., ['png', 'pdf']). Defaults to ['png'].
+        yMin (float | int, optional): Linear Y-axis minimum (efficiency %). Defaults to 0.
+        yMax (float | int, optional): Linear Y-axis maximum (efficiency %). Defaults to 150.
     '''
 
     import numpy as np
@@ -493,23 +516,34 @@ def Efficiency(
     lumi: float = 10.8
      ) -> None:
 
-    '''Produce efficiency summary plots and a compact table.
+    '''Generate efficiency summary plots and detailed comparison tables.
+
+    Creates a pull-plot canvas showing final-step efficiencies for each decay mode
+    relative to the average, with uncertainty error bars. Overlays average efficiency
+    line and uncertainty band. Exports both plot and per-cut efficiency table.
+
+    Plot Elements:
+    - Y-axis: Decay channels + average
+    - X-axis: Efficiency percentage at final cut
+    - Markers: Final efficiency per decay ± uncertainty
+    - Vertical line: Average efficiency
+    - Shaded band: ±1σ uncertainty around average
 
     Args:
         outDir (str): Output directory for plots and tables.
-        contents (list[np.ndarray]): Per-decay efficiency arrays per cut.
-        errors (list[np.ndarray]): Uncertainties matching ``contents``.
-        eff_final (list[float]): Final-step efficiencies per decay.
-        eff_final_err (list[float]): Final-step uncertainties per decay.
-        eff_avg (float): Average efficiency across decays.
-        eff_avg_err (float): Uncertainty on the average efficiency.
-        eff_min (float): Difference between average and minimum efficiency.
-        eff_max (float): Difference between maximum and average efficiency.
-        h_decays (list[str]): Ordered list of decay channel keys.
-        nbins (int): Number of cut steps.
-        suffix (str, optional): Optional suffix appended to output names. Defaults to ''.
-        format (list[str], optional): List of image formats. Defaults to ['png'].
-        ecm (int, optional): Center-of-mass energy. Defaults to 240.
+        contents (list[np.ndarray]): Per-decay efficiency arrays (one per cut).
+        errors (list[np.ndarray]): Uncertainties matching ``contents`` arrays.
+        eff_final (list[float]): Final-step efficiency for each decay mode (%).
+        eff_final_err (list[float]): Final-step efficiency uncertainties (%).
+        eff_avg (float): Average efficiency across all decay modes (%).
+        eff_avg_err (float): Uncertainty on average efficiency (%).
+        eff_min (float): Difference between average and minimum efficiency (percentage points).
+        eff_max (float): Difference between maximum and average efficiency (percentage points).
+        h_decays (list[str]): Ordered list of decay channel identifiers.
+        nbins (int): Number of cut steps (matches length of contents/errors arrays).
+        suffix (str, optional): String appended to output file names. Defaults to ''.
+        format (list[str], optional): Image formats (e.g., ['png', 'pdf']). Defaults to ['png'].
+        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
         lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
     '''
 

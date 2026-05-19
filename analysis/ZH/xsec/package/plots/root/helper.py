@@ -5,7 +5,7 @@ Provides:
 - Canvas and pad layout: `canvas_margins()`, `pad_margins()`.
 - Legend creation: `mk_legend()`.
 - Axis formatting: `configure_axis()`, `axis_limits()`.
-- Histogram styling: `style_hist()`.
+- Histogram styling: `style_hist()`, `style_hists_batch()`.
 - Text annotation: `setup_latex()`, `draw_latex()`, `y_offset()`.
 - Histogram loading with caching: `load_hists()`, `_get_hist_cached()`.
 - File I/O: `savecanvas()`, `save_plot()`.
@@ -21,6 +21,7 @@ Functions:
 - `axis_limits()`: Extract and apply log-scale padding to axis ranges.
 - `configure_axis()`: Set axis title, range, fonts, and offsets in one call.
 - `style_hist()`: Apply line/fill color, width, style, and scaling to histogram.
+- `style_hists_batch()`: Apply styling to multiple histograms in batch for performance.
 - `setup_latex()`: Create TLatex object with NDC mode and styling.
 - `y_offset()`: Compute adaptive vertical offset for super/subscript text.
 - `draw_latex()`: Draw multiple text annotations with individual sizing.
@@ -32,9 +33,10 @@ Conventions:
 - Ratio plot configurations use suffixed keys: yminR, ymaxR, ytitleR, ratiofraction.
 - All axis sizes specified in absolute points (font code 43) unless otherwise noted.
 - Margins specified as fractions of canvas/pad dimensions (0-1 range).
-- Log-scale ranges padded by ±0.1% to prevent edge clipping in zoomed plots.
+- Log-scale ranges padded by ±0.1% (0.999x–1.001x) to prevent edge clipping in zoomed plots.
 - Histogram caching via LRU (128-entry cache) reduces repeated file I/O for common variables.
 - Text positioning uses NDC (normalized device coordinates) for frame-independent placement.
+- Batch styling operations via `style_hists_batch()` minimize Python call overhead for multiple histograms.
 
 Usage:
 - Build complete plot configurations with automatic axis range calculation and log-scale handling.
@@ -60,7 +62,7 @@ from ...tools.process import getHist, get_range
 
 
 ######################
-### MAIN FUNCITONS ###
+### MAIN FUNCTIONS ###
 ######################
 
 # ___________________________________________

@@ -1,40 +1,40 @@
-'''Plotting utilities for evaluating BDT performance and training diagnostics.
+'''BDT evaluation and training diagnostics visualization tools.
 
-Provides:
-- Training diagnostics visualization: `log_loss()`, `classification_error()`, `AUC()`.
-- ROC curve and efficiency analysis: `roc()`, `efficiency()`, `plot_roc_curve()`.
-- BDT score distributions: `bdt_score()`, `mva_score()`.
-- Feature importance visualization: `importance()`.
-- Significance optimization: `significance()`.
-- Input variable validation: `hist_check()`.
-- BDT tree structure visualization: `tree_plot()`.
-- Internal helper for metric plotting: `_plot_metric()`.
+Provides comprehensive plotting utilities for XGBoost model assessment, including
+training convergence analysis, model performance metrics, feature importance,
+and input variable validation.
 
 Functions:
-- `log_loss()`, `classification_error()`, `AUC()`: Plot training metrics across boosting iterations.
-- `roc()`: Plot ROC curves for training and validation samples with AUC computation.
-- `bdt_score()`: Visualize BDT score distributions for signal/background and train/validation splits.
-- `mva_score()`: Plot stacked BDT scores for multiple physics processes.
-- `importance()`: Display feature importance using XGBoost F-score (split count).
-- `significance()`: Scan BDT score thresholds to find optimal cut for maximal significance.
-- `efficiency()`: Compute and plot signal/background efficiency vs. BDT cut.
-- `tree_plot()`: Render subset of boosted decision trees to Graphviz format.
-- `hist_check()`: Validate input variables with per-mode histograms (train/validation split).
-- `plot_roc_curve()`: Draw ROC segment with configurable threshold masking.
+- **Training Diagnostics**: `log_loss()`, `classification_error()`, `AUC()` — Plot metrics across boosting iterations.
+- **ROC Analysis**: `roc()`, `plot_roc_curve()` — ROC curves and AUC computation for train/validation splits.
+- **BDT Scores**: `bdt_score()`, `mva_score()` — Score distributions with signal/background and train/validation breakdown.
+- **Feature Analysis**: `importance()` — Feature importance using XGBoost F-score (split count).
+- **Optimization**: `significance()` — Scan BDT score thresholds to find optimal cut for maximal significance.
+- **Efficiency**: `efficiency()` — Signal/background efficiency vs. BDT cut threshold.
+- **Diagnostics**: `hist_check()` — Validate input variables with histograms and train/validation splits.
+- **Tree Inspection**: `tree_plot()` — Visualize subset of boosted decision trees using Graphviz.
+- **Helpers**: `_make_fig()`, `_get_splits()`, `_get_wts()`, `_plot_metric()` — Internal utilities.
 
 Conventions:
 - Uses matplotlib for all plot generation with consistent styling via `set_plt_style()`.
-- Supports both weighted and unweighted histograms; weights applied when available.
-- ROC and significance plots mark optimal points with distinctive markers.
-- Feature importance sorted in ascending order for horizontal bar charts.
-- Efficiency computed as fraction of events passing BDT score threshold.
-- Tree visualization uses Graphviz with evenly-spaced tree selection for large models.
+- Supports weighted and unweighted histograms; weights applied when data column exists.
+- DataFrame cache optimized for repeated calls with same data: `_splits_cache`, `_cache_id`.
+- ROC and significance plots mark optimal points with distinctive markers (stars, vertical lines).
+- Feature importance sorted in ascending order for readability in horizontal bar charts.
+- Efficiency computed as fraction of events passing BDT score threshold (vectorized for speed).
+- Tree visualization uses Graphviz with evenly-spaced tree selection for large boosted models.
+- Significance threshold scan saves optimal BDT cut to file for downstream use.
 
 Usage:
-- Evaluate BDT training convergence and identify overfitting via training/validation curves.
-- Optimize BDT cut threshold by scanning significance across score range.
-- Validate that input variables show expected signal/background separations.
+- Monitor BDT training convergence and diagnose overfitting via training/validation curves.
+- Optimize BDT cut threshold by scanning significance (S/√(S+B)) across score range.
+- Validate input variables exhibit expected signal/background separations.
 - Inspect decision tree structures for interpretability and physics alignment.
+- Evaluate model performance on test/validation sets via ROC and efficiency curves.
+
+Lazy Imports:
+- numpy, pandas, xgboost imported only when their specific functions are needed.
+- sklearn.metrics imported locally in functions requiring ROC calculations.
 '''
 
 ####################################
@@ -92,16 +92,16 @@ def _make_fig(
     dpi: int = 100
      ) -> tuple[plt.Figure,
                 plt.Axes]:
-    '''Create and pre-configure a matplotlib figure.
+    '''Create and pre-configure a matplotlib figure for consistent styling.
 
-    Ensures consistent figure setup across all plotting functions.
+    Ensures all plots use consistent figure setup (size, DPI) across the module.
 
     Args:
-        figsize (tuple, optional): Figure size (width, height). Defaults to (10, 8).
-        dpi (int, optional): Figure DPI. Defaults to 100.
+        figsize (tuple, optional): Figure size (width, height) in inches. Defaults to (12, 8).
+        dpi (int, optional): Figure resolution in dots per inch. Defaults to 100.
 
     Returns:
-        Tuple of (fig, ax) ready to use
+        tuple: (fig, ax) ready to use
     '''
     return plt.subplots(figsize=figsize, dpi=dpi)
 
@@ -110,16 +110,16 @@ def _get_splits(
     df: 'pd.DataFrame'
      ) -> dict[str,
                'pd.DataFrame']:
-    '''Fast extraction of train/valid and signal/bkg splits.
+    '''Extract and cache train/valid and signal/background splits for reuse.
 
-    Computes boolean masks once, reused across functions.
-    Caches results if same DataFrame used multiple times.
+    Uses DataFrame object id as cache key to avoid recomputation if same DataFrame
+    used in multiple calls. Cache holds max 3 DataFrames to limit memory usage.
 
     Args:
         df: Input DataFrame with 'valid' and 'isSignal' columns
 
     Returns:
-        dict with precomputed masks and split DataFrames
+        dict: Precomputed boolean-indexed DataFrames: train_sig, train_bkg, val_sig, val_bkg
     '''
     global _cache_id
 
@@ -190,20 +190,24 @@ def _plot_metric(
     dpi: int = 100,
     format: list[str] = ['png']
      ) -> None:
-    '''Plot a training and validation metric over boosting rounds.
+    '''Plot training and validation metric evolution over boosting iterations.
+
+    Generic metric plotter used by log_loss(), classification_error(), and AUC().
+    Plots two curves (training and validation) with marked optimal iteration.
 
     Args:
-        results (dict[str, dict[str, list[float]]]): XGBoost evals_result dictionary keyed by dataset and metric.
-        x_axis (np.ndarray): Boosting iteration numbers to use on the x-axis.
-        metric_name (str): Metric key to plot from the evals_result.
-        ylabel (str): Y-axis label for the plot.
-        label (str): Text placed on the figure (e.g., channel or tag).
+        results (dict[str, dict[str, list[float]]]): XGBoost evals_result dictionary: results['dataset_name'][metric_name] = [values...].
+        x_axis (np.ndarray): Boosting iteration numbers for x-axis.
+        metric_name (str): Metric key to plot (e.g., 'logloss', 'error', 'auc').
+        ylabel (str): Y-axis label text.
+        label (str): Text placed on figure (e.g., channel name).
         outDir (str): Directory where plots are written.
-        best_iteration (int): Iteration with optimal performance to mark.
-        locx (str, optional): Horizontal placement for the right-side label. Defaults to 'right'.
-        locy (str, optional): Vertical placement for the right-side label. Defaults to 'top'.
-        suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
+        best_iteration (int): Iteration to mark with vertical line.
+        locx (str, optional): Legend horizontal position ('left'/'right'). Defaults to 'right'.
+        locy (str, optional): Legend vertical position ('top'/'bottom'). Defaults to 'top'.
+        suffix (str, optional): Filename suffix. Defaults to ''.
+        dpi (int, optional): Figure DPI. Defaults to 100.
+        format (list[str], optional): Output formats ['png', 'pdf']. Defaults to ['png'].
     '''
     LOGGER.debug(f'Plotting {metric_name}')
     fig, ax = _make_fig(dpi=dpi)

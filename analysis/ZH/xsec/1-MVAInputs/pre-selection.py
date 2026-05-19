@@ -9,7 +9,10 @@ from package.config import get_process_list
 from sel.presel.leptonic import training_ll, branch_list_ll
 from sel.presel.hadronic import training_qq, branch_list_qq
 
-# Load config from temporary JSON if running automated, else prompt
+# Load analysis configuration from JSON or environment variables
+# cat: decay category (ee, mumu, qq)
+# ecm: center of mass energy (e.g., 240, 365 GeV)
+# test: whether to apply kinematic cuts or not
 env = os.environ.copy()
 cat, ecm, test = get_params(env, '1-run.json')
 
@@ -23,27 +26,25 @@ cat, ecm, test = get_params(env, '1-run.json')
 if test: outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
 else:    outputDir = loc.get('EVENTS_TRAINING',   cat, ecm)
 
-# Include custom C++ analysis functions
+# Custom C++ analysis functions for particle selection and kinematic calculations
 includePaths = ['../../../../functions/functions.h',
                 '../../../../functions/functions_hadronic.h']
 
-# Mandatory: Production tag for EDM4Hep centrally produced events
-# Points to YAML files for sample statistics
+# Production tag for accessing centrally produced EDM4Hep event samples
+# Points to YAML files containing sample statistics from /cvmfs/fcc.cern.ch
 prodTag = 'FCCee/winter2023_training/IDEA/'
-# Process dictionary containing cross section information
-# Path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
+
+# Process dictionary with cross-section and normalization information
+# Source: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 
-# Optional: Number of CPUs for parallel processing
-# (default is 4, -1 uses all cores available)
-nCPUS = 20
+# Parallel processing configuration (default 4)
+nCPUS = 20  # Number of CPUs for parallel processing (-1 uses all available)
 
-# Run on HTCondor batch system (default is False)
+# HTCondor batch system configuration (disabled by default)
 runBatch = True if env.get('RUN_BATCH') else False
-# Batch queue name for HTCondor (default is workday)
-batchQueue = 'espresso'  # 'longlunch'
-# Computing account for HTCondor (default is group_u_FCC.local_gen)
-compGroup = 'group_u_FCC.local_gen'
+batchQueue = 'espresso'    # Queue for batch submission (alternatives: 'longlunch')
+compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
 
 
@@ -56,16 +57,27 @@ processList = get_process_list(cat, ecm, train=True, batch=runBatch)
 
 
 #####################################################
-### CLASS AND OUTPUT DEFINITION FOR PRE-SELECTION ###
+### RDF ANALYSIS CLASS FOR PRE-SELECTION WORKFLOW ###
 #####################################################
 
 class RDFanalysis():
-    """New_RDataFrame analysis class for pre-selection."""
+    """RDataFrame analysis class for applying pre-selection cuts and computing kinematic variables.
 
-    # _________________________________________________________________
-    # Mandatory: analysers function to define the analysers to process
+    This class defines the analysis pipeline using FCC's ROOT analysis framework,
+    applying particle selection, kinematic calculations, and producing output branches
+    for downstream BDT training.
+    """
+
+    # Define analysis graph construction and variable computation
     def analysers(df):
-        """Apply analysis graph construction to the dataframe."""
+        """Apply analysis cuts and compute kinematic variables for the dataframe.
+
+        Args:
+            df: Input RDataFrame from EDM4Hep events
+
+        Returns:
+            df: Modified RDataFrame with new kinematic variables and applied selections
+        """
         if cat in ['ee', 'mumu']:
             df = training_ll(df, cat, ecm, test)
         elif cat == 'qq':
@@ -74,10 +86,13 @@ class RDFanalysis():
             raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
         return df
 
-    # _____________________________________________________
-    # Mandatory: output function defining branches to save
+    # Define output branches to save from processed events
     def output():
-        """Define output branches to save."""
+        """Return list of output branches to save from processed events.
+
+        Returns:
+            list: Names of kinematic variables and event properties to output as ROOT branches
+        """
         if cat in ['ee', 'mumu']:
             return sorted(branch_list_ll)
         elif cat == 'qq':

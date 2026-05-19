@@ -265,7 +265,7 @@ def dummyRatio(
     nbins: int = 1,
     rlines: list[float] = [1],
     colors: list[ROOT.TColor] = [ROOT.kBlack]
-     ) -> None:
+     ) -> tuple[ROOT.TH1D, ROOT.TH1D, list[ROOT.TLine]]:
     '''
     Create dummy histograms for ratio plots with reference lines.
 

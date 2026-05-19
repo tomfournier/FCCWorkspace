@@ -4,13 +4,18 @@ This repository contains the analysis code for measuring the $e^+e^- \to ZH$ cro
 
 ## Overview
 
-The analysis workflow follows a sequential pipeline consisting of five stages:
+The analysis workflow follows a sequential pipeline consisting of five main stages, plus optional study pipelines:
 
-1. **[1-MVAInputs](1-MVAInputs/README.md)** — Event selection and feature preparation for machine learning
-2. **[2-BDT](2-BDT/README.md)** — Boosted Decision Tree training for signal/background discrimination  
-3. **[3-Measurement](3-Measurement/README.md)** — Physics measurement with BDT-based event selection
-4. **[4-Combine](4-Combine/README.md)** — Statistical datacard preparation for fitting
-5. **[5-Fit](5-Fit/README.md)** — Maximum likelihood fits and bias testing
+**Main Analysis Pipeline:**
+1. **[1-MVAInputs](1-MVAInputs/README.md)** — Event selection and kinematic variable preparation for BDT training
+2. **[2-BDT](2-BDT/README.md)** — XGBoost classifier training for signal/background discrimination  
+3. **[3-Measurement](3-Measurement/README.md)** — Physics measurement with BDT-based event classification
+4. **[4-Combine](4-Combine/README.md)** — Statistical datacard preparation for RooFit/Combine fitting
+5. **[5-Fit](5-Fit/README.md)** — Maximum likelihood fits to extract cross-section and bias testing
+
+**Study Pipelines:**
+- **[a-FSR](a-FSR/README.md)** — Final State Radiation optimization studies
+- **[b-Optimization](b-Optimization/README.md)** — BDT hyperparameter optimization
 
 ## Project Structure
 
@@ -18,21 +23,40 @@ The analysis workflow follows a sequential pipeline consisting of five stages:
 
 Each stage is contained in its own directory with a dedicated README:
 
+- **`0-Run/`** — Wrapper orchestration scripts (`1-run.py` through `5-run.py`, plus `a-run.py` and `b-run.py` for study pipelines). These automate batch execution across channels and energies. Execute these scripts from the xsec/ directory.
+
 - **`1-MVAInputs/`** — Selects events from raw simulation and prepares kinematic variables for BDT training. Produces histograms of distributions for all processes (signal and backgrounds).
 
-- **`2-BDT/`** — Trains XGBoost models to distinguish ZH signal from backgrounds using kinematic features. Evaluates model performance and determines optimal selection thresholds.
+- **`2-BDT/`** — Trains XGBoost models to distinguish ZH signal from backgrounds using 9 kinematic features. Evaluates model performance and determines optimal selection thresholds.
 
-- **`3-Measurement/`** — Applies BDT selection to measurement samples and generates histograms of the Higgs recoil mass across signal-like and background-like regions.
+- **`3-Measurement/`** — Applies BDT classification to measurement samples and generates histograms of the Higgs recoil mass across signal-like and background-like regions.
 
-- **`4-Combine/`** — Processes histograms and generates COMBINE-compatible datacards with systematic uncertainties for statistical fitting.
+- **`4-Combine/`** — Processes histograms and generates RooFit/Combine-compatible datacards with systematic uncertainties for statistical fitting.
 
 - **`5-Fit/`** — Performs maximum likelihood fits to extract the ZH cross-section. Validates fitting procedures through bias tests using pseudo-experiments.
 
+- **`a-FSR/`** — Final State Radiation optimization studies (optional advanced analysis)
+
+- **`b-Optimization/`** — BDT hyperparameter optimization studies (optional advanced analysis)
+
 ### Core Components
 
-- **`package/`** — Central Python module providing configuration, utilities, and analysis functions used across all stages. See [package/README.md](package/README.md) for details.
+- **`package/`** — Central Python module providing configuration, utilities, and analysis functions used across all stages. Key components:
+  - `config.py` — Physics constants, process definitions, and color palettes
+  - `userConfig.py` — Path templates and global parameters (luminosity, energies)
+  - `parsing.py` — Unified command-line argument parsing
+  - `logger.py` — Logging configuration
+  - `plots/` — Visualization utilities (cutflow, BDT evaluation, histogram plots)
+  - `func/` — Analysis functions (BDT training/evaluation, bias testing)
+  - `tools/` — Data processing (ROOT I/O, histogram manipulation)
+  
+  See [package/README.md](package/README.md) for detailed documentation.
 
-- **`run/`** — Pipeline automation scripts that orchestrate the analysis across multiple channels and energies. See [run/README.md](run/README.md) for usage instructions.
+- **`sel/`** — Event selection functions applied throughout the pipeline:
+  - `sel/presel/` — Pre-selection functions (lepton/quark selection, kinematic cuts)
+  - `sel/final/` — Final selection functions (histogram definitions, variable computation)
+  
+  See [sel/presel/README.md](sel/presel/README.md) for selection documentation.
 
 - **`output/`** — Auto-generated directory containing all analysis outputs (see [Output Structure](#output-structure) below)
 
@@ -40,77 +64,114 @@ Each stage is contained in its own directory with a dedicated README:
 
 ### Prerequisites
 
-- FCC software stack with FCCAnalysis framework
-- Python 3.7+ with: ROOT, pandas, scikit-learn, xgboost, matplotlib
-- COMBINE tool (for statistical fitting in stage 5)
+- FCC software stack with FCCAnalysis framework (for stages 1-4)
+- Python 3.7+ with: ROOT, pandas, scikit-learn, xgboost, matplotlib, numpy
+- RooFit/Combine tools (for stage 5 statistical fitting, optional)
+
+### Quick Start
+
+For a quick test to verify the analysis is working:
+
+```bash
+cd xsec/
+
+# Test stage 1 (pre-selection only, for a single channel)
+python 0-Run/1-run.py --cat ee --ecm 240 --run 1
+
+# Test stage 2 (BDT training)
+python 0-Run/2-run.py --cat ee --ecm 240
+
+# Test stage 3 (measurement)
+python 0-Run/3-run.py --cat ee --ecm 240 --run 1-2
+```
+
+This will create sample outputs in the `output/` directory. For the full analysis, run all stages across both channels and energies as shown in the next section.
 
 ### Software Frameworks
 
 **FCCAnalyses** (Stages 1-4)  
 FCCAnalyses is the main analysis framework used for stages 1-4. It provides tools for event selection, reconstruction, and histogram generation with integration to FCC simulation and detector simulation. This framework is required for running MVA input preparation, BDT training, and physics measurement stages.
 
-**COMBINE-Limit** (Stage 5)  
-COMBINE-Limit is the statistical analysis tool used for maximum likelihood fitting and limit/significance calculations. It is incompatible with the FCCAnalyses environment due to conflicting dependencies and uses an older version of Python libraries compared to FCCAnalyses.
+**RooFit/Combine-Limit** (Stage 5)  
+RooFit and Combine are the statistical analysis tools used for maximum likelihood fitting and cross-section extraction. They are typically incompatible with the FCCAnalyses environment due to conflicting dependencies.
 
-⚠️ **Important Version Incompatibility Note:**  
-The version of COMBINE-Limit used in this analysis is **older** than the version of Python libraries in FCCAnalyses. When writing code intended to work with both frameworks, exercise caution regarding:
-- Python version features (avoid using features only available in Python 3.9+)
-- Package dependencies (versions must be compatible with both environments)
-
-Code that runs successfully with FCCAnalyses may fail in the COMBINE-Limit environment and vice versa.
+⚠️ **Environment Management Note:**  
+If you encounter version incompatibility issues between FCCAnalyses and RooFit/Combine, consider:
+- Running stages 1-4 in one environment (FCCAnalyses)
+- Running stage 5 in a separate terminal with a different Python environment (RooFit/Combine)
+- Using environment management tools (conda/venv) to isolate dependencies
 
 ### Running the Analysis
 
-Execute stages sequentially from the **xsec/** directory:
+All scripts must be executed from the **xsec/** directory. The analysis is orchestrated through wrapper scripts in the `0-Run/` directory that automate batch execution across channels and energies:
 
 ```bash
 cd xsec/
 
 # Stage 1: Event selection and MVA input preparation
-python run/1-run.py --cat ee-mumu --ecm 240-365
+python 0-Run/1-run.py --cat ee-mumu --ecm 240-365
 
 # Stage 2: BDT training and evaluation
-python run/2-run.py --cat ee-mumu --ecm 240-365
+python 0-Run/2-run.py --cat ee-mumu --ecm 240-365
 
-# Stage 3: Physics measurement with BDT selection
-python run/3-run.py --cat ee-mumu --ecm 240-365
+# Stage 3: Physics measurement with BDT classification
+python 0-Run/3-run.py --cat ee-mumu --ecm 240-365
 
 # Stage 4: Histogram processing and datacard generation
-python run/4-run.py --cat ee-mumu --ecm 240-365
+python 0-Run/4-run.py --cat ee-mumu --ecm 240-365
+
+# Stage 5: Statistical fitting (see note below)
+python 0-Run/5-run.py --cat ee-mumu --ecm 240-365
 ```
 
-**Important:** Stages 1-4 must be executed sequentially, as each stage depends on outputs from previous stages. See [run/README.md](run/README.md) for detailed parameter documentation and advanced usage.
+#### Argument Syntax
 
-#### ⚠️ Stage 5 — Execute in a Separate Terminal
+The wrapper scripts use flexible, modular argument parsing:
 
-Stage 5 (Statistical Fits and Bias Tests) requires the COMBINE-Limit environment, which is **incompatible** with FCCAnalyses. Execute stage 5 scripts in a **separate terminal** with a different software environment:
+- **`--cat CHANNELS`**: Decay categories (single or multiple)
+  - Single: `--cat ee` or `--cat mumu`
+  - Multiple: `--cat ee-mumu` (dash-separated)
+  
+- **`--ecm ENERGIES`**: Center-of-mass energies (single or multiple)
+  - Single: `--ecm 240` or `--ecm 365`
+  - Multiple: `--ecm 240-365` (dash-separated)
+  
+- **`--run STAGES`**: Pipeline stages to execute (default varies by script)
+  - Single stage: `--run 1` or `--run 2`
+  - Multiple stages: `--run 1-2-3` (dash-separated)
+  
+- **`--sels SELECTIONS`**: Specific selection strategies to process (batch mode)
+  - Default: `Baseline` and `test` selections
+  - Multiple: `--sels Baseline-test-other`
+
+#### Example Commands
 
 ```bash
-# In a NEW terminal, setup COMBINE-Limit environment (not FCCAnalyses)
-cd ../../../
-source setup_CombinedLimit.sh
+# Pre-selection only (Stage 1)
+python 0-Run/1-run.py --cat ee --ecm 240 --run 1
 
-# Then run stage 5:
-cd analysis/ZH/xsec/
-python run/5-run.py --cat ee-mumu --ecm 240-365
+# MVA input preparation for both channels and energies
+python 0-Run/1-run.py --cat ee-mumu --ecm 240-365
+
+# BDT training with metric plots
+python 0-Run/2-run.py --cat mumu --ecm 365 --run 2-3 --metric
+
+# Full measurement pipeline
+python 0-Run/3-run.py --cat ee-mumu --ecm 240-365 --run 1-2-3-4 --yields
+
+# Specific selection strategies
+python 0-Run/4-run.py --cat ee --ecm 240 --sels Baseline-test
 ```
 
-Do **NOT** try to run stage 5 in the same terminal where FCCAnalyses is loaded, as the conflicting dependencies will cause failures.
+#### Stage Details
 
-### Partial Execution
+Each stage has internal sub-stages (1, 2, 3, ...) corresponding to specific scripts:
 
-Run specific stages or channels as needed:
-
-```bash
-# Run only stage 2 (BDT training) for electron channel at 240 GeV
-python run/2-run.py --cat ee --ecm 240
-
-# Run stages 3 and 4 for both channels at 365 GeV
-python run/3-run.py --cat ee-mumu --ecm 365 --run 1-2-3-4
-python run/4-run.py --cat ee-mumu --ecm 365
-```
-
-Refer to individual stage READMEs for more detailed information and manual script execution.
+- **Stage 1-MVAInputs:** 1=pre-selection, 2=final-selection, 3=plots
+- **Stage 2-BDT:** 1=process input, 2=train model, 3=evaluate
+- **Stage 3-Measurement:** 1=pre-selection, 2=final-selection, 3=plots, 4=cutflow
+- **Stage 4-Combine:** 1=process histograms, 2=create datacards
+- **Stage 5-Fit:** 1=fit, 2=bias test, options: `--combine`, `--num 100`
 
 ## Output Structure
 
@@ -126,12 +187,12 @@ output/
 │   │
 │   ├── histograms/                  # Processed histograms at each stage
 │   │   ├── MVAInputs/{ecm}/{cat}/
-│   │   │   ├── *_{sel}.root         # TTree files for the BDT training
+│   │   │   ├── *_{sel}.root         # ROOT files for BDT training
 │   │   │   └── *_{sel}_histo.root   # Kinematic distributions for all processes
 │   │   ├── preprocessed/{ecm}/{cat}/{sel}/
 │   │   │   └── *_histo.root         # Measurement histograms after BDT selection
 │   │   └── processed/{ecm}/{cat}/{sel}/
-│   │       └── {sample}.root        # Final histograms before making the datacards
+│   │       └── {sample}.root        # Final histograms before datacard generation
 │   │
 │   ├── MVA/                         # BDT model outputs
 │   │   └── {ecm}/{cat}/{sel}/
@@ -143,11 +204,11 @@ output/
 │   │       └── MVAInputs/
 │   │           └── preprocessed.pkl # Training data (before BDT training)
 │   │
-│   └── combine/                     # COMBINE framework outputs
+│   └── combine/                     # RooFit/Combine framework outputs
 │       └── {sel}/{ecm}/{cat}/
 │           ├── nominal/             # Nominal fit results
 │           │   ├── WS/              # RooFit workspaces
-│           │   ├── datacard/        # COMBINE datacards
+│           │   ├── datacard/        # Combine datacards
 │           │   ├── log/             # Fit logs
 │           │   └── results/         # Extracted signal strengths
 │           └── bias/                # Bias test results
@@ -156,21 +217,22 @@ output/
 │               ├── log/             # Fit logs
 │               └── results/         # Bias analysis and plots
 │
-└── plots/                           # Analysis plots for validation
-    ├── MVAInputs/{ecm}/{cat}/       # Kinematic distributions
-    ├── evaluation/{ecm}/{cat}/      # BDT performance plots
-    └── measurement/{ecm}/{cat}/     # Physics measurement plots
-```
+├── plots/                           # Analysis plots for validation
+│   ├── MVAInputs/{ecm}/{cat}/       # Kinematic distributions
+│   ├── evaluation/{ecm}/{cat}/      # BDT performance plots
+│   └── measurement/{ecm}/{cat}/     # Physics measurement plots
+│
+└── tmp/                             # Temporary files (config JSON, process dicts)
 
 **Key outputs by analysis stage:**
 
-| Stage | Input | Output | Purpose |
-|-------|-------|--------|---------|
-| **1-MVAInputs** | Raw simulation (EDM4Hep) | Event trees, kinematic histograms | Prepare data for ML training |
-| **2-BDT** | Kinematic histograms | Trained models, feature importance | Train signal/background discriminator |
-| **3-Measurement** | Raw simulation + BDT models | Recoil mass histograms (signal/background regions) | Measure physics distributions |
-| **4-Combine** | Measurement histograms | COMBINE datacards with uncertainties | Prepare input for statistical fitting |
-| **5-Fit** | COMBINE datacards | Signal strengths, bias estimates, plots | Extract cross-section and validate fits |
+| Stage | Input | Main Output | Purpose |
+|-------|-------|---|---------|
+| **1-MVAInputs** | Raw simulation (EDM4Hep) | Event trees, kinematic histograms | Prepare data for BDT training |
+| **2-BDT** | MVA input histograms | Trained XGBoost model, feature importance | Train signal/background classifier |
+| **3-Measurement** | Raw simulation + trained BDT model | Recoil mass histograms (signal/background regions) | Measure physics distributions |
+| **4-Combine** | Measurement histograms | RooFit/Combine datacards with uncertainties | Prepare input for statistical fitting |
+| **5-Fit** | Combine datacards | Signal strengths, cross-section, bias estimates | Extract cross-section and validate fits |
 
 The `output/` directory is listed in `.gitignore` and will not be tracked by git. Regenerate outputs by re-running the analysis stages.
 
@@ -178,35 +240,44 @@ The `output/` directory is listed in `.gitignore` and will not be tracked by git
 
 ### Creating Tests
 
-For testing new functionality or debugging analysis code, create a `test/` directory with test scripts and data:
+For testing new functionality or debugging analysis code, use the `test/` directory:
 
 ```bash
-mkdir -p test/
-# Add test scripts and minimal test data
+mkdir -p test/my_test/
+# Add test scripts and minimal test data to test/my_test/
 ```
 
-The `test/` directory is configured in `.gitignore` and will not be tracked by git, making it ideal for development and troubleshooting without cluttering the repository.
+The `test/` directory is configured in `.gitignore` and will not be tracked by git, making it ideal for development and troubleshooting.
 
 ### Analysis Code Organization
 
-- **`package/config.py`** — Physics constants, decay modes, process definitions
-- **`package/tools/`** — Data I/O, histogram utilities, significance calculations
-- **`package/func/`** — Analysis functions (BDT operations, bias calculations)
-- **`package/plots/`** — Visualization utilities
+The analysis is organized into logical components:
 
-See [package/README.md](package/README.md) for full documentation.
+- **`package/config.py`** — Physics constants (masses, decay modes), process definitions, color palettes, kinematic variable names
+- **`package/userConfig.py`** — Path templates and global parameters (luminosity, channel names, data fractions)
+- **`package/parsing.py`** — Unified command-line argument parsing used by all scripts
+- **`package/logger.py`** — Logging setup and configuration
+- **`sel/presel/`** — Pre-selection functions (lepton kinematics, event filters)
+- **`sel/final/`** — Final selection and histogram definitions (binning, variable mapping)
+- **`package/func/bdt.py`** — BDT training, evaluation, and model I/O
+- **`package/plots/`** — Visualization utilities (cutflow plots, evaluation metrics, histogram plots)
+- **`package/tools/`** — Data processing utilities (ROOT I/O, histogram manipulation, significance calculations)
+
+See [package/README.md](package/README.md) and [sel/presel/README.md](sel/presel/README.md) for detailed documentation.
 
 ## Documentation
 
-Detailed information for each analysis stage:
+Detailed information for each analysis stage and component:
 
 - **[1-MVAInputs/README.md](1-MVAInputs/README.md)** — Event selection, variable computation, histogram generation
 - **[2-BDT/README.md](2-BDT/README.md)** — BDT training procedure, hyperparameters, evaluation metrics
 - **[3-Measurement/README.md](3-Measurement/README.md)** — Physics selection cuts, BDT application, control regions
 - **[4-Combine/README.md](4-Combine/README.md)** — Datacard structure, systematic uncertainties, process definitions
 - **[5-Fit/README.md](5-Fit/README.md)** — Fitting methodology, bias test procedures, result extraction
-- **[run/README.md](run/README.md)** — Pipeline automation, parameter documentation, execution examples
+- **[a-FSR/README.md](a-FSR/README.md)** — Final State Radiation optimization studies
+- **[b-Optimization/README.md](b-Optimization/README.md)** — BDT hyperparameter optimization
 - **[package/README.md](package/README.md)** — Configuration modules, utilities, function reference
+- **[sel/presel/README.md](sel/presel/README.md)** — Event selection functions and physics cuts
 
 ## Physics Process
 
@@ -222,12 +293,37 @@ where $\ell \in \{e, \mu\}$. The measurement uses:
 - **Systematic treatment:** Include background normalization uncertainties in statistical framework
 - **Statistical extraction:** Use maximum likelihood fitting to extract signal strength ($\mu$)
 
+## Troubleshooting
+
+### Common Issues
+
+**Import errors for `package` module:**
+- Make sure you're running scripts from the `xsec/` directory, not from subdirectories
+- Verify `package/__init__.py` exists
+
+**Script not found errors:**
+- Double-check the path: use `0-Run/1-run.py` (not `run/1-run.py`)
+- Ensure you're in the `xsec/` directory
+
+**Argument parsing errors:**
+- Use dash-separated values for multiple options: `--cat ee-mumu` and `--ecm 240-365`
+- Not comma-separated: `--cat ee,mumu` will fail
+- Check the script's help: `python 0-Run/1-run.py --help`
+
+**Missing output files:**
+- Verify each stage ran successfully before moving to the next stage
+- Check that `output/` directory was created
+- Look at log files for error messages
+
+**Environment incompatibility (Stage 5):**
+- If running stage 5 fails due to environment conflicts, try running it in a separate terminal with a different Python environment
+- Alternatively, see if RooFit is available in your current FCCAnalyses environment
+
 ## Authors & References
 
 This analysis is part of the FCC physics program for precision Higgs measurements. 
-It was written by Tom Fournier with the help from Ang Li for 1-MVAInput and 2-BDT and from Jan Eysermans for the rest of the analysis.
-There also was a contribution from Amaury Lhoste in the early development of the repository.
+It was written by Tom Fournier with help from Ang Li for stages 1-MVAInput and 2-BDT, and from Jan Eysermans for the remaining stages. There was also a contribution from Amaury Lhoste in the early development of the repository.
 
 ---
 
-**Last updated:** February 2026
+**Last updated:** May 2026

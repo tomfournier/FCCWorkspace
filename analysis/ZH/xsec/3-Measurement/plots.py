@@ -1,6 +1,6 @@
-#################################
-### IMPORT STANDARD LIBRARIES ###
-#################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
 from time import time
 
@@ -16,10 +16,10 @@ t = time()
 from package.parsing import create_parser, set_log
 from package.logger import get_logger
 parser = create_parser(
-    cat_multi=True,
-    include_sels=True,
-    plots=True,
-    description='Measurement plots Script'
+    cat_multi=True,        # Support multiple decay categories
+    include_sels=True,     # Include selection strategy options
+    plots=True,            # Include plot output options
+    description='Measurement Plots Script'
 )
 arg = parser.parse_args()
 set_log(arg)
@@ -32,15 +32,19 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+# Load directory paths and process configurations
 from package.userConfig import loc
 from package.config import (
-    timer, mk_processes,
-    z_decays, H_decays,
-    colors, labels
+    timer,              # Timing utility
+    mk_processes,       # Build process definitions
+    z_decays,           # Z boson decay modes
+    H_decays,           # Higgs decay modes
+    colors, labels      # Plot styling
 )
-from package.tools.utils import high_low_sels
+from package.tools.utils import high_low_sels  # High/low control region helpers
 from package.tools.process import (
-    preload_histograms, clear_histogram_cache
+    preload_histograms,     # Preload histogram cache for performance
+    clear_histogram_cache   # Clear cache when done
 )
 
 

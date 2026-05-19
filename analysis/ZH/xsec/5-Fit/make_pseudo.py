@@ -1,6 +1,6 @@
-#################################
-### IMPORT STANDARD LIBRARIES ###
-#################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
 import os, sys, time, subprocess
 
@@ -16,24 +16,25 @@ t = time.time()
 from package.parsing import ArgumentParser, create_parser, parse_args, set_log
 from package.logger import get_logger
 parser: ArgumentParser = create_parser(
-    cat_single=True,
-    allow_empty=True,
-    include_sel=True,
-    fit=True,
-    bias=True,
-    polarization=True,
-    target='bb',
+    cat_single=True,       # Support single decay category
+    allow_empty=True,      # Allow empty category
+    include_sel=True,      # Include selection strategy options
+    fit=True,              # Include fit-specific options
+    bias=True,             # Include bias test options
+    polarization=True,     # Include polarization/scale options
+    target='bb',           # Default Higgs decay mode
     description='Pseudo-data Script'
 )
-# Use all Z decays for cross-section calculation
-parser.add_argument('--tot', help='Do not consider all Z decays for making cross-section', action='store_true')
+# Use all Z decays for cross-section calculation in pseudo-data generation
+parser.add_argument('--tot', help='Do not consider all Z decays for cross-section', action='store_true')
 
-# To know if make_pseudo.py is ran from bias_test.py
+# Flag to indicate if called from bias_test.py (affects working directory)
 parser.add_argument('--nobias', help='Do not run from bias_test.py', action='store_true')
 
 # Fit execution flags
-parser.add_argument('--onlyrun', help='Only run the fit', action='store_true')
-parser.add_argument('--run',     help='Run the fit',      action='store_true')
+parser.add_argument('--onlyrun', help='Only run the fit without pre-processing', action='store_true')
+parser.add_argument('--run',     help='Run the fit after setup',            action='store_true')
+
 arg = parse_args(parser, comb=True)
 set_log(arg)
 
@@ -45,14 +46,16 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+# Load directory configuration and process definitions
 from package.userConfig import loc
 from package.config import (
-    timer, mk_processes,
-    z_decays,
-    h_decays,
-    H_decays
+    timer,              # Timing utility
+    mk_processes,       # Build process definitions
+    z_decays,           # Z boson decay modes
+    h_decays,           # Higgs decay modes (visible only)
+    H_decays            # Higgs decay modes (all including invisible)
 )
-from package.func.bias import pseudo_datacard
+from package.func.bias import pseudo_datacard  # Pseudo-datacard generation utilities
 
 
 
@@ -60,21 +63,23 @@ from package.func.bias import pseudo_datacard
 ### CONFIGURATION AND SETUP ###
 ###############################
 
-# Parse configuration parameters
-cat, ecm, sel, tot = arg.cat, arg.ecm, arg.sel, not arg.tot
+# Parse and extract configuration parameters
+cat, ecm, sel, tot = arg.cat, arg.ecm, arg.sel, not arg.tot  # Include all Z decays if --tot not specified
 
-# Set input and output directories
-inDir  = loc.get('HIST_PROCESSED', cat, ecm, sel)
-outDir = loc.get('BIAS_DATACARD',  cat, ecm, sel)
+# Define input/output directories
+inDir  = loc.get('HIST_PROCESSED', cat, ecm, sel)  # Input: processed histograms
+outDir = loc.get('BIAS_DATACARD',  cat, ecm, sel)  # Output: pseudo-data datacards
 
-# Define histogram names and categories
-hNames, categories = ('zll_recoil_m',), (f'z_{cat}',)
+# Define observable for pseudo-data generation
+hNames, categories = ('zll_recoil_m',), (f'z_{cat}',)  # Recoil mass histogram
 
-# List of processes (signal first, then backgrounds)
+# List of physics processes (signal first, then backgrounds)
+# Signal: ZH production with all Higgs decay modes
+# Backgrounds: WW, ZZ, Drell-Yan, and rare processes
 procs = ['ZH' if tot else f'Z{cat}H', 'WW', 'ZZ', 'Zgamma', 'Rare']
 processes = mk_processes(procs, ecm=ecm)
 
-# Select Higgs decay modes (invisible or visible)
+# Select Higgs decay modes: all modes for invisible target, visible only for other targets
 decays = H_decays if arg.target=='inv' else h_decays
 
 

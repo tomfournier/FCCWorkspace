@@ -116,11 +116,14 @@ Tools for generating pseudo-data with controlled signal variations and creating 
   - For invisible Higgs decays: replaces 'ZZ' with 'ZZ_noInv' to avoid double-counting
   - Returns: `list[list[str]]` where each sublist corresponds to a Higgs decay
 
-- **`_scaling(sigs, h_decays, target, variation, verbose=True)`**
+- **`_scaling(sigs, h_decays, target, variation)`**
   - Compute scaling factors for signal channel variations preserving total cross-section
   - `variation`: factor for total signal (e.g., 1.05 = +5%)
   - Scale for target channel computed as: `scale_target = 1 + (variation - 1) × xsec_tot / xsec_target`
-  - Returns: `(scale_target, xsec_tot, xsec_tot_new)`
+  - Returns: `(scale_target, xsec_tot, xsec_tot_new)` where:
+    - `scale_target`: scaling factor to apply to target channel
+    - `xsec_tot`: original total cross-section
+    - `xsec_tot_new`: new total cross-section after variation
 
 ### Pseudo-Data & Datacard Generation
 
@@ -134,20 +137,23 @@ Tools for generating pseudo-data with controlled signal variations and creating 
   - `proc_scales`: optional per-process scale factors (e.g., for polarization or luminosity corrections)
   - Returns: ROOT histogram (TH1) containing pseudo-data
 
-- **`make_datacard(outDir, procs, target, bkg_unc, categories, freezeBkgs=False, floatBkgs=False, plot_dc=False)`**
+- **`make_datacard(outDir, procs, target, bkg_unc, categories, freezeBkgs=False, floatBkgs=False)`**
   - Generate Combine-compatible statistical analysis datacard
   - Creates text file: `datacard_{target}.txt`
   - `bkg_unc`: background uncertainty (log-normal nuisance parameter)
   - `categories`: list of analysis channels/categories
   - `freezeBkgs`: freeze background normalizations (fixed rates)
   - `floatBkgs`: allow backgrounds to float (negative process indices)
-  - Process indices: signal=0, background1=1, background2=2, etc.
+  - Process indices: signal=0, backgrounds=1,2,3,... (or -1,-2,-3,... if floating)
   - Returns: None (writes file)
 
-- **`pseudo_datacard(inDir, outDir, cat, ecm, target, pert, z_decays, h_decays, processes, tot=False, scales='', freeze=False, float_bkg=False, plot_dc=False)`**
+- **`pseudo_datacard(inDir, outDir, cat, ecm, target, pert, z_decays, h_decays, processes, tot=False, scales='', freeze=False, float_bkg=False)`**
   - Full pipeline: generate pseudo-data histogram and Combine datacard
-  - Creates ROOT file: `datacard_{target}.root` with histograms
-  - Creates text datacard: `datacard_{target}.txt`
+  - Creates ROOT file: `datacard_{target}.root` with histograms for all processes
+  - Creates text datacard: `datacard_{target}.txt` compatible with Combine tool
+  - `scales`: key for process-specific scale factors dict (e.g., 'ILC', 'polL', 'polR')
+  - `freeze`: if True, freeze background normalizations in datacard
+  - `float_bkg`: if True, float backgrounds as negative process indices
   - Useful for bias test workflows
   - Returns: None
 

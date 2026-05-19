@@ -23,7 +23,7 @@ cat, ecm = get_params(env, 'b-run.json')
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-# Output directory for training events (default is local directory)
+# Output directory for optimization input events (default is local directory)
 outputDir = loc.get('OPTIMISATION', cat, ecm)
 
 # Include custom C++ analysis functions
@@ -77,12 +77,32 @@ processList = get_process_list(
 #####################################################
 
 class RDFanalysis():
-    '''RDataFrame analysis class for pre-selection stage.'''
+    '''RDataFrame analysis class for chi2 optimization preparation.
+
+    Applies chi2 optimization algorithms to compute pairing variables and
+    distance metrics for leptonic or hadronic decay channels.
+    '''
 
     # _________________________________________________________________
     # Mandatory: analysers function to define the analysers to process
     def analysers(df):
-        '''Apply analysis graph construction to the dataframe.'''
+        '''Apply chi2 optimization analysis to the dataframe.
+
+        Processes events through channel-specific optimization algorithms:
+        - optimize_ll: For leptonic channels (ee, mumu) - computes chi2 distances
+          between reconstructed lepton pairs and true Z boson momentum
+        - optimize_qq: For hadronic channels (qq) - applies similar optimization
+          for jet pair reconstruction
+
+        Args:
+            df: Input RDataFrame
+
+        Returns:
+            RDataFrame with optimization variables applied
+
+        Raises:
+            ValueError: If category is not supported
+        '''
         if cat in ['ee', 'mumu']:
             df = optimize_ll(df, cat, ecm)
         elif cat == 'qq':
@@ -94,7 +114,17 @@ class RDFanalysis():
     # _____________________________________________________
     # Mandatory: output function defining branches to save
     def output() -> list[str]:
-        '''Define output branches to save.'''
+        '''Define optimization output branches to save.
+
+        Returns channel-specific branches containing chi2 distance metrics,
+        pair variables, MC truth information, and reconstruction quality indicators.
+
+        Returns:
+            Sorted list of branch names to persist in output
+
+        Raises:
+            ValueError: If category is not supported
+        '''
         if cat in ['ee', 'mumu']:
             return sorted(branch_list_ll)
         elif cat == 'qq':

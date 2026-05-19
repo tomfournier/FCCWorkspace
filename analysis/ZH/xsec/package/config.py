@@ -2,25 +2,29 @@
 
 Provides:
 - Feature set for BDT training: `input_vars`.
-- Decay mode enumerations: `Z_DECAYS`, `H_DECAYS`, `H_DECAYS_WITH_INV`, `QUARKS`
+- Decay mode enumerations: `Z_DECAYS`, `H_DECAYS`, `H_DECAYS_WITH_INV`, `H_DECAYS_ALL`, `QUARKS`
     plus lowercase aliases for backward compatibility.
 - Color palettes for ROOT and matplotlib: `colors`, `h_colors`, `modes_color`.
 - Physics and axis labels (ROOT TLatex and LaTeX): `labels`, `h_labels`,
-    `vars_label`, `vars_xlabel`, `modes_label`.
-- Process builders for sample names: `mk_processes()` with cached defaults
-    via `_default_processes()` and helpers `_build_processes()` and `_as_tuple()`.
-- Small utilities: `warning()` for formatted exceptions and `timer()` for
-    pretty end-of-code timing output.
+    `vars_label`, `vars_xlabel`, `modes_label`, `process_label`.
+- Process builders:
+    - `mk_processes()`: Simple process dictionary builder with optional filtering.
+    - `get_process_list()`: Full-featured process builder with signal/background handling.
+    - Helper functions: `_default_processes()`, `_build_processes()`, `_as_tuple()`.
+- Background/signal builders for analysis workflows:
+    - `_get_training_signals()`: Training-mode signal samples.
+    - `_build_background_dict()`: Category and mode-specific background processes.
+- Utilities: `warning()` for formatted exceptions and `timer()` for timing output.
 
 Conventions:
 - Process naming follows FCC patterns, e.g. ``wzp6_ee_{z}H_H{h}_ecm{ecm}``,
     ``p8_ee_WW_ecm{ecm}``.
-- Labels use ROOT TLatex syntax where applicable.
+- Labels use ROOT TLatex syntax for ROOT displays and LaTeX for matplotlib.
 - Units are appended in `vars_xlabel` (e.g., GeV, GeV^2).
 
 Usage:
-- Construct process maps for an energy with optional filtering:
-    ``mk_processes(procs=['ZH','WW'], ecm=365)``.
+- Simple process dictionary: ``mk_processes(procs=['ZH','WW'], ecm=365)``.
+- Full analysis workflow: ``get_process_list(cat='mumu', ecm=240, train=True)``.
 '''
 
 ####################################
@@ -31,7 +35,14 @@ Usage:
 _ROOT = None
 
 def _get_root():
-    """Lazily import ROOT only when needed for color definitions."""
+    """Lazily import ROOT when needed for color definitions.
+
+    Defers ROOT import until colors are actually accessed to avoid unnecessary
+    overhead if only simple features are used.
+
+    Returns:
+        The ROOT module.
+    """
     global _ROOT
     if _ROOT is None:
         import ROOT
@@ -96,15 +107,19 @@ quarks   = QUARKS
 #######################
 
 # Lazy-loaded ROOT colors - these are computed on first access
-# ROOT object cache (lazily loaded if use_root=True)
-_ZH_COLOR   = None
-_WW_COLOR   = None
-_ZZ_COLOR   = None
-_ZG_COLOR   = None
-_RARE_COLOR = None
+# ROOT color indices (lazily initialized on first access)
+_ZH_COLOR   = None   # Red for ZH signal
+_WW_COLOR   = None   # Orange for WW background
+_ZZ_COLOR   = None   # Blue for ZZ background
+_ZG_COLOR   = None   # Purple for Z/gamma
+_RARE_COLOR = None   # Gray for rare processes
 
-def _init_colors():
-    """Initialize ROOT colors on first access."""
+def _init_colors() -> None:
+    """Initialize ROOT color objects on first access.
+
+    Creates ROOT color indices for signal and background processes.
+    Called automatically by _get_colors_dict() on first use.
+    """
     global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR
     if _ZH_COLOR is None:
         root = _get_root()
@@ -164,7 +179,11 @@ def _get_colors_dict() -> dict:
     }
 
 class LazyDict(dict):
-    """Dictionary that loads from a lazy function on first access."""
+    """Dictionary that defers initialization until first access.
+
+    Avoids importing ROOT or loading color definitions until the dictionary
+    is actually used. Supports standard dict operations.
+    """
     def __init__(self, lazy_func):
         super().__init__()
         self._lazy_func = lazy_func
@@ -201,10 +220,10 @@ class LazyDict(dict):
         return super().values()
 
 
-# Lazy-loaded color dictionaries - by default uses numeric codes (no ROOT import)
-# Set use_root=True to use ROOT color constants instead
-h_colors = LazyDict(_get_h_colors_dict)
-colors   = LazyDict(_get_colors_dict)
+# Lazy-loaded color dictionaries - ROOT is imported only on first access
+# Maps decay modes and process names to ROOT color indices
+h_colors = LazyDict(_get_h_colors_dict)  # Decay mode -> ROOT color
+colors   = LazyDict(_get_colors_dict)    # Process name -> ROOT color
 
 # Matplotlib tab colors for different analysis modes by channel (no lazy loading needed)
 modes_color = {
@@ -346,12 +365,15 @@ def warning(log_msg: str,
             lenght: int = -1,
             abort_msg: str = ''
             ) -> None:
-    '''Print formatted error message and raise exception.
+    '''Log formatted error message and exit.
+
+    Displays an error message in a centered box and terminates execution.
+    Message box width is auto-calculated if not specified.
 
     Args:
         log_msg: Error message to display.
-        lenght: Width of the message box. Auto-calculated if -1.
-        abort_msg: Header text for the error box. Defaults to ' ERROR CODE '.
+        lenght: Box width. Auto-calculated if -1 (default).
+        abort_msg: Header text for error box (default: ' ERROR CODE ').
     '''
     if not abort_msg:
         abort_msg = ' ERROR CODE '
@@ -375,10 +397,10 @@ def warning(log_msg: str,
 # __________________
 def timer(t: float
           ) -> None:
-    '''Print formatted elapsed time since timestamp.
+    '''Log formatted elapsed time since provided timestamp.
 
-    Calculates and displays elapsed time in human-readable format (hours, minutes,
-    seconds, milliseconds) since the provided timestamp.
+    Calculates and logs elapsed time in human-readable format (hours, minutes,
+    seconds, milliseconds) with formatted header and footer separators.
 
     Args:
         t: Starting timestamp from time.time().
@@ -416,14 +438,16 @@ def timer(t: float
 def _as_tuple(seq: Union[Sequence[str], None],
               fallback: tuple[str, ...]
               ) -> tuple[str, ...]:
-    '''Convert sequence to tuple or return fallback if None.
+    '''Convert sequence to tuple or use fallback if None.
+
+    Helper for flexible parameter handling in process builders.
 
     Args:
         seq: Input sequence to convert, or None.
-        fallback: Default tuple to use if seq is None.
+        fallback: Default tuple if seq is None.
 
     Returns:
-        Tuple from seq if provided, otherwise fallback.
+        Tuple from seq if provided, otherwise fallback tuple.
     '''
     return tuple(seq) if seq is not None else fallback
 
@@ -433,20 +457,21 @@ def _build_processes(z_set: tuple[str, ...],
                      q_set: tuple[str, ...],
                      ecm: int) -> dict[str,
                                        tuple[str, ...]]:
-    '''Build process name dictionary from decay modes and center-of-mass energy.
+    '''Build process dictionary from decay modes and center-of-mass energy.
 
-    Constructs full process names following the FCC naming convention by combining
-    Z decays, Higgs decays, and center-of-mass energy.
+    Generates full FCC process names by combining decay modes with energy.
+    Uppercase keys (ZH, ZeeH, etc.) use h_set (no invisible).
+    Lowercase keys (zh, zeeh, etc.) use H_set (with invisible).
 
     Args:
-        z_set: Z boson decay modes.
-        h_set: Higgs decay modes (without invisible).
-        H_set: Higgs decay modes (with invisible).
-        q_set: Quark decay channels.
-        ecm: Center-of-mass energy in GeV.
+        z_set: Z boson decay modes (bb, cc, ss, qq, ee, mumu, tautau, nunu).
+        h_set: Higgs decay modes without invisible (bb, cc, ss, gg, mumu, etc.).
+        H_set: Higgs decay modes with invisible (includes 'inv').
+        q_set: Quark channels (bb, cc, ss, qq).
+        ecm: Center-of-mass energy in GeV (240 or 365).
 
     Returns:
-        Dictionary mapping process keys to tuples of full process names.
+        Dictionary mapping process keys to tuples of FCC sample names.
     '''
     return {
         'ZH':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in h_set),
@@ -487,16 +512,16 @@ def _build_processes(z_set: tuple[str, ...],
 def _default_processes(ecm: int
                        ) -> dict[str,
                                  tuple[str, ...]]:
-    '''Generate default process dictionary with standard decay modes (cached).
+    '''Generate process dictionary with standard decay modes (cached).
 
     Uses default Z_DECAYS, H_DECAYS, H_DECAYS_WITH_INV, and QUARKS.
-    Results are cached for performance.
+    Results are cached by functools.lru_cache for performance.
 
     Args:
         ecm: Center-of-mass energy in GeV.
 
     Returns:
-        Dictionary of process names with default decay modes.
+        Process dictionary with default decay modes.
     '''
     return _build_processes(Z_DECAYS, H_DECAYS, H_DECAYS_WITH_INV, QUARKS, ecm)
 
@@ -511,35 +536,40 @@ def mk_processes(
      ) -> dict[str, tuple[str, ...]]:
     '''Generate process dictionary with optional filtering and custom decay modes.
 
-    Creates a dictionary mapping process keys to full process names. Can use default
-    decay modes or custom ones. Optionally filters to specific processes.
+    Simple process builder for creating FCC sample dictionaries.
+    Can use defaults (cached) or custom decay modes. Optionally filters to specific process keys.
+    Returns process key -> sample names mapping (e.g., 'ZH' -> ('wzp6_ee_bbH_Hbb_ecm240', ...)).
 
     Args:
-        procs: Process keys to include. If None, returns all processes.
+        procs: Process keys to include. If None, returns all available processes.
         z_decays: Z decay modes. Uses Z_DECAYS if None.
-        h_decays: Higgs decay modes (without invisible). Uses H_DECAYS if None.
+        h_decays: Higgs decay modes (no invisible). Uses H_DECAYS if None.
         H_decays: Higgs decay modes (with invisible). Uses H_DECAYS_WITH_INV if None.
         quarks: Quark channels. Uses QUARKS if None.
-        ecm: Center-of-mass energy in GeV. Default is 240.
+        ecm: Center-of-mass energy in GeV (default 240).
 
     Returns:
-        Dictionary mapping process keys to tuples of full process names.
+        Dictionary mapping process keys to tuples of FCC sample names.
 
     Examples:
-        >>> mk_processes()  # All processes with default decays
-        >>> mk_processes(procs=['ZH', 'WW'], ecm=365)  # Specific processes
+        >>> mk_processes()  # All processes, default decays, 240 GeV
+        >>> mk_processes(procs=['ZH', 'WW'], ecm=365)  # Filtered, 365 GeV
         >>> mk_processes(h_decays=['bb', 'cc'])  # Custom Higgs decays
     '''
-    # Use cached defaults if all decay mode parameters are None
+    # Use cached defaults if all decay parameters are None
     use_defaults = all(val is None for val in (z_decays, h_decays, H_decays, quarks))
-    processes = _default_processes(ecm) if use_defaults else _build_processes(
-        _as_tuple(z_decays, Z_DECAYS),
-        _as_tuple(h_decays, H_DECAYS),
-        _as_tuple(H_decays, H_DECAYS_WITH_INV),
-        _as_tuple(quarks, QUARKS),
-        ecm
-    )
-    # Filter to requested processes if specified
+    if use_defaults:
+        processes = _default_processes(ecm)  # Cached for performance
+    else:
+        processes = _build_processes(
+            _as_tuple(z_decays, Z_DECAYS),
+            _as_tuple(h_decays, H_DECAYS),
+            _as_tuple(H_decays, H_DECAYS_WITH_INV),
+            _as_tuple(quarks, QUARKS),
+            ecm
+        )
+
+    # Filter to requested process keys if specified
     if procs:
         requested = tuple(procs)
         return {proc: processes[proc] for proc in requested if proc in processes}
@@ -550,14 +580,21 @@ def mk_processes(
 
 
 def _get_training_signals(cat: str, ecm: int) -> list[str]:
-    '''Build signal sample list for training mode.
+    '''Build training signal samples for specified category.
+
+    Returns category-specific signal processes for training mode.
+    For leptonic categories (ee, mumu), returns single mode samples.
+    For hadronic (qq), returns all quark flavors at 365 GeV and qqH at 240 GeV.
 
     Args:
         cat: Category ('ee', 'mumu', 'qq').
-        ecm: Center-of-mass energy.
+        ecm: Center-of-mass energy in GeV (240 or 365).
+
+    Returns:
+        List of signal sample names for training.
 
     Raises:
-        ValueError: If ecm or cat is unsupported.
+        ValueError: If cat is not in ['ee', 'mumu', 'qq'] or ecm is unsupported.
     '''
     if cat in ['ee', 'mumu']:
         return [f'wzp6_ee_{cat}H_ecm{ecm}']
@@ -571,14 +608,24 @@ def _get_training_signals(cat: str, ecm: int) -> list[str]:
     raise ValueError(f'{cat} is not a valid category. Use [ee, mumu, qq].')
 
 def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False) -> dict[str, dict]:
-    '''Build background process dictionary for given category and mode.
+    '''Build category and mode-specific background process dictionary.
 
-    Separates common diboson/rare processes from category-specific ones to minimize duplication.
+    Constructs background processes with appropriate event chunk counts.
+    Training mode uses reduced backgrounds (category-specific only).
+    Non-training mode includes all lepton-pair and rare processes.
+    Chunk sizes scale with batch mode: larger chunks for batch processing.
 
     Args:
         cat: Category ('ee', 'mumu', 'qq').
-        ecm: Center-of-mass energy.
-        train: Training mode flag.
+        ecm: Center-of-mass energy in GeV.
+        train: If True, use training-specific backgrounds (smaller sample).
+        batch: If True, use larger chunk sizes for batch processing.
+
+    Returns:
+        Dictionary mapping process names to {'frac': fraction, 'nb': chunks}.
+
+    Raises:
+        ValueError: If cat is unsupported.
     '''
 
     small  = 5  if batch else 1
@@ -591,7 +638,7 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     if not train:
         common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 1, 'nb': big}
 
-    # Training mode: category-specific backgrounds only
+    # Training mode: category-specific backgrounds (reduced sample size)
     if train:
         category_specific = {
             'ee': {
@@ -617,8 +664,8 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
         }
         return {**common, **category_specific.get(cat, {})}
 
-    # Non-training mode: all ll backgrounds for ee/mumu, mixed for qq
-    # All lepton-pair backgrounds (ee, mumu, tautau)
+    # Non-training mode: comprehensive backgrounds (full sample)
+    # Lepton-pair backgrounds (ee, mumu, tautau channels)
     ll_bkgs = {
         f'p8_ee_WW_ee_ecm{ecm}':            {'frac': 1, 'nb': middle},
         f'p8_ee_WW_mumu_ecm{ecm}':          {'frac': 1, 'nb': middle},
@@ -668,57 +715,69 @@ def get_process_list(
         include: dict[str, dict] | None = None,
         exclude: set[str] | None = None,
          ) -> dict[str, dict[str, float | int]]:
-    '''Generate process dictionary with signals and/or backgrounds.
+    '''Generate analysis-ready process dictionary with signals and backgrounds.
+
+    Full-featured process builder for analysis workflows. Combines signal and background
+    samples with event counts and fractions. Training mode uses simplified samples.
+    Supports filtering, custom overrides, and batch mode scaling.
 
     Args:
         cat: Category ('ee', 'mumu', 'qq').
-        ecm: Center-of-mass energy (GeV).
-        z_decays: Z decay modes (only for non-training mode).
-        h_decays: Higgs decay modes (only for non-training mode).
-        train: If True, build training-specific signal/background.
-        onlysig: Return only signal processes.
-        onlybkg: Return only background processes.
-        frac: Optional custom fractions by process name.
-        chunks: Optional custom chunk counts by process name.
-        include: Optional dicts {'sig': {...}, 'bkg': {...}} to add.
-        exclude: Optional set of process names to exclude.
+        ecm: Center-of-mass energy in GeV (240 or 365).
+        z_decays: Z decay modes (non-training mode only; training uses defaults).
+        h_decays: Higgs decay modes (non-training mode only; training uses defaults).
+        train: If True, use training-mode samples (category-specific backgrounds).
+        batch: If True, scale chunk sizes for batch processing.
+        onlysig: Return only signal processes (mutually exclusive with onlybkg).
+        onlybkg: Return only background processes (mutually exclusive with onlysig).
+        frac: Custom fractions by sample name (overrides defaults).
+        chunks: Custom event chunk counts by sample name (overrides defaults).
+        include: Additional processes to add, dict with 'sig' and/or 'bkg' keys.
+        exclude: Set of sample names to exclude from output.
 
     Returns:
-        Dictionary mapping process names to {'fraction', 'chunks'}.
+        Dictionary mapping sample names to {'fraction': float, 'chunks': int}.
 
     Raises:
-        ValueError: If onlysig and onlybkg are both True, or invalid cat/ecm.
+        ValueError: If onlysig and onlybkg are both True.
     '''
+    # Initialize optional parameters
     frac = frac or {}
     chunks = chunks or {}
     include = include or {}
     exclude = exclude or set()
 
+    # Validate conflicting options
     if onlysig and onlybkg:
         raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
 
+    # Batch mode scales default chunk counts by 4x
     nb = 4 if batch else 1
 
-    # Build signals
+    # Generate signal samples
     if train:
+        # Training mode: category-specific signal only
         sigs = _get_training_signals(cat, ecm)
     else:
+        # Non-training mode: all Z and Higgs decay combinations
         sigs = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
 
-    # Build backgrounds
-    bkgs = _build_background_dict(cat, ecm, train)
+    # Generate background samples
+    bkgs = _build_background_dict(cat, ecm, train, batch)
 
-    # Assemble processes, applying custom overrides
+    # Build signal dict with custom overrides
     process_sig = {
         s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, nb)}
         for s in sigs if s not in exclude
     }
+
+    # Build background dict with custom overrides
     process_bkg = {
         b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb'])}
         for b, v in bkgs.items() if b not in exclude
     }
 
-    # Merge custom processes
+    # Apply custom inclusions
     if 'sig' in include:
         process_sig = {**process_sig, **include['sig']}
     if 'bkg' in include:

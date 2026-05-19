@@ -44,7 +44,7 @@ fccanalysis run 3-Measurement/pre-selection.py
 
 Or automate through the pipeline runner (see [Workflow Integration](#workflow-integration)):
 ```bash
-python run/1-run.py --run 1
+python 0-Run/3-run.py --run 1
 ```
 
 **Configuration:**
@@ -69,9 +69,10 @@ Applies BDT-based signal/background discrimination and generates analysis histog
   - Recoil mass window (365 GeV only): $100 < m_{\text{recoil}} < 150\text{ GeV}$
   - Visible energy threshold (energy-dependent)
 - Generates selection variants:
-  - Base selections: `Baseline`, `Baseline_miss`, `Baseline_sep`
-  - High BDT score region: `{sel}_high` (signal-like events)
-  - Low BDT score region: `{sel}_low` (background-like events)
+  - **Base selections:** `Baseline` (standard cut), `Baseline_vis` (visible energy > threshold), `Baseline_inv` (visible energy < threshold), `Baseline_miss` (missing energy cut), `Baseline_sep` (combined visible/missing), `test` (testing configuration)
+  - **High/Low BDT regions:** For selections `Baseline`, `Baseline_miss`, `Baseline_sep`, `test`, generates:
+    - `{sel}_high` — High BDT score region (signal-like events)
+    - `{sel}_low` — Low BDT score region (background-like events)
 - Processes separate signal samples for each Z and Higgs decay combination with sample naming: `wzp6_ee_{Z_decay}H_H{Higgs_decay}_ecm{ecm}`
   - Allows reconstruction of selection effects and acceptance for individual decay channels
   - Supports physics analysis of decay-dependent properties
@@ -98,7 +99,7 @@ fccanalysis final 3-Measurement/final-selection.py
 
 Or automate through the pipeline runner (see [Workflow Integration](#workflow-integration)):
 ```bash
-python run/1-run.py --run 2
+python 0-Run/3-run.py --run 2
 ```
 
 **Configuration:**
@@ -132,20 +133,70 @@ output/plots/measurement/{ecm}/{cat}/
 
 **Usage:**
 ```bash
-python plots.py [--cat CHANNEL] [--ecm ENERGY] [--yields] [--decay] [--make] [--scan]
+python plots.py [--cat CHANNEL] [--ecm ENERGY] [--sels SELECTIONS] [--yields] [--decay] [--make] [--scan]
 ```
 
 **Arguments:**
 - `--cat`: Final state (`ee`, `mumu`, or `ee-mumu`, default: `ee-mumu`)
 - `--ecm`: Center-of-mass energy (`240` or `365`, default: `240`)
-- `--yields`: Skip yield plots
-- `--decay`: Skip Higgs decay mode plots
-- `--make`: Skip distribution plots
-- `--scan`: Generate significance scan plots (default: off)
+- `--sels`: Selection strategies to plot, separated by `-` (default: `Baseline-Baseline_miss-Baseline_sep-Baseline_vis-Baseline_inv-test`)
+- `--yields`: Generate yield plots (signal efficiency and background rejection)
+- `--decay`: Generate Higgs decay mode composition plots
+- `--make`: Generate kinematic distribution plots (linear and log scale)
+- `--scan`: Generate significance scan plots across BDT score range
+
+**Examples:**
+```bash
+python plots.py --cat ee --ecm 240                          # Generate all plots
+python plots.py --cat ee-mumu --ecm 240-365 --scan         # Generate significance scans
+python plots.py --cat mumu --ecm 365 --sels Baseline       # Plot specific selection
+python plots.py --cat ee --ecm 240 --yields --make         # Generate yields and distributions
+```
+
+**Plotting Options:**
+- No flags specified: generates all plots (yields, decay, make, no significance scan)
+- Each flag enables its respective plot type
+- Multiple selections can be analyzed; high/low BDT regions are handled automatically for applicable selections
+
+---
+
+#### `cutflow.py` — Event Selection Cutflow Analysis
+
+Generates cutflow tables and plots showing event yields at each selection stage.
+
+**Key operations:**
+- Loads pre-selected event trees from `pre-selection.py`
+- Applies sequential selection cuts for each selection strategy
+- Computes event yields and efficiencies at each cut step
+- Generates cutflow tables (ROOT histograms and LaTeX format)
+- Plots cumulative and per-stage efficiencies
+
+**Input:** Pre-selected event samples
+```
+output/data/events/{ecm}/{cat}/full/analysis/
+```
+
+**Output:** Cutflow tables and plots
+```
+output/plots/measurement/{ecm}/{cat}/
+  └── cutflow/     # Cutflow histograms and efficiency plots
+```
+
+**Usage:**
+```bash
+python cutflow.py [--cat CHANNEL] [--ecm ENERGY] [--sels SELECTIONS] [--tot]
+```
+
+**Arguments:**
+- `--cat`: Final state (`ee`, `mumu`, or `ee-mumu`, default: `ee-mumu`)
+- `--ecm`: Center-of-mass energy (`240` or `365`, default: `240`)
+- `--sels`: Selection strategies to analyze, separated by `-` (default: `Baseline-Baseline_miss-Baseline_sep-test`)
+- `--tot`: Show combined Z decay channels instead of per-channel breakdowns
 
 **Example:**
 ```bash
-python plots.py --cat ee --ecm 240 --scan
+python cutflow.py --cat ee --ecm 240                    # Generate cutflow for baseline
+python cutflow.py --cat ee-mumu --ecm 240-365 --tot    # Combined channels and decays
 ```
 
 ---
@@ -155,7 +206,7 @@ python plots.py --cat ee --ecm 240 --scan
 The complete measurement stage can be automated using the pipeline runner:
 
 ```bash
-cd run/
+cd 0-Run/
 python 3-run.py --cat ee-mumu --ecm 240-365 --run 1-2-3-4
 ```
 
@@ -165,7 +216,7 @@ python 3-run.py --cat ee-mumu --ecm 240-365 --run 1-2-3-4
 - Stage 3: Plots (default)
 - Stage 4: Cutflow summary
 
-For more details on pipeline execution, see [run/README.md](../run/README.md).
+For more details on pipeline execution, see [0-Run/README.md](../0-Run/README.md).
 
 ---
 
@@ -186,28 +237,41 @@ output/
 
 Each selection variant generates its own directory:
 - `{sel}/` - Base selection (all selected events)
-- `{sel}_high/` - High BDT score region (signal-like events)
-- `{sel}_low/` - Low BDT score region (background-like events)
+- `{sel}_high/` - High BDT score region (signal-like events) — generated for `Baseline`, `Baseline_miss`, `Baseline_sep`, `test`
+- `{sel}_low/` - Low BDT score region (background-like events) — generated for `Baseline`, `Baseline_miss`, `Baseline_sep`, `test`
 
 ### Validation Plots Structure
 
 ```
 measurement/{ecm}/{cat}/
+├── cutflow/              # Event cutflow tables and efficiency plots
 ├── higgsDecays/          # Higgs decay mode composition
-│   └── {sel}/{region}/   # Plots for each selection and BDT region
+│   └── {sel}/            # Plots for each selection variant
+│       ├── nominal/      # All selected events
+│       ├── high/         # High BDT score region (signal-like)
+│       └── low/          # Low BDT score region (background-like)
 ├── makePlot/             # Kinematic distributions
-│   └── {sel}/{region}/
+│   └── {sel}/
+│       ├── nominal/
+│       ├── high/
+│       └── low/
 ├── significance/         # Signal significance estimates
-│   └── {sel}/{region}/
+│   └── {sel}/
+│       ├── nominal/
+│       ├── high/
+│       └── low/
 └── yield/                # Selection yields and efficiencies
-    └── {sel}/{region}/
-        ├── cutflow/
-        └── efficiency/
+    └── {sel}/
+        ├── nominal/
+        │   ├── cutflow/
+        │   └── efficiency/
+        ├── high/
+        └── low/
 ```
 
 Where:
-- `{sel}` = selection variant (`Baseline`, `Baseline_miss`, `Baseline_sep`, etc.)
-- `{region}` = `nominal` (all events), `high` (signal-like), `low` (background-like)
+- `{sel}` = selection variant (`Baseline`, `Baseline_vis`, `Baseline_inv`, `Baseline_miss`, `Baseline_sep`, `test`)
+- Subdirectories are only generated for selections that support high/low splitting (`Baseline`, `Baseline_miss`, `Baseline_sep`, `test`)
 
 ---
 

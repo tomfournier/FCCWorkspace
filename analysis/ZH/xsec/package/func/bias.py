@@ -3,8 +3,9 @@
 Provides:
 - Signal process construction: `_signal_lists()`.
 - Cross-section scaling calculations: `_scaling()`.
-- Pseudo-data histogram generation: `make_pseudodata()`, `make_pseudosignal()`.
-- Statistical analysis datacard creation: `make_datacard()`.
+- Pseudo-data histogram generation: `make_pseudodata()`.
+- Statistical analysis datacard creation: `make_datacard()`, `pseudo_datacard()`.
+- Histogram extraction from datacards: `hist_from_datacard()`.
 - Support for signal injection and Higgs decay channel variations.
 - Integration with Combine tool for maximum likelihood fits.
 
@@ -12,8 +13,9 @@ Functions:
 - `_signal_lists()`: Generate nested lists of signal process names for each Higgs decay.
 - `_scaling()`: Compute scaling factors for signal channel variations while preserving total cross-section.
 - `make_pseudodata()`: Create pseudo-data histogram combining backgrounds and perturbed signal.
-- `make_pseudosignal()`: Generate signal-only histogram with specified decay channel variation.
 - `make_datacard()`: Build Combine-compatible statistical analysis datacard with shape templates.
+- `pseudo_datacard()`: Generate pseudodata histograms and datacard for a specific Higgs decay target.
+- `hist_from_datacard()`: Extract signal and pseudo-data histograms from ROOT datacard files.
 
 Conventions:
 - Signal process naming follows FCC pattern: `wzp6_ee_{z_decay}H_H{h_decay}_ecm{ecm}`.
@@ -182,7 +184,7 @@ def make_pseudodata(
     sigs = _signal_lists(cat, z_decays, h_decays, target, ecm=ecm, tot=tot)
 
     scale_target, xsec_tot, xsec_tot_new = _scaling(
-        sigs, h_decays, target, variation, verbose=True
+        sigs, h_decays, target, variation
     )
 
     # Initialize histograms
@@ -355,22 +357,25 @@ def pseudo_datacard(
     freeze: bool = False,
     float_bkg: bool = False,
      ) -> None:
-    '''
-    Generate pseudodata histogram and datacard for a specific Higgs decay target.
+    '''Generate pseudodata histograms and datacard for a specific Higgs decay target.
 
-    This function can be called directly from bias_test.py to benefit from cached
-    histograms in the same process, or used standalone via subprocess.
+    Creates pseudo-data histograms for all processes and generates a Combine-compatible
+    datacard for statistical analysis of signal variations.
 
     Args:
+        inDir (str): Input directory containing histograms.
+        outDir (str): Output directory for generated datacard and ROOT files.
         cat (str): Final state category (ee or mumu).
-        ecm (int): Center of mass energy.
-        sel (str): Selection strategy.
-        target (str): Target Higgs decay channel.
-        pert (float): Perturbation/variation factor.
-        tot (bool): Whether to use all Z decays.
-        proc_scales (dict): Process-specific scale factors.
-        freeze (bool, optional): Freeze background normalizations. Defaults to False.
-        float_bkg (bool, optional): Float backgrounds. Defaults to False.
+        ecm (int): Center-of-mass energy in GeV.
+        target (str): Target Higgs decay channel to perturb.
+        pert (float): Perturbation/variation factor for signal (e.g., 1.05 for +5%).
+        z_decays (list[str]): List of Z boson decay channels.
+        h_decays (list[str]): List of Higgs boson decay channels.
+        processes (dict[str, list[str]]): Dictionary mapping process names to sample names.
+        tot (bool, optional): If True, use all Z decays; if False, use only specified category. Defaults to False.
+        scales (str, optional): Key for process-specific scale factors dict (e.g., 'ILC', 'polL', 'polR'). Defaults to ''.
+        freeze (bool, optional): If True, freeze background normalizations in datacard. Defaults to False.
+        float_bkg (bool, optional): If True, float backgrounds as negative process indices in datacard. Defaults to False.
     '''
 
     import ROOT
@@ -432,7 +437,21 @@ def hist_from_datacard(
     procs: list[str]
      ) -> tuple['hist.Hist',
                 'hist.Hist']:
+    '''Extract signal and pseudo-data histograms from ROOT datacard file.
 
+    Reads a datacard ROOT file and extracts the signal histogram and pseudo-data
+    histogram with background subtracted.
+
+    Args:
+        inDir (str): Input directory containing datacard ROOT file.
+        target (str): Target channel name matching the datacard file suffix.
+        cat (str): Category name (e.g., 'ee' or 'mumu').
+        procs (list[str]): List of process names (signal first, then backgrounds).
+
+    Returns:
+        tuple: (hist_sig, hist_pseudo_minus_bkg) where hist_sig is the signal histogram
+               and hist_pseudo_minus_bkg is the pseudo-data with background subtracted.
+    '''
     import uproot
 
     datacard = uproot.open(f'{inDir}/datacard_{target}.root')

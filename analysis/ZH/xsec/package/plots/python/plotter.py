@@ -1,29 +1,34 @@
-'''Matplotlib plotting utilities and styling.
+'''Matplotlib plotting utilities and styling for FCC-ee analysis.
 
-Provides:
-- Global matplotlib style configuration: `set_plt_style()`.
-- Axis labeling with FCC-ee branding: `set_labels()`.
-- Multi-format figure export: `savefigs()`.
-- Consistent typography and appearance across all matplotlib-based plots.
+Provides consistent plotting interface with global style configuration, FCC-ee branding,
+and multi-format figure export for publication-ready plots.
 
 Functions:
-- `set_plt_style()`: Configure matplotlib RC parameters for serif fonts, figure size, and grid styling.
-- `set_labels()`: Set axis labels and titles with FCC-ee simulation watermark and optional metadata.
-- `savefigs()`: Export matplotlib figures to disk in PNG, PDF, or other formats with automatic path creation.
+- `set_plt_style()`: Configure matplotlib RC parameters globally once per session.
+- `set_labels(ax, xlabel, ylabel, left, right, locx, locy)`: Decorate axes with labels and FCC-ee watermark.
+- `savefigs(fig, outDir, plotname, suffix, format)`: Export figure to disk in one or multiple formats.
+
+Matplotlib Configuration:
+- Font: Serif family (Roman) with 30pt base size
+- Figure size: 12x8 inches (1440x960 pixels at 120 DPI)
+- Axes: 25pt title, 30pt labels; grid enabled for readability
+- Ticks: 25pt label size for both x and y axes
+- Legend: 14pt font size
+- LaTeX: Text rendering enabled for math symbols and special formatting
 
 Conventions:
-- Global matplotlib style applied once via `set_plt_style()` before creating plots.
-- All plots include FCC-ee simulation watermark in top-left corner (customizable via `left` parameter).
-- Axis labels positioned at plot edges ('right' for x-axis, 'top' for y-axis by default).
-- Figure size fixed at 12x8 inches (1440x960 pixels at 120 DPI).
-- Font configuration uses serif family (Roman) with 30pt default and 25pt for axes.
-- LaTeX text rendering enabled for mathematical symbols and special formatting.
-- Grid enabled by default for easier value reading.
+- Call `set_plt_style()` once at the start of your plotting session.
+- Use `set_labels()` on every figure to add FCC-ee Simulation watermark and metadata.
+- Label positioning: xlabel at 'right', ylabel at 'top' by default for clean layout.
+- FCC-ee branding appears in top-left corner (customizable or removable via left parameter).
+- Supports LaTeX math mode in all labels and titles (e.g., r'$m_{ll}$ [GeV]').
+- Save figures in multiple formats simultaneously (png, pdf, etc.) for different use cases.
 
-Usage:
-- Initialize matplotlib styling once per session with `set_plt_style()`.
-- Decorate all figures with `set_labels()` to add axis titles and experiment branding.
-- Export finished plots to multiple formats simultaneously with `savefigs()`.
+Usage Examples:
+- Session setup: set_plt_style()
+- Create plot: fig, ax = plt.subplots()
+- Add decoration: set_labels(ax, r'$p_T$ [GeV]', 'Events', right='240 GeV, 5 ab$^{-1}$')
+- Save plot: savefigs(fig, './plots', 'signal_mass', suffix='_ee', format=['png', 'pdf'])
 '''
 
 ####################################
@@ -84,14 +89,20 @@ def set_labels(
      ) -> None:
     '''Configure axis labels and titles with FCC-ee experiment branding.
 
+    Sets x-axis, y-axis, and title labels on a matplotlib axes with FCC-ee
+    branding in the left corner. By default, adds "FCC-ee Simulation" watermark
+    unless explicitly removed. Supports positioning labels at plot edges.
+
     Args:
         ax (Axes): Matplotlib axes object to configure.
         xlabel (str, optional): Label for x-axis. Defaults to ''.
         ylabel (str, optional): Label for y-axis. Defaults to ''.
-        left (str, optional): Title for left side of plot. Defaults to '' (FCC-ee simulation label).
-        right (str, optional): Title for right side of plot. Defaults to ''.
-        locx (str, optional): Horizontal position for xlabel. Defaults to 'right'.
-        locy (str, optional): Vertical position for ylabel. Defaults to 'top'.
+        left (str, optional): Title for left side of plot. If empty string (default),
+               displays "FCC-ee Simulation" watermark. Pass 'None' or ' ' to remove
+               the left title entirely. Defaults to ''.
+        right (str, optional): Title for right side of plot (e.g., luminosity info). Defaults to ''.
+        locx (str, optional): Horizontal position for xlabel: 'left', 'center', or 'right'. Defaults to 'right'.
+        locy (str, optional): Vertical position for ylabel: 'bottom', 'center', or 'top'. Defaults to 'top'.
 
     Returns:
         None

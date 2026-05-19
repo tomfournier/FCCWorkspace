@@ -1,6 +1,6 @@
-#################################
-### IMPORT STANDARD LIBRARIES ###
-#################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
 import os
 
@@ -19,9 +19,9 @@ t = time()
 from package.parsing import create_parser, set_log
 from package.logger import get_logger
 parser = create_parser(
-    cat_multi=True,
-    include_sels=True,
-    polarization=True,
+    cat_multi=True,        # Support multiple decay categories
+    include_sels=True,     # Include selection strategy options
+    polarization=True,     # Include polarization/scale options
     description='Histogram Processing Script'
 )
 arg = parser.parse_args()
@@ -35,13 +35,16 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+# Load directory paths and histogram processing utilities
 from package.userConfig import loc
 from package.config import (
-    timer, mk_processes,
-    z_decays, H_decays
+    timer,              # Timing utility
+    mk_processes,       # Build process definitions
+    z_decays,           # Z boson decay modes
+    H_decays            # Higgs decay modes
 )
-from package.tools.utils import mkdir
-from package.tools.process import get_hist, concat
+from package.tools.utils import mkdir               # Directory creation
+from package.tools.process import get_hist, concat  # Histogram utilities
 
 
 
@@ -49,27 +52,30 @@ from package.tools.process import get_hist, concat
 ### SETUP CONFIG SETTINGS ###
 #############################
 
+# Decay categories to process (from command-line: cat1-cat2 format)
 cats, ecm = arg.cat.split('-'), arg.ecm
-# Histograms to process
-hNames = ['zll_recoil_m']
 
-# Selection strategies to apply
+# Histograms to process for BDT training/measurement
+hNames = ['zll_recoil_m']  # Recoil mass (Higgs candidate)
+
+# Selection strategies to process (from command-line or defaults)
 if arg.sels=='':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']  # Default selections
 else:
-    sels = arg.sels.split('-')
+    sels = arg.sels.split('-')  # Parse from command-line
 
 # Define cross-section scaling factors based on polarization or luminosity
-if arg.ILC:  # change fit to ASIMOV -t -1 !!!
+# Used to rescale histograms to match different beam configurations
+if arg.ILC:  # ILC configuration (note: change fit to ASIMOV mode -t -1)
     procs_scales = {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}
-elif arg.polL:
+elif arg.polL:  # Left-handed polarization
     procs_scales = {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263}
-elif arg.polR:
+elif arg.polR:  # Right-handed polarization
     procs_scales = {'ZH': 1.047, 'WW': 0.219, 'ZZ': 1.011, 'Zgamma': 1.018}
 else:
-    procs_scales  = {}
+    procs_scales  = {}  # No scaling
 if procs_scales!={}:
-    LOGGER.info('Will scale histograms to ILC cross section')
+    LOGGER.info('Rescaling histograms to alternative cross-sections')
 
 
 
@@ -128,7 +134,23 @@ def run(cats: str,
         hNames: list[str],
         samples: list[str]
         ) -> None:
-    """Process histograms by splitting into high/low control regions and combining."""
+    """Process measurement histograms: split by BDT score and combine channels.
+
+    For each category and selection, this function:
+    1. Loads preprocessed histograms from measurement stage
+    2. Splits histograms into high/low BDT score control regions (signal vs background enriched)
+    3. Combines channels and applies cross-section scaling
+    4. Saves processed histograms for combine/fit stages
+
+    Args:
+        cats: List of decay categories to process
+        sels: List of selection strategies
+        hNames: Names of histograms to process
+        samples: List of physics processes to handle
+
+    Returns:
+        None (writes processed histograms to HIST_PROCESSED directories)
+    """
 
     # Process each final state category
     for cat in cats:

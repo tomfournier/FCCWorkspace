@@ -1,26 +1,37 @@
 '''Process management and histogram operations.
 
 Provides:
-- Process dictionary retrieval with caching: `_get_procDict()`, `getMetaInfo()`.
-- Histogram I/O from ROOT files: `get_hist()`, `getHist()`.
-- Histogram combination and post-processing: `concat()`, `proc_scale()`.
 
-Conventions:
-- Process dictionaries are cached in `PROCDICT_CACHE` to avoid repeated reads.
-- WW cross-section corrections: For `p8_ee_WW_ecm*` processes, leptonic decays
-  (ee, mumu) are optionally removed when `remove=True` or automatically during
-  histogram retrieval via `get_hist()` and `getHist()`.
-- Histogram I/O: Files are `{proc}{suffix}.root` under `inDir`; histograms are
-  detached from TFile with `SetDirectory(0)` to prevent cleanup issues.
-- Lazy mode (`lazy=True`): Missing files/histograms are skipped silently; when
-  `False`, warnings are raised via `config.warning()`.
-- `concat()` unrolls multiple 1D histograms into a single concatenated histogram.
-- `proc_scale()` applies process-specific scaling from `proc_scales` dict using
-  keys matched in `processes`.
+Core Functions:
+- Process dictionary retrieval: `_get_procDict()`, `getMetaInfo()`
+- Histogram I/O: `get_hist()`, `getHist()`, `preload_histograms()`, `clear_histogram_cache()`
+- Histogram combining: `concat()`, `get_stack()`, `proc_scale()`
+- Range determination: `get_xrange()`, `get_yrange()`, `get_range()`, `get_range_decay()`
+
+Caching Strategy:
+- Process dictionaries cached in `PROCDICT_CACHE` to avoid repeated file reads
+- Cross-section/meta info cached in `XSEC_CACHE` (includes rmww variations)
+- WW rescaling factors cached in `WW_SCALE_CACHE` for efficiency
+- Histograms cached in `HIST_CACHE` with key (proc, suffix, inDir) to avoid repeated file opening
+
+WW Cross-Section Corrections:
+- For `p8_ee_WW_ecm*` processes, leptonic decay channels (ee, mumu) are removed
+- Correction applied automatically when `rmww=True` (default) in histogram retrieval functions
+- Scaling factor = xsec_new / xsec_old, where xsec_new excludes leptonic decays
+
+Histogram I/O Conventions:
+- Files stored as `{proc}{suffix}.root` in specified input directory
+- Histograms detached from TFile with `SetDirectory(0)` to prevent cleanup issues
+- Lazy mode: Missing files/histograms skipped silently when `lazy=True`
+- Non-lazy mode: Warnings/errors raised for missing files/histograms
+
+Process Scaling:
+- `proc_scale()` applies process-specific scaling factors from `proc_scales` dict
+- Scaling lookup matches process names via `processes` configuration
 
 Lazy Imports:
-- ROOT is lazy-loaded only when histograms are accessed
-- numpy and tqdm are lazy-loaded in functions where needed
+- ROOT lazy-loaded when histograms are first accessed
+- numpy and tqdm lazy-loaded only when needed
 '''
 
 import os
@@ -83,13 +94,14 @@ def preload_histograms(
     Preload all histograms from files into memory cache.
 
     Opens each ROOT file once and caches all histograms (or specified ones)
-    to avoid repeated file I/O during plotting loops.
+    to avoid repeated file I/O during plotting loops. Applies WW cross-section
+    corrections and rebinning as needed.
 
     Args:
         procs (list[str]): List of process names to preload.
         inDir (str): Input directory path.
         suffix (str, optional): File suffix. Defaults to ''.
-        hist_names (list[str], optional): List of histogram names to load. If None, loads all. Defaults to None.
+        hNames (list[str], optional): List of histogram names to load. If None, loads all. Defaults to None.
         rebin (int, optional): Rebinning factor to apply. Defaults to 1.
         rmww (bool, optional): Apply WW cross-section correction. Defaults to True.
     '''
@@ -174,9 +186,11 @@ def preload_histograms(
 # __________________________________
 def clear_histogram_cache() -> None:
     '''
-    Clear the histogram cache to free memory.
-    Also clears WW scale cache to ensure consistent re-scaling on next run.
-    Retrocompatible: signature and primary behavior unchanged.
+    Clear all histogram and scaling caches to free memory.
+
+    Clears both `HIST_CACHE` (cached histograms) and `WW_SCALE_CACHE` (WW rescaling factors)
+    to ensure consistent re-computation on next run. Useful after batch processing to
+    reclaim memory or when input files have changed.
     '''
     HIST_CACHE.clear()
     WW_SCALE_CACHE.clear()
@@ -439,15 +453,19 @@ def concat(
     outName: str = ''
      ) -> 'ROOT.TH1':
     '''
-    Concatenate multiple histograms into a single unrolled 1D histogram.
+    Concatenate multiple 1D histograms into a single unrolled 1D histogram.
+
+    Flattens a list of histograms by concatenating their bin contents sequentially.
+    Useful for combining histogram bins from different processes or variables into
+    a single 1D distribution.
 
     Args:
         h_list (list[ROOT.TH1]): List of ROOT histograms to concatenate.
-        hName (str): Name for logging purposes.
-        outName (str, optional): Name for the output histogram. Defaults to '' (uses hName if empty).
+        hName (str): Name for logging/identification purposes.
+        outName (str, optional): Name for the output histogram. If empty, uses hName. Defaults to ''.
 
     Returns:
-        ROOT.TH1: Unrolled 1D histogram combining all input histograms.
+        ROOT.TH1: Unrolled 1D histogram with concatenated bin contents and errors.
     '''
     import ROOT
 
@@ -486,16 +504,19 @@ def proc_scale(
     '''
     Apply process-specific scaling factor to a histogram.
 
-    Looks up the process in the configuration and applies the corresponding scale.
+    Looks up the process in the provided configuration and applies the corresponding
+    scaling factor. Useful for applying corrections or cross-section rescaling by
+    process category.
 
     Args:
         hist (ROOT.TH1): ROOT histogram to scale.
-        proc (str): Process name identifier.
-        processes (dict[str, list[str]]): Process configuration mapping process names to process lists.
-        proc_scales (dict[str, float], optional): Dictionary of scaling factors by process name. Defaults to {}.
+        proc (str): Process name identifier to look up.
+        processes (dict[str, list[str]]): Process configuration mapping category names (e.g., 'Signal', 'Background')
+                                          to lists of process names.
+        proc_scales (dict[str, float], optional): Dictionary of scaling factors by process category. Defaults to {}.
 
     Returns:
-        ROOT.TH1: Scaled histogram.
+        ROOT.TH1: Scaled histogram (modified in place).
     '''
 
     if not proc_scales:
@@ -516,13 +537,16 @@ def get_stack(
     hists: list['ROOT.TH1']
      ) -> 'ROOT.TH1':
     '''
-    Create a stacked histogram from a list of histograms.
+    Create a stacked histogram by summing multiple histograms.
+
+    Combines a list of histograms by cloning the first and adding all others to it.
+    The resulting histogram contains the sum of all bin contents and errors.
 
     Args:
-        hists (list[ROOT.TH1]): List of histograms to stack.
+        hists (list[ROOT.TH1]): List of histograms to stack. Must contain at least one histogram.
 
     Returns:
-        ROOT.TH1: Combined stacked histogram.
+        ROOT.TH1: Combined histogram with '_stack' suffix appended to name.
 
     Raises:
         ValueError: If the input list is empty.
@@ -548,16 +572,20 @@ def get_xrange(
      ) -> tuple[Union[float, int],
                 Union[float, int]]:
     '''
-    Get the x-range of a histogram based on bin content.
+    Determine the x-range of a histogram based on bin content and boundaries.
+
+    Finds the min/max x-axis range containing relevant histogram bins. When strict=True,
+    only considers bins with non-zero content. Respects provided xmin/xmax boundaries
+    and handles both fixed and variable bin widths efficiently.
 
     Args:
         hist (ROOT.TH1): Histogram to analyze.
-        strict (bool, optional): Only consider bins with non-zero content. Defaults to True.
-        xmin (float | int | None, optional): Minimum x boundary to consider. Defaults to None.
-        xmax (float | int | None, optional): Maximum x boundary to consider. Defaults to None.
+        strict (bool, optional): If True, only consider bins with non-zero content. Defaults to True.
+        xmin (float | int | None, optional): Minimum x boundary to include. Defaults to None (no limit).
+        xmax (float | int | None, optional): Maximum x boundary to include. Defaults to None (no limit).
 
     Returns:
-        tuple: (x_min, x_max) range of the histogram.
+        tuple: (x_min, x_max) range based on bin content and constraints.
     '''
     import numpy as np
     nbins = hist.GetNbinsX()
@@ -604,18 +632,21 @@ def get_yrange(
      ) -> tuple[Union[float, int],
                 Union[float, int]]:
     '''
-    Get the y-range of a histogram.
+    Determine the y-range of a histogram with optional scaling and log support.
+
+    Finds the min/max y values in the histogram. For logarithmic scales, excludes
+    zero and negative bins. Applies optional scale factors for padding/zooming.
 
     Args:
         hist (ROOT.TH1): Histogram to analyze.
-        logY (bool): Flag indicating if the y-axis is logarithmic.
-        ymin (float | int | None, optional): Minimum y value. Defaults to None.
-        ymax (float | int | None, optional): Maximum y value. Defaults to None.
-        scale_min (float, optional): Minimum scale for y-axis. Defaults to 1.
-        scale_max (float, optional): Maximum scale for y-axis. Defaults to 1.
+        logY (bool): If True, use logarithmic scale (excludes zero/negative values).
+        ymin (float | int | None, optional): Override minimum y value. Defaults to None.
+        ymax (float | int | None, optional): Override maximum y value. Defaults to None.
+        scale_min (float, optional): Scale factor for minimum (padding). Defaults to 1.
+        scale_max (float, optional): Scale factor for maximum (padding). Defaults to 1.
 
     Returns:
-        tuple: (y_min, y_max) range of the histogram.
+        tuple: (y_min, y_max) range scaled and constrained as specified.
     '''
     import numpy as np
     nbins = hist.GetNbinsX()
@@ -653,23 +684,28 @@ def get_range(
      ) -> tuple[float, float,
                 float, float]:
     '''
-    Determine the range for signal and background histograms.
+    Determine optimal plot range for signal and background histograms combined.
+
+    Stacks all signal and background histograms together to find the appropriate
+    x and y ranges for visualization. The x-range is determined from the combined
+    stack; y-range is computed from all individual histograms or their stack depending
+    on the stack parameter.
 
     Args:
         h_sigs (list[ROOT.TH1]): List of signal histograms.
         h_bkgs (list[ROOT.TH1]): List of background histograms.
-        logY (bool, optional): Flag for logarithmic y-axis. Defaults to False.
-        strict (bool, optional): Flag for strict range checking. Defaults to True.
-        stack (bool, optional): Flag for stacking histograms. Defaults to False.
-        scale_min (float, optional): Minimum scale for y-axis. Defaults to 1.
-        scale_max (float, optional): Maximum scale for y-axis. Defaults to 1.
-        xmin (float | int | None, optional): Minimum x value. Defaults to None.
-        xmax (float | int | None, optional): Maximum x value. Defaults to None.
-        ymin (float | int | None, optional): Minimum y value. Defaults to None.
-        ymax (float | int | None, optional): Maximum y value. Defaults to None.
+        logY (bool, optional): If True, use logarithmic y-axis. Defaults to False.
+        strict (bool, optional): If True, exclude bins with zero content from x-range. Defaults to True.
+        stack (bool, optional): If True, find y-max from stacked histogram; else from max of all. Defaults to False.
+        scale_min (float, optional): Scale factor for y-min (padding). Defaults to 1.
+        scale_max (float, optional): Scale factor for y-max (padding). Defaults to 1.
+        xmin (float | int | None, optional): Override minimum x value. Defaults to None.
+        xmax (float | int | None, optional): Override maximum x value. Defaults to None.
+        ymin (float | int | None, optional): Override minimum y value. Defaults to None.
+        ymax (float | int | None, optional): Override maximum y value. Defaults to None.
 
     Returns:
-        tuple: (xmin, xmax, ymin, ymax) ranges for plotting.
+        tuple: (xmin, xmax, ymin, ymax) ranges ready for plotting.
     '''
     import numpy as np
     # Stack all signal and background histograms
@@ -728,21 +764,25 @@ def get_range_decay(
      ) -> tuple[float, float,
                 float, float]:
     '''
-    Determine the range for decay mode histograms.
+    Determine optimal plot range for multiple decay mode histograms.
+
+    Specialized version of `get_range()` for decay mode comparisons. Stacks all
+    signal histograms to determine x-range; y-range is computed from all individual
+    decay histograms with applied scale factors.
 
     Args:
-        h_sigs (list[ROOT.TH1]): List of signal histograms.
-        logY (bool, optional): Flag for logarithmic y-axis. Defaults to False.
-        strict (bool, optional): Flag for strict range checking. Defaults to True.
-        scale_min (float, optional): Minimum scale for y-axis. Defaults to 1.
-        scale_max (float, optional): Maximum scale for y-axis. Defaults to 1.
-        xmin (float | int | None, optional): Minimum x value. Defaults to None.
-        xmax (float | int | None, optional): Maximum x value. Defaults to None.
-        ymin (float | int | None, optional): Minimum y value. Defaults to None.
-        ymax (float | int | None, optional): Maximum y value. Defaults to None.
+        h_sigs (list[ROOT.TH1]): List of signal/decay histograms to compare.
+        logY (bool, optional): If True, use logarithmic y-axis. Defaults to False.
+        strict (bool, optional): If True, exclude bins with zero content from x-range. Defaults to True.
+        scale_min (float, optional): Scale factor for y-min (padding). Defaults to 1.
+        scale_max (float, optional): Scale factor for y-max (padding). Defaults to 1.
+        xmin (float | int | None, optional): Override minimum x value. Defaults to None.
+        xmax (float | int | None, optional): Override maximum x value. Defaults to None.
+        ymin (float | int | None, optional): Override minimum y value. Defaults to None.
+        ymax (float | int | None, optional): Override maximum y value. Defaults to None.
 
     Returns:
-        tuple: (xmin, xmax, ymin, ymax) ranges for plotting decay modes.
+        tuple: (xmin, xmax, ymin, ymax) ranges for decay mode visualization.
     '''
     import numpy as np
     # Stack signal histograms

@@ -1,4 +1,4 @@
-'''Wrapper to run the measurement pipeline with automated parameters.
+'''Wrapper to run the FSR (Final State Radiation) optimization pipeline with automated parameters.
 
 Provides:
 - Argument parsing for channel (ee/mumu), energy (240/365 GeV), and pipeline stages.
@@ -8,12 +8,12 @@ Provides:
 Conventions:
 - Temporary configuration files are created in loc.RUN and removed after each stage.
 - Environment variable RUN='1' flags automated mode for the analysis scripts.
-- Scripts are executed in nested loops: ecm -> cat -> stage-specific script, then plots/cutflow.
+- Scripts are executed in nested loops: ecm -> cat -> stage-specific script, then plots.
 
 Usage:
-    python a-run.py                                  # Default: all channels, all ecms, stages 2-3
-    python a-run.py --cat ee --ecm 365 --run 1-2-3   # All stages including cutflow
-    python a-run.py --cat ee-mumu --ecm 240-365      # Multiple channels and energies
+    python a-run.py                                 # Default: all channels, all ecms, stages 1-2
+    python a-run.py --cat ee --ecm 365 --run 1      # Pre-selection only
+    python a-run.py --cat ee-mumu --ecm 240-365     # Multiple channels and energies
 '''
 
 ##########################################################
@@ -24,9 +24,11 @@ import os, sys, json, time, subprocess
 
 from pathlib import Path
 
-from package.userConfig import loc
-from package.config import timer
+# Load directory path manager and timing utility
+from package.userConfig import loc         # Directory path configuration
+from package.config import timer           # Execution timing utility
 
+# Start execution timer
 t = time.time()
 
 
@@ -35,17 +37,17 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from package.parsing import create_parser, set_log  # Argument parsing utilities
+from package.logger import get_logger               # Logging setup
 parser = create_parser(
-    cat_multi=True,
-    ecm_multi=True,
-    include_sels=True,
-    run_stages=3,
-    batch=True,  # Have to implement it
-    optimize=True,
-    is_run=True,
-    description='Run Optimisation pipeline'
+    cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
+    ecm_multi=True,        # Support multiple energies (--ecm 240-365)
+    include_sels=True,     # Include selection strategy options
+    run_stages=2,          # FSR pipeline has 2 stages: pre-selection + plots
+    batch=True,            # Include batch execution options (TODO: implement)
+    optimize=True,         # Include FSR optimization options
+    is_run=True,           # Flag that this is a run wrapper script
+    description='Run FSR pipeline'
 )
 arg = parser.parse_args()
 set_log(arg)
@@ -59,15 +61,20 @@ LOGGER = get_logger(__name__)
 #############################
 
 # Parse comma-separated arguments into lists
-cats = arg.cat.split('-')
-ecms = [int(e) for e in arg.ecm.split('-')]
+cats = arg.cat.split('-')                              # Decay categories: ['ee'] or ['ee', 'mumu']
+ecms = [int(e) for e in arg.ecm.split('-')]          # Energies: [240] or [240, 365]
 
-# Map stage numbers to script names
-script_map = {'1': 'pre-selection', '2': 'plots'}
+# Map pipeline stage numbers to script names
+script_map = {
+    '1': 'pre-selection',   # Stage 1: Apply pre-selection cuts, compute kinematic variables
+    '2': 'plots'            # Stage 2: Generate FSR-related distribution plots
+}
 scripts = [script_map[s] for s in arg.run.split('-')]
-cmds = {'pre-selection': 'run'}
 
-# Base path for analysis scripts
+# Map script names to fccanalysis subcommands
+cmds = {'pre-selection': 'run'}  # Use fccanalysis run for pre-selection
+
+# Base path for FSR analysis scripts
 path = f'{loc.ROOT}/a-FSR'
 
 

@@ -1,6 +1,6 @@
-#################################
-### IMPORT STANDARD LIBRARIES ###
-#################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
 import os, sys, time, subprocess
 
@@ -19,15 +19,15 @@ t = time.time()
 from package.parsing import create_parser, parse_args, set_log
 from package.logger import get_logger
 parser = create_parser(
-    cat_single=True,
-    allow_empty=True,
-    include_sel=True,
-    fit=True,
-    bias=True,
-    bias_extra=True,
-    polarization=True,
-    target='bb',
-    pert=1.05
+    cat_single=True,       # Support single decay category
+    allow_empty=True,      # Allow empty category
+    include_sel=True,      # Include selection strategy options
+    fit=True,              # Include fit-specific options
+    bias=True,             # Include bias test options
+    bias_extra=True,       # Include extra bias test parameters
+    polarization=True,     # Include polarization/scale options
+    target='bb',           # Default Higgs decay mode
+    pert=1.05              # Default perturbation for bias test
 )
 arg = parse_args(parser, comb=True)
 set_log(arg)
@@ -40,15 +40,23 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+# Load directory configuration and analysis utilities
 from package.userConfig import loc
 from package.config import (
-    timer, mk_processes,
-    z_decays, h_decays, H_decays,
+    timer,              # Timing utility
+    mk_processes,       # Build process definitions
+    z_decays,           # Z boson decay modes
+    h_decays,           # Higgs decay modes (visible)
+    H_decays,           # Higgs decay modes (all)
 )
-from package.plots.plotting import Bias, PseudoRatio
-from package.tools.utils import mkdir
-from package.tools.process import preload_histograms, clear_histogram_cache, getMetaInfo
-from package.func.bias import pseudo_datacard
+from package.plots.plotting import Bias, PseudoRatio          # Plotting utilities
+from package.tools.utils import mkdir                         # Directory creation
+from package.tools.process import (                           # Process utilities
+    preload_histograms,                                       # Cache histograms
+    clear_histogram_cache,
+    getMetaInfo
+)
+from package.func.bias import pseudo_datacard                 # Bias test utilities
 
 
 
@@ -57,26 +65,29 @@ from package.func.bias import pseudo_datacard
 ###############################
 
 # Bundle parsed arguments for configuration
-cat, ecm, sel, pert = arg.cat, arg.ecm, arg.sel, arg.pert
-lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
-cat = 'combined' if arg.combine else cat
+cat, ecm, sel, pert = arg.cat, arg.ecm, arg.sel, arg.pert  # Perturbation factor for bias test
+lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)     # Integrated luminosity [ab^-1]
+cat = 'combined' if arg.combine else cat                   # Use 'combined' for channel combination
+
+# Build process definitions for analysis
 processes = mk_processes(ecm=ecm)
 
-# Build command arguments for subprocess calls
+# Build subprocess command arguments for calling make_pseudo.py and fit.py
 cmd_args = []
 if arg.cat:
-    cmd_args.extend(['--cat', f'{arg.cat}'])
+    cmd_args.extend(['--cat', f'{arg.cat}'])  # Category argument
 if arg.combine:
-    cmd_args.append('--combine')
-cmd_args.extend(['--sel', f'{sel}'])
+    cmd_args.append('--combine')                # Combine channels flag
+cmd_args.extend(['--sel', f'{sel}'])          # Selection strategy
 
-# Add extra fit options if provided
+# Add extra fit options from command-line if provided
 if arg.extra:
     cmd_args.extend(f'--{ext}' for ext in arg.extra)
 
+# Select cross-section scale: polarization or ILC configuration
 scale = 'polL' if arg.polL else ('polR' if arg.polR else ('ILC' if arg.ILC else ''))
 
-# Resolve directory paths for input/output
+# Resolve directory paths for bias test results and input
 inputdir   = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
 loc_result = loc.get('BIAS_RESULT',     cat, ecm, sel)
 nomDir     = loc.get('NOMINAL_RESULT',  cat, ecm, sel)

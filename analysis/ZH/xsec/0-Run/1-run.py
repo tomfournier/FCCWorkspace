@@ -25,9 +25,11 @@ import os, sys, json, time, subprocess
 
 from pathlib import Path
 
-from package.userConfig import loc
-from package.config import timer
+# Load directory path manager and timing utility
+from package.userConfig import loc         # Directory path configuration
+from package.config import timer           # Execution timing utility
 
+# Start execution timer
 t = time.time()
 
 
@@ -36,15 +38,15 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from package.parsing import create_parser, set_log  # Argument parsing utilities
+from package.logger import get_logger               # Logging setup
 parser = create_parser(
-    cat_multi=True,
-    ecm_multi=True,
-    include_sels=True,
-    run_stages=3,
-    add_test=True,
-    batch=True,
+    cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
+    ecm_multi=True,        # Support multiple energies (--ecm 240-365)
+    include_sels=True,     # Include selection strategy options
+    run_stages=3,          # MVA pipeline has 3 stages: pre + final + plots
+    add_test=True,         # Add test sample option
+    batch=True,            # Include batch execution options
     description='Run MVA Inputs pipeline'
 )
 arg = parser.parse_args()
@@ -59,16 +61,25 @@ LOGGER = get_logger(__name__)
 #############################
 
 # Parse comma-separated arguments into lists
-cats = arg.cat.split('-')
-ecms = [int(e) for e in arg.ecm.split('-')]
+cats = arg.cat.split('-')                              # Decay categories: ['ee'] or ['ee', 'mumu']
+ecms = [int(e) for e in arg.ecm.split('-')]          # Energies: [240] or [240, 365]
 
-# Map stage numbers to script filenames
-script_map = {'1': 'pre-selection', '2': 'final-selection', '3': 'plots'}
+# Map pipeline stage numbers to analysis script names
+script_map = {
+    '1': 'pre-selection',      # Stage 1: Apply pre-selection cuts, compute kinematic variables
+    '2': 'final-selection',    # Stage 2: Fill histograms with BDT variables
+    '3': 'plots'               # Stage 3: Generate distribution plots
+}
 scripts = [script_map[s] for s in arg.run.split('-')]
-# Map script to fccanalysis subcommand (plots handled directly by fccanalysis)
-cmds = {'pre-selection': 'run', 'final-selection': 'final', 'plots': 'plots'}
 
-# Base path for analysis scripts
+# Map script names to fccanalysis subcommands
+cmds = {
+    'pre-selection': 'run',      # Use fccanalysis run
+    'final-selection': 'final',  # Use fccanalysis final
+    'plots': 'plots'             # Use fccanalysis plots
+}
+
+# Base path for MVA analysis scripts
 path = f'{loc.ROOT}/1-MVAInputs'
 
 

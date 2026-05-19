@@ -28,9 +28,11 @@ python fit.py --combine --ecm 365 --sel Baseline_sep
 - `--ecm`: Center-of-mass energy (240 or 365 GeV)
 - `--sel`: Selection strategy (e.g., `Baseline`, `Baseline_sep`)
 - `--combine`: Combine ee and mumu channels for joint fit
-- `--bias`: Run in bias test mode (internal use with fit results)
+- `--bias`: Run in bias test mode (internal use with bias_test.py)
+- `--target`: Higgs decay mode for bias tests (e.g., `bb`, `cc`, `gg`, `mumu`, `WW`, `ZZ`, `inv`)
+- `--pert`: Prior uncertainty on signal cross-section for bias tests (default: 1.05)
 - `--noprint`: Suppress output of extraction values
-- `--t`: Display elapsed time
+- `--timer`: Display elapsed time
 
 **Workflow:**
 1. Combines datacards from individual channels (if `--combine` specified)
@@ -56,6 +58,8 @@ Validates fitting procedure by generating pseudo-data with known signal variatio
 ```bash
 python bias_test.py --cat ee --ecm 240 --pert 1.05
 python bias_test.py --combine --ecm 365 --pert 1.05 --freeze
+python bias_test.py --cat ee --ecm 240 --tot                        # Include all Z decays
+python bias_test.py --cat mumu --ecm 365 --plot_dc --no-print      # Generate diagnostic plots
 ```
 
 **Arguments:**
@@ -64,23 +68,27 @@ python bias_test.py --combine --ecm 365 --pert 1.05 --freeze
 - `--sel`: Selection strategy (default: `Baseline`)
 - `--pert`: Prior uncertainty on signal cross-section (default: 1.05 = +5%)
 - `--combine`: Combine channels for joint fit
+- `--tot`: Include all Z decay channels in signal definition (default: single channel)
 - `--freeze`: Freeze background yields (don't float in fit)
 - `--float`: Float backgrounds in fit
-- `--plot_dc`: Generate plots of datacards
+- `--plot_dc`: Generate diagnostic plots of datacards
 - `--polL` / `--polR`: Scale to left/right beam polarization
 - `--ILC`: Scale results to ILC luminosity
-- `--extra`: Extra fit options (`tot`, `onlyrun`, `t`)
-- `--t`: Display elapsed time
+- `--extra`: Extra fit options (pass as `--extra tot`, `--extra onlyrun`, etc.)
+- `--no-print`: Suppress output of extraction values
+- `--timer`: Display elapsed time
 
 **Workflow:**
-1. For each Higgs decay channel:
-   - Generates pseudo-data with known signal variation (controlled by `--pert`)
+1. **Histogram caching** — Preloads histograms and cross-section metadata once to minimize repeated I/O across all decay modes
+2. For each Higgs decay channel:
+   - Generates pseudo-data with known signal variation (controlled by `--pert`) using cached histograms
    - Runs fit on pseudo-data to recover signal strength
-   - Measures difference between fitted and injected signal (bias)
-2. Collects bias estimates across all decay modes
-3. Generates bias validation plots and summary statistics
+   - Measures difference between fitted and injected signal (bias = 100 × (μ_fitted - pert))
+   - Generates pseudo-ratio validation plots in high/low BDT score regions (single channels only)
+3. Collects bias estimates across all decay modes
+4. Generates bias summary plot and stores results in CSV and formatted text files
 
-**Output:** Pseudo-data fits, bias estimates, validation plots
+**Output:** Pseudo-data fits, bias estimates, validation plots, and structured results
 
 **Results Location:**
 - Bias fit results: `output/data/combine/{sel}/{ecm}/{cat}/bias/`
@@ -99,28 +107,50 @@ python bias_test.py --combine --ecm 365 --pert 1.05 --freeze
 
 ### Internal Utility Script
 
-#### `make_pseudo.py` — Pseudo-Data Generation (Verification Only)
+#### `make_pseudo.py` — Pseudo-Data Generation & Bias Fit Execution
 
-Generates pseudo-data histograms for a single Higgs decay channel. **Do not run directly**—automatically called by `bias_test.py`.
+Generates pseudo-data histograms and datacards for a specific Higgs decay channel, with optional automatic fit execution.
 
-**Purpose:** Verification utility to inspect pseudo-data generation for specific decay modes. Useful for debugging or understanding pseudo-data composition.
+**Usage:**
+```bash
+python make_pseudo.py --cat ee --ecm 240 --target bb --pert 1.05
+python make_pseudo.py --cat mumu --ecm 365 --target inv --pert 1.05 --run        # Generate and run fit
+python make_pseudo.py --cat ee --ecm 240 --target WW --pert 1.05 --onlyrun      # Run fit only (skip datacard generation)
+```
+
+**Arguments:**
+- `--cat`: Final state (`ee` or `mumu`)
+- `--ecm`: Center-of-mass energy (240 or 365 GeV)
+- `--sel`: Selection strategy (default: `Baseline`)
+- `--target`: Target Higgs decay mode (`bb`, `cc`, `gg`, `mumu`, `WW`, `ZZ`, `inv`, etc.)
+- `--pert`: Prior uncertainty on signal cross-section (default: 1.05 = +5%)
+- `--tot`: Include all Z decay channels (default: single channel)
+- `--freeze`: Freeze background yields in fit
+- `--float`: Float backgrounds in fit
+- `--plot_dc`: Generate diagnostic plots of datacards
+- `--run`: Generate pseudo-data and automatically execute fit
+- `--onlyrun`: Skip pseudo-data generation and only run fit (assumes datacard exists)
+- `--nobias`: Internal flag indicating script is not called from bias_test.py
+- `--timer`: Display elapsed time
+
+**Purpose:** Can be run standalone to generate and inspect pseudo-data for specific decay modes, or called automatically by `bias_test.py`. The `--run` and `--onlyrun` flags allow fit execution without separate script invocation.
 
 ---
 
 ### Batch Execution
 
-#### `../run/5-run.py` — Automated Script Execution
+#### `../0-Run/5-run.py` — Automated Script Execution
 
 Executes `fit.py` and `bias_test.py` for multiple combinations of category (`cat`), energy (`ecm`), and selection strategy (`sel`). Avoids repeated manual script invocations.
 
 **Usage:**
 ```bash
-python run/5-run.py
+python 0-Run/5-run.py
 ```
 
 **Purpose:** Streamlines batch processing of nominal fits and bias tests across all analysis configurations. Automatically manages parameter combinations defined in the script.
 
-For detailed information about batch execution, see [run/README.md](../run/README.md).
+For detailed information about batch execution, see [0-Run/README.md](../0-Run/README.md).
 
 ---
 
@@ -129,14 +159,22 @@ For detailed information about batch execution, see [run/README.md](../run/READM
 ```
 Processed Histograms (4-Combine)
     ↓
-┌─────────────────────┬──────────────────────┐
-│                     │                      │
-fit.py          bias_test.py (uses make_pseudo.py)
-│                     │
-└─────────────────────┴──────────────────────┘
-    ↓                       ↓
-Signal Strength         Bias Validation
-& Cross-Section         & Uncertainty
+┌──────────────────────────┬──────────────────────────────┐
+│                          │                              │
+fit.py (nominal)    bias_test.py (automated loop)         │
+│                          │                              │
+│                    ┌─────┴──────┐                       │
+│                    ↓            ↓                       │
+│            make_pseudo.py    PseudoRatio plots          │
+│                    ↓                                    │
+│            fit.py (bias)                                │
+│                    ↓                                    │
+│            Bias, PseudoRatio plot                       │
+│                                                         │
+└────────────────────┬────────────────────────────────────┘
+         ↓                       ↓
+Nominal Signal Strength   Bias Validation
+& Cross-Section           & Uncertainty
 ```
 
 ---
@@ -161,8 +199,10 @@ The `setup_CombinedLimit.sh` script is located in the `FCCWorkspace` directory (
 
 Configuration is centralized in [package/](../package/README.md):
 - **[userConfig.py](../package/userConfig.py)**: File paths, energy-dependent parameters (luminosity), channel definitions
-- **[config.py](../package/config.py)**: Physics constants, process definitions, decay modes
-- **[func/bias.py](../package/func/bias.py)**: Pseudo-data generation utilities
+- **[config.py](../package/config.py)**: Physics constants, process definitions, decay modes (Z and Higgs)
+- **[func/bias.py](../package/func/bias.py)**: Pseudo-data generation utilities (`pseudo_datacard` function)
+- **[plots/plotting.py](../package/plots/README.md)**: Bias and pseudo-ratio visualization (`Bias`, `PseudoRatio` functions)
+- **[tools/process.py](../package/tools/README.md)**: Histogram caching and cross-section utilities
 
 ## Output Structure
 

@@ -17,12 +17,19 @@ Examples:
         parser = create_parser(cat_multi=True, ecm_multi=True)
         args = parser.parse_args()
 
-    With evaluations for BDT:
+    With BDT evaluation and selection processing:
         parser = create_parser(
             cat_multi=True, ecm_multi=True,
             include_sels=True,           # For batch selection processing
-            bdt_eval=True,               # For metric/tree plotting
-            bdt_extra=True               # For check/hl options
+            bdt_eval=True                # For metric and tree plotting
+        )
+        args = parser.parse_args()
+
+    With optimization and fitting:
+        parser = create_parser(
+            cat_single=True,
+            optimize=True,               # For optimization arguments
+            fit=True, bias=True          # For fitting and bias tests
         )
         args = parser.parse_args()
 '''
@@ -40,7 +47,7 @@ def add_cat_argument(
         allow_empty: bool = False,
         default: str = '',
         allow_qq: bool = True,
-        group=None
+        group: str | None = None
          ) -> None:
     '''Add --cat/--cats argument for final state selection.'''
 
@@ -80,8 +87,8 @@ def add_cat_argument(
 def add_ecm_argument(
         parser: ArgumentParser,
         multi: bool = False,
-        default=None,
-        group=None
+        default: int | str | None = None,
+        group: str | None = None
          ) -> None:
     '''Add --ecm/--ecms argument for center-of-mass energy.'''
     if default is None:
@@ -115,7 +122,7 @@ def add_ecm_argument(
 def add_sel_argument(
         parser: ArgumentParser,
         default: str = '',
-        group=None
+        group: str | None = None
          ) -> None:
     '''Add --sel argument for single selection strategy.'''
     if group is None:
@@ -149,7 +156,7 @@ def add_run_argument(
         n_stages: int = 3,
         default: str = '2-3',
         add_test: bool = False,
-        group=None
+        group: str | None = None
          ) -> None:
     '''Add --run argument for pipeline stage selection.'''
     if n_stages == 2:
@@ -183,7 +190,10 @@ def add_run_argument(
         )
 
 
-def add_verbose_argument(parser: ArgumentParser, group=None) -> None:
+def add_verbose_argument(
+        parser: ArgumentParser,
+        group: str | None = None
+         ) -> None:
     '''Add -v/--verbose argument for debugging output.'''
     if group is None:
         group = parser.add_argument_group('General arguments')
@@ -195,7 +205,10 @@ def add_verbose_argument(parser: ArgumentParser, group=None) -> None:
     )
 
 
-def add_batch_argument(parser: ArgumentParser, group=None) -> None:
+def add_batch_argument(
+        parser: ArgumentParser,
+        group: str | None = None
+         ) -> None:
     '''Add --batch for HTCondor batch processing.'''
     if group is None:
         group = parser.add_argument_group('Execution arguments')
@@ -287,7 +300,7 @@ def add_optimize_args(
         is_run: bool = False,
         only_procs: bool = False
          ) -> None:
-    '''Add optimization arguments (procs, nevents, incr).'''
+    '''Add optimization arguments (procs, method, nevents, incr, metric, dist).'''
     args = parser.add_argument_group('Optimization arguments')
     args.add_argument(
         '--procs',
@@ -360,7 +373,7 @@ def add_fit_args(
         default_target: str = '',
         default_pert: float = 1.0
          ) -> None:
-    '''Add fit arguments (pert, target, combine, bias, t, print).'''
+    '''Add fit arguments (pert, target, combine, bias, timer, print).'''
     args = parser.add_argument_group('Fit arguments')
     args.add_argument(
         '--pert',
@@ -468,31 +481,47 @@ def create_parser(
     '''
     Factory function to compose a custom parser with selected argument groups.
 
-    This single function replaces all the specific create_*_parser functions
-    by allowing you to specify exactly which features you need.
+    This replaces specific create_*_parser functions by letting you specify
+    exactly which features your script needs. Mix and match argument groups
+    to build flexible parsers for different analysis stages.
 
     Args:
-        cat_single: Add --cat for single channel
-        cat_multi: Add --cat for multi-channel (ee-mumu combinations)
-        cat_default: Default value for --cat (None: auto-sets to 'ee-mumu' if cat_multi=True, else '')
-        ecm_multi: Add --ecm for multi-energy (240-365 combinations)
-        allow_empty_cat: Allow empty string for --cat
-        include_sel: Add --sel (single selection)
-        include_sels: Add --sels (batch selections)
-        run_stages: Add --run with N stages (0=none, 2/3/4 for pipeline stages)
-        batch: Add --batch for HTCondor
-        bdt_eval: Add basic BDT eval args (metric, tree)
-        bdt_extra: Add extended BDT args (check, hl) - requires bdt_eval=True
-        optimize: Add optimization args (procs, nevents, incr)
-        polarization: Add --polL, --polR, --ILC
-        fit: Add fit arguments
-        bias: Add bias test arguments - requires fit=True
-        default_target: Default value for --target
-        default_pert: Default value for --pert
-        description: Parser description
+        cat_single: Add --cat for single lepton channel (ee, mumu, or qq)
+        cat_multi: Add --cat for multi-channel mode (ee-mumu combinations)
+        cat_default: Default channel value (auto-sets to 'ee-mumu' if cat_multi=True)
+        allow_qq: Include hadronic qq channel in choices (default: True)
+        allow_empty: Allow empty string for --cat (default: False)
+        ecm_multi: Add --ecm for multi-energy mode (240-365 combinations)
+        ecm_default: Default energy value (default: '240' if ecm_multi, else 240)
+        include_sel: Add --sel for single selection strategy
+        include_sels: Add --sels for batch processing multiple selections
+        run_stages: Add --run for pipeline execution (0=none, 2/3/4 stages available)
+        run_default: Default pipeline stages (default: '2-3')
+        add_test: Add --test flag for pre-selection testing
+        batch: Add --batch for HTCondor job submission
+        bdt_eval: Add BDT evaluation arguments (--metric, --tree, --check, --hl)
+        plots: Add plotting arguments (--yields, --decay, --make, --scan)
+        cutflow: Add cutflow argument (--tot for all Z decays)
+        optimize: Add optimization arguments (--procs, --method, --nevents, --incr)
+        is_plot: Context flag for optimization plotting (used internally)
+        is_run: Context flag for optimization running (used internally)
+        only_procs: Only include --procs argument for optimization
+        polarization: Add polarization arguments (--polL, --polR, --ILC)
+        fit: Add fit arguments (--pert, --target, --combine, --bias, --timer, --print)
+        bias: Add bias test arguments (--freeze, --float, --plot_dc); requires fit=True
+        bias_extra: Add --extra argument for bias tests with choices ['tot', 'onlyrun', 't']
+        default_target: Default pseudodata target (default: '')
+        default_pert: Default perturbation scale factor (default: 1.0)
+        description: Parser description shown in help
 
     Returns:
-        Configured ArgumentParser ready to use
+        Configured ArgumentParser ready for parse_args()
+
+    Notes:
+        - Arguments are organized into logical groups for clean help output
+        - Selection arguments (--sel, --sels) share a group
+        - Execution arguments (--run, --batch) share a group
+        - Each feature group (BDT, plots, fit, etc.) has its own section
     '''
     parser = ArgumentParser(description=description)
 
@@ -602,7 +631,7 @@ def set_log(args: Namespace) -> None:
     --------
     In your main analysis script:
 
-        from package.parsing import create_parser, parse_args, setup_logger_from_args
+        from package.parsing import create_parser, parse_args, set_log
         from package.logger import get_logger
 
         # Parse arguments
@@ -610,7 +639,7 @@ def set_log(args: Namespace) -> None:
         args = parse_args(parser)
 
         # Setup logging based on --verbose flag
-        setup_logger_from_args(args)
+        set_log(args)
 
         # Now you can use logging
         LOGGER = get_logger(__name__)

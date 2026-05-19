@@ -5,7 +5,7 @@ Provides:
 - Type-flexible expansion with `LocPath.get()` and `loc.get(...)`.
 - Bidirectional type conversion via `astype(str)` and `astype(Path)`.
 - Global parameters: `plot_file`, `frac`, `nb`, `ww`, `cat`, `ecm`, `lumi`.
-- Utilities: `get_loc()`, `event()`, `get_params()`.
+- Utilities: `event()`, `get_params()`.
 
 Conventions:
 - `lumi` is in ab^-1 (10.8 at 240 GeV; 3.12 at 365 GeV).
@@ -67,11 +67,10 @@ lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 ### Custom class definition ###
 ###############################
 
-# str-like class with get and astype methods
 class LocPath(str):
     """String subclass for templates and expanded paths.
 
-    Adds:
+    Extends str with methods to:
     - `get(...)`: expand placeholders in a template
     - `astype(type)`: convert between LocPath (str) and PathObj (Path)
     """
@@ -119,11 +118,10 @@ class LocPath(str):
         return LocPath(expanded).astype(type)
 
 
-# pathlib.Path subclass with get and astype methods
 class PathObj(_PathBase):
     """Path subclass with get and astype methods, inheriting all Path functionality.
 
-    Adds:
+    Extends pathlib.Path with methods to:
     - `get(...)`: expand a named template from `loc`
     - `astype(type)`: convert between PathObj (Path) and LocPath (str)
     """
@@ -212,64 +210,77 @@ class locMeta(type):
 
 
 class loc(metaclass=locMeta):
-    """Path templates with placeholders ('cat', 'ecm', 'sel') and expansion methods."""
+    """Path template registry with placeholders for category, energy, and selection.
+
+    Templates use placeholders: 'cat' (channel), 'ecm' (energy), 'sel' (selection).
+    All templates are LocPath instances that can be expanded via get() or astype().
+    """
 
     repo = str(Path(__file__).parent.parent.resolve())
 
-    # Templates as LocPath strings with placeholders
-    ROOT                = LocPath(repo)                    # Repo root
-    PACKAGE             = LocPath(f"{repo}/package")       # Python package code
-    OUT                 = LocPath(f"{repo}/output")        # Output root
-    PLOTS               = LocPath(f"{repo}/output/plots")  # Plots root
-    DATA                = LocPath(f"{repo}/output/data")   # Data artifacts
-    TMP                 = LocPath(f"{repo}/output/tmp")    # Scratch state
+    # Templates as LocPath strings with placeholders: cat, ecm, sel
+    ROOT                = LocPath(repo)                    # Repository root
+    PACKAGE             = LocPath(f"{repo}/package")       # Python package directory
+    OUT                 = LocPath(f"{repo}/output")        # Output root directory
+    PLOTS               = LocPath(f"{repo}/output/plots")  # All plots output
+    DATA                = LocPath(f"{repo}/output/data")   # All data artifacts
+    TMP                 = LocPath(f"{repo}/output/tmp")    # Temporary/scratch data
 
-    JSON                = LocPath(f"{repo}/output/tmp/config_json")      # JSON configs
-    RUN                 = LocPath(f"{repo}/output/tmp/config_json/run")  # Per-run configs
+    JSON                = LocPath(f"{repo}/output/tmp/config_json")      # JSON configuration directory
+    RUN                 = LocPath(f"{repo}/output/tmp/config_json/run")  # Per-run configuration directory
 
-    EVENTS              = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis")  # Analysis samples
-    EVENTS_TEST         = LocPath(f"{repo}/output/data/events/ecm/cat/test/analysis")  # Test samples for analysis
-    EVENTS_TRAINING     = LocPath(f"{repo}/output/data/events/ecm/cat/full/training")  # Training samples
-    EVENTS_TRAIN_TEST   = LocPath(f"{repo}/output/data/events/ecm/cat/test/training")  # Test samples for training
+    # Event directories: templates use {ecm}, {cat} placeholders
+    EVENTS              = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis")  # Full event samples for analysis
+    EVENTS_TEST         = LocPath(f"{repo}/output/data/events/ecm/cat/test/analysis")  # Test event samples for analysis
+    EVENTS_TRAINING     = LocPath(f"{repo}/output/data/events/ecm/cat/full/training")  # Full event samples for BDT training
+    EVENTS_TRAIN_TEST   = LocPath(f"{repo}/output/data/events/ecm/cat/test/training")  # Test event samples for BDT training
 
-    OPTIMISATION        = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/full")  # Optimisation samples
-    OPTIMISATION_TEST   = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/test")  # Test Optimisation samples
+    # Optimisation directories: templates use {ecm}, {cat} placeholders
+    OPTIMISATION        = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/full")  # Full optimisation samples
+    OPTIMISATION_TEST   = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/test")  # Test optimisation samples
     OPTIMISATION_RES    = LocPath(f"{repo}/output/data/optimisation/results/ecm/cat")      # Optimisation results
 
-    FSR_TREE            = LocPath(f"{repo}/output/data/FSR/Inputs/ecm/cat/full")  # FSR samples
+    # FSR (Final State Radiation) directories: templates use {ecm}, {cat} placeholders
+    FSR_TREE            = LocPath(f"{repo}/output/data/FSR/Inputs/ecm/cat/full")  # Full FSR samples
     FSR_TEST            = LocPath(f"{repo}/output/data/FSR/Inputs/ecm/cat/test")  # Test FSR samples
-    FSR_RES             = LocPath(f"{repo}/output/data/FSR/results/ecm/cat")      # FSR results
+    FSR_RES             = LocPath(f"{repo}/output/data/FSR/results/ecm/cat")      # FSR analysis results
 
-    MVA                 = LocPath(f"{repo}/output/data/MVA")                        # MVA root
-    MVA_INPUTS          = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/MVAInputs")  # MVA inputs folder
-    BDT                 = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/BDT")        # Trained BDT
+    # Multivariate analysis (BDT): templates use {ecm}, {cat}, {sel} placeholders
+    MVA                 = LocPath(f"{repo}/output/data/MVA")                        # MVA root directory
+    MVA_INPUTS          = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/MVAInputs")  # BDT input variables
+    BDT                 = LocPath(f"{repo}/output/data/MVA/ecm/cat/sel/BDT")        # Trained BDT models
 
-    HIST                = LocPath(f"{repo}/output/data/histograms")                           # Histograms root
-    HIST_MVA            = LocPath(f"{repo}/output/data/histograms/MVAInputs/ecm/cat/")        # MVA input hists
-    HIST_PREPROCESSED   = LocPath(f"{repo}/output/data/histograms/preprocessed/ecm/cat")      # After preprocess
-    HIST_PROCESSED      = LocPath(f"{repo}/output/data/histograms/processed/ecm/cat/sel")     # After processing
-    HIST_PROCESSED      = LocPath(f"{repo}/output/data/histograms/optimisation/ecm/cat/sel")  # Optimisation histograms
+    # Histograms: templates use {ecm}, {cat}, {sel} placeholders
+    HIST                = LocPath(f"{repo}/output/data/histograms")                           # Histograms root directory
+    HIST_MVA            = LocPath(f"{repo}/output/data/histograms/MVAInputs/ecm/cat/")        # MVA input variable histograms
+    HIST_PREPROCESSED   = LocPath(f"{repo}/output/data/histograms/preprocessed/ecm/cat")      # After final selection
+    HIST_PROCESSED      = LocPath(f"{repo}/output/data/histograms/processed/ecm/cat/sel")     # After histogram processing
+    HIST_OPTIMISATION   = LocPath(f"{repo}/output/data/histograms/optimisation/ecm/cat/sel")  # Optimisation analysis histograms
 
-    PLOTS_MVA           = LocPath(f"{repo}/output/plots/MVAInputs/ecm/cat")       # Input var plots
-    PLOTS_BDT           = LocPath(f"{repo}/output/plots/evaluation/ecm/cat/sel")  # BDT perf plots
-    PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis plots
-    PLOTS_OPTIMISATION  = LocPath(f"{repo}/output/plots/optimisation/ecm/cat")    # Optimisation plots
-    PLOTS_FSR           = LocPath(f"{repo}/output/plots/fsr/ecm/cat")             # FSR plots
+    # Plots: templates use {ecm}, {cat}, {sel} placeholders
+    PLOTS_MVA           = LocPath(f"{repo}/output/plots/MVAInputs/ecm/cat")       # Input variable distributions
+    PLOTS_BDT           = LocPath(f"{repo}/output/plots/evaluation/ecm/cat/sel")  # BDT performance and scores
+    PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis measurement plots
+    PLOTS_OPTIMISATION  = LocPath(f"{repo}/output/plots/optimisation/ecm/cat")    # Selection optimisation plots
+    PLOTS_FSR           = LocPath(f"{repo}/output/plots/fsr/ecm/cat")             # FSR analysis plots
 
-    COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root
-    COMBINE_NOMINAL     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")  # Nominal outputs
-    COMBINE_BIAS        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")     # Bias outputs
+    # Statistical fit: templates use {sel}, {ecm}, {cat} placeholders
+    COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root directory
+    COMBINE_NOMINAL     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")  # Nominal analysis
+    COMBINE_BIAS        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")     # Bias test results
 
-    NOMINAL_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")       # Logs (nominal)
-    NOMINAL_RESULT      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/results")   # Results (nominal)
-    NOMINAL_DATACARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/datacard")  # Datacards (nominal)
-    NOMINAL_WS          = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/WS")        # Workspaces (nominal)
+    # Nominal fit outputs: templates use {sel}, {ecm}, {cat} placeholders
+    NOMINAL_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")       # Combine job logs
+    NOMINAL_RESULT      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/results")   # Fit results and plots
+    NOMINAL_DATACARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/datacard")  # Combine datacards
+    NOMINAL_WS          = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/WS")        # Combine workspaces
 
-    BIAS_LOG            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/log")           # Logs (bias)
-    BIAS_FIT_RESULT     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/fit")   # Fit outputs (bias)
-    BIAS_RESULT         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias")  # Bias summaries
-    BIAS_DATACARD       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Datacards (bias)
-    BIAS_WS             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Workspaces (bias)
+    # Bias test outputs: templates use {sel}, {ecm}, {cat} placeholders
+    BIAS_LOG            = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/log")           # Combine job logs
+    BIAS_FIT_RESULT     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/fit")   # Individual toy fit results
+    BIAS_RESULT         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias")  # Bias summaries and statistics
+    BIAS_DATACARD       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Combine datacards
+    BIAS_WS             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Combine workspaces
 
     @staticmethod
     def expand(
@@ -339,21 +350,23 @@ class loc(metaclass=locMeta):
 ### FUNCTIONS ###
 #################
 
-# __________________________
 def event(procs: list[str],
           path: str = '',
           end: str = '.root'
           ) -> list[str]:
-    '''Filter processes that contain valid ROOT event trees.
+    """Filter processes that contain valid ROOT event trees.
+
+    Validates that all files for each process contain the 'events' TTree.
+    Supports both single files and directories with multiple files.
 
     Args:
         procs: List of process names to validate
         path: Base path where process files are located
-        end: File extension (default: '.root')
+        end: File extension to search for (default: '.root')
 
     Returns:
-       List[str]: List of valid process names with 'events' TTree
-    '''
+        List of process names where all associated files contain 'events' TTree
+    """
     import uproot
     from glob import glob
 
@@ -390,7 +403,6 @@ def get_params(
      ) -> tuple[str, int, float]:
     ...
 
-# ______________________________________
 def get_params(
         env: os._Environ,
         cfg_json: str,
@@ -398,6 +410,29 @@ def get_params(
         qq_allowed: bool = False,
      ) -> Union[tuple[str, int],
                 tuple[str, int, float]]:
+    """Retrieve analysis parameters from configuration or interactive input.
+
+    In automated mode (RUN environment or HTCondor), reads from JSON config file.
+    Otherwise, prompts user for channel, energy, and kinematic cut settings.
+
+    Args:
+        env: Environment variables (typically os.environ)
+        cfg_json: JSON config filename in loc.RUN directory
+        is_final: If True, also returns luminosity value; returns (cat, ecm, lumi, test)
+                 If False, returns (cat, ecm, test)
+        qq_allowed: If True, allows 'qq' channel; default channels are ['ee', 'mumu']
+
+    Returns:
+        If is_final=False: Tuple of (category, ecm_energy, test_flag)
+            - category: 'ee', 'mumu', or 'qq' (if allowed)
+            - ecm_energy: 240 or 365 (GeV)
+            - test_flag: bool, True = kinematic cuts disabled, False = normal selection
+        If is_final=True: Tuple of (category, ecm_energy, luminosity, test_flag)
+            - luminosity: Integrated luminosity in ab^-1 (10.8 for 240 GeV, 3.12 for 365 GeV)
+
+    Raises:
+        FileNotFoundError: If config file not found in loc.RUN during automated mode
+    """
 
     import json
 

@@ -53,6 +53,7 @@ python process_input.py --cat mumu --ecm 365
 - Processes included:
   - **Signal:** $ZH$ production
   - **Backgrounds:** $ZZ$, $W^+W^-$, $Z+\text{jets}$, radiative $Z$ ($e^\pm\gamma$), diphoton ($\gamma\gamma$)
+  - **Note:** For $ee$ channel at 365 GeV, diphoton process is excluded
 - Variable selection: 9 kinematic features from `package.config.input_vars`
 - Process dictionary: `FCCee_procDict_winter2023_training_IDEA.json`
 
@@ -151,20 +152,22 @@ output/data/MVA/{ecm}/{cat}/{sel}/BDT/
 
 **Usage:**
 ```bash
-python evaluation.py --cat ee --ecm 240                    # Basic evaluation
-python evaluation.py --cat ee --ecm 240 --metric           # Skip metric plots
-python evaluation.py --cat ee --ecm 240 --tree             # Plot decision trees
-python evaluation.py --cat ee --ecm 240 --check            # Plot input variables
-python evaluation.py --cat ee --ecm 240 --hl               # Plot high/low regions
+python evaluation.py --cat ee --ecm 240                    # Generate all plots
+python evaluation.py --cat ee --ecm 240 --metric           # Generate classifier performance metrics
+python evaluation.py --cat ee --ecm 240 --tree             # Plot decision trees from ensemble
+python evaluation.py --cat ee --ecm 240 --check            # Plot input variable distributions
+python evaluation.py --cat ee --ecm 240 --hl               # Plot variables in high/low BDT score regions
+python evaluation.py --cat ee --ecm 240 --sels Baseline    # Evaluate specific selection strategy
 ```
 
 **Arguments:**
 - `--cat`: Final state (`ee` or `mumu`)
 - `--ecm`: Center-of-mass energy (240 or 365 GeV)
-- `--metric`: Generate classifier performance metrics plots
+- `--sels`: Selection strategies to evaluate, separated by `-` (default: `Baseline-test`)
+- `--metric`: Generate classifier performance metrics plots (ROC, AUC, classification error, log loss)
 - `--tree`: Visualize individual decision trees from the ensemble
-- `--check`: Plot distributions of input variables used for training
-- `--hl`: Plot variable distributions in high/low BDT score regions
+- `--check`: Plot input variable distributions for all processes
+- `--hl`: Plot input variable distributions separated by high/low BDT score regions
 
 **Metrics Computed:**
 - Receiver Operating Characteristic (ROC) curve
@@ -192,10 +195,10 @@ The optimal BDT cut value separating high/low score regions is determined in the
 
 To run all steps automatically across all channel/energy combinations:
 ```bash
-python run/2-run.py
+python 0-Run/2-run.py
 ```
 
-For details on the runner script, see [run/README.md](../run/README.md).
+For details on the runner script, see [0-Run/README.md](../0-Run/README.md).
 
 ## Key Functions
 

@@ -24,30 +24,32 @@ import os, sys, json, time, subprocess
 
 from pathlib import Path
 
-from package.userConfig import loc
-from package.tools.utils import mkdir
-from package.config import timer
+# Load directory path manager and utilities
+from package.userConfig import loc           # Directory path configuration
+from package.tools.utils import mkdir        # Directory creation utility
+from package.config import timer             # Execution timing utility
 
+# Start execution timer
 t = time.time()
 
 # Reuse environment without copying for each subprocess
 ENV = os.environ.copy()
-ENV['RUN'] = '1'
+ENV['RUN'] = '1'  # Flag for automated mode
 
 
 ########################
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from package.parsing import create_parser, set_log  # Argument parsing utilities
+from package.logger import get_logger               # Logging setup
 parser = create_parser(
-    cat_multi=True,
-    ecm_multi=True,
-    include_sels=True,
-    run_stages=2,
-    run_default='1-2',
-    polarization=True,
+    cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
+    ecm_multi=True,        # Support multiple energies (--ecm 240-365)
+    include_sels=True,     # Include selection strategy options
+    run_stages=2,          # Combine pipeline has 2 stages: process_histogram + combine
+    run_default='1-2',     # Run both stages by default
+    polarization=True,     # Include polarization/scale options
     description='Run Combine pipeline'
 )
 arg = parser.parse_args()
@@ -62,19 +64,26 @@ LOGGER = get_logger(__name__)
 #############################
 
 # Parse comma-separated arguments into lists
-cats = arg.cat.split('-')
-ecms = [int(e) for e in arg.ecm.split('-')]
+cats = arg.cat.split('-')                              # Decay categories: ['ee'] or ['ee', 'mumu']
+ecms = [int(e) for e in arg.ecm.split('-')]          # Energies: [240] or [240, 365]
+
+# Parse selection strategies (from command-line or defaults)
 if arg.sels == '':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']  # Default selections
 else:
-    sels = arg.sels.split('-')
+    sels = arg.sels.split('-')  # Parse from command-line
 
-# Map stage numbers to script names (cutflow added as stage 4)
-script_map = {'1': 'process_histogram', '2': 'combine'}
+# Map pipeline stage numbers to script names
+script_map = {
+    '1': 'process_histogram',   # Stage 1: Split histograms into high/low BDT score regions
+    '2': 'combine'              # Stage 2: Create combine datacards from processed histograms
+}
 scripts = [script_map[s] for s in arg.run.split('-')]
-cmds = {'combine': 'combine'}
 
-# Base path for analysis scripts
+# Map script names to fccanalysis subcommands
+cmds = {'combine': 'combine'}  # Only 'combine' uses fccanalysis subcommand
+
+# Base path for combine analysis scripts
 path = f'{loc.ROOT}/4-Combine'
 
 

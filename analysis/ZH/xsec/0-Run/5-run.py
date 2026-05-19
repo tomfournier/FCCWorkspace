@@ -21,29 +21,31 @@ Usage:
 
 import os, sys, time, subprocess
 
-from package.userConfig import loc
-from package.config import timer
+# Load directory path manager and timing utility
+from package.userConfig import loc         # Directory path configuration
+from package.config import timer           # Execution timing utility
 
+# Start execution timer
 t = time.time()
 
 # Reuse environment without copying for each subprocess
-ENV = os.environ
+ENV = os.environ  # Use same environment for all subprocesses
 
 ########################
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from package.parsing import create_parser, set_log  # Argument parsing utilities
+from package.logger import get_logger               # Logging setup
 parser = create_parser(
-    cat_multi=True,
-    ecm_multi=True,
-    include_sels=True,
-    run_stages=2,
-    fit=True,
-    bias=True,
-    bias_extra=True,
-    polarization=True,
+    cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
+    ecm_multi=True,        # Support multiple energies (--ecm 240-365)
+    include_sels=True,     # Include selection strategy options
+    run_stages=2,          # Fit pipeline has 2 stages: fit + bias_test
+    fit=True,              # Include fit-specific options
+    bias=True,             # Include bias test options
+    bias_extra=True,       # Include extra bias test parameters
+    polarization=True,     # Include polarization/scale options
     description='Run Fit pipeline'
 )
 arg = parser.parse_args()
@@ -60,8 +62,15 @@ LOGGER = get_logger(__name__)
 def parse_channels(cat_arg: str, combine: bool) -> list[str]:
     '''Return channel list from CLI values.
 
-    If `combine` is requested, include the combined fit channel
-    (`comb`). With an empty category string, only `comb` is used.
+    If `combine` is requested, include the combined fit channel ('comb').
+    With an empty category string, only 'comb' is used.
+
+    Args:
+        cat_arg: Channel argument string (e.g., 'ee', 'ee-mumu')
+        combine: Whether to include combined fit in the list
+
+    Returns:
+        List of channel identifiers to process
     '''
     cats_local = cat_arg.split('-') if cat_arg else []
     if combine:
@@ -72,23 +81,33 @@ def parse_channels(cat_arg: str, combine: bool) -> list[str]:
 
 
 def parse_ecms(ecm_arg: str) -> list[int]:
-    '''Return list of center-of-mass energies as integers.'''
+    '''Return list of center-of-mass energies as integers.
+
+    Args:
+        ecm_arg: Energy argument string (e.g., '240', '240-365')
+
+    Returns:
+        List of CoM energies as integers
+    '''
     return [int(e) for e in ecm_arg.split('-')]
 
 
 # Parse channel configuration and center-of-mass energies
-cats = parse_channels(arg.cat, arg.combine)
-ecms = parse_ecms(arg.ecm)
+cats = parse_channels(arg.cat, arg.combine)  # Includes 'comb' if --combine specified
+ecms = parse_ecms(arg.ecm)                           # Convert to list of integers
 
-# Active selections for analysis
+# Selection strategies to process (from command-line or defaults)
 if arg.sels == '':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']  # Default selections
 else:
-    sels = arg.sels.split('-')
+    sels = arg.sels.split('-')  # Parse from command-line
 
 
-# Map stage identifiers to script names
-SCRIPT_MAP = {'1': 'fit', '2': 'bias_test'}
+# Map pipeline stage identifiers to script names
+SCRIPT_MAP = {
+    '1': 'fit',        # Stage 1: Run nominal fit
+    '2': 'bias_test'   # Stage 2: Run bias test with pseudo-data
+}
 scripts = [SCRIPT_MAP[s] for s in arg.run.split('-')]
 
 # Base directory for fit scripts

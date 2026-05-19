@@ -4,55 +4,50 @@
 
 import os
 
-# Analysis configuration and paths
+# Load configuration and measurement selection functions
 from package.userConfig import (
     loc, event, get_params,
     frac, nb
 )
-from package.func.bdt import def_bdt, make_high_low
-from sel.final.leptonic import histos_ll
+from package.func.bdt import def_bdt, make_high_low  # BDT score binning utilities
+from sel.final.leptonic import histos_ll             # Histogram definitions
 from package.config import (
-    z_decays,
-    H_decays,
-    input_vars
+    z_decays,      # Z boson decay modes
+    H_decays,      # Higgs boson decay modes
+    input_vars     # BDT input variables for classification
 )
 
+# Load analysis parameters: decay category, CoM energy, luminosity, test flag
 cat, ecm, lumi, test = get_params(os.environ.copy(), '3-run.json', is_final=True)
 
 
 
-#############################
-### SETUP CONFIG SETTINGS ###
-#############################
+##############################
+### CONFIGURE INPUT/OUTPUT ###
+##############################
 
-# Input directory for pre-selection outputs
-if test: inputDir  = loc.get('EVENTS_TEST', cat, ecm)
-else:    inputDir  = loc.get('EVENTS',           cat, ecm)
+# Input: Preprocessed ROOT trees and events from pre-selection
+if test: inputDir  = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
+else:    inputDir  = loc.get('EVENTS',      cat, ecm)  # Full event sample
 
-# Output directory for final-selection histograms
+# Output: Directory for measurement histograms (used by measurement/fit stages)
 outputDir = loc.get('HIST_PREPROCESSED', cat, ecm)
 
-# Link to the dictonary that contains all the cross section informations etc...
-# path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
+# Process dictionary with cross-section and sample metadata
+# Source: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = 'FCCee_procDict_winter2023_IDEA.json'
 
-# If procDict is incomplete, can use procDictAdd to add information on the missing samples
+# Parallel processing configuration
+nCPUS = 10  # Number of CPUs for parallel histogram filling
 
-# Parallel processing configuration (default nCPUS=4)
-nCPUS = 10
+# ROOT output options
+doTree  = False       # Optionally save ROOT TTrees (default is False)
+doScale = True        # Scale histograms to integrated luminosity
+intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 
-# Produces ROOT TTrees, default is False
-# doTree = True
-
-# Scale yields to integrated luminosity
-doScale = True
-intLumi = lumi * 1e6  # in pb-1
-
-# Save results in a .json file
-# saveJSON = True
-
-# Save result in LaTeX tables
-# saveTabular = True
+# Optional outputs (commented out by default)
+# saveJSON = True    # Export results to JSON format
+# saveTabular = True # Generate LaTeX tables
 
 
 

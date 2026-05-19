@@ -83,13 +83,19 @@ def _make_fig(figsize: tuple = (12, 8),
 
 
 def _get_chi2_params(chi2_method: str) -> dict[str, any]:
-    """Get chi2 method-specific parameters (labels, baseline values).
+    """Get chi2 method-specific parameters for consistent plot styling.
+
+    Provides method-dependent labels and values for unified visualization
+    across different chi2 methods.
 
     Args:
-        chi2_method: Either 'mll' or 'pll'
+        chi2_method: Either 'mll' (mass+recoil) or 'pll' (mass+recoil+momentum)
 
     Returns:
-        Dictionary with 'latex_label', 'baseline_value', 'baseline_label'
+        Dictionary with keys:
+        - 'latex_label': X-axis label for plots
+        - 'baseline_value': Default parameter value from previous analysis
+        - 'baseline_label': Formatted baseline label for legend
     """
     if chi2_method == 'mll':
         return {
@@ -112,13 +118,16 @@ def _get_chi2_params(chi2_method: str) -> dict[str, any]:
 ##########################
 
 def load_results(results_file: Path) -> dict[str, dict]:
-    """Load optimization results from JSON file.
+    """Load optimization scan results from JSON file.
+
+    Parses results produced by optimize.py containing efficiency metrics
+    across chi2 parameter space for all event categories.
 
     Args:
-        results_file: Path to the results.json file
+        results_file: Path to the results.json file from optimization
 
     Returns:
-        Dictionary with results keyed by chi2_frac
+        Dictionary with results keyed by chi2_frac value (as strings)
     """
     if not results_file.exists():
         LOGGER.warning(f'Results file not found: {results_file}\nReturning empty data')
@@ -131,14 +140,18 @@ def load_results(results_file: Path) -> dict[str, dict]:
 
 
 def extract_arrays(results: dict[str, dict], category: str = 'overall') -> tuple[np.ndarray, ...]:
-    """Extract numpy arrays from results dictionary for a specific category.
+    """Extract numeric arrays from results dictionary for a specific event category.
+
+    Transforms JSON results into numpy arrays sorted by chi2 parameter value,
+    ready for plotting and analysis.
 
     Args:
-        results: Results dictionary from JSON
-        category: Category key ('overall', 'zero_pair', 'one_pair', 'multi_pair')
+        results: Results dictionary from JSON file
+        category: Event category - 'overall', 'zero_pair', 'one_pair', or 'multi_pair'
 
     Returns:
-        Tuple of (chi2_fracs, efficiencies, n_correct, n_partial, n_incorrect, n_total)
+        Tuple of sorted arrays: (chi2_fracs, efficiencies, n_correct, n_partial,
+                                 n_incorrect, n_total)
     """
     if not results:
         dummy = np.array([])
@@ -171,15 +184,18 @@ def efficiency(
         label: str,
         chi2_method: str,
         full_range: bool = False) -> None:
-    """Plot efficiency vs chi2 parameter.
+    """Plot pairing efficiency vs chi2 weighting parameter.
+
+    Visualizes how pairing efficiency changes across chi2 parameter space,
+    highlighting the optimal parameter value that maximizes efficiency.
 
     Args:
-        chi2_fracs: Array of chi2 values
-        efficiencies: Array of efficiency values
+        chi2_fracs: Array of chi2 parameter values (x-axis)
+        efficiencies: Array of corresponding efficiency values (y-axis)
         outDir: Output directory for plots
-        label: LaTeX label for the final state
-        chi2_method: Either 'mll' or 'pll'
-        full_range: Whether to use full y-axis range
+        label: LaTeX label for the final state (e.g., Z(→μμ)H)
+        chi2_method: Either 'mll' or 'pll' for method-specific formatting
+        full_range: If True, use full 0-100% y-axis range
     """
     if len(chi2_fracs) == 0:
         return
@@ -353,10 +369,13 @@ def event_counts(
 
 
 def load_data(root_file: Path) -> dict[str, np.ndarray]:
-    """Load distributions from ROOT file produced by optimize.py.
+    """Load kinematic distributions from ROOT file produced by optimize.py.
+
+    Extracts TTree data containing full kinematic information and match quality
+    indicators for reconstructed and true particles at specific chi2 values.
 
     Args:
-        root_file: Path to ROOT file containing distributions
+        root_file: Path to ROOT file (results_baseline.root or results_optimal.root)
 
     Returns:
         Dictionary mapping variable names to numpy arrays
@@ -385,19 +404,22 @@ def plot_comp(
         chi2_method: str,
         bins: int = 100,
         log_scale: str = 'linear') -> None:
-    """Plot comparison between baseline, optimal, and true distributions.
+    """Plot kinematic variable distributions comparing baseline and optimal chi2 values.
+
+    Creates overlaid histograms showing reconstructed and true kinematics at
+    baseline and optimal chi2 parameters to visualize improvement.
 
     Args:
-        old: Array of baseline values
-        reco: Array of reconstructed values (optimal)
-        true: Array of true values
-        var_name: Name of the variable
+        old: Reconstructed values at baseline chi2
+        reco: Reconstructed values at optimal chi2
+        true: True MC values (for reference)
+        var_name: Variable identifier for filename
         xlabel: LaTeX label for x-axis
         outDir: Output directory for plots
-        label: LaTeX label for the final state
-        chi2_method: Either 'mll' or 'pll'
-        bins: Number of bins for histogram
-        log_scale: Either 'linear' or 'log' for y-scale
+        label: LaTeX label for final state
+        chi2_method: 'mll' or 'pll' for method-specific formatting
+        bins: Number of histogram bins
+        log_scale: 'linear' or 'log' for y-axis scale
     """
     # Check if arrays are not empty
     if len(old) == 0 or len(reco) == 0 or len(true) == 0:
@@ -450,19 +472,24 @@ def plot_origin(
         chi2_method: str,
         bins: int = 100,
         log_scale: str = 'linear') -> None:
-    """Plot comparison between baseline, optimal, and true distributions.
+    """Plot kinematic variables colored by pairing match quality.
+
+    Creates overlaid histograms showing reconstructed kinematics at optimal chi2,
+    color-coded by match quality (correct, partial, incorrect) compared to MC truth.
+    Baseline values shown as scatter points for reference.
 
     Args:
-        old: Array of baseline values
-        reco: Array of reconstructed values (optimal)
-        true: Array of true values
-        var_name: Name of the variable
+        old: Reconstructed values at baseline chi2
+        reco: Reconstructed values at optimal chi2 (main data)
+        true: True MC values (reference)
+        matches: Match quality array (0=incorrect, 1=partial, 2=correct)
+        var_name: Variable identifier for filename
         xlabel: LaTeX label for x-axis
         outDir: Output directory for plots
-        label: LaTeX label for the final state
-        chi2_method: Either 'mll' or 'pll'
-        bins: Number of bins for histogram
-        log_scale: Either 'linear' or 'log' for y-scale
+        label: LaTeX label for final state
+        chi2_method: 'mll' or 'pll' for method-specific formatting
+        bins: Number of histogram bins
+        log_scale: 'linear' or 'log' for y-axis scale
     """
     # Check if arrays are not empty
     if len(old) == 0 or len(reco) == 0 or len(true) == 0:
@@ -514,12 +541,17 @@ def compare_dists(
         out_origin: Path,
         label: str,
         chi2_method: str) -> None:
-    """Compare distributions between baseline and optimal chi2 values.
+    """Compare kinematic distributions between baseline and optimal chi2 values.
+
+    Loads ROOT files containing full kinematic information and generates
+    comparison plots for leptons, Z system, and pair variables, color-coded
+    by pairing match quality.
 
     Args:
         old_file: Path to results_baseline.root
         optimal_file: Path to results_optimal.root
-        outDir: Output directory for plots
+        out_comp: Output directory for direct comparison plots
+        out_origin: Output directory for plots colored by match quality
         label: LaTeX label for the final state
         chi2_method: Either 'mll' or 'pll'
     """
@@ -602,7 +634,15 @@ def compare_dists(
 ##########################
 
 def main():
-    """Main plotting function"""
+    """Main execution function.
+
+    Orchestrates plotting workflow:
+    1. Parse command-line arguments and setup logging
+    2. Load process list and iterate over processes and chi2 methods
+    3. Generate optimization scan plots (efficiency, composition, event counts)
+    4. Generate kinematic distribution comparison plots
+    5. Color-code distributions by pairing match quality
+    """
     cat, ecm = arg.cat, arg.ecm
 
     # Get input and output directories

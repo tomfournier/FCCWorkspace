@@ -24,9 +24,11 @@ import os, sys, json, time, subprocess
 
 from pathlib import Path
 
-from package.userConfig import loc
-from package.config import timer
+# Load directory path manager and timing utility
+from package.userConfig import loc         # Directory path configuration
+from package.config import timer           # Execution timing utility
 
+# Start execution timer
 t = time.time()
 
 
@@ -35,17 +37,17 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from package.parsing import create_parser, set_log  # Argument parsing utilities
+from package.logger import get_logger               # Logging setup
 parser = create_parser(
-    cat_multi=True,
-    ecm_multi=True,
-    include_sels=True,
-    plots=True,
-    cutflow=True,
-    run_stages=4,
-    add_test=True,
-    batch=True,
+    cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
+    ecm_multi=True,        # Support multiple energies (--ecm 240-365)
+    include_sels=True,     # Include selection strategy options
+    plots=True,            # Include plot generation options
+    cutflow=True,          # Include cutflow analysis options
+    run_stages=4,          # Measurement pipeline has 4 stages: pre + final + plots + cutflow
+    add_test=True,         # Add test sample option
+    batch=True,            # Include batch execution options
     description='Run Measurement pipeline'
 )
 arg = parser.parse_args()
@@ -60,15 +62,25 @@ LOGGER = get_logger(__name__)
 #############################
 
 # Parse comma-separated arguments into lists
-cats = arg.cat.split('-')
-ecms = [int(e) for e in arg.ecm.split('-')]
+cats = arg.cat.split('-')                              # Decay categories: ['ee'] or ['ee', 'mumu']
+ecms = [int(e) for e in arg.ecm.split('-')]          # Energies: [240] or [240, 365]
 
-# Map stage numbers to script names (cutflow added as stage 4)
-script_map = {'1': 'pre-selection', '2': 'final-selection', '3': 'plots', '4': 'cutflow'}
+# Map pipeline stage numbers to script names
+script_map = {
+    '1': 'pre-selection',      # Stage 1: Apply pre-selection cuts, compute kinematic variables
+    '2': 'final-selection',    # Stage 2: Fill measurement histograms with BDT scores
+    '3': 'plots',              # Stage 3: Generate distribution plots
+    '4': 'cutflow'             # Stage 4: Analyze event yield per cut stage
+}
 scripts = [script_map[s] for s in arg.run.split('-')]
-cmds = {'pre-selection': 'run', 'final-selection': 'final'}
 
-# Base path for analysis scripts
+# Map script names to fccanalysis subcommands
+cmds = {
+    'pre-selection': 'run',      # Use fccanalysis run
+    'final-selection': 'final'   # Use fccanalysis final
+}
+
+# Base path for measurement analysis scripts
 path = f'{loc.ROOT}/3-Measurement'
 
 

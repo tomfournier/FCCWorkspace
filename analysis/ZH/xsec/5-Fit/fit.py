@@ -1,6 +1,6 @@
-#################################
-### IMPORT STANDARD LIBRARIES ###
-#################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
 import os, sys, subprocess
 
@@ -20,13 +20,13 @@ t = time()
 from package.parsing import create_parser, parse_args, set_log
 from package.logger import get_logger
 parser = create_parser(
-    cat_multi=True,
-    allow_empty=True,
-    include_sel=True,
-    fit=True,
+    cat_multi=True,        # Support multiple decay categories
+    allow_empty=True,      # Allow empty category (for combined fits)
+    include_sel=True,      # Include selection strategy options
+    fit=True,              # Include fit-specific options
     description='Fit Script'
 )
-arg = parse_args(parser, comb=True)
+arg = parse_args(parser, comb=True)  # Parse with combination support
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -37,9 +37,10 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+# Load directory path manager and utilities
 from package.userConfig import loc
-from package.config import timer
-from package.tools.utils import mkdir
+from package.config import timer         # Timing utility
+from package.tools.utils import mkdir    # Directory creation
 
 
 
@@ -53,41 +54,46 @@ if arg.combine: arg.cat = 'combined'
 # Bundle arguments for directory lookup
 args = [arg.cat, arg.ecm, arg.sel]
 
-# Map fit mode (nominal vs bias) to corresponding directory locations
+# Map fit mode (nominal vs bias test) to corresponding directory locations
+# This allows reusing code for both standard fits and bias test procedures
 location_map = {
-    False: {  # Nominal fit
-        'dir': 'COMBINE_NOMINAL',
-        'dc':  'NOMINAL_DATACARD',
-        'ws':  'NOMINAL_WS',
-        'log': 'NOMINAL_LOG',
-        'res': 'NOMINAL_RESULT',
-        'tp':  'nominal'
+    False: {  # Nominal fit (standard measurement)
+        'dir': 'COMBINE_NOMINAL',      # Main working directory
+        'dc':  'NOMINAL_DATACARD',     # Input datacard directory
+        'ws':  'NOMINAL_WS',           # Workspace output directory
+        'log': 'NOMINAL_LOG',          # Log file directory
+        'res': 'NOMINAL_RESULT',       # Fit results output directory
+        'tp':  'nominal'               # Type label for naming
     },
-    True: {   # Bias test fit
-        'dir': 'COMBINE_BIAS',
-        'dc':  'BIAS_DATACARD',
-        'ws':  'BIAS_WS',
-        'log': 'BIAS_LOG',
-        'res': 'BIAS_FIT_RESULT',
-        'tp': 'bias'
+    True: {   # Bias test fit (for testing fit bias)
+        'dir': 'COMBINE_BIAS',         # Bias test working directory
+        'dc':  'BIAS_DATACARD',        # Input biased datacard directory
+        'ws':  'BIAS_WS',              # Workspace output directory
+        'log': 'BIAS_LOG',             # Log file directory
+        'res': 'BIAS_FIT_RESULT',      # Fit results output directory
+        'tp': 'bias'                   # Type label for naming
     }
 }
-# Select configuration based on fit mode
+# Select configuration based on fit mode (nominal vs bias)
 config = location_map[arg.bias]
+
 # Resolve directory paths based on configuration and arguments
-dir, dc = loc.get(config['dir'], *args), loc.get(config['dc'],  *args)
-ws, log = loc.get(config['ws'],  *args), loc.get(config['log'], *args)
-res, tp = loc.get(config['res'], *args), config['tp']
+dir = loc.get(config['dir'], *args)   # Working directory
+dc  = loc.get(config['dc'],  *args)   # Input datacard directory
+ws  = loc.get(config['ws'],  *args)   # Workspace directory
+log = loc.get(config['log'], *args)   # Log output directory
+res = loc.get(config['res'], *args)   # Results output directory
+tp  = config['tp']                         # Type identifier
 
 # Define naming suffixes for file outputs
-comb = '_combined' if arg.combine else ''
-tar = f'_{arg.target}' if arg.bias else ''
-dc_comb = loc.get('COMBINE', '', arg.ecm, arg.sel)
+comb = '_combined' if arg.combine else ''   # Combined channel suffix
+tar = f'_{arg.target}' if arg.bias else ''  # Bias test target suffix (e.g., _bb)
+dc_comb = loc.get('COMBINE', '', arg.ecm, arg.sel)  # Combined datacard location
 
 # Define full file paths for workspace, logs, and results
-ws_file    = f'{ws}/ws{tar}.root'
-log_text   = f'{log}/log_text2workspace{tar}.txt'
-result_log = f'{log}/log_results{tar}.txt'
+ws_file    = f'{ws}/ws{tar}.root'                  # Workspace file (workspace.root or workspace_bb.root)
+log_text   = f'{log}/log_text2workspace{tar}.txt'  # Text2workspace log
+result_log = f'{log}/log_results{tar}.txt'         # Fit results log
 
 # Set up environment for subprocess calls
 env = os.environ.copy()

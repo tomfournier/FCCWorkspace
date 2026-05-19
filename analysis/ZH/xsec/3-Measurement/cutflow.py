@@ -1,6 +1,6 @@
-#################################
-### IMPORT STANDARD LIBRARIES ###
-#################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
 from time import time
 
@@ -16,9 +16,9 @@ t = time()
 from package.parsing import create_parser, set_log
 from package.logger import get_logger
 parser = create_parser(
-    cat_multi=True,
-    include_sels=True,
-    cutflow=True,
+    cat_multi=True,        # Support multiple decay categories
+    include_sels=True,     # Include selection strategy options
+    cutflow=True,          # Include cutflow analysis options
     description='Cutflow Script'
 )
 arg = parser.parse_args()
@@ -32,51 +32,63 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+# Load directory paths and cutflow analysis functions
 from package.userConfig import loc
 from package.config import (
-    timer, mk_processes,
-    z_decays, H_decays,
-    colors, labels)
+    timer,              # Timing utility
+    mk_processes,       # Build process definitions
+    z_decays,           # Z boson decay modes
+    H_decays,           # Higgs decay modes
+    colors, labels      # Process styling for plots
+)
 from package.plots.cutflow import (
-    get_cutflow,
-    branches_from_cuts
+    get_cutflow,            # Calculate event counts per cut
+    branches_from_cuts      # Get branches needed for each cut
 )
 
 
 
-#############################
-### SETUP CONFIG SETTINGS ###
-#############################
+############################
+### GLOBAL CONFIGURATION ###
+############################
 
+# Decay categories to analyze (from command-line: cat1-cat2 format)
 cats, ecm = arg.cat.split('-'), arg.ecm
+# Integrated luminosity [ab^-1]
 lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
-# Selection strategies to analyze
+
+# Selection strategies to analyze (from command-line or defaults)
 if arg.sels == '':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']  # Default selections
 else:
-    sels = arg.sels.split('-')
+    sels = arg.sels.split('-')  # Parse from command-line
 
 
 
-#######################
-### DEFINE THE CUTS ###
-#######################
+###################
+### DEFINE CUTS ###
+###################
 
-# Define Baseline selection cuts for each stage
-p_up = 70 if ecm==240 else (150 if ecm==365 else 240)
-p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)
+# CoM-dependent kinematic bounds for baseline selection
+p_up = 70 if ecm==240 else (150 if ecm==365 else 240)  # Upper momentum cut [GeV]
+p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)     # Lower momentum cut [GeV]
+
+# Define sequential baseline selection cuts
 baseline_cuts = {
-    'cut0': '', 'cut1': '', 'cut2': '',
-    'cut3': 'zll_m > 86 & zll_m < 96',
-    'cut4': f'zll_p > {p_dw} & zll_p < {p_up}'
+    'cut0': '',                                 # Diagnostic: no cuts
+    'cut1': '',                                 # Lepton isolation (applied in pre-selection)
+    'cut2': '',                                 # Opposite-sign requirement
+    'cut3': 'zll_m > 86 & zll_m < 96',          # Z mass window [GeV]
+    'cut4': f'zll_p > {p_dw} & zll_p < {p_up}'  # Dilepton momentum window
 }
-# Human-readable labels for baseline cuts
+
+# Human-readable labels for cuts (displayed in plots)
 baseline_labels = {
-    'cut0': 'No cut',
-    'cut1': '#geq 1#ell^{#pm} + ISO',
-    'cut2': '#geq 2 #ell^{#pm} + OS',
-    'cut3': '86 < m_{#ell^{+}#ell^{-}} < 96 GeV',
-    'cut4': f'{p_dw} < p_{{#ell^{{+}}#ell^{{-}}}} < {p_up} GeV'
+    'cut0': 'No cut',                                            # Diagnostic baseline
+    'cut1': '#geq 1#ell^{#pm} + ISO',                            # Lepton with isolation
+    'cut2': '#geq 2 #ell^{#pm} + OS',                            # Dilepton pair, opposite sign
+    'cut3': '86 < m_{#ell^{+}#ell^{-}} < 96 GeV',                # Z boson mass selection
+    'cut4': f'{p_dw} < p_{{#ell^{{+}}#ell^{{-}}}} < {p_up} GeV'  # Momentum selection
 }
 
 # Copy baseline cuts for each selection strategy

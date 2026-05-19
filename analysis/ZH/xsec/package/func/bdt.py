@@ -443,7 +443,7 @@ def def_bdt(
     '''Define BDT computation in ROOT RDataFrame and load cut value.
 
     Args:
-        vars (Sequence[str]): Comma-separated feature variable names.
+        vars (Sequence[str]): Sequence of feature variable names to use for BDT scoring.
         loc_bdt (str): Directory containing xgb_bdt.root model file.
         MVAVec (str, optional): Name for the feature vector column. Defaults to 'MVAVec'.
         score (str, optional): Name for BDT score column. Defaults to 'BDTscore'.

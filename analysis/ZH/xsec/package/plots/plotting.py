@@ -1,38 +1,43 @@
-'''Plotting utilities.
+'''Publication-quality histogram and distribution plotting utilities.
 
 Provides:
-- Plotting functions for histograms and distributions: `makePlot()`, `PlotDecays()`,
-  `significance()`, `PseudoRatio()`, `AAAyields()`, `Bias()`.
-- Utility functions for managing plot arguments: `get_args()`, `args_decay()`,
-  `_ensure_plt_style()`.
-- Histogram conversion utilities: `hist_to_arrays()`.
-- Integration with ROOT graphics backend for publication-quality plots.
-- Support for both ROOT and matplotlib visualization backends.
+- Signal/background visualization: `makePlot()`, `PlotDecays()`, `makePlot()`.
+- Cut optimization plots: `significance()`.
+- Yields summary canvases: `AAAyields()`.
+- Bias and pseudo-data analysis: `Bias()`, `PseudoRatio()`.
+- Flexible argument processing: `get_args()`, `args_decay()`, `_extract_nested_args()`.
+- Directory and utility helpers: `_parse_selection_dir()`, `_ensure_plt_style()`.
 
 Functions:
-- `significance()`: Plot running significance and signal efficiency for cut optimization.
-- `makePlot()`: Draw signal/background histograms with optional stacking.
-- `PlotDecays()`: Compare Higgs decay modes with unit normalization.
-- `PseudoRatio()`: Create ratio plots comparing nominal and pseudo-signal distributions.
+- `makePlot()`: Draw signal/background histograms with optional stacking and scaling.
+- `PlotDecays()`: Compare Higgs decay modes with unit-integral normalization.
+- `significance()`: Plot running significance and signal efficiency vs. cut value.
 - `AAAyields()`: Render yields summary canvas with process yields and metadata.
 - `Bias()`: Plot bias distributions per Higgs decay mode with uncertainty bands.
-- `get_args()`, `args_decay()`: Manage and merge plotting configuration arguments.
+- `PseudoRatio()`: Create ratio plots comparing nominal and pseudo-signal distributions.
+- `get_args()`: Extract plotting arguments with hierarchical lookup and wildcard matching.
+- `args_decay()`: Extract decay-specific plotting arguments (excludes 'make' mode).
+
+Argument Hierarchies:
+- Supports three-level nesting: args[var] → args[var][ecm] → args[var][ecm][sel]
+- Wildcard pattern matching: *pattern*, *pattern, pattern* for sel key matching.
+- Pipe-separated selection lists: 'sel1|sel2' for matching multiple selections.
+- Auto-populated defaults for xmin, xmax, ymin, ymax, rebin, lumi, ecm, etc.
 
 Conventions:
-- Uses ROOT TLatex for axis labels and LaTeX text rendering.
-- Supports both linear and logarithmic scaling on x and y axes.
-- Integrates with `config.py` for color palettes, labels, and variable definitions.
-- Output plots saved to hierarchical subdirectories by selection and category.
+- Uses ROOT graphics backend for histograms; matplotlib for significance plots.
+- Consistent styling via imported helper modules (plotter, helper).
+- Output organized by selection (nominal/high/low) and subplot directories.
+- All plots support both linear and logarithmic axes.
 
 Usage:
-- Create publication plots with automatic styling and legend management.
-- Plot signal significance as function of cut value for optimization.
-- Compare decay mode distributions across Higgs and Z decay channels.
+- Create publication-ready plots with automatic styling and legend management.
+- Scan cut values for optimal significance in physics analyses.
+- Compare process or decay mode distributions with flexible scaling and normalization.
 
 Lazy Imports:
-- numpy and pandas are lazy-loaded only when their specific functions are called
-- ROOT is lazy-loaded via local imports in functions (Python caches the module automatically)
-- ROOT-dependent helpers are lazy-loaded via local imports
+- ROOT, numpy, pandas loaded via local imports only when needed (function-level).
+- Configuration and styling from package modules loaded once at import.
 '''
 
 ####################################
@@ -112,21 +117,24 @@ def _extract_nested_args(
                      str]]:
     '''Navigate nested args structure to extract parameters for given ecm and sel.
 
-    Supports three levels of nesting:
-    1. args[var] = {...parameters...}  # Direct parameters
-    2. args[var][ecm] = {...parameters...}  # Organized by ecm
-    3. args[var][ecm][sel_pattern] = {...parameters...}  # Organized by ecm and sel
+    Supports flexible hierarchical nesting with wildcard selection matching:
+    1. args[var] = {...parameters...}  # Direct flat parameters
+    2. args[var][ecm] = {...parameters...}  # Organized by ecm (int key)
+    3. args[var][ecm][sel_pattern] = {...parameters...}  # By ecm and sel pattern
+    4. args[var][sel_pattern] = {...parameters...}  # By sel pattern only
 
-    Also supports:
-    - args[var][sel_pattern] = {...parameters...}  # Organized by sel only
+    Selection Pattern Matching (applied in order):
+    - Exact match: sel == pattern
+    - Pipe-separated lists: 'sel1|sel2|*pattern*' with wildcard support
+    - Wildcard patterns: '*pattern*' (contains), '*pattern' (ends), 'pattern*' (starts)
 
     Args:
         var_args (dict): The args dictionary for a specific variable.
         ecm (int): Center-of-mass energy in GeV.
-        sel (str): Selection criteria identifier.
+        sel (str): Selection criteria identifier to match.
 
     Returns:
-        dict: Dictionary of parameters, or empty dict if no match found.
+        dict: Copy of matched parameters dict, or empty dict if no match found.
     '''
 
     current = var_args
@@ -207,26 +215,37 @@ def get_args(
                     Union[str, float, int]]]
      ) -> dict[str,
                Union[str, float, int]]:
-    '''Return plotting arguments for a variable/selection pair with defaults.
+    '''Extract and merge plotting arguments for variable/selection with defaults.
 
-    Copies user-provided options for a given variable, applies selection filters,
-    resolves the `which` flag, and fills missing keys with sensible defaults.
+    Retrieves user-provided plotting options, applies selection and energy filters,
+    resolves the `which` flag for plot type, and populates all missing parameters
+    with sensible defaults.
 
-    Supports hierarchical args structure:
-    - args[var] = {...params...}
-    - args[var][ecm] = {...params...}
-    - args[var][ecm][sel_pattern] = {...params...}
-    - args[var][sel_pattern] = {...params...}
+    Hierarchical Lookup:
+    - args[var] = {...params...}  # Direct parameters
+    - args[var][ecm] = {...params...}  # By center-of-mass energy
+    - args[var][ecm][sel_pattern] = {...params...}  # By energy and selection
+    - args[var][sel_pattern] = {...params...}  # By selection only
+
+    Selection Patterns:
+    - Exact match: sel == pattern
+    - Wildcard: 'Baseline*' matches 'Baseline', 'Baseline_high', 'Baseline_low'
+    - Pipe-separated: 'Baseline_sep|Baseline_high' matches either pattern
+
+    Filter Keys:
+    - 'which' (str): 'both', 'make', 'decay' — filtered before defaults applied
+    - 'sel' (str): Selection filter; '*' wildcard supported
+    - 'ecm' (int): Energy filter; non-matching args cleared
 
     Args:
         var (str): Variable name to retrieve arguments for.
         sel (str): Selection criteria identifier.
         ecm (int): Center-of-mass energy in GeV.
         lumi (float): Integrated luminosity in ab^-1.
-        args (dict[str, dict[str, Union[str, float, int]]]): Nested dictionary of plotting arguments indexed by variable name.
+        args (dict[str, dict[str, Union[str, float, int]]]): Nested dictionary of plotting arguments.
 
     Returns:
-        dict[str, Union[str, float, int]]: Dictionary of plotting arguments with all required keys populated.
+        dict[str, Union[str, float, int]]: Complete plotting config with all keys populated.
     '''
 
     # Use helper function to navigate nested structure
@@ -291,25 +310,37 @@ def args_decay(
                     Union[str, float, int]]]
      ) -> dict[str,
                Union[str, float, int]]:
-    '''Return decay-plot arguments for a variable/selection with defaults.
+    '''Extract decay-mode plotting arguments for variable/selection with defaults.
 
-    Similar to get_args() but filters for decay analysis plots (excludes 'make' mode).
+    Similar to `get_args()` but filters out 'make' mode arguments (keeps 'both' and 'decay').
+    This function is used when generating decay-specific plots that should not include
+    'make' (stacked yield) plots.
 
-    Supports hierarchical args structure:
-    - args[var] = {...params...}
-    - args[var][ecm] = {...params...}
-    - args[var][ecm][sel_pattern] = {...params...}
-    - args[var][sel_pattern] = {...params...}
+    Hierarchical Lookup:
+    - args[var] = {...params...}  # Direct parameters
+    - args[var][ecm] = {...params...}  # By center-of-mass energy
+    - args[var][ecm][sel_pattern] = {...params...}  # By energy and selection
+    - args[var][sel_pattern] = {...params...}  # By selection only
+
+    Selection Patterns:
+    - Exact match: sel == pattern
+    - Wildcard: 'Baseline*' matches 'Baseline', 'Baseline_high', 'Baseline_low'
+    - Pipe-separated: 'Baseline_sep|Baseline_high' matches either pattern
+
+    Filter Keys (same as get_args):
+    - 'which' (str): 'both', 'decay' — 'make' is rejected and args cleared
+    - 'sel' (str): Selection filter; '*' wildcard supported
+    - 'ecm' (int): Energy filter; non-matching args cleared
 
     Args:
         var (str): Variable name to retrieve arguments for.
         sel (str): Selection criteria identifier.
         ecm (int): Center-of-mass energy in GeV.
         lumi (float): Integrated luminosity in ab^-1.
-        args (dict[str, dict[str, Union[str, float, int]]]): Nested dictionary of plotting arguments indexed by variable name.
+        args (dict[str, dict[str, Union[str, float, int]]]): Nested dictionary of plotting arguments.
 
     Returns:
-        dict[str, str | float | int]: Dictionary of decay-plot arguments with all required keys populated.
+        dict[str, str | float | int]: Complete decay-plot config with all keys populated.
     '''
 
     # Use helper function to navigate nested structure
@@ -377,11 +408,15 @@ def significance(
     lazy: bool = True,
     rebin: int = 1
      ) -> None:
-    '''Plot running significance and signal efficiency for a cut variable.
+    '''Plot running significance and signal efficiency for cut optimization.
 
-    Builds cumulative signal/background yields across histogram bins, computes
-    significance (s/sqrt(s+b)), and displays the optimal cut point on a dual-axis
-    matplotlib figure with significance and signal efficiency curves.
+    Scans cumulative signal/background yields across histogram bins, computes
+    significance (S/√(S+B)), and displays both significance and signal efficiency
+    on dual Y-axes with matplotlib. Marks the optimal cut point visually.
+
+    Cumulative Direction:
+    - reverse=False: S(>x) and B(>x) — left-to-right cumulative
+    - reverse=True: S(<x) and B(<x) — right-to-left cumulative
 
     Args:
         variable (str): Name of the variable to optimize.
@@ -389,17 +424,17 @@ def significance(
         outDir (str): Path to output directory for saving plots.
         sel (str): Selection tag for output organization.
         procs (list[str]): Process names; first is signal, rest are backgrounds.
-        processes (dict[str, list[str]]): Mapping from process names to file/sample identifiers.
-        locx (str, optional): Legend horizontal position ('left', 'right'). Defaults to 'right'.
-        locy (str, optional): Legend vertical position ('top', 'bottom'). Defaults to 'top'.
-        xMin (float | int | None, optional): Range limits for variable. Defaults to None.
-        xMax (float | int | None, optional): Range limits for variable. Defaults to None.
-        outName (str, optional): Base name for output file. Defaults to variable name.
+        processes (dict[str, list[str]]): Mapping from process names to sample identifiers.
+        locx (str, optional): Legend horizontal position ('left'/'right'). Defaults to 'right'.
+        locy (str, optional): Legend vertical position ('top'/'bottom'). Defaults to 'top'.
+        xMin (float | int | None, optional): Variable range lower bound. Defaults to None.
+        xMax (float | int | None, optional): Variable range upper bound. Defaults to None.
+        outName (str, optional): Base name for output file (default: variable). Defaults to ''.
         suffix (str, optional): Suffix to append to filename. Defaults to ''.
-        format (list[str], optional): Image formats to save ('png', 'pdf', etc.). Defaults to ['png'].
-        reverse (bool, optional): If True, compute left-to-right cumulative (v > x). Defaults to False.
+        format (list[str], optional): Image formats ('png', 'pdf', etc.). Defaults to ['png'].
+        reverse (bool, optional): If True, compute right-to-left cumulative. Defaults to False.
         lazy (bool, optional): Use lazy loading for histograms. Defaults to True.
-        rebin (int, optional): Rebinning factor. Defaults to 1.
+        rebin (int, optional): Rebinning factor for histograms. Defaults to 1.
     '''
 
     import numpy as np
@@ -572,10 +607,18 @@ def makePlot(
     stack: bool = False,
     lazy: bool = True
      ) -> None:
-    '''Draw signal/background histogram with optional stacking.
+    '''Draw signal/background histograms with optional background stacking.
 
     Loads and styles histograms, applies rebinning and scaling, and renders
-    with configurable axis ranges, log scales, and stacking options.
+    with ROOT graphics backend. Supports both overlaid and stacked display modes.
+
+    Drawing Order (non-stacked):
+    - Background histograms (filled, drawn first)
+    - Signal histogram (line, drawn last for visibility)
+
+    Drawing Order (stacked):
+    - Background stack (filled)
+    - Signal histogram added to stack (line style)
 
     Args:
         variable (str): Variable name to plot.
@@ -584,23 +627,23 @@ def makePlot(
         sel (str): Selection tag for organization.
         procs (list[str]): Process names; first is signal, rest are backgrounds.
         processes (dict[str, list[str]]): Process name to sample/file mapping.
-        colors (dict[str, str]): Process name to color mapping (ROOT color codes).
+        colors (dict[str, str]): Process name to ROOT color code mapping.
         legend (dict[str, str]): Process name to legend label mapping.
         ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
         lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
         suffix (str, optional): Filename suffix. Defaults to ''.
-        outName (str, optional): Base output filename. Defaults to variable name.
-        format (list[str], optional): Image formats. Defaults to ['png'].
-        xmin (float | int | None, optional): Axis range limits. Defaults to None.
-        xmax (float | int | None, optional): Axis range limits. Defaults to None.
-        ymin (float | int | None, optional): Axis range limits. Defaults to None.
-        ymax (float | int | None, optional): Axis range limits. Defaults to None.
-        rebin (int, optional): Rebinning factor. Defaults to 1.
-        sig_scale (float, optional): Signal histogram scale factor. Defaults to 1.0.
+        outName (str, optional): Base output filename (default: variable). Defaults to ''.
+        format (list[str], optional): Image formats ['png', 'pdf']. Defaults to ['png'].
+        xmin (float | int | None, optional): X-axis range lower limit. Defaults to None.
+        xmax (float | int | None, optional): X-axis range upper limit. Defaults to None.
+        ymin (float | int | None, optional): Y-axis range lower limit. Defaults to None.
+        ymax (float | int | None, optional): Y-axis range upper limit. Defaults to None.
+        rebin (int, optional): Histogram rebinning factor. Defaults to 1.
+        sig_scale (float, optional): Signal scale factor for visibility. Defaults to 1.0.
         strict (bool, optional): Strict axis range enforcement. Defaults to True.
-        logX (bool, optional): Use logarithmic scale. Defaults to False.
-        logY (bool, optional): Use logarithmic scale. Defaults to True.
-        stack (bool, optional): Stack backgrounds. Defaults to False.
+        logX (bool, optional): Use logarithmic X-axis. Defaults to False.
+        logY (bool, optional): Use logarithmic Y-axis. Defaults to True.
+        stack (bool, optional): Stack backgrounds; signal overlaid if True. Defaults to False.
         lazy (bool, optional): Use lazy histogram loading. Defaults to True.
     '''
 
@@ -715,33 +758,34 @@ def PlotDecays(
     strict: bool = True,
     tot: bool = False
      ) -> None:
-    '''Plot Higgs decay modes normalized to unit integral for comparison.
+    '''Plot Higgs decay modes with unit-integral normalization for shape comparison.
 
-    Creates overlaid histograms for each Higgs decay channel, each normalized
-    to unity to enable direct shape comparison across decay modes.
+    Creates overlaid histograms for each Higgs decay channel, each normalized to
+    unity to enable direct shape comparison across decay modes. Combines Z decay
+    channels (ee, mumu, tautau) for each Higgs decay.
 
     Args:
         variable (str): Variable to plot.
         inDir (str): Path to input histogram files.
         outDir (str): Path for output plots.
-        sel (str): Selection tag.
+        sel (str): Selection tag for organization.
         z_decays (list[str]): Z boson decay modes (e.g., ['ee', 'mumu', 'tautau']).
         h_decays (list[str]): Higgs decay modes to compare (e.g., ['bb', 'WW', 'ZZ']).
         ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
         lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
-        rebin (int, optional): Rebinning factor. Defaults to 1.
-        outName (str, optional): Base output filename. Defaults to variable name.
+        rebin (int, optional): Histogram rebinning factor. Defaults to 1.
+        outName (str, optional): Base output filename (default: variable). Defaults to ''.
         suffix (str, optional): Filename suffix. Defaults to ''.
-        format (list[str], optional): Image formats. Defaults to ['png'].
-        xmin (float | int | None, optional): Axis limits. Defaults to None.
-        xmax (float | int | None, optional): Axis limits. Defaults to None.
-        ymin (float | int | None, optional): Axis limits. Defaults to None.
-        ymax (float | int | None, optional): Axis limits. Defaults to None.
-        logX (bool, optional): Use logarithmic scale. Defaults to False.
-        logY (bool, optional): Use logarithmic scale. Defaults to False.
-        lazy (bool, optional): Use lazy loading. Defaults to True.
-        strict (bool, optional): Strict range enforcement. Defaults to True.
-        tot (bool, optional): Save to 'tot' subdirectory if True, 'cat' otherwise. Defaults to False.
+        format (list[str], optional): Image formats ['png', 'pdf']. Defaults to ['png'].
+        xmin (float | int | None, optional): X-axis lower limit. Defaults to None.
+        xmax (float | int | None, optional): X-axis upper limit. Defaults to None.
+        ymin (float | int | None, optional): Y-axis lower limit. Defaults to None.
+        ymax (float | int | None, optional): Y-axis upper limit. Defaults to None.
+        logX (bool, optional): Use logarithmic X-axis. Defaults to False.
+        logY (bool, optional): Use logarithmic Y-axis. Defaults to False.
+        lazy (bool, optional): Use lazy histogram loading. Defaults to True.
+        strict (bool, optional): Strict axis range enforcement. Defaults to True.
+        tot (bool, optional): Save to 'tot' subdir if True, 'cat' subdir if False. Defaults to False.
     '''
 
     # Lazy-load ROOT and helpers

@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-Unified optimization script for chi2 methods in e+e- -> ZH analysis
+Unified optimization script for chi2 pairing methods in e+e- -> ZH analysis.
 
-Combines optimize_ll.py and optimize_pll.py to run both chi2 methods independently.
-This script uses uproot and awkward arrays to avoid ROOT's type inference issues.
+Optimizes chi2-based pairing efficiency by varying the weighting parameter (chi2_frac)
+for both leptonic channels (mll: mass+recoil) and leptonic+momentum channels (pll).
+Compares reconstructed pairings with MC truth to find optimal parameter values.
+
+This script uses uproot and awkward arrays for efficient, type-safe data handling
+and avoids ROOT's automatic type inference limitations.
 
 Usage:
-    python3 optimize.py
+    python3 optimize.py --cat ee/mumu [--method mll-pll] [--incr 0.01]
 """
 
 #################################
@@ -58,7 +62,16 @@ from package.config import timer
 ############################
 
 class Optimizer:
-    """Optimize chi2_frac by comparing with MC truth Z pairing"""
+    """Optimize chi2 pairing weighting parameter by comparing with MC truth.
+
+    Analyzes reconstructed particle pair assignments against true MC pairings
+    to find optimal chi2 weighting values. Supports two chi2 methods:
+    - mll: chi2 = dr + frac * (dm - dr) where dr = recoil distance, dm = mass distance
+    - pll: chi2 = (1-frac) * (dr + 0.6*(dm-dr)) + frac * dp (adds momentum distance)
+
+    The optimizer scans parameter space and reports efficiency metrics for
+    different event categories (zero pairs, one pair, multiple pairs).
+    """""
 
     def __init__(
             self,
@@ -68,13 +81,26 @@ class Optimizer:
             ecm: int = 240,
             nevents: int = -1,
             chi2_method: str = 'mll'):
-        """Initialize optimizer with pure Python/uproot backend
+        """Initialize optimizer with pure Python/uproot backend.
+
+        Sets up file I/O, configures chi2 method, and loads event data.
+        Applies mass cut to filter out pairs within 3 GeV of Higgs mass (125 GeV).
 
         Parameters:
         -----------
+        proc : str
+            Process name (e.g., 'wzp6_ee_eeH_ecm240')
+        inDir : Path
+            Input directory containing ROOT files
+        outDir : Path
+            Output directory for results and distributions
+        ecm : int
+            Center-of-mass energy in GeV (240 or 365)
+        nevents : int
+            Maximum number of events to process (-1 = all events)
         chi2_method : str
-            'mll' for chi2_recoil (dM + dRecoil)
-            'pll' for chi2_pll (dM + dRecoil + dP)
+            'mll' for chi2_recoil (mass + recoil distance)
+            'pll' for chi2_pll (mass + recoil + momentum distance)
         """
 
         inFiles = glob(str(inDir / proc / '*'))
@@ -99,7 +125,16 @@ class Optimizer:
 
 
     def load_data(self, nevents=-1):
-        """Load data from ROOT files using uproot (optimized)"""
+        """Load and filter event data from ROOT files.
+
+        Efficiently accumulates data from multiple chunk files, applies mass cut
+        (|mass - 125 GeV| > 3 GeV), and computes statistics on pair multiplicities.
+        Uses awkward arrays for jagged data and maintains proper indexing across
+        all events.
+
+        Args:
+            nevents: Maximum events to load (-1 for all)
+        """
         # Accumulate data per branch
         data: dict[str, list] = {}
 
@@ -180,10 +215,23 @@ class Optimizer:
             dp: ak.Array | None = None
              ) -> ak.Array:
         """
-        Find best pair index for each event using precomputed distance matrices.
+        Find best pair index for each event based on chi2 distance metric.
 
-        For mll method: chi2 = drec + frac * (dm - drec)
-        For pll method: chi2 = (1 - frac) * (drec + 0.6 * (dm - drec)) + frac * dp
+        Computes chi2 distance for each pair in each event and selects the pair
+        with minimum chi2. For events with no pairs, returns None (handled by caller).
+
+        Chi2 formulas:
+        - mll method: chi2 = drec + frac * (dm - drec)
+        - pll method: chi2 = (1 - frac) * (drec + 0.6 * (dm - drec)) + frac * dp
+
+        Args:
+            frac: Chi2 weighting parameter (0 to 1)
+            dm: Squared distance to Z mass (mass - mZ)^2 for each pair
+            drec: Squared distance to Higgs recoil mass (recoil - mH)^2 for each pair
+            dp: Squared distance to Z momentum pll target, only for pll method
+
+        Returns:
+            Awkward array of best pair indices per event
         """
         if self.chi2_method == 'mll':
             chi2 = drec + frac * (dm - drec)
@@ -202,7 +250,25 @@ class Optimizer:
             drec: ak.Array,
             dp: ak.Array | None = None
              ) -> dict[str, float | int | dict[str, float | int]]:
-        """Test chi2_frac using precomputed distance matrices (fully vectorized)"""
+        """Test chi2 weighting parameter and compute pairing efficiency.
+
+        Determines best pairs for each event using chi2 metric, compares with MC truth,
+        and computes match statistics. Evaluates efficiency separately for events with
+        zero, one, or multiple valid pairs to understand performance across categories.
+
+        Args:
+            frac: Chi2 weighting parameter to test
+            dm: Precomputed squared Z mass distances for all pairs
+            drec: Precomputed squared recoil distances for all pairs
+            dp: Precomputed squared momentum distances (for pll method only)
+
+        Returns:
+            Dictionary containing:
+            - 'frac': Input parameter value
+            - 'overall': Statistics across all events
+            - 'zero_pair', 'one_pair', 'multi_pair': Statistics by event category
+            Each category contains: efficiency, n_correct, n_partial, n_incorrect, n_total
+        """
 
         # Get best pair indices using precomputed distances
         best_idx = self.best_pair_idx(frac, dm, drec, dp)
@@ -278,7 +344,25 @@ class Optimizer:
             chi2_frac: float,
             mZ: float | int = 91.2,
             mH: float | int = 125) -> dict[str, np.ndarray]:
-        """Extract kinematic variables for a given chi2_frac value, selecting best pairings"""
+        """Extract kinematic variables for best pairings at given chi2 parameter.
+
+        Selects best pair for each event using chi2 metric and extracts full
+        kinematic information (momentum, angles) for both leptons and Z system,
+        plus match quality indicators.
+
+        Args:
+            chi2_frac: Chi2 weighting parameter value
+            mZ: Z boson mass (GeV) - used for distance metric
+            mH: Higgs mass (GeV) - used for recoil distance metric
+
+        Returns:
+            Dictionary mapping variable names to numpy arrays:
+            - Reconstructed leptons (p, pt, theta) for leading/subleading
+            - True leptons (for events with surviving pairs)
+            - Z system kinematics (p, pt, theta)
+            - Pair variables (mass, recoil) both reco and true
+            - 'matches': Integer array indicating pairing quality (0=none, 1=partial, 2=both correct)
+        """
         # Precompute distances
         dm   = (self.mass   - mZ) ** 2
         drec = (self.recoil - mH) ** 2
@@ -372,7 +456,15 @@ class Optimizer:
         }
 
     def save_distributions(self, chi2_frac: float, filename: str) -> None:
-        """Save kinematic distributions to a ROOT file for a given chi2_frac"""
+        """Save kinematic distributions to ROOT file for given chi2 parameter.
+
+        Extracts all kinematic variables and match information for best pairings
+        at the specified chi2_frac value, then saves as ROOT TTree for further analysis.
+
+        Args:
+            chi2_frac: Chi2 weighting parameter value
+            filename: Output filename (e.g., 'results_baseline.root')
+        """
         # Extract distributions
         distributions = self.extract_distributions(chi2_frac)
 
@@ -417,7 +509,21 @@ class Optimizer:
             mass: int | float = 91.2,
             recoil: int | float = 125,
             precision: int = 2):
-        """Run optimization loop over chi2_frac values (with precomputed distances)"""
+        """Scan chi2 weighting parameter space and compute efficiency for each value.
+
+        Precomputes all distance metrics once, then efficiently scans parameter space
+        by testing each chi2 value and storing results. This vectorized approach
+        avoids redundant computations.
+
+        Args:
+            chi2_values: Array of chi2_frac values to scan (typically 0 to 1)
+            mass: Z boson mass for distance calculation
+            recoil: Higgs mass for recoil distance calculation
+            precision: Decimal places for rounding results
+
+        Returns:
+            Dictionary of results keyed by rounded chi2_frac values
+        """
 
         # Precompute squared distances once to avoid recalculation in each iteration
         dm   = (self.mass   - mass) ** 2
@@ -438,7 +544,12 @@ class Optimizer:
 
 
     def save_results(self):
-        """Save results to JSON with breakdown by number of pairs"""
+        """Save optimization scan results to JSON file.
+
+        Exports efficiency metrics for all tested chi2 values, organized by
+        event category (overall, zero_pair, one_pair, multi_pair) for easy
+        comparison and plotting.
+        """
         outFile = self.outDir / 'results.json'
 
         json_results = {}
@@ -460,7 +571,17 @@ class Optimizer:
 ##########################
 
 def main():
-    """Main analysis function"""
+    """Main execution function.
+
+    Orchestrates optimization workflow:
+    1. Parse command-line arguments and setup logging
+    2. Load process list and iterate over processes
+    3. For each chi2 method (mll and/or pll):
+       - Initialize optimizer and load data
+       - Scan chi2 parameter space
+       - Save optimization results and optimal distributions
+    4. Generate summary report comparing methods
+    """
     cat, ecm, nevents = arg.cat, arg.ecm, arg.nevents
 
     inDir  = loc.get('OPTIMISATION',     cat, ecm, type=Path)

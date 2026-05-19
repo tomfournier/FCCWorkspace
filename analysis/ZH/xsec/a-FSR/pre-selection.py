@@ -23,7 +23,7 @@ cat, ecm = get_params(env, 'a-run.json')
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-# Output directory for training events (default is local directory)
+# Output directory for FSR recovery events (default is local directory)
 outputDir = loc.get('FSR_TREE', cat, ecm)
 
 # Include custom C++ analysis functions
@@ -77,17 +77,39 @@ processList = get_process_list(
 #####################################################
 
 class RDFanalysis():
-    '''RDataFrame analysis class for pre-selection stage.'''
+    '''RDataFrame analysis class for FSR recovery stage.
+
+    Applies FSR (Final State Radiation) recovery algorithms to reconstruct
+    true photon kinematics from the detector response and calculates FSR-related
+    kinematic variables.
+    '''
 
     # _________________________________________________________________
     # Mandatory: analysers function to define the analysers to process
     def analysers(df):
-        '''Apply analysis graph construction to the dataframe.'''
+        '''Apply FSR recovery analysis to the dataframe.
+
+        Processes events through FSR recovery algorithms to extract photon
+        kinematic information and correlations.
+
+        Args:
+            df: Input RDataFrame
+
+        Returns:
+            RDataFrame with FSR recovery variables applied
+        '''
         df = fsr_recovery(df, cat)
         return df
 
     # _____________________________________________________
     # Mandatory: output function defining branches to save
     def output() -> list[str]:
-        '''Define output branches to save.'''
+        '''Define FSR recovery output branches to save.
+
+        Returns a list of all branches related to FSR analysis including
+        photon variables (momentum, angles, origin) and lepton-photon correlations.
+
+        Returns:
+            Sorted list of branch names to persist in output
+        '''
         return sorted(branch_list_fsr)

@@ -21,9 +21,11 @@ Usage:
 
 import os, sys, time, subprocess
 
-from package.userConfig import loc
-from package.config import timer
+# Load directory path manager and timing utility
+from package.userConfig import loc         # Directory path configuration
+from package.config import timer           # Execution timing utility
 
+# Start execution timer
 t = time.time()
 
 
@@ -32,15 +34,15 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from package.parsing import create_parser, set_log  # Argument parsing utilities
+from package.logger import get_logger               # Logging setup
 parser = create_parser(
-    cat_multi=True,
-    ecm_multi=True,
-    allow_qq=False,
-    include_sels=True,
-    bdt_eval=True,
-    run_stages=3,
+    cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
+    ecm_multi=True,        # Support multiple energies (--ecm 240-365)
+    allow_qq=False,        # Disable hadronic channel (ee/mumu only)
+    include_sels=True,     # Include selection strategy options
+    bdt_eval=True,         # Include BDT evaluation options (metrics, trees, checks)
+    run_stages=3,          # BDT pipeline has 3 stages: process + train + evaluate
     description='Run BDT pipeline'
 )
 arg = parser.parse_args()
@@ -55,14 +57,18 @@ LOGGER = get_logger(__name__)
 #############################
 
 # Parse comma-separated arguments into lists
-cats = arg.cat.split('-')
-ecms = [int(e) for e in arg.ecm.split('-')]
+cats = arg.cat.split('-')                              # Decay categories: ['ee'] or ['ee', 'mumu']
+ecms = [int(e) for e in arg.ecm.split('-')]          # Energies: [240] or [240, 365]
 
-# Map stage numbers to BDT script names
-script_map = {'1': 'process_input', '2': 'train_bdt', '3': 'evaluation'}
+# Map pipeline stage numbers to BDT script names
+script_map = {
+    '1': 'process_input',   # Stage 1: Load histograms, balance samples, prepare for BDT training
+    '2': 'train_bdt',       # Stage 2: Train XGBoost classifier with early stopping
+    '3': 'evaluation'       # Stage 3: Evaluate BDT performance, generate plots
+}
 scripts = [script_map[s] for s in arg.run.split('-')]
 
-# Base path for analysis scripts
+# Base path for BDT analysis scripts
 path = f'{loc.ROOT}/2-BDT'
 
 

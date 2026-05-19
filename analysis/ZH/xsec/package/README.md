@@ -10,6 +10,8 @@ The `package` module is organized into several key components:
 |-----------|---------|
 | **`config.py`** | Physics constants, decay modes, color palettes, and process builders |
 | **`userConfig.py`** | Path templates and global analysis parameters |
+| **`parsing.py`** | Centralized argument parsing for analysis scripts |
+| **`logger.py`** | Unified logging configuration and management |
 | **`plots/`** | Visualization utilities (cutflow, BDT evaluation, histogram plotting) |
 | **`func/`** | Analysis functions (BDT training/evaluation, bias testing) |
 | **`tools/`** | Data processing (ROOT I/O, histogram caching, significance calculations) |
@@ -35,26 +37,31 @@ Provides physics constants, decay modes, color schemes, and process builders for
   - Di-lepton system: mass, momentum, polar angle, acolinearity, acoplanarity
 
 **Decay Modes:**
-- `Z_DECAYS`: Standard Z boson decay channels (8 modes)
-- `H_DECAYS`: Standard Higgs decay channels (10 modes, excluding invisible)
-- `H_DECAYS_WITH_INV`: All Higgs decay channels including H → Invisible
-- `QUARKS`: Quark decay channels for Z → qq̄
+- `Z_DECAYS`: Standard Z boson decay channels (`'bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu'`)
+- `H_DECAYS`: Standard Higgs decay channels (`'bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa'`) — excludes invisible
+- `H_DECAYS_WITH_INV`: All Higgs decay channels including H → Invisible (`H_DECAYS + ('inv',)`)
+- `H_DECAYS_ALL`: Extended Higgs decay modes including `'ZZ_noInv'`
+- `QUARKS`: Quark decay channels (`'bb', 'cc', 'ss', 'qq'`)
 
-Lowercase aliases (`z_decays`, `h_decays`, etc.) provided for backward compatibility.
+Lowercase aliases (`z_decays`, `h_decays`, `H_decays`, `quarks`) provided for backward compatibility.
 
 **Color Palettes:**
-- `colors`: Process → color code mapping (ZH signal in red, WW/ZZ/rare backgrounds)
-- `h_colors`: Higgs decay mode → color mapping
-- `modes_color`: Analysis mode → matplotlib tab color mapping (for matplotlib plots)
-
-All colors are lazily loaded on first access to avoid unnecessary ROOT imports.
+- `colors`: Process → ROOT color code mapping (uses lazy loading via `LazyDict`)
+  - Signal: ZH processes mapped to red
+  - Backgrounds: WW/ZZ/rare mapped to orange/blue/gray respectively
+  - Lazy-loaded on first access to avoid unnecessary ROOT imports
+- `h_colors`: Higgs decay mode → ROOT color code (lazy-loaded)
+  - Maps decay modes (bb, cc, ss, gg, mumu, tautau, ZZ, WW, Za, aa, inv) to distinct colors
+- `modes_color`: Analysis mode → matplotlib tab color mapping (matplotlib colors, not lazy)
+  - Maps analysis modes (ZmumuH, ZZ, etc.) to tab colors for matplotlib plots
 
 **Physics Labels:**
-- `labels`: ROOT TLatex labels for main processes (ZH, WW, ZZ, etc.)
-- `h_labels`: ROOT TLatex labels for Higgs decay modes
-- `vars_label`: LaTeX labels for kinematic variables (for matplotlib)
-- `vars_xlabel`: LaTeX labels with units (e.g., "GeV", "GeV²")
-- `modes_label`: LaTeX labels for decay modes (analysis modes)
+- `labels`: ROOT TLatex labels for main processes (ZH, ZmumuH, ZeeH, ZqqH, WW, ZZ, Zgamma, Rare)
+- `h_labels`: ROOT TLatex labels for Higgs decay modes (e.g., `'H#rightarrowb#bar{b}'`)
+- `vars_label`: LaTeX labels for kinematic variables using `$...$` notation for matplotlib
+- `vars_xlabel`: LaTeX labels with units appended (e.g., `'$p_{\ell}$ [GeV]'`)
+- `modes_label`: LaTeX labels for analysis modes/physics processes (e.g., `'$e^+e^-\rightarrow Z(\mu^+\mu^-)H$'`)
+- `process_label`: LaTeX labels for Higgs and boson decay channels
 
 #### Key Functions
 
@@ -69,6 +76,20 @@ All colors are lazily loaded on first access to avoid unnecessary ROOT imports.
   zh_ww = mk_processes(procs=['ZH', 'WW'], ecm=365)  # Specific processes at 365 GeV
   bb_cc = mk_processes(h_decays=['bb', 'cc'])  # Custom Higgs decays
   ```
+
+**`get_process_list(cat, ecm, z_decays=Z_DECAYS, h_decays=H_DECAYS_ALL, train=False, batch=False, ...)`**
+- Full-featured process builder with signal/background handling for analysis workflows
+- **Args:**
+  - `cat` (str): Channel ('ee' or 'mumu')
+  - `ecm` (int): Center-of-mass energy (240 or 365 GeV)
+  - `z_decays`, `h_decays`: Custom decay mode tuples
+  - `train` (bool): Use training-mode signals if True
+  - `batch` (bool): Batch processing mode
+  - `onlysig`, `onlybkg`: Return only signal or background processes
+  - `frac`, `chunks`: Per-process data fractions and chunk counts
+  - `include`, `exclude`: Include/exclude specific processes
+- **Returns:** Dict mapping process names to dicts with properties (luminosity, cross-section, fraction, chunks)
+- Use case: Build complete process configuration for BDT training, measurement, or bias tests
 
 **`warning(log_msg, lenght=-1, abort_msg=' ERROR CODE ')`**
 - Print formatted error message and raise exception
@@ -110,7 +131,19 @@ loc.HIST_PROCESSED = "output/data/histograms/processed/ecm/cat/sel"
 loc.PLOTS_BDT   = "output/plots/evaluation/ecm/cat/sel"
 ```
 
-**Full template list:** ROOT, PACKAGE, OUT, PLOTS, DATA, TMP, JSON, RUN, EVENTS, EVENTS_TRAINING, EVENTS_TEST, MVA, MVA_INPUTS, BDT, HIST, HIST_MVA, HIST_PREPROCESSED, HIST_PROCESSED, PLOTS_MVA, PLOTS_BDT, PLOTS_MEASUREMENT, COMBINE, COMBINE_NOMINAL, COMBINE_BIAS, and logging/result subdirectories.
+**Complete template list** organized by category:
+
+| Category | Templates | Purpose |
+|----------|-----------|---------|
+| **Base Paths** | ROOT, PACKAGE, OUT, PLOTS, DATA, TMP | Repository and output structure |
+| **Configuration** | JSON, RUN | Config files and per-run settings |
+| **Events** | EVENTS, EVENTS_TEST, EVENTS_TRAINING, EVENTS_TRAIN_TEST | Analysis and training event samples |
+| **Optimization** | OPTIMISATION, OPTIMISATION_TEST, OPTIMISATION_RES | Selection optimization inputs/results |
+| **FSR** | FSR_TREE, FSR_TEST, FSR_RES | Final-state radiation analysis |
+| **MVA** | MVA, MVA_INPUTS, BDT | BDT input variables and trained models |
+| **Histograms** | HIST, HIST_MVA, HIST_PREPROCESSED, HIST_PROCESSED, HIST_OPTIMISATION | Histogram outputs at different stages |
+| **Plots** | PLOTS_MVA, PLOTS_BDT, PLOTS_MEASUREMENT, PLOTS_OPTIMISATION, PLOTS_FSR | Visualization outputs |
+| **Statistical** | COMBINE, COMBINE_NOMINAL, COMBINE_BIAS, NOMINAL_*, BIAS_* | Combine tool inputs/outputs and fit results |
 
 #### Path Expansion & Type Conversion
 
@@ -145,17 +178,178 @@ path_obj = str_path.astype(Path)  # LocPath → PathObj
 - Verifies each process has 'events' TTree in ROOT files
 - Returns list of valid process names
 
-**`get_params(env, cfg_json, is_final=False, is_presel3=False)`**
+**`get_params(env, cfg_json, is_final=False, qq_allowed=False)`**
 - Extract analysis parameters (category, energy, luminosity)
-- Reads from JSON config file if `RUN` env variable is set; otherwise prompts user
-- Flexible overloads support different return types:
-  - `(cat, ecm)` — basic parameters
-  - `(cat, ecm, lumi)` — with luminosity (if `is_final=True`)
-  - `(cat, ecm, ww)` — with WW flag (if `is_presel3=True`)
+- In automated mode (when `RUN` env variable or HTCondor is detected), reads from JSON config file
+- Otherwise, prompts user interactively for channel, energy, and settings
+- **Overload variants:**
+  - `is_final=False` (default): Returns `(cat, ecm, test_flag)` — basic parameters
+  - `is_final=True`: Returns `(cat, ecm, lumi, test_flag)` — includes luminosity
+- `qq_allowed`: If True, allows 'qq' channel; default channels are ['ee', 'mumu']
+- Returns category ('ee', 'mumu', or 'qq'), energy (240/365 GeV), and flags
 
 ---
 
-## Sub-Modules
+### `logger.py` — Unified Logging Configuration
+
+Provides centralized logging system for consistent output across all analysis scripts and modules.
+
+#### Setup & Usage
+
+**`setup_logging(verbose=False, logger_name='FCCAnalysis')`**
+- Configure the root logging system (call once at start of main script)
+- **Args:**
+  - `verbose` (bool): If True, show DEBUG messages; if False, show INFO and above
+  - `logger_name` (str): Root logger name (default: 'FCCAnalysis')
+- **Use in main script:**
+  ```python
+  from package.logger import setup_logging, get_logger
+  setup_logging(verbose=args.verbose)  # Configure once
+  LOGGER = get_logger(__name__)
+  ```
+
+**`get_logger(name, logger_root='FCCAnalysis')`**
+- Get logger instance for a module (call in every module that needs logging)
+- **Args:**
+  - `name` (str): Logger name, typically `__name__` for hierarchical logging
+  - `logger_root` (str): Root logger name (must match setup_logging call)
+- **Returns:** `logging.Logger` instance inheriting root configuration
+- **Use in package modules:**
+  ```python
+  from package.logger import get_logger
+  LOGGER = get_logger(__name__)
+  LOGGER.debug('Debug message')
+  LOGGER.info('Info message')
+  ```
+
+**`get_verbosity_level(logger_name='FCCAnalysis')`**
+- Get current logging level as string ('DEBUG', 'INFO', 'WARNING', 'ERROR')
+
+#### Key Features
+
+- **Multi-line formatting**: Continuation lines are indented for readability
+- **Hierarchical logger names**: Enables organized output for different modules
+- **Single configuration point**: All modules inherit settings from root logger
+- **Verbose flag integration**: Connect to argument parser for easy control via `-v` flag
+
+#### Logging Levels
+
+| Level | Use Case |
+|-------|----------|
+| DEBUG | Development, variable values, flow tracing (shown only with `-v`) |
+| INFO | Normal execution status, milestones (always shown) |
+| WARNING | Suspicious conditions, recoverable errors |
+| ERROR | Serious problems, non-fatal failures |
+
+---
+
+### `parsing.py` — Centralized Argument Parsing
+
+Provides modular, reusable argument builders for consistent CLI across analysis scripts. Avoids code duplication through composition of low-level builders into high-level factories.
+
+#### Low-Level Argument Builders
+
+These add individual argument groups or single arguments:
+
+| Function | Purpose |
+|----------|---------|
+| `add_cat_argument()` | Add `--cat`/`--cats` for channel selection (ee, mumu, qq) |
+| `add_ecm_argument()` | Add `--ecm`/`--ecms` for energy selection (240, 365 GeV) |
+| `add_sel_argument()` | Add `--sel` for single selection strategy |
+| `add_sels_argument()` | Add `--sels` for batch selection processing |
+| `add_run_argument()` | Add `--run` for pipeline stage selection (1, 2, 3, 4) |
+| `add_verbose_argument()` | Add `-v`/`--verbose` for debug output |
+| `add_batch_argument()` | Add `--batch` for HTCondor job submission |
+
+#### Feature Group Builders
+
+These add sets of related arguments:
+
+| Function | Purpose |
+|----------|---------|
+| `add_bdt_eval()` | BDT evaluation flags (metric, tree, check, hl) |
+| `add_plots_args()` | Plot generation flags (yields, decay, make, scan) |
+| `add_cutflow_args()` | Cutflow visualization (tot flag) |
+| `add_optimize_args()` | Optimization parameters (procs, method, nevents, incr, metric) |
+| `add_polarization()` | Polarization/luminosity scaling (polL, polR, ILC) |
+| `add_fit_args()` | Fitting parameters (pert, target, combine, bias, timer, print) |
+| `add_bias_args()` | Bias test parameters (freeze, float, plot_dc) |
+
+#### Factory Function
+
+**`create_parser(cat_single=False, cat_multi=False, ecm_multi=False, ..., description='Analysis script')`**
+- Compose modular builders into complete ArgumentParser
+- **Select components by passing relevant flags:**
+  ```python
+  # For BDT training script
+  parser = create_parser(
+      cat_multi=True, ecm_multi=True,
+      include_sels=True,
+      bdt_eval=True
+  )
+  
+  # For optimization script
+  parser = create_parser(
+      cat_single=True,
+      optimize=True,
+      polarization=True
+  )
+  
+  # For fitting script
+  parser = create_parser(
+      cat_single=True,
+      fit=True, bias=True,
+      default_pert=1.0
+  )
+  ```
+- **Returns:** `ArgumentParser` with selected arguments configured
+
+#### Validation & Processing
+
+**`parse_args(parser, validate_cat=False, comb=False)`**
+- Parse arguments and apply validation
+- **Args:**
+  - `parser`: ArgumentParser instance from `create_parser()`
+  - `validate_cat`: Validate category argument
+  - `comb`: Allow combined categories (e.g., 'ee-mumu')
+- **Returns:** `argparse.Namespace` with parsed arguments
+
+**`set_log(args)`**
+- Configure logging based on parsed arguments
+- Call after `parse_args()` and before main script logic
+
+#### Usage Example
+
+```python
+from package.parsing import create_parser, parse_args, set_log
+
+# In analysis script (e.g., 2-BDT/train_bdt.py)
+parser = create_parser(
+    cat_multi=True,
+    ecm_multi=True, 
+    include_sels=True,
+    bdt_eval=True
+)
+args = parse_args(parser)
+set_log(args)
+
+# Now args has all parsed values
+print(f"Categories: {args.cats}")
+print(f"Energies: {args.ecms}")
+print(f"Plot metrics: {args.metric}")
+```
+
+#### Key Design Principles
+
+- **Minimal base functions**: Only add arguments actually used by script
+- **Composition over inheritance**: Mix and match builders for flexibility
+- **Reduced duplication**: Centralized builders avoid copy-paste across scripts
+- **Easy extensibility**: Add new builders without modifying existing code
+- **Backward compatibility**: Legacy `include_polarizations()` function preserved
+
+---
+
+
 
 ### `plots/` — Visualization Utilities
 
@@ -179,7 +373,57 @@ ROOT file operations, histogram caching, and statistical analysis. See [tools/RE
 
 ## Quick Start
 
-### Basic Usage
+### Complete Analysis Script Template
+
+```python
+#!/usr/bin/env python3
+"""Example analysis script using all core modules."""
+
+# Step 1: Set up logging (FIRST, before other imports)
+from package.logger import setup_logging, get_logger
+from package.parsing import create_parser, parse_args, set_log
+
+parser = create_parser(
+    cat_multi=True,
+    ecm_multi=True,
+    include_sels=True,
+    bdt_eval=True
+)
+args = parse_args(parser)
+setup_logging(verbose=args.verbose)
+set_log(args)
+
+LOGGER = get_logger(__name__)
+LOGGER.info('Starting analysis...')
+
+# Step 2: Import configuration
+from package.config import (
+    mk_processes, 
+    input_vars,
+    labels,
+    colors
+)
+
+# Step 3: Import paths and parameters
+from package.userConfig import loc, get_params
+from pathlib import Path
+
+# Step 4: Get analysis parameters (from args or interactive)
+import os
+cat, ecm, test_flag = get_params(os.environ, 'config.json')
+
+# Step 5: Generate processes and access paths
+LOGGER.info(f'Generating processes for {cat} at {ecm} GeV')
+processes = mk_processes(procs=['ZH', 'WW'], ecm=ecm)
+
+events_path = loc.EVENTS.get(cat=cat, ecm=ecm)
+bdt_path = loc.BDT.get(cat=cat, ecm=ecm, sel=args.sel, type=Path)
+
+LOGGER.debug(f'Events path: {events_path}')
+LOGGER.info('Analysis setup complete!')
+```
+
+### Basic Usage (Module Imports)
 
 ```python
 # Import configuration
@@ -212,9 +456,23 @@ print(f"Process labels: {labels}")
 The package is designed to be imported by analysis scripts and sub-modules:
 
 ```python
-# In analysis scripts
+# Logging setup (in main script)
+from package.logger import setup_logging, get_logger
+setup_logging(verbose=True)
+LOGGER = get_logger(__name__)
+
+# Argument parsing (in main script)
+from package.parsing import create_parser, parse_args
+parser = create_parser(cat_multi=True, ecm_multi=True)
+args = parse_args(parser)
+
+# In all modules
+from package.logger import get_logger
+LOGGER = get_logger(__name__)
+
+# Configuration access
 from package.config import mk_processes, input_vars
-from package.userConfig import loc
+from package.userConfig import loc, get_params
 
 # In plotting scripts
 from package.plots import plotting, cutflow, eval

@@ -39,27 +39,31 @@ output/data/histograms/processed/{ecm}/{cat}/{sel}/
 python process_histogram.py --cat ee --ecm 240
 python process_histogram.py --cat ee-mumu --ecm 365 --polL  # Apply left polarization scaling
 python process_histogram.py --cat mumu --ecm 240 --ILC      # Apply ILC cross-section scaling
+python process_histogram.py --cat ee --ecm 240 --sels Baseline-Baseline_miss  # Process specific selections
 ```
 
 Alternatively, automate execution across all combinations:
 ```bash
-python run/4-run.py
+python 0-Run/4-run.py
 ```
 
-The `run/4-run.py` script processes histograms for all combinations of channels, center-of-mass energies, and selections, avoiding repeated manual execution. For more details on the run scripts, see [run/README.md](../run/README.md).
+The `0-Run/4-run.py` script processes histograms for all combinations of channels, center-of-mass energies, and selections, avoiding repeated manual execution. For more details on the run scripts, see [0-Run/README.md](../0-Run/README.md).
 
 **Command-line options:**
 - `--cat` — Final state: `ee`, `mumu`, or `ee-mumu` (default: `ee-mumu`)
 - `--ecm` — Center-of-mass energy: `240` or `365` GeV (default: `240`)
-- `--polL` — Scale to left polarization cross-sections
-- `--polR` — Scale to right polarization cross-sections
-- `--ILC` — Scale to ILC machine conditions
+- `--sels` — Selection strategies to process, separated by `-` (default: `Baseline-Baseline_miss-Baseline_sep-test`)
+- `--polL` — Scale to left polarization cross-sections (applies cross-section weighting)
+- `--polR` — Scale to right polarization cross-sections (applies cross-section weighting)
+- `--ILC` — Scale to ILC machine conditions (applies cross-section weighting)
 
-Note: `process_histogram.py` is run standalone with command-line arguments, not through the FCCAnalysis framework.
+Note: `process_histogram.py` is run standalone with command-line arguments, not through the FCCAnalysis framework. Only samples with preprocessed histograms for the specified selection are processed; missing samples are skipped with a warning.
 
 **Configuration:**
-- Selection strategies: `Baseline`, `Baseline_miss`, `Baseline_sep`
+- Selection strategies: `Baseline`, `Baseline_miss`, `Baseline_sep`, `test`
+- Control regions: High BDT score (signal-like) and low BDT score (background-like) are concatenated into combined histograms
 - Processed histogram: `zll_recoil_m` (Higgs recoil mass computed from $Z\rightarrow\ell^+\ell^-$)
+- Cross-section scaling: Applied before histogram writing when `--polL`, `--polR`, or `--ILC` flags are specified
 
 ### 2. `combine.py` — COMBINE Datacard Generation
 
@@ -67,17 +71,32 @@ Generates COMBINE-compatible datacards for statistical fitting of the ZH signal 
 
 **Key operations:**
 - Defines signal processes: $e^+e^-\rightarrow Z(f\bar{f})H$ with all Higgs decay modes ($b\bar{b}$, $c\bar{c}$, $s\bar{s}$, $gg$, $\mu^+\mu^-$, $\tau^+\tau^-$, $ZZ^*$, $WW^*$, $Z\gamma$, $\gamma\gamma$, $\textrm{Inv}$)
-    - Also take into account the $Z$ decays from quarks, $\tau$ and neutrinos
+    - Includes additional signal modes: $e^+e^- \rightarrow e^+e^-H$, $e^+e^- \rightarrow \mu^+\mu^-H$, and $H \rightarrow \textrm{invisible}$
+    - Also accounts for $Z$ decays from quarks, $\tau$, and neutrinos
 - Defines background processes: $ZZ$, $W^+W^-$, $Z/\gamma$, and rare processes
-- Configures systematic uncertainties (1% log-normal normalization uncertainties for backgrounds)
+- Configures systematic uncertainties (1% log-normal normalization uncertainties for backgrounds, uncorrelated between processes)
 - Prepares datacard structure for RooFit/COMBINE statistical framework
 - Supports multiple analysis categories based on Higgs production/decay modes
 
-**Input:** Configuration from command-line or automated workflow
+**Execution Modes:**
+
+1. **Interactive mode** (standalone execution):
+   ```bash
+   fccanalysis combine 4-Combine/combine.py
+   ```
+   Prompts for channel (`ee` or `mumu`), center-of-mass energy, and selection strategy.
+
+2. **Automated mode** (via run script):
+   ```bash
+   python 0-Run/4-run.py --run 2
+   ```
+   Loads configuration from `output/tmp/config_json/4-run.json` and processes all combinations automatically. For more details on the run scripts, see [0-Run/README.md](../0-Run/README.md).
+
+**Input:** Configuration from command-line or JSON config
 ```
 cat:  ee or mumu (final state channel)
 ecm:  240 or 365 (center-of-mass energy)
-sel:  Baseline, Baseline_miss, Baseline_sep (selection strategy)
+sel:  Baseline, Baseline_miss, Baseline_sep, test (selection strategy)
 ```
 
 **Output:** COMBINE datacard files
@@ -92,12 +111,17 @@ output/data/combine/{sel}/{ecm}/{sel}/nominal/datacard/
 - Systematic uncertainties: 1% background normalization (log-normal, `lnN`, uncorrelated between backgrounds)
 
 **Process categories:**
-- **Signal:** $e^+e^-\rightarrow Z(f\bar{f})H$ with 10 Higgs decay modes + $ZZ_\textrm{noInv}$ variant
+- **Signal:** 
+  - $e^+e^-\rightarrow Z(f\bar{f})H$ with 10 Higgs decay modes
+  - $ZZ_\textrm{noInv}$ variant (additional Higgs decay mode)
+  - $e^+e^- \rightarrow e^+e^-H$ (signal)
+  - $e^+e^- \rightarrow \mu^+\mu^-H$ (signal)
+  - $e^+e^- \rightarrow ZH$ with invisible Higgs decays
 - **Backgrounds:**
   - `ZZ` — Pair production via $e^+e^- \rightarrow ZZ$
   - `WW` — Pair production via $e^+e^- \rightarrow W^+W^-$ (all decay channels: hadronic, electron, muon)
   - `Zgamma` — Drell-Yan and photon production ($e^+e^- \rightarrow e^+e^-$, $\mu^+\mu^-$, $\tau^+\tau^-$)
-  - `Rare` — Rare processes ($e^\pm\gamma \rightarrow e^\pm Z$, $\gamma\gamma \rightarrow \ell^+\ell^-$, invisible $Z$ decays)
+  - `Rare` — Rare processes ($e^\pm\gamma \rightarrow e^\pm Z$, $\gamma\gamma \rightarrow \ell^+\ell^-$, $\tau^+\tau^-$, invisible $Z$ decays)
 
 ## Input/Output Data Flow
 
@@ -123,8 +147,8 @@ Statistical fitting (5-Fit)
    - Prompted to select channel (`ee` or `mumu`), selection strategy, and other parameters
    
 2. **Automated mode** (`RUN` environment variable):
-   - Loads configuration from `output/tmp/config_json/{run-name}/4-run.json`
-   - Automatically selected when running via `run/4-run.py`
+   - Loads configuration from `output/tmp/config_json/4-run.json`
+   - Automatically selected when running via `0-Run/4-run.py`
 
 **Execution:**
 
@@ -135,18 +159,18 @@ fccanalysis combine 4-Combine/combine.py
 
 *Automated (via run script):*
 ```bash
-python run/4-run.py --run 2
+python 0-Run/4-run.py --run 2
 ```
 
-The `run/4-run.py` script automates execution across all combinations of channels, center-of-mass energies, and selections, avoiding repeated manual execution. This uses the **FCCAnalysis framework** (part of FCCWorkspace). The xsec analysis is located at `FCCWorkspace/analyses/ZH/xsec/`.
+The `0-Run/4-run.py` script automates execution across all combinations of channels, center-of-mass energies, and selections, avoiding repeated manual execution. This uses the **FCCAnalysis framework** (part of FCCWorkspace). The xsec analysis is located at `FCCWorkspace/analyses/ZH/xsec/`.
 
-For more details on the run scripts and workflow automation, see [run/README.md](../run/README.md).
+For more details on the run scripts and workflow automation, see [0-Run/README.md](../0-Run/README.md).
 
 For detailed parameter descriptions and path management, see [package/userConfig.py](../package/README.md#userconfig--path-management--global-parameters).
 
 For physics process configuration, see [package/config.py](../package/README.md#configpy--physics-configuration).
 
-For histogram processing utilities, see [package/tools/process.py](../package/tools/README.md).
+For histogram processing utilities and the `get_hist()` and `concat()` functions, see [package/tools/process.py](../package/tools/README.md).
 
 ## Integration with Analysis Pipeline
 
