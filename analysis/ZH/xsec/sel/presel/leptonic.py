@@ -212,8 +212,8 @@ def additional_variables(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('H', 'FCCAnalyses::Higgsstrahlungness(zll_m, zll_recoil_m)')
 
     # Visible energy (excluding Z candidate leptons)
-    df = df.Define('visibleEnergy_tot', 'FCCAnalyses::visibleEnergy(ReconstructedParticles)')  # Should be before visibleEnergy
-    df = df.Define('visibleEnergy',     'FCCAnalyses::visibleEnergy(rps_no_leps)')             # To avoid a JIT error
+    df = df.Define('visibleEnergy_tot', 'FCCAnalyses::visibleEnergy(ReconstructedParticles)')             # Should be before visibleEnergy
+    df = df.Define('visibleEnergy',     'FCCAnalyses::visibleEnergy(ReconstructedParticles, zll_leps)')   # To avoid a JIT error
 
     # Missing energy and missing mass to identify invisible Higgs or other missing particle signatures
     df = df.Define('missingEnergy_rp', f'FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)')

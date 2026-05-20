@@ -79,7 +79,7 @@ histos_ll = {
 
     'zll_category':        {'name':'zll_category',
                             'title':'Category',
-                            'bin':11,'xmin':0,'xmax':10},
+                            'bin':10,'xmin':0,'xmax':10},
 
     # Recoil mass (Higgs candidate)
     'zll_recoil_m':        {'name':'zll_recoil_m',
