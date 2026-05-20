@@ -443,6 +443,19 @@ inline float visibleEnergy(Vec_rp in, float p_cutoff = 0.0) {
     return e;
 }
 
+inline float visibleEnergy(Vec_rp in, Vec_rp rem, float p_cutoff = 0.0) {
+    float e = 0;
+    for (auto &p : in) {
+        if (std::sqrt(p.momentum.x * p.momentum.y + p.momentum.y * p.momentum.y) < p_cutoff) continue;
+        e += p.energy;
+    }
+    for (auto &r : rem) {
+        if (std::sqrt(r.momentum.x * r.momentum.y + r.momentum.y * r.momentum.y) < p_cutoff) continue;
+        e -= r.energy;
+    }
+    return e;
+}
+
 
 // calculate the visible mass of the event
 inline float visibleMass(Vec_rp in, float p_cutoff = 0.0) {
