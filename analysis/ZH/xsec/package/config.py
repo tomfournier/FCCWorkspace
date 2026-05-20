@@ -71,7 +71,9 @@ input_vars = (
     'leading_p',    'leading_theta',
     'subleading_p', 'subleading_theta',
     'acolinearity', 'acoplanarity',
-    'zll_m', 'zll_p', 'zll_theta'
+    'zll_m',
+    'zll_p',
+    'zll_theta'
 )
 
 
@@ -742,17 +744,14 @@ def get_process_list(
         ValueError: If onlysig and onlybkg are both True.
     '''
     # Initialize optional parameters
-    frac = frac or {}
-    chunks = chunks or {}
-    include = include or {}
+    frac    = frac    or    {}
+    chunks  = chunks  or    {}
+    include = include or    {}
     exclude = exclude or set()
 
     # Validate conflicting options
     if onlysig and onlybkg:
         raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
-
-    # Batch mode scales default chunk counts by 4x
-    nb = 4 if batch else 1
 
     # Generate signal samples
     if train:
@@ -767,7 +766,7 @@ def get_process_list(
 
     # Build signal dict with custom overrides
     process_sig = {
-        s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, nb)}
+        s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1)}
         for s in sigs if s not in exclude
     }
 

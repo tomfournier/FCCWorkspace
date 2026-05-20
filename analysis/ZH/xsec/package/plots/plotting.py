@@ -726,9 +726,11 @@ def makePlot(
     leg.Draw('SAME')
 
     finalize_canvas(canvas)
-    out = _parse_selection_dir(sel, outDir, 'makePlot')
+    base = _parse_selection_dir(sel, outDir, 'makePlot')
     linlog = '_log' if logY else '_lin'
+    out = f'{base}/tot' if procs[0] == 'ZH' else f'{base}/cat'
     save_plot(canvas, out, outName, linlog+suffix, format)
+
     # Explicitly delete objects to free memory faster
     canvas.Close()
     del canvas, dummy, leg, st
@@ -861,6 +863,7 @@ def PlotDecays(
     linlog = '_log' if logY else '_lin'
     finalize_canvas(canvas)
     save_plot(canvas, out, outName, linlog+suffix, format)
+
     # Explicitly delete objects to free memory faster
     canvas.Close()
     del canvas, dummy, leg
@@ -880,6 +883,7 @@ def AAAyields(
     scale_sig: float = 1.,
     scale_bkg: float = 1.,
     lazy: bool = True,
+    tot: bool = False,
     outName: str = '',
     format: list[str] = ['png']
      ) -> None:
@@ -902,6 +906,7 @@ def AAAyields(
         scale_sig (float, optional): Scale factor for signal yields. Defaults to 1.0.
         scale_bkg (float, optional): Scale factor for background yields. Defaults to 1.0.
         lazy (bool, optional): Use lazy histogram loading. Defaults to True.
+        tot (bool, optional): Include all the Z decays. Defaults to False.
         outName (str, optional): Base output filename. Defaults to 'AAAyields'.
         format (list[str], optional): Image formats. Defaults to ['png'].
 
@@ -1059,7 +1064,8 @@ def AAAyields(
 
     out = _parse_selection_dir(sel, outDir, 'yield')
     mkdir(out)
-    savecanvas(canvas, out, outName, format=format)
+    suff = '_tot' if tot else ''
+    savecanvas(canvas, out, outName, suff, format=format)
     canvas.Close()
 
 # ______________________________

@@ -113,6 +113,7 @@ def preload_histograms(
     # Pre-cache WW scales (use global cache to persist across calls)
     ww_scales_cache = WW_SCALE_CACHE
 
+    not_found: dict[str, list[str]] = {}
     for proc in tqdm(procs):
         fInName = os.path.join(inDir, f'{proc}{suffix}.root')
         cache_key = (proc, suffix, inDir)
@@ -161,7 +162,8 @@ def preload_histograms(
         for hName in hist_names_to_load:
             h = f.Get(hName)
             if not h:
-                LOGGER.warning(f"Couldn't load {hName} from {fInName}")
+                if proc not in not_found: not_found[proc] = []
+                not_found[proc].append(hName)
                 continue
 
             # Clone and detach from file
@@ -180,6 +182,10 @@ def preload_histograms(
 
         f.Close()
 
+    if not_found:
+        for proc, histos in not_found.items():
+            LOGGER.warning(f"Problem for {proc}, Couldn't find {' '.join(histos)}")
+
     LOGGER.info(f'Preloading complete. Cached {len(HIST_CACHE)} files')
 
 
@@ -194,7 +200,7 @@ def clear_histogram_cache() -> None:
     '''
     HIST_CACHE.clear()
     WW_SCALE_CACHE.clear()
-    LOGGER.info('Histogram cache cleared')
+    LOGGER.info('Histogram cache cleared\n')
 
 
 # _______________________________________________________
@@ -435,7 +441,7 @@ def getHist(
 
     if hist is None:
         msgs = [n+' | at step '+w for n, w in zip(names, where)]
-        LOGGER.warning("Couldn't find histograms for processes"+'\n'.join(msgs)+'\nReturning None')
+        LOGGER.warning("Couldn't find histograms for processes\n"+'\n'.join(msgs)+'\nReturning None')
         return None
 
     # Apply post-processing: rebinning and scaling
