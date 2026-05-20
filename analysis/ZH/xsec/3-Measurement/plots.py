@@ -67,7 +67,7 @@ if arg.sels=='':
     ]
 else:
     sels = arg.sels.split('-')
-hl = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+hl = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test', 'test1']
 sels = high_low_sels(sels, hl)
 
 
@@ -83,18 +83,20 @@ processes = mk_processes(
 variables = [
     'leading_p', 'leading_pT', 'leading_theta',                               # leading lepton variables
     'subleading_p', 'subleading_pT', 'subleading_theta',                      # subleading lepton variables
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',  # 'zll_costheta',                  # Z boson properties
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta', 'zll_category',  # Z boson properties
     # 'zll_phi', 'leading_phi', 'subleading_phi',                               # Azimutal angles
-    'acolinearity', 'acoplanarity', 'deltaR',                                 # Angular separation variables
-    'zll_recoil_m',                                                           # Recoil mass (Higgs candidate)
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',  # missingEnergy         # Missing energy and mass
+    'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',                  # Angular separation variables
+    'zll_recoil_m', 'zll_recoil_p',                                           # Recoil mass (Higgs candidate)
+    'e_long', 'e_trans', 'e_tan',                                             # Energy inbalance variables
+    'visibleEnergy', 'visibleEnergy_tot',                                     # Visible energy
+    'cosTheta_miss', 'missingMass', 'missingEnergy',                          # Missing energy and mass
     'H',                                                                      # Higgsstrahlungness
     'BDTscore',                                                               # BDT score
     'ConeIsolation', 'n_leptons'
 ]
 
 # Define signal and background samples for AAAyields
-plots = {
+plots_tot = {
     'signal':      {proc: processes[proc] for proc in ['ZH']},
     'backgrounds': {proc: processes[proc] for proc in ['WW', 'ZZ', 'Zgamma', 'Rare']}
 }
@@ -109,7 +111,7 @@ args = {
     },
     'zll_recoil_m': {
         240: {
-            '*_high': {'xmin':115, 'xmax':150, 'strict': False}
+            '*_high': {'xmin':120, 'xmax':140, 'strict': False}
         }
     }
 }
@@ -120,12 +122,26 @@ args = {
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cats, sels, vars, processes, colors, legend):
+def run(
+        cats: str,
+        sels: list[str],
+        vars: list[str],
+        processes: dict[str, list[str]],
+        colors: dict[str, list],
+        legend: dict[str, list[str]]
+         ) -> None:
     '''Generate distribution plots for all channels, selections, and variables.'''
+    # Define process names for all Z decays (signal must be first)
+    procs_tot = ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
     for cat in cats:
         LOGGER.info(f'Making plots for {cat} channel')
-        # Define process names (signal must be first)
-        procs = ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
+        # Define process names for specific channel (signal must be first)
+        procs = [f'Z{cat}H', 'WW', 'ZZ', 'Zgamma', 'Rare']
+
+        plots = {
+            'signal':      {proc: processes[proc] for proc in [f'Z{cat}H']},
+            'backgrounds': {proc: processes[proc] for proc in ['WW', 'ZZ', 'Zgamma', 'Rare']}
+        }
 
         # Define input and output directories
         inDir  = loc.get('HIST_PREPROCESSED', cat, ecm)
@@ -141,7 +157,8 @@ def run(cats, sels, vars, processes, colors, legend):
             # Generate yields plots unless skipped
             if arg.yields:
                 from package.plots.plotting import AAAyields
-                AAAyields('zll_p', inDir, outDir, plots, legend, colors, cat, sel, ecm=ecm, lumi=lumi)
+                AAAyields('zll_p', inDir, outDir, plots,     legend, colors, cat, sel, ecm=ecm, lumi=lumi, tot=False)
+                AAAyields('zll_p', inDir, outDir, plots_tot, legend, colors, cat, sel, ecm=ecm, lumi=lumi, tot=True)
 
             # Generate distribution and decay plots unless all skipped
             if arg.make or arg.decay or arg.scan:
@@ -169,7 +186,8 @@ def run(cats, sels, vars, processes, colors, legend):
                         kwarg = get_args(var, sel, ecm, lumi, args)
                         # Signal vs background plots (linear and log scale)
                         for logY in [False, True]:
-                            makePlot(var, inDir, outDir, sel, procs, processes, colors, legend, logY=logY, **kwarg)
+                            makePlot(var, inDir, outDir, sel, procs,     processes, colors, legend, logY=logY, **kwarg)
+                            makePlot(var, inDir, outDir, sel, procs_tot, processes, colors, legend, logY=logY, **kwarg)
 
             # Clear cache after finishing this selection to free memory
             clear_histogram_cache()

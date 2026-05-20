@@ -6,8 +6,7 @@ import os
 
 # Load configuration and measurement selection functions
 from package.userConfig import (
-    loc, event, get_params,
-    frac, nb
+    loc, event, get_params
 )
 from package.func.bdt import def_bdt, make_high_low  # BDT score binning utilities
 from sel.final.leptonic import histos_ll             # Histogram definitions
@@ -87,27 +86,10 @@ samples_bkg = [
 samples_sig = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in H_decays + ('ZZ_noInv',)]
 
 # Load event samples with events TTree
-samples = event(samples_sig + samples_bkg, inputDir)
-
-# Large samples requiring chunked processing
-big_sample = (
-    f'p8_ee_ZZ_ecm{ecm}',
-    f'p8_ee_WW_ecm{ecm}',
-    f'p8_ee_WW_{cat}_ecm{ecm}',
-
-    f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu'
-    else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
-
-    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
-    f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-    f'wzp6_gaga_{cat}_60_ecm{ecm}'
-)
-
-# Configure processing parameters for each sample
-processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1} for i in samples}
+processList = event(samples_sig + samples_bkg, inputDir)
 
 # Define BDT score from trained model and apply BDT cut
-sel_BDT = 'test'
+sel_BDT = 'Baseline'
 loc_BDT = loc.get('BDT', cat, ecm, sel_BDT)
 defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
 
@@ -132,16 +114,17 @@ vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' &&
 # Selection cut dictionary (key = selection name used in outputs)
 cutList = {
     'Baseline':          Baseline_Cut,
-    'Baseline_vis':      vis,
-    'Baseline_inv':      inv,
-    'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
-    'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
-    'test':              Baseline_Cut
+    # 'Baseline_vis':      vis,
+    # 'Baseline_inv':      inv,
+    # 'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
+    # 'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
+    # 'test':              Baseline_Cut,
+    # 'test1':             Baseline_Cut
 }
 
 # List of selections to split into high/low BDT score regions
 sels = [
-    'Baseline', 'Baseline_miss', 'Baseline_sep', 'test'
+    'Baseline', 'Baseline_miss', 'Baseline_sep', 'test', 'test1'
 ]
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
@@ -153,8 +136,8 @@ cutList = make_high_low(cutList, bdt_cut, sels)
 #################################
 
 customHists: dict[str, dict[str, str | int | float]] = {
-    'leps_iso': {'name':'ConeIsolation', 'title':'I_{rel}'},
-    'leps_no':  {'name':'n_leptons', 'title':'N_{leptons}'}
+    'leps_iso':     {'name':'ConeIsolation', 'title':'I_{rel}'},
+    'leps_iso_no':  {'name':'n_leptons', 'title':'N_{leptons}'}
 }
 
 # Output histogram definitions (name, title, binning)

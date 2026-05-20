@@ -52,7 +52,10 @@ compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
-processList = get_process_list(cat, ecm, train=True, batch=runBatch)
+processList = get_process_list(
+    cat, ecm, train=True, batch=runBatch,
+    chunks={'wzp6_gaga_ee_60_ecm365': 1}
+)
 
 
 

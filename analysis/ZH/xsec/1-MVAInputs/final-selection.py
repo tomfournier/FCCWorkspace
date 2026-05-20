@@ -78,10 +78,12 @@ Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
 # Selection cuts dictionary for ROOT filtering
 # Keys: selection names appearing in output file names and histograms
 cutList = {
-    'sel0':     'return true;',        # No cuts (diagnostics)
+    # 'sel0':     'return true;',        # No cuts (diagnostics)
     'Baseline':  Baseline_Cut,         # Baseline selection
-    'test':      Baseline_Cut          # Test selection (same cuts as baseline)
+    'test':      Baseline_Cut,         # Test selection (same cuts as baseline)
+    'test1':     Baseline_Cut
 }
+doTree = False if 'sel0' in cutList else doTree  # Do not write TTree if sel0 is in cutList
 
 
 
