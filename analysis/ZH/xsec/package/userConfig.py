@@ -194,18 +194,32 @@ class locMeta(type):
 
         return obj
 
-    def set_default_type(cls, type_: Type[Union[str, Path]]) -> None:
+    def set_default_type(cls, type_: Union[Type[Union[str, Path]], str]) -> None:
         """Set the default type for loc.ATTRIBUTE access and loc.get() calls.
 
         Args:
-            type_: Either str (returns LocPath), Path (returns PathObj),
-                   or the classes themselves (LocPath, PathObj)
+            type_: Either a type object (str, LocPath, Path, PathObj) or a string
+                   name ('str', 'LocPath', 'Path', 'PathObj')
 
         Raises:
-            ValueError: If type_ is not one of the supported types
+            ValueError: If type_ is not one of the supported types or names
         """
+        # Map of string names to type objects
+        type_map = {
+            'str':  str,  'LocPath': LocPath,
+            'Path': Path, 'PathObj': PathObj,
+        }
+
+        # If type_ is a string, convert it to the actual type
+        if isinstance(type_, str):
+            if type_ not in type_map:
+                raise ValueError(f"type_ must be one of {list(type_map.keys())}")
+            type_ = type_map[type_]
+
+        # Validate that the resulting type is one of the supported types
         if type_ not in (str, LocPath, Path, PathObj):
             raise ValueError("type_ must be str, LocPath, Path, or PathObj")
+
         cls._default_type = type_
 
 
@@ -263,6 +277,7 @@ class loc(metaclass=locMeta):
     PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis measurement plots
     PLOTS_OPTIMISATION  = LocPath(f"{repo}/output/plots/optimisation/ecm/cat")    # Selection optimisation plots
     PLOTS_FSR           = LocPath(f"{repo}/output/plots/fsr/ecm/cat")             # FSR analysis plots
+    PLOTS_FIT_SCAN      = LocPath(f"{repo}/output/plots/fit/scans")                # Likelyhood scan comparison plots
 
     # Statistical fit: templates use {sel}, {ecm}, {cat} placeholders
     COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root directory
@@ -281,6 +296,7 @@ class loc(metaclass=locMeta):
     BIAS_RESULT         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias")  # Bias summaries and statistics
     BIAS_DATACARD       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Combine datacards
     BIAS_WS             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Combine workspaces
+
 
     @staticmethod
     def expand(

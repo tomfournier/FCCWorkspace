@@ -412,6 +412,50 @@ def add_fit_args(
         help='Suppress uncertainty output'
     )
 
+def add_fit_plot_args(
+        parser: ArgumentParser,
+         ) -> None:
+    args = parser.add_argument_group('Fit plot arguments')
+    args.add_argument(
+        "--param",
+        default="r",
+        help="Parameter to scan (default: r)"
+    )
+    args.add_argument(
+        "--y-cut",
+        type=float,
+        default=7.0,
+        help="Remove points with y > y-cut"
+    )
+    args.add_argument(
+        "--y-max",
+        type=float,
+        default=-1,
+        help="Y-axis maximum"
+    )
+    args.add_argument(
+        '--sig2',
+        action='store_true',
+        help='Plot 95% CL'
+    )
+    args.add_argument(
+        '--bias',
+        action='store_true',
+        help='Do likelyhood scan for bias fit'
+    )
+    args.add_argument(
+        '--comb',
+        action='store_true',
+        help='Do the likelyhood scan for combine fit'
+    )
+    args.add_argument(
+        '--which',
+        type=str,
+        default='',
+        choices=['', 'cat', 'ecm', 'sel', 'decay'],
+        help='Choose which parameter to compare'
+    )
+
 
 def add_bias_args(parser: ArgumentParser, extra: bool = False) -> None:
     '''Add bias test specific arguments (freeze, float, plot_dc).'''
@@ -472,6 +516,7 @@ def create_parser(
         only_procs: bool = False,
         polarization: bool = False,
         fit: bool = False,
+        fit_plot: bool = False,
         bias: bool = False,
         bias_extra: bool = False,
         default_target: str = '',
@@ -561,6 +606,8 @@ def create_parser(
         add_polarization(parser)
     if fit:
         add_fit_args(parser, default_target=default_target, default_pert=default_pert)
+    if fit_plot:
+        add_fit_plot_args(parser)
     if bias and fit:
         add_bias_args(parser, extra=bias_extra)
 

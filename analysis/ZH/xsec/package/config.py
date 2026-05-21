@@ -266,6 +266,20 @@ h_labels = {
     'inv'    : 'H#rightarrowInv'
 }
 
+H_labels = {
+    'bb'     : r'$H\to b\bar{b}$',
+    'cc'     : r'$H\to c\bar{c}$',
+    'ss'     : r'$H\to s\bar{s}$',
+    'gg'     : r'$H\to gg$',
+    'mumu'   : r'$H\to \mu^+\mu^-$',
+    'tautau' : r'$H\to \tau^+\tau^-$',
+    'ZZ'     : r'$H\to ZZ^*$',
+    'WW'     : r'$H\to WW^*$',
+    'Za'     : r'$H\to Z\gamma$',
+    'aa'     : r'$H\to \gamma\gamma$',
+    'inv'    : r'$H\to\text{Inv}$'
+}
+
 # ROOT TLatex labels for main physics processes
 labels = {
     'ZH'     : 'ZH',
