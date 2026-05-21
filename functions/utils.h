@@ -2,10 +2,10 @@
 #include <TF1.h>
 #include <TLorentzVector.h>
 #include <TRandom.h>
-#include <csignal>
 #include <cstdlib>
 #include <edm4hep/MCParticleData.h>
 #include <edm4hep/ReconstructedParticleData.h>
+#include "FCCAnalyses/ReconstructedParticle2MC.h"
 #include <cmath>
 #include "TVector3.h"
 #include "functions.h"
@@ -543,6 +543,22 @@ inline Vec_mc fromRP2MC(Vec_i ind, Vec_i mcind, Vec_mc mc){
         if (mc_idx < 0 || mc_idx >= (int)mc.size()) continue;
         
         // Now safe to access MC particle
+        auto p = mc.at(mc_idx);
+        result.push_back(p);
+    }
+    return result;
+}
+
+
+inline Vec_mc fromRP2MC(Vec_rp in, Vec_rp reco, Vec_i recind, Vec_i mcind, Vec_mc mc){
+    Vec_mc result;
+
+    for (int i = 0; i < in.size(); i++) {
+        int track_index = in.at(i).tracks_begin;
+        int mc_idx = ReconstructedParticle2MC::getTrack2MC_index(track_index, recind, mcind, reco);
+
+        if (mc_idx < 0 || mc_idx >= mc.size()) continue;
+
         auto p = mc.at(mc_idx);
         result.push_back(p);
     }
