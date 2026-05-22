@@ -491,12 +491,12 @@ struct coneIsolation {
 
     float dr_min = 0;
     float dr_max = 0.4;
-    Vec_f operator() (Vec_rp in, Vec_rp rps);
-    Vec_f operator() (Vec_rp in, Vec_rp rps, Vec_i recind, Vec_i mcind, Vec_mc mc);
+    Vec_f operator() (Vec_rp in, Vec_rp rps, int method);
+    Vec_f operator() (Vec_rp in, Vec_rp rps, Vec_i recind, Vec_i mcind, Vec_mc mc, int method);
 };
 
 inline coneIsolation::coneIsolation(float arg_dr_min, float arg_dr_max) : dr_min(arg_dr_min), dr_max( arg_dr_max ) { };
-inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps) {
+inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps, int method = 2) {
 
     Vec_f result;
     result.reserve(in.size());
@@ -517,13 +517,18 @@ inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps) {
             else sumCharged += tlv.P();
         }
 
-        double sum = sumCharged + sumNeutral;
+        double sum = 0.0;
+        if (method < 0 || method > 2) {
+            throw std::invalid_argument("Invalid isolation method. Method must be 0, 1, or 2.");
+        }
+        if (method == 2 || method == 1) sum += sumCharged;
+        if (method == 2 || method == 0) sum += sumNeutral;
         double ratio = sum / tlv_target.P();
         result.emplace_back(ratio);
     }
     return result;
 }
-inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps, Vec_i recind, Vec_i mcind, Vec_mc mc) {
+inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps, Vec_i recind, Vec_i mcind, Vec_mc mc, int method = 2) {
 
     Vec_f result;
 
@@ -556,7 +561,12 @@ inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps, Ve
             else sumCharged += tlv.P();
         }
 
-        double sum = sumCharged + sumNeutral;
+        double sum = 0.0;
+        if (method < 0 || method > 2) {
+            throw std::invalid_argument("Invalid isolation method. Method must be 0, 1, or 2.");
+        }
+        if (method == 2 || method == 1) sum += sumCharged;
+        if (method == 2 || method == 0) sum += sumNeutral;
         double ratio = sum / tlv_target.P();
         result.emplace_back(ratio);
     }
