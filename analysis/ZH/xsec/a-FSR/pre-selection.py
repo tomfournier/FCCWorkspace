@@ -6,9 +6,9 @@ import os
 
 # Import user configuration paths and parameters
 from package.config import get_process_list, quarks
-from sel.presel.chi2 import (
+from sel.presel.optimization.fsr import (
     fsr_recovery,
-    branch_list_fsr
+    branch_list
 )
 from package.userConfig import (
     loc, get_params
@@ -112,4 +112,4 @@ class RDFanalysis():
         Returns:
             Sorted list of branch names to persist in output
         '''
-        return sorted(branch_list_fsr)
+        return sorted(branch_list)

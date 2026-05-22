@@ -68,6 +68,23 @@ from package.plots.fsr import (
 
 
 
+#######################
+### HELPER FUNCTION ###
+#######################
+
+# Helper function to find process input (either .root file or directory with chunk*.root pattern)
+def find_process_path(inDir, process_name):
+    """Find process input: first check for .root file, then check for directory."""
+    root_file = inDir / f'{process_name}.root'
+    if root_file.exists():
+        return root_file
+    proc_dir = inDir / process_name
+    if proc_dir.exists() and proc_dir.is_dir():
+        return proc_dir
+    return None
+
+
+
 ##########################
 ### EXECUTION FUNCTION ###
 ##########################
@@ -108,7 +125,13 @@ def main():
 
     # Get process directories
     if arg.procs == '':
-        proc_dirs = sorted([d for d in inDir.iterdir() if d.is_dir()])
+        # Find both .root files and directories
+        proc_dirs = []
+        for item in sorted(inDir.iterdir()):
+            if item.is_file() and item.suffix == '.root':
+                proc_dirs.append(item)
+            elif item.is_dir():
+                proc_dirs.append(item)
     else:
         processes: list[str] = arg.procs.split('-')
         procs = []
@@ -122,7 +145,8 @@ def main():
             else:
                 # Short name: just the 'x' part, convert to full name
                 procs.append(f'wzp6_ee_{cat}H_H{x}_ecm{ecm}')
-        proc_dirs = [inDir / (p+'.root') for p in procs]
+        proc_dirs = [find_process_path(inDir, p) for p in procs]
+        proc_dirs = [p for p in proc_dirs if p is not None]  # Filter out None values
 
     if not proc_dirs:
         LOGGER.error(f'No process directories found in {inDir}')
@@ -158,16 +182,18 @@ def main():
         # Generate significance plot with optimal cut
         cut = 1.80 if ecm == 240 else (0.95 if ecm == 365 else 1e10)
         significance(data, proc_outDir, Label, format=plot_file)
-        correlation_scan(data, proc_outDir, Label, cut, format=plot_file)
+        for iso_name in [f'LEPS_iso{x}_pair' for x in ['', '_ch', '_ne', '_ph', '_PH']]:
+            correlation_scan(data, proc_outDir, Label, iso_name, cut, format=plot_file)
 
         # Generate all plots (linear and log scales)
         LOGGER.info(f'Generating plots for {proc_dir.name}')
         for scale in [False, True]:
-            photon_distributions(data, proc_outDir, Label, scale=scale, format=plot_file)
-            leptons_origin(data, proc_outDir, Label, scale=scale, iso_cut=cut, format=plot_file)
-            leptons_fsr_comparison(data, proc_outDir, Label, scale=scale, format=plot_file)
-            correlation_distributions(data, proc_outDir, Label, scale=scale, iso_cut=cut, format=plot_file)
             n_radiated(data, proc_outDir, Label, scale=scale, format=plot_file)
+            photon_distributions(data, proc_outDir, Label, scale=scale, format=plot_file)
+            leptons_fsr_comparison(data, proc_outDir, Label, scale=scale, format=plot_file)
+            for iso_name in ['', '_ch', '_ne', '_ph', '_PH']:
+                leptons_origin(data, proc_outDir, Label, scale=scale, iso_name=iso_name, iso_cut=cut, format=plot_file)
+                correlation_distributions(data, proc_outDir, Label, scale=scale, iso_name=iso_name, iso_cut=cut, format=plot_file)
 
         LOGGER.info(f'Plots for {proc_dir.name} saved to {proc_outDir}\n')
 

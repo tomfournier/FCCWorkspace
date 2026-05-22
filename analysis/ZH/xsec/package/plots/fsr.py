@@ -196,8 +196,6 @@ def load_data(proc_dir: Path, branches: list[str] | None = None) -> dict[str, np
 
     if not chunk_files:
         chunk_files = [proc_dir]
-        # LOGGER.warning(f'No chunk files found in {proc_dir}')
-        # return {}
 
     LOGGER.info(f'Found {len(chunk_files)} chunk files in {proc_dir.name}')
 
@@ -377,6 +375,7 @@ def leptons_origin(
         label: str,
         bins: int = 100,
         scale: bool = False,
+        iso_name: str = '',
         iso_cut: float | int = 1e10,
         format: list[str] = ['png']
          ) -> None:
@@ -399,8 +398,9 @@ def leptons_origin(
         LOGGER.warning('Required branches not found for lepton origin plots')
         return
 
-    cut = data['leps_iso'] < iso_cut
-    CUT = data['LEPS_iso'] < iso_cut
+    name_iso, name_ISO = f'leps_iso{iso_name}', f'LEPS_iso{iso_name}'
+    cut = data[name_iso] < iso_cut
+    CUT = data[name_ISO] < iso_cut
     origin = np.abs(data['lepton_origin'])[CUT]
 
     # Pre-compute origin masks
@@ -427,6 +427,10 @@ def leptons_origin(
         ('leps_pT',    'LEPS_pT',    r'$p_{T,\ell^{\pm}}$ [GeV]'),
         ('leps_theta', 'LEPS_theta', r'$\theta_{\ell^{\pm}}$'),
         ('leps_iso',   'LEPS_iso',   r'$I_{rel}$'),
+        ('leps_iso_ch', 'LEPS_iso_ch', r'$I_{rel}$ (only charged)'),
+        ('leps_iso_ne', 'LEPS_iso_ne', r'$I_{rel}$ (only neutral)'),
+        ('leps_iso_ph', 'LEPS_iso_ph', r'$I_{rel}$ (no photon)'),
+        ('leps_iso_PH', 'LEPS_iso_PH', r'$I_{rel}$ (no photon, only charged)'),
     ]
 
     for var_name, true_var, xlabel in variables:
@@ -459,7 +463,7 @@ def leptons_origin(
             ax.legend()
 
             suffix = '_log' if scale else '_lin'
-            out = outDir / 'origin'
+            out = outDir / 'origin' / name_iso
             out.mkdir(exist_ok=True, parents=True)
             savefigs(fig, out, var_name, suffix, format)
 
@@ -483,9 +487,9 @@ def leptons_fsr_comparison(
         return
 
     variables = [
-        ('leps_p',     'fsr_p',     'LEPS_p',     r'$p_{\ell^{\pm},Reco}/p_{\ell^{\pm},MC}$ [GeV]',     (0, 2)),
-        ('leps_pT',    'fsr_pT',    'LEPS_pT',    r'$p_{T,\ell^{\pm},Reco}/p_{T,\ell^{\pm},MC}$ [GeV]', (0, 10)),
-        ('leps_theta', 'fsr_theta', 'LEPS_theta', r'$\theta_{\ell^{\pm},Reco}/\theta_{\ell^{\pm},MC}$', (0, 10)),
+        ('leps_p',     'fsr_p',     'LEPS_p',     r'$(p_{\ell^{\pm},Reco}-p_{\ell^{\pm},MC})/p_{\ell^{\pm},MC}$ [GeV]',          None),
+        ('leps_pT',    'fsr_pT',    'LEPS_pT',    r'$(p_{T,\ell^{\pm},Reco}-p_{T,\ell^{\pm},MC})/p_{T,\ell^{\pm},MC}$ [GeV]',    None),
+        ('leps_theta', 'fsr_theta', 'LEPS_theta', r'$(\theta_{\ell^{\pm},Reco}-\theta_{\ell^{\pm},MC})/\theta_{\ell^{\pm},MC}$', None),
     ]
 
     for var_name, fsr_var, true_var, xlabel, lim in variables:
@@ -501,8 +505,8 @@ def leptons_fsr_comparison(
             LOGGER.warning(f'Array length mismatch for {var_name} or {fsr_var}: skipping')
             continue
 
-        diff_var = var_data / true_data
-        diff_fsr = fsr_data / true_data
+        diff_var = (var_data - true_data) / true_data
+        diff_fsr = (fsr_data - true_data) / true_data
 
         datasets = {
             'no FSR': (diff_var, 'blue', 'step'),
@@ -532,6 +536,7 @@ def correlation_distributions(
         label: str,
         bins: int = 200,
         scale: bool = False,
+        iso_name: str = '',
         iso_cut: float | int = 1e10,
         format: list[str] = ['png']
          ) -> None:
@@ -557,8 +562,8 @@ def correlation_distributions(
         LOGGER.warning("'same_parent' branch not found, skipping correlation distributions")
         return
 
-    cut = data['leps_iso_pair'] < iso_cut
-    CUT = data['LEPS_iso_pair'] < iso_cut
+    cut = data[f'leps_iso{iso_name}_pair'] < iso_cut
+    CUT = data[f'LEPS_iso{iso_name}_pair'] < iso_cut
 
     same_parent = data['same_parent'].astype(bool)[CUT]
     diff_parent = ~same_parent
@@ -602,7 +607,7 @@ def correlation_distributions(
             ax.legend(loc='upper center')
 
             suffix = '_log' if scale else '_lin'
-            out = outDir / 'correlation'
+            out = outDir / 'correlation' / f'iso{iso_name}'
             out.mkdir(exist_ok=True, parents=True)
             savefigs(fig, out, reco_var, suffix, format)
 
@@ -614,6 +619,7 @@ def correlation_scan(
         data: dict[str, np.ndarray],
         outDir: Path,
         label: str,
+        iso_name: str,
         iso_cut: float | int = 1e10,
         incr: float | int = 0.01,
         format: list[str] = ['png']
@@ -635,7 +641,7 @@ def correlation_scan(
         LOGGER.warning("'same_parent' branch not found, skipping correlation scan")
         return
 
-    cut = data['LEPS_iso_pair'] < iso_cut
+    cut = data[iso_name] < iso_cut
     same_parent = data['same_parent'].astype(bool)[cut]
     diff_parent = ~same_parent
 
@@ -710,12 +716,12 @@ def correlation_scan(
             ax.legend(lines, labels, loc='upper center')
 
             # Save figure
-            out = outDir / 'efficiency'
+            out = outDir / 'efficiency' / 'correlation' / iso_name
             out.mkdir(exist_ok=True, parents=True)
             savefigs(fig, out, f'significance_{var}', format=format)
 
             rel = '<=' if reverse else '>='
-            LOGGER.info(f'Optimal cut: {var} {rel} {opt_iso:.3f} with Z = {opt_z:,.0f} (S = {opt_s:,}, B = {opt_b:,})')
+            LOGGER.debug(f'Optimal cut: {var} {rel} {opt_iso:.3f} with Z = {opt_z:,.0f} (S = {opt_s:,}, B = {opt_b:,})')
 
         finally:
             plt.close(fig)
@@ -753,54 +759,60 @@ def significance(
     # Extract data
     origin = np.abs(data['lepton_origin'])
     from_had = origin > 25
-    leps_iso = data['LEPS_iso']
 
-    # Define bins for isolation
-    iso_cuts = np.arange(np.floor(np.nanmin(leps_iso)), np.ceil(np.nanmax(leps_iso)) + incr, incr)
+    xlabels = [r'$I_{rel}$', r'$I_{rel}$ (only charged)', r'$I_{rel}$ (only neutral)', r'$I_{rel}$ (no photon)']
+    for iso, xlabel in zip(['', '_ch', '_ne', '_ph'], xlabels):
+        Iso_name = f'LEPS_iso{iso}'
+        leps_iso = data[Iso_name]
 
-    total_S, total_B = np.sum(~from_had), np.sum(from_had)
-    LOGGER.debug(f'Initial: Total S = {total_S:,}, B = {total_B:,}, Z = {total_S / np.sqrt(total_S + total_B) * 100:.2f}')
-    LOGGER.debug(f'Computing efficiency vs isolation with {len(iso_cuts)-1} bins...')
+        # Define bins for isolation
+        iso_cuts = np.arange(np.floor(np.nanmin(leps_iso)), np.ceil(np.nanmax(leps_iso)) + incr, incr)
 
-    S_cumsum, B_cumsum, Z_cumsum, iso_centers = _compute_cumsum_and_z(
-        leps_iso, ~from_had, iso_cuts, reverse=True
-    )
+        total_S, total_B = np.sum(~from_had), np.sum(from_had)
+        LOGGER.debug(f'Initial: Total S = {total_S:,}, B = {total_B:,}, Z = {total_S / np.sqrt(total_S + total_B) * 100:.2f}')
+        LOGGER.debug(f'Computing efficiency vs isolation with {len(iso_cuts)-1} bins...')
 
-    fig, ax = _make_fig()
-    ax.set_xlim(None, 10)
-    ax_twin = ax.twinx()
+        S_cumsum, B_cumsum, Z_cumsum, iso_centers = _compute_cumsum_and_z(
+            leps_iso, ~from_had, iso_cuts, reverse=True
+        )
 
-    line1 = ax.scatter(iso_centers, Z_cumsum, color='blue', label='Significance Z')
-    set_labels(ax, r'$I_{rel}$', r'Significance $S / \sqrt{S + B}$', right=label)
-    ax.tick_params(axis='y', labelcolor='blue')
-    ax.yaxis.label.set_color('blue')
+        fig, ax = _make_fig()
+        ax.set_xlim(None, 10)
+        ax_twin = ax.twinx()
 
-    line2 = ax_twin.scatter(iso_centers, S_cumsum, color='green', label='Not from jet')
-    line3 = ax_twin.scatter(iso_centers, B_cumsum, color='red', label='From jet')
-    set_labels(ax_twin, ylabel='Count', left=' ')
-    ax_twin.tick_params(axis='y')
-    ax_twin.set_yscale('log')
-    ax_twin.grid(False, axis='y')
+        line1 = ax.scatter(iso_centers, Z_cumsum, color='blue', label='Significance Z')
+        set_labels(ax, r'$I_{rel}$', r'Significance $S / \sqrt{S + B}$', right=label)
+        ax.tick_params(axis='y', labelcolor='blue')
+        ax.yaxis.label.set_color('blue')
 
-    # Find and mark optimal cut
-    max_idx = np.argmax(Z_cumsum)
-    opt_iso = iso_centers[max_idx]
-    opt_z = Z_cumsum[max_idx]
-    opt_s, opt_b = S_cumsum[max_idx], B_cumsum[max_idx]
+        line2 = ax_twin.scatter(iso_centers, S_cumsum, color='green', label='Not from jet')
+        line3 = ax_twin.scatter(iso_centers, B_cumsum, color='red', label='From jet')
+        set_labels(ax_twin, ylabel='Count', left=' ')
+        ax_twin.tick_params(axis='y')
+        ax_twin.set_yscale('log')
+        ax_twin.grid(False, axis='y')
 
-    line4 = ax.scatter([opt_iso], [opt_z], color='red', s=150, marker='*',
-                       label=fr'Max Z = {opt_z:,.0f} at $I_{{rel}}$ = {opt_iso:.2f}', zorder=5)
+        # Find and mark optimal cut
+        max_idx = np.argmax(Z_cumsum)
+        opt_iso = iso_centers[max_idx]
+        opt_z = Z_cumsum[max_idx]
+        opt_s, opt_b = S_cumsum[max_idx], B_cumsum[max_idx]
 
-    # Combine legends
-    lines = [line1, line2, line3, line4]
-    labels = [l.get_label() for l in lines]
-    ax.legend(lines, labels, loc='lower right')
+        eff = opt_s / (opt_s + opt_b) * 100
+        line4 = ax.scatter([opt_iso], [opt_z], color='red', s=150, marker='*',
+                           label=f'Max Z = {opt_z:,.0f}\neff = {eff:.2f}' + r'\%' + '\n' + f'{xlabel} $\\leq$ {opt_iso:.2f}',
+                           zorder=5)
 
-    # Save figure
-    out = outDir / 'efficiency'
-    out.mkdir(exist_ok=True, parents=True)
-    savefigs(fig, out, 'significance_iso', format=format)
-    plt.close(fig)
+        # Combine legends
+        lines = [line1, line2, line3, line4]
+        labels = [l.get_label() for l in lines]
+        ax.legend(lines, labels, loc='lower right')
 
-    LOGGER.info(f'Optimal cut: iso <= {opt_iso:.3f} with Z = {opt_z:,.0f} (S = {opt_s:,}, B = {opt_b:,})')
+        # Save figure
+        out = outDir / 'efficiency' / 'isolation'
+        out.mkdir(exist_ok=True, parents=True)
+        savefigs(fig, out, f'significance_iso{iso}', format=format)
+        plt.close(fig)
+
+        LOGGER.info(f'Optimal cut: iso <= {opt_iso:.3f} with Z = {opt_z:,.0f} (S = {opt_s:,}, B = {opt_b:,})')
     return opt_iso
