@@ -465,7 +465,7 @@ def get_params(
         LOGGER.info(f'Getting config file from {cfg_file}')
         if cfg_file.exists():
             cfg: dict = json.loads(cfg_file.read_text())
-            cat, ecm, lumi, test = cfg['cat'], cfg['ecm'], cfg.get('lumi', -1), cfg['test']
+            cat, ecm, lumi, test = cfg['cat'], cfg['ecm'], cfg.get('lumi', -1), cfg.get('test')
         else:
             raise FileNotFoundError(f"Couldn't find config file at {cfg_file}")
     else:

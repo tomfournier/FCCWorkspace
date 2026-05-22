@@ -109,6 +109,7 @@ def _plot_histograms(
         ax: plt.Axes,
         datasets: dict[str, tuple[np.ndarray, str, str]],
         bins: int = 200,
+        lim: tuple[float | int, float | int] | None = None,
         log_scale: bool = False,
         histtype: str = 'step',
         alpha: float = 1.0,
@@ -145,6 +146,10 @@ def _plot_histograms(
     if not np.isfinite(xmin) or not np.isfinite(xmax):
         # All values are NaN, use default range
         return None, None
+
+    if lim is not None:
+        if xmin < lim[0]: xmin = lim[0]
+        if xmax > lim[1]: xmax = lim[1]
 
     for label, (data, color, style) in datasets.items():
         if len(data) > 0:
@@ -190,8 +195,9 @@ def load_data(proc_dir: Path, branches: list[str] | None = None) -> dict[str, np
     chunk_files = sorted(glob(str(proc_dir / 'chunk*.root')))
 
     if not chunk_files:
-        LOGGER.warning(f'No chunk files found in {proc_dir}')
-        return {}
+        chunk_files = [proc_dir]
+        # LOGGER.warning(f'No chunk files found in {proc_dir}')
+        # return {}
 
     LOGGER.info(f'Found {len(chunk_files)} chunk files in {proc_dir.name}')
 
@@ -351,7 +357,7 @@ def photon_distributions(
 
         fig, ax = _make_fig()
         try:
-            xmin, xmax = _plot_histograms(ax, datasets, bins, scale)
+            xmin, xmax = _plot_histograms(ax, datasets, bins, log_scale=scale)
             ax.set_xlim(xmin, xmax)
             set_labels(ax, xlabel, 'Number of Photons', right=label)
             ax.legend()
@@ -425,7 +431,7 @@ def leptons_origin(
 
     for var_name, true_var, xlabel in variables:
         if var_name not in data or true_var not in data:
-            LOGGER.debug(f'Variable {var_name} not found, skipping')
+            LOGGER.warning(f'Variable {var_name} not found, skipping')
             continue
 
         var_data = data[var_name][cut]
@@ -445,7 +451,7 @@ def leptons_origin(
 
         fig, ax = _make_fig()
         try:
-            xmin, xmax = _plot_histograms(ax, datasets, bins, scale)
+            xmin, xmax = _plot_histograms(ax, datasets, bins, log_scale=scale)
             if 'iso' in var_name:
                 xmax = 10 if xmax > 10 else xmax
             ax.set_xlim(xmin, xmax)
@@ -477,26 +483,26 @@ def leptons_fsr_comparison(
         return
 
     variables = [
-        ('leps_p',     'fsr_p',     'LEPS_p',     r'$p_{\ell^{\pm},Reco}-p_{\ell^{\pm},MC}$ [GeV]'),
-        ('leps_pT',    'fsr_pT',    'LEPS_pT',    r'$p_{T,\ell^{\pm},Reco}-p_{T,\ell^{\pm},MC}$ [GeV]'),
-        ('leps_theta', 'fst_theta', 'LEPS_theta', r'$\theta_{\ell^{\pm},Reco}-\theta_{\ell^{\pm},MC}$'),
+        ('leps_p',     'fsr_p',     'LEPS_p',     r'$p_{\ell^{\pm},Reco}/p_{\ell^{\pm},MC}$ [GeV]',     (0, 2)),
+        ('leps_pT',    'fsr_pT',    'LEPS_pT',    r'$p_{T,\ell^{\pm},Reco}/p_{T,\ell^{\pm},MC}$ [GeV]', (0, 10)),
+        ('leps_theta', 'fsr_theta', 'LEPS_theta', r'$\theta_{\ell^{\pm},Reco}/\theta_{\ell^{\pm},MC}$', (0, 10)),
     ]
 
-    for var_name, fsr_var, true_var, xlabel in variables:
+    for var_name, fsr_var, true_var, xlabel, lim in variables:
         if var_name not in data or true_var not in data or fsr_var not in data:
-            LOGGER.debug(f'Variable {var_name}, {fsr_var} or {true_var} not found, skipping')
+            LOGGER.warning(f'Variable {var_name}, {fsr_var} or {true_var} not found, skipping')
             continue
 
         var_data  = data[var_name]
         fsr_data  = data[fsr_var]
         true_data = data[true_var]
 
-        if (len(var_data) != len(true_data)) or (len(fsr_data) != true_data):
+        if (len(var_data) != len(true_data)) or (len(fsr_data) != len(true_data)):
             LOGGER.warning(f'Array length mismatch for {var_name} or {fsr_var}: skipping')
             continue
 
-        diff_var = var_data - true_data
-        diff_fsr = var_data - true_data
+        diff_var = var_data / true_data
+        diff_fsr = fsr_data / true_data
 
         datasets = {
             'no FSR': (diff_var, 'blue', 'step'),
@@ -505,7 +511,8 @@ def leptons_fsr_comparison(
 
         fig, ax = _make_fig()
         try:
-            xmin, xmax = _plot_histograms(ax, datasets, bins, scale)
+            xmin, xmax = _plot_histograms(ax, datasets, bins, lim, scale)
+
             ax.set_xlim(xmin, xmax)
             set_labels(ax, xlabel, 'Number of Leptons', right=label)
             ax.legend()
@@ -587,7 +594,7 @@ def correlation_distributions(
                 'Reco':             (reco_data, 'black', 'scatter'),
             }
 
-            xmin, xmax = _plot_histograms(ax, datasets, bins, scale,
+            xmin, xmax = _plot_histograms(ax, datasets, bins, log_scale=scale,
                                           histtype='bar', alpha=0.8, density=False)
 
             set_labels(ax, xlabel, 'Number of Pairs', right=label)

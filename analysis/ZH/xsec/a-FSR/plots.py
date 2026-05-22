@@ -110,7 +110,19 @@ def main():
     if arg.procs == '':
         proc_dirs = sorted([d for d in inDir.iterdir() if d.is_dir()])
     else:
-        proc_dirs = [inDir / p for p in arg.procs.split('-')]
+        processes: list[str] = arg.procs.split('-')
+        procs = []
+        for x in processes:
+            if x.startswith('wzp6_ee_'):
+                # Full process name already provided
+                procs.append(x)
+            elif x == 'all':
+                # Special case: base process name without H{x} suffix
+                procs.append(f'wzp6_ee_{cat}H_ecm{ecm}')
+            else:
+                # Short name: just the 'x' part, convert to full name
+                procs.append(f'wzp6_ee_{cat}H_H{x}_ecm{ecm}')
+        proc_dirs = [inDir / (p+'.root') for p in procs]
 
     if not proc_dirs:
         LOGGER.error(f'No process directories found in {inDir}')
@@ -118,22 +130,13 @@ def main():
 
     LOGGER.info(f'Found {len(proc_dirs)} process(es) to process')
 
-    # Determine required branches to load
-    required_branches = [
-        'fromISR', 'fromFSR', 'ph_p', 'PH_p', 'ph_pT', 'PH_pT', 'ph_theta', 'PH_theta',
-        'leps_iso', 'LEPS_iso', 'LEPS_p', 'LEPS_pT', 'LEPS_theta', 'lepton_origin',
-        'same_parent', 'leps_iso_pair', 'LEPS_iso_pair', 'cosTheta', 'CosTheta',
-        'acolinearity', 'Acolinearity', 'acoplanarity', 'Acoplanarity',
-        'acopolarity', 'Acopolarity', 'deltaR', 'DeltaR', 'n_radiated'
-    ]
-
     # Process each directory
     for proc_dir in proc_dirs:
         if not proc_dir.exists():
             LOGGER.warning(f'Process directory not found: {proc_dir}, skipping')
             continue
 
-        proc = proc_dir.name
+        proc = proc_dir.name.replace('.root', '')
         LOGGER.info(f'Processing {proc}')
 
         proc_label = proc.replace(f'wzp6_ee_{cat}H', '').replace(f'_ecm{ecm}', '').replace('_H', '')
@@ -143,13 +146,13 @@ def main():
             Label = label + r')$'
 
         # Load data from all chunk files (only required branches)
-        data = load_data(proc_dir, branches=required_branches)
+        data = load_data(proc_dir)
 
         if not data:
             LOGGER.warning(f'Could not load data from {proc_dir}, skipping')
             continue
 
-        proc_outDir = outDir / proc_dir.name
+        proc_outDir = outDir / proc_dir.name.replace('.root', '')
         proc_outDir.mkdir(exist_ok=True, parents=True)
 
         # Generate significance plot with optimal cut

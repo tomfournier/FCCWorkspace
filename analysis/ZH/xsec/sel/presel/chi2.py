@@ -86,17 +86,18 @@ def fsr_recovery(
     df = setup_alias(df, cat)
 
     # Get the lepton and photons rps
-    df = df.Define('leps',    'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
-    df = df.Define('photons', 'FCCAnalyses::ReconstructedParticle::get(Photon0, ReconstructedParticles)')
+    df = df.Define('leps',     'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
+    df = df.Define('leps_iso', 'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)')
+    df = df.Define('photons',  'FCCAnalyses::ReconstructedParticle::get(Photon0, ReconstructedParticles)')
     if ecm == 240:
-        df = df.Define('leps_fsr', 'FCCAnalyses::recoverFSR(leps, Photon0, ReconstructedParticles, leps_all_iso, 1, 3.08, 1.80)')
+        df = df.Define('leps_fsr', 'FCCAnalyses::recoverFSR(leps, Photon0, ReconstructedParticles, leps_iso, 1, 3.08, 1.80)')
     elif ecm == 365:
-        df = df.Define('leps_fsr', 'FCCAnalyses::recoverFSR(leps, Photon0, ReconstructedParticles, leps_all_iso, 0, 0.25, 0.95)')
+        df = df.Define('leps_fsr', 'FCCAnalyses::recoverFSR(leps, Photon0, ReconstructedParticles, leps_iso, 0, 0.25, 0.95)')
     else:
         raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
 
     # Get the true lepton and photon information
-    df = df.Define('Leps_MC',    'FCCAnalyses::fromRP2MC(leps, MCRecoAssociations1, Particle)')
+    df = df.Define('Leps_MC',    'FCCAnalyses::fromRP2MC(leps, ReconstructedParticles, MCRecoAssociations0, MCRecoAssociations1, Particle)')
     df = df.Define('photons_MC', 'FCCAnalyses::fromRP2MC(Photon0, MCRecoAssociations1, Particle)')
     df = df.Define('leps_MC',    'FCCAnalyses::getParent(Leps_MC, Particle, Particle0)')  # Before FSR
 
@@ -129,8 +130,7 @@ def fsr_recovery(
     ### LEPTON-PHOTON KINEMATICS DEFINITIONS ###
     ############################################
 
-    # Get the leptons isolation (Reco and MC)
-    df = df.Define('leps_iso', 'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)')
+    # Get the leptons isolation (MC)
     df = df.Define('LEPS_iso', 'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles, MCRecoAssociations0, MCRecoAssociations1, Particle)')
 
     # Get the leptons and photons momentum (Reco and MC)
@@ -309,6 +309,6 @@ branch_list_fsr = [
     'LEPS_p', 'LEPS_pT', 'LEPS_theta', 'PH_p', 'PH_pT', 'PH_theta',         # True leptons and photons kinematics
     'fsr_p',  'fsr_pT',  'fsr_theta',                                       # Leptons kinematics after FSR recovery
     'cosTheta', 'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',    # Reco angular correlation between for all the lepton-photon pair
-    'CosTheta', 'Acolinearity', 'Acoplanarity', 'Acopolarity', 'DeltaR'     # True angular correlation between for all the lepton-photon pair
+    'CosTheta', 'Acolinearity', 'Acoplanarity', 'Acopolarity', 'DeltaR',    # True angular correlation between for all the lepton-photon pair
     'n_radiated',    # Number of radiated photon for each lepton
 ]

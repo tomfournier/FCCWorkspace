@@ -44,7 +44,7 @@ parser = create_parser(
     ecm_multi=True,        # Support multiple energies (--ecm 240-365)
     include_sels=True,     # Include selection strategy options
     run_stages=2,          # FSR pipeline has 2 stages: pre-selection + plots
-    batch=True,            # Include batch execution options (TODO: implement)
+    batch=True,            # Include batch execution options
     optimize=True,         # Include FSR optimization options
     is_run=True,           # Flag that this is a run wrapper script
     description='Run FSR pipeline'
@@ -137,22 +137,19 @@ def run(cat: str,
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
         else ['python', script_path] + extra_args
 
-    try:
-        # Execute fccanalysis with modified environment and stream output
-        result = subprocess.run(
-            cmd,
-            env=env,
-            stdout=sys.stdout,
-            stderr=sys.stderr
-        )
-        # Completion status marker
-        status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
-        msg = f'{status}: [{script}] {cat = } | {ecm = }'
-        length = len(msg) + 2
-        LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
-        return result.returncode
-    finally:
-        pass
+    # Execute fccanalysis with modified environment and stream output
+    result = subprocess.run(
+        cmd,
+        env=env,
+        stdout=sys.stdout,
+        stderr=sys.stderr
+    )
+    # Completion status marker
+    status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
+    msg = f'{status}: [{script}] {cat = } | {ecm = }'
+    length = len(msg) + 2
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
+    return result.returncode
 
 
 ######################

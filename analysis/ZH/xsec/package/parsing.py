@@ -184,8 +184,8 @@ def add_run_argument(
     if add_test:
         group.add_argument(
             '--test',
-            action='store_true',
-            default=False,
+            action=BooleanOptionalAction,
+            default=True,
             help='Set test to True for pre-selection'
         )
 
@@ -288,9 +288,15 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('Cutflow arguments')
     args.add_argument(
         '--tot',
-        action='store_true',
-        default=False,
+        action=BooleanOptionalAction,
+        default=True,
         help='Include all the Z decays in the cutflow'
+    )
+    args.add_argument(
+        '--test',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Use events from files with kinematic cuts made (smaller files)'
     )
 
 

@@ -15,7 +15,7 @@ from package.userConfig import (
 )
 
 env = os.environ.copy()
-cat, ecm = get_params(env, 'a-run.json')
+cat, ecm, _ = get_params(env, 'a-run.json')
 
 
 
@@ -98,7 +98,7 @@ class RDFanalysis():
         Returns:
             RDataFrame with FSR recovery variables applied
         '''
-        df = fsr_recovery(df, cat)
+        df = fsr_recovery(df, cat, ecm)
         return df
 
     # _____________________________________________________
