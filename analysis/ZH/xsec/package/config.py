@@ -651,7 +651,7 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     # Common diboson processes
     common: dict[str, dict[str, int]] = {}
     common[f'p8_ee_ZZ_ecm{ecm}'] = {'frac': 1, 'nb': middle}
-    if not train:
+    if not train and 'qq' not in cat:
         common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 1, 'nb': big}
 
     # Training mode: category-specific backgrounds (reduced sample size)
@@ -673,9 +673,9 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
             },
             'qq': {
                 f'wzp6_ee_qq_ecm{ecm}':            {'frac': 1, 'nb': big},
-                f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
-                f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
-                f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
+                # f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
+                # f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
+                # f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
             },
         }
         return {**common, **category_specific.get(cat, {})}
@@ -706,7 +706,7 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
             f'wzp6_ee_qq_ecm{ecm}':          {'frac': 1, 'nb': big},
             f'wzp6_egamma_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': middle},
             f'wzp6_gammae_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': middle},
-            f'wzp6_gaga_qq_60_ecm{ecm}':     {'frac': 1, 'nb': small},
+            # f'wzp6_gaga_qq_60_ecm{ecm}':     {'frac': 1, 'nb': small},
         }
         bkgs = {**common, **ll_bkgs, **qq_bkgs}
         # Special case: top production at 365 GeV
