@@ -105,9 +105,6 @@ def recoil_builder(df: 'ROOT.ROOT.RDataFrame',
                    '(leps_good, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
     df = df.Define('zll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[0]}')  # the Z
     df = df.Define('zll_leps',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[1],zbuilder_result[2]}')  # the leptons
-
-    # Remove Z leptons from full particle collection for recoil-based observables
-    df = df.Define('rps_no_leps', 'FCCAnalyses::ReconstructedParticle::remove(ReconstructedParticles, zll_leps)')
     return df
 
 
@@ -133,16 +130,10 @@ def Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(zll)[0]')
     df = df.Define('zll_pT',    'FCCAnalyses::ReconstructedParticle::get_pt(zll)[0]')
     df = df.Define('zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(zll)[0]')
-    df = df.Define('zll_phi',   'FCCAnalyses::ReconstructedParticle::get_phi(zll)[0]')
-
-    df = df.Define('zll_costheta', 'std::cos(zll_theta)')
 
     # Recoil mass: invariant mass of system recoiling against Z (Higgs candidate)
-    df = df.Define('zll_recoil',   f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)')
-    df = df.Define('zll_recoil_m',  'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
-    df = df.Define('zll_recoil_p',  'FCCAnalyses::ReconstructedParticle::get_p(zll_recoil)[0]')
-    # Polar angle categorization: 0.8 < theta < 2.34 (barrel vs endcap)
-    df = df.Define('zll_category',  'FCCAnalyses::polarAngleCategorization(0.8, 2.34)(zll_leps)')
+    df = df.Define('zll_recoil',  f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)')
+    df = df.Define('zll_recoil_m', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
     return df
 
 
@@ -165,7 +156,6 @@ def lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('zll_leps_p',       'FCCAnalyses::ReconstructedParticle::get_p(zll_leps)')
     df = df.Define('zll_leps_pT',      'FCCAnalyses::ReconstructedParticle::get_pt(zll_leps)')
     df = df.Define('zll_leps_theta',   'FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)')
-    df = df.Define('zll_leps_phi',     'FCCAnalyses::ReconstructedParticle::get_phi(zll_leps)')
     # Identify which lepton has higher momentum
     df = df.Define('leading_p_idx',    '(zll_leps_p[0] > zll_leps_p[1]) ? 0 : 1')
     df = df.Define('subleading_p_idx', '(zll_leps_p[0] > zll_leps_p[1]) ? 1 : 0')
@@ -175,11 +165,8 @@ def lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('leading_pT',       'zll_leps_pT[leading_p_idx]')
     df = df.Define('subleading_p',     'zll_leps_p[subleading_p_idx]')
     df = df.Define('subleading_pT',    'zll_leps_pT[subleading_p_idx]')
-
     df = df.Define('leading_theta',    'zll_leps_theta[leading_p_idx]')
     df = df.Define('subleading_theta', 'zll_leps_theta[subleading_p_idx]')
-    df = df.Define('leading_phi',      'zll_leps_phi[leading_p_idx]')
-    df = df.Define('subleading_phi',   'zll_leps_phi[subleading_p_idx]')
     return df
 
 
@@ -212,19 +199,13 @@ def additional_variables(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('H', 'FCCAnalyses::Higgsstrahlungness(zll_m, zll_recoil_m)')
 
     # Visible energy (excluding Z candidate leptons)
-    df = df.Define('visibleEnergy_tot', 'FCCAnalyses::visibleEnergy(ReconstructedParticles)')             # Should be before visibleEnergy
-    df = df.Define('visibleEnergy',     'FCCAnalyses::visibleEnergy(ReconstructedParticles, zll_leps)')   # To avoid a JIT error
+    df = df.Define('visibleEnergy', 'FCCAnalyses::visibleEnergy(ReconstructedParticles, zll_leps)')
 
     # Missing energy and missing mass to identify invisible Higgs or other missing particle signatures
     df = df.Define('missingEnergy_rp', f'FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)')
     df = df.Define('missingEnergy',     'missingEnergy_rp[0].energy')
     df = df.Define('cosTheta_miss',     'FCCAnalyses::get_cosTheta_miss(missingEnergy_rp)')
     df = df.Define('missingMass',      f'FCCAnalyses::missingMass({ecm}, ReconstructedParticles)')
-
-    df = df.Define('energy_inbalance', 'FCCAnalyses::energy_inbalance(ReconstructedParticles)')
-    df = df.Define('e_trans', 'energy_inbalance[1]')
-    df = df.Define('e_long',  'energy_inbalance[2]')
-    df = df.Define('e_tan',   'energy_inbalance[3]')
 
     return df
 
@@ -268,7 +249,7 @@ def training_ll(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 1: at least one lepton and at least one isolated lepton (I_rel < 0.25)
     ##########
-    df = df.Filter('leps_no >= 1 && leps_iso_sel.size() > 0')
+    df = df.Filter('leps_no >= 1 && leps_iso_no > 0')
 
     ##########
     ### CUT 2: at least 2 leptons with opposite-sign
@@ -359,7 +340,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 1: at least one lepton and at least one isolated lepton (I_rel < 0.25)
     ##########
-    df = df.Filter('leps_no >= 1 && leps_iso_sel.size() > 0')
+    df = df.Filter('leps_no >= 1 && leps_iso_no > 0')
     df, params = cutflow(df, params, 1)
 
     ##########
@@ -407,26 +388,23 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
 
 branch_list_ll = [
     # Lepton kinematics (leading and subleading)
-    'leading_p',    'leading_pT',    'leading_theta',    'leading_phi',
-    'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_phi',
+    'leading_p',    'leading_pT',    'leading_theta',
+    'subleading_p', 'subleading_pT', 'subleading_theta',
 
     # Angular correlation
     'acolinearity', 'acopolarity', 'acoplanarity', 'deltaR',
 
     # Z boson kinematics
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta', 'zll_phi', 'zll_category',
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',
 
     # Recoil mass (Higgs candidate)
-    'zll_recoil_m', 'zll_recoil_p',
+    'zll_recoil_m',
 
     # Visible energy
-    'visibleEnergy', 'visibleEnergy_tot',
+    'visibleEnergy',
 
     # Missing energy variables
     'missingEnergy', 'cosTheta_miss', 'missingMass',
-
-    # Energy inbalance
-    'e_trans', 'e_long', 'e_tan',
 
     # Higgsstrahlungness discriminant
     'H'
