@@ -143,7 +143,8 @@ def run(cat: str,
         if arg.make:   extra_args.append('--make')
         if arg.scan:   extra_args.append('--scan')
     elif 'cutflow' in script:
-        if arg.tot:    extra_args.append('--tot')
+        if not arg.tot:  extra_args.append('--no-tot')
+        if not arg.test: extra_args.append('--no-test')
     if arg.sels!='':
         extra_args.extend(['--sels', arg.sels])
 

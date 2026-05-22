@@ -75,11 +75,11 @@ p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)     # Lower momentum cut [GeV
 
 # Define sequential baseline selection cuts
 baseline_cuts = {
-    'cut0': '',                                 # Diagnostic: no cuts
-    'cut1': '',                                 # Lepton isolation (applied in pre-selection)
-    'cut2': '',                                 # Opposite-sign requirement
-    'cut3': 'zll_m > 86 & zll_m < 96',          # Z mass window [GeV]
-    'cut4': f'zll_p > {p_dw} & zll_p < {p_up}'  # Dilepton momentum window
+    'cut0': '',                                                      # Diagnostic: no cuts
+    'cut1': '',                                                      # Lepton isolation (applied in pre-selection)
+    'cut2': '',                                                      # Opposite-sign requirement
+    'cut3': '' if arg.test else  'zll_m > 86 & zll_m < 96',          # Z mass window [GeV]
+    'cut4': '' if arg.test else f'zll_p > {p_dw} & zll_p < {p_up}'   # Dilepton momentum window
 }
 
 # Human-readable labels for cuts (displayed in plots)
@@ -90,18 +90,21 @@ baseline_labels = {
     'cut3': '86 < m_{#ell^{+}#ell^{-}} < 96 GeV',                # Z boson mass selection
     'cut4': f'{p_dw} < p_{{#ell^{{+}}#ell^{{-}}}} < {p_up} GeV'  # Momentum selection
 }
+if ecm == 365:
+    baseline_cuts['cut5']   = '' if arg.test else 'zll_recoil_m > 100 && zll_recoil_m < 150'  # Recoil mass selection (if 365 GeV)
+    baseline_labels['cut5'] = '100 < m_{recoil} < 150 GeV'
 
 # Copy baseline cuts for each selection strategy
 cuts       = {sel: baseline_cuts.copy()   for sel in sels}
 cuts_label = {sel: baseline_labels.copy() for sel in sels}
 
 # Add additional cuts for specific selection strategies
-# cuts['Baseline_miss']['cut5']       = 'cosTheta_miss < 0.98'
-# cuts_label['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
+cuts['Baseline_miss']['cut5']       = 'cosTheta_miss < 0.98'
+cuts_label['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
 
-# vis_cut = 100 if ecm==240 else (170 if ecm==365 else 0)
-# cuts['Baseline_sep']['cut5']       = f'((visibleEnergy > {vis_cut}) | (visibleEnergy < {vis_cut} & cosTheta_miss < 0.99))'
-# cuts_label['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
+vis_cut = 100 if ecm==240 else (170 if ecm==365 else 0)
+cuts['Baseline_sep']['cut5']       = f'((visibleEnergy > {vis_cut}) | (visibleEnergy < {vis_cut} & cosTheta_miss < 0.99))'
+cuts_label['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
 
 cuts['test']['cut5']       = 'zll_recoil_m > 100 & zll_recoil_m < 150'
 cuts_label['test']['cut5'] = '100 < m_{recoil} < 150 GeV'
@@ -111,9 +114,9 @@ variables = [
     'leading_p',    'leading_theta',
     'subleading_p', 'subleading_theta',
     'zll_m', 'zll_p', 'zll_theta', 'zll_recoil_m',
-    'acolinearity',  'acoplanarity',  'zll_deltaR',
+    'acolinearity',  'acoplanarity',  'deltaR',
     'visibleEnergy', 'cosTheta_miss', 'missingMass',
-    'H', 'BDTscore'
+    'H'
 ]
 
 
@@ -136,7 +139,7 @@ def run(cats: list[str],
         procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
         # Define input and output directories
-        inDir  = loc.get('EVENTS_TEST', cat, ecm)
+        inDir  = loc.get('EVENTS_TEST',       cat, ecm)
         outDir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
 
         # Extract required branches from cuts and variables

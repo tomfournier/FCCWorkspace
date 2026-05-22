@@ -34,7 +34,7 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os, copy
+import copy
 
 from tqdm import tqdm
 from typing import Any, TYPE_CHECKING
@@ -693,7 +693,6 @@ def get_cutflow(
 
     import numpy as np
     from .python.helper import (
-        _col_from_file,
         find_sample_files,
         is_there_events,
         get_processed,
@@ -722,20 +721,10 @@ def get_cutflow(
             events[sample]['cross-section']   = getMetaInfo(sample, rmww=False)
             events[sample]['eventsProcessed'] = get_processed(flist)
 
-    # Preload column names from first file of each sample (avoids repeated I/O)
-    col_map: dict[str, set] = {}
-    for sample, flist in file_list.items():
-        if flist and len(flist) > 0:
-            col_map[sample] = _col_from_file(os.fspath(flist[0]))
-        else:
-            col_map[sample] = set()
-
     LOGGER.info('Getting cuts from DataFrame')
     for proc in procs_decays:
-        LOGGER.debug(f'From {proc}')
-        for sample in processes[proc]:
-            LOGGER.info(f'From sample {sample}')
-
+        LOGGER.info(f'For proc {proc}')
+        for sample in tqdm(processes[proc]):
             flist = file_list.get(sample, [])
             has_file = bool(flist)
             processed = events[sample]['eventsProcessed']
@@ -747,7 +736,6 @@ def get_cutflow(
             if has_file and is_there_events(sample, inDir):
                 for sel in sels:
                     if sel not in cuts: continue
-                    LOGGER.info(f'For selection: {sel}')
                     # Initialize cut statistics storage
                     events[sample][sel] = {'raw_count': {}, 'cut': {}, 'err': {}, 'filter': {}}
                     raw_counts = {cut:0.0 for cut in cuts[sel].keys()}
@@ -769,7 +757,6 @@ def get_cutflow(
                             count, df_mask = get_count(
                                 df, df_mask, [f],
                                 cut, filter,
-                                columns=col_map.get(sample, None)
                             )
                             raw_counts[cut] += float(count)
 
