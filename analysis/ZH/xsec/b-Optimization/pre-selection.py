@@ -15,7 +15,7 @@ from package.userConfig import (
 )
 
 env = os.environ.copy()
-cat, ecm = get_params(env, 'b-run.json')
+cat, ecm, _ = get_params(env, 'b-run.json')
 
 
 
