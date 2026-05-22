@@ -6,7 +6,7 @@ import os
 
 # Import user configuration paths and parameters
 from package.config import get_process_list, quarks
-from sel.presel.chi2 import (
+from sel.presel.optimization.chi2 import (
     optimize_ll, optimize_qq,
     branch_list_ll, branch_list_qq
 )
