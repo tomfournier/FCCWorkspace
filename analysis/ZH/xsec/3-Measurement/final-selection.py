@@ -59,23 +59,19 @@ samples_bkg = [
     # Diboson:  ee -> VV
     f'p8_ee_ZZ_ecm{ecm}',
     f'p8_ee_WW_ecm{ecm}',
-    f'p8_ee_WW_ee_ecm{ecm}',
-    f'p8_ee_WW_mumu_ecm{ecm}',
+    f'p8_ee_WW_{cat}_ecm{ecm}',
 
     # ee -> Z+jets
-    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
-    f'wzp6_ee_mumu_ecm{ecm}',
+    f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu'
+    else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
     f'wzp6_ee_tautau_ecm{ecm}',
 
     # Radiative: ey -> eZ(ll)
-    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_egamma_eZ_Zee_ecm{ecm}',
-    f'wzp6_gammae_eZ_Zee_ecm{ecm}',
+    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
+    f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
 
     # Diphoton: yy -> ll
-    f'wzp6_gaga_ee_60_ecm{ecm}',
-    f'wzp6_gaga_mumu_60_ecm{ecm}',
+    f'wzp6_gaga_{cat}_60_ecm{ecm}',
     f'wzp6_gaga_tautau_60_ecm{ecm}',
 
     # Invisible: ee -> nunuZ
@@ -114,17 +110,16 @@ vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' &&
 # Selection cut dictionary (key = selection name used in outputs)
 cutList = {
     'Baseline':          Baseline_Cut,
-    # 'Baseline_vis':      vis,
-    # 'Baseline_inv':      inv,
-    # 'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
-    # 'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
+    'Baseline_vis':      vis,
+    'Baseline_inv':      inv,
+    'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
+    'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
     # 'test':              Baseline_Cut,
-    # 'test1':             Baseline_Cut
 }
 
 # List of selections to split into high/low BDT score regions
 sels = [
-    'Baseline', 'Baseline_miss', 'Baseline_sep', 'test', 'test1'
+    'Baseline', 'Baseline_miss', 'Baseline_sep', 'test'
 ]
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)

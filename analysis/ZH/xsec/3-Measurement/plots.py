@@ -63,7 +63,7 @@ if arg.sels=='':
         'Baseline_miss',
         'Baseline_sep',
         'Baseline_vis', 'Baseline_inv',
-        'test'
+        # 'test'
     ]
 else:
     sels = arg.sels.split('-')
@@ -83,12 +83,10 @@ processes = mk_processes(
 variables = [
     'leading_p', 'leading_pT', 'leading_theta',                               # leading lepton variables
     'subleading_p', 'subleading_pT', 'subleading_theta',                      # subleading lepton variables
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta', 'zll_category',  # Z boson properties
-    # 'zll_phi', 'leading_phi', 'subleading_phi',                               # Azimutal angles
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',                                  # Z boson properties
     'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',                  # Angular separation variables
-    'zll_recoil_m', 'zll_recoil_p',                                           # Recoil mass (Higgs candidate)
-    'e_long', 'e_trans', 'e_tan',                                             # Energy inbalance variables
-    'visibleEnergy', 'visibleEnergy_tot',                                     # Visible energy
+    'zll_recoil_m',                                                           # Recoil mass (Higgs candidate)
+    'visibleEnergy',                                                          # Visible energy
     'cosTheta_miss', 'missingMass', 'missingEnergy',                          # Missing energy and mass
     'H',                                                                      # Higgsstrahlungness
     'BDTscore',                                                               # BDT score
@@ -104,7 +102,6 @@ plots_tot = {
 # Custom plot arguments for specific variables
 args = {
     'cosTheta_miss': {'xmin': 0.9},
-    'zll_costheta':  {'rebin': 2},
     'BDTscore': {
         240: {'ymin':1,    'ymax':1e5, 'rebin':2, 'which':'make'},
         365: {'ymin':1e-1, 'ymax':1e5, 'rebin':2, 'which':'make'}

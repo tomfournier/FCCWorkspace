@@ -292,12 +292,12 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
         default=True,
         help='Include all the Z decays in the cutflow'
     )
-    args.add_argument(
-        '--test',
-        action=BooleanOptionalAction,
-        default=True,
-        help='Use events from files with kinematic cuts made (smaller files)'
-    )
+    # args.add_argument(
+    #     '--test',
+    #     action=BooleanOptionalAction,
+    #     default=True,
+    #     help='Use events from files with kinematic cuts made (smaller files)'
+    # )
 
 
 def add_optimize_args(
