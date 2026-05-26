@@ -24,7 +24,6 @@ def veto_leptonic(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define(f'leps_{cat}_iso',     f'FCCAnalyses::coneIsolation(0.01, 0.5)(leps_{cat}, ReconstructedParticles)')
     df = df.Define(f'leps_{cat}_sel_iso', f'FCCAnalyses::sel_isol(0.25)(leps_{cat}, leps_{cat}_iso)')  # 0.25
 
-
     # Do not veto the H-ll candidates, it suppresses HZZ
     # Tighter selection in leptonic channel, can safely remove this here
     df = df.Define(f'zbuilder_result_H{cat}', f'FCCAnalyses::resonanceBuilder_mass_recoil(125, 91.2, 0.4, {ecm}, false)'
@@ -35,7 +34,6 @@ def veto_leptonic(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define(f'zll_leps_dummy_{cat}',    'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{{}}')  # the leptons
     df = df.Define(f'leps_to_remove_{cat}',   f'return (zll_H{cat}_m > (125-3) && zll_H{cat}_m < (125+3)) ? zll_leps_H{cat} : zll_leps_dummy_{cat}')
     df = df.Define(f'leps_good_{cat}',        f'FCCAnalyses::ReconstructedParticle::remove(leps_{cat}, leps_to_remove_{cat})')
-
 
     df = df.Define(f'zbuilder_result_{cat}', f'FCCAnalyses::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)'
                    f'(leps_{cat}, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
@@ -80,13 +78,13 @@ def make_pseudojets(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('rps_no_photons_muons_electrons', 'FCCAnalyses::ReconstructedParticle::remove(rps_no_photons_muons, electrons)')
 
     # Define PF candidates collection by removing the muons, electrons and photons
-    df = df.Alias('rps_sel',      'rps_no_photons_muons_electrons')
-    df = df.Define('RP_px',       'FCCAnalyses::ReconstructedParticle::get_px(rps_sel)')
-    df = df.Define('RP_py',       'FCCAnalyses::ReconstructedParticle::get_py(rps_sel)')
-    df = df.Define('RP_pz',       'FCCAnalyses::ReconstructedParticle::get_pz(rps_sel)')
-    df = df.Define('RP_e',        'FCCAnalyses::ReconstructedParticle::get_e(rps_sel)')
-    df = df.Define('RP_m',        'FCCAnalyses::ReconstructedParticle::get_mass(rps_sel)')
-    df = df.Define('RP_q',        'FCCAnalyses::ReconstructedParticle::get_charge(rps_sel)')
+    df = df.Alias('rps_sel', 'rps_no_photons_muons_electrons')
+    df = df.Define('RP_px',  'FCCAnalyses::ReconstructedParticle::get_px(rps_sel)')
+    df = df.Define('RP_py',  'FCCAnalyses::ReconstructedParticle::get_py(rps_sel)')
+    df = df.Define('RP_pz',  'FCCAnalyses::ReconstructedParticle::get_pz(rps_sel)')
+    df = df.Define('RP_e',   'FCCAnalyses::ReconstructedParticle::get_e(rps_sel)')
+    df = df.Define('RP_m',   'FCCAnalyses::ReconstructedParticle::get_mass(rps_sel)')
+    df = df.Define('RP_q',   'FCCAnalyses::ReconstructedParticle::get_charge(rps_sel)')
     df = df.Define('pseudo_jets', 'FCCAnalyses::JetClusteringUtils::set_pseudoJets(RP_px, RP_py, RP_pz, RP_e)')
 
     return df
@@ -102,20 +100,13 @@ def cluster_and_recoil(df: 'ROOT.ROOT.RDataFrame',
         df = df.Define(f'clustered_jets_N{njets}', f'JetClustering::clustering_ee_kt(2, {njets}, 0, 10)(pseudo_jets)')
 
     df = df.Define(f'jets_N{njets}',            f'FCCAnalyses::JetClusteringUtils::get_pseudoJets(clustered_jets_N{njets})')
-    df = df.Define(f'njets_N{njets}',           f'jets_N{njets}.size()')
-    df = df.Define(f'jetconstituents_N{njets}', f'FCCAnalyses::JetClusteringUtils::get_constituents(clustered_jets_N{njets})')
-    df = df.Define(f'jets_e_N{njets}',          f'FCCAnalyses::JetClusteringUtils::get_e(jets_N{njets})')
-    df = df.Define(f'jets_px_N{njets}',         f'FCCAnalyses::JetClusteringUtils::get_px(jets_N{njets})')
-    df = df.Define(f'jets_py_N{njets}',         f'FCCAnalyses::JetClusteringUtils::get_py(jets_N{njets})')
-    df = df.Define(f'jets_pz_N{njets}',         f'FCCAnalyses::JetClusteringUtils::get_pz(jets_N{njets})')
-    df = df.Define(f'jets_m_N{njets}',          f'FCCAnalyses::JetClusteringUtils::get_m(jets_N{njets})')
-    df = df.Define(f'jets_rp_N{njets}',         f'FCCAnalyses::jets2rp(jets_px_N{njets}, jets_py_N{njets}, jets_pz_N{njets}, jets_e_N{njets}, jets_m_N{njets})')
-    df = df.Define(f'jets_rp_cand_N{njets}',    f'FCCAnalyses::select_jets(jets_rp_N{njets}, jetconstituents_N{njets}, {njets}, ReconstructedParticles)')  # reduces potentially the jet multiplicity
+    df = df.Define(f'jets_rp_N{njets}',         f'FCCAnalyses::jets2rp(jets_N{njets})')
+    df = df.Define(f'jets_rp_cand_N{njets}',    f'FCCAnalyses::select_jets(jets_rp_N{njets})')  # reduces potentially the jet multiplicity
     df = df.Define(f'njets_cand_N{njets}',      f'jets_rp_cand_N{njets}.size()')
 
     df = df.Define(f'zbuilder_N{njets}',        f'FCCAnalyses::resonanceBuilder_mass_recoil_hadronic(91.2, 125, 0.0, {ecm})(jets_rp_cand_N{njets})')
-    df = df.Define(f'zqq_N{njets}',             f'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{{zbuilder_N{njets}[0]}}')  # the Z
-    df = df.Define(f'zqq_jets_N{njets}',        f'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{{zbuilder_N{njets}[1],zbuilder_N{njets}[2]}}')  # the jets
+    df = df.Define(f'zqq_N{njets}',             f'Vec_rp {{zbuilder_N{njets}[0]}}')  # the Z
+    df = df.Define(f'zqq_jets_N{njets}',        f'Vec_rp {{zbuilder_N{njets}[1],zbuilder_N{njets}[2]}}')  # the jets
     df = df.Define(f'zqq_m_N{njets}',           f'FCCAnalyses::ReconstructedParticle::get_mass(zqq_N{njets})[0]')
     df = df.Define(f'zqq_p_N{njets}',           f'FCCAnalyses::ReconstructedParticle::get_p(zqq_N{njets})[0]')
     df = df.Define(f'zqq_recoil_N{njets}',      f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zqq_N{njets})')
@@ -133,7 +124,6 @@ def compare_algo(df: 'ROOT.ROOT.RDataFrame',
 
     df = df.Define('zqq_algo',            'std::vector<Vec_rp> r = {zqq_N0, zqq_N2, zqq_N4, zqq_N6}; return r;')
     df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {zqq_jets_N0, zqq_jets_N2, zqq_jets_N4, zqq_jets_N6}; return r;')
-    # df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {jets_rp_cand_N0, jets_rp_cand_N2, jets_rp_cand_N4, jets_rp_cand_N6}; return r;')
     df = df.Define('zqq_algo_m',          'Vec_f r = {zqq_m_N0, zqq_m_N2, zqq_m_N4, zqq_m_N6}; return r;')
     df = df.Define('zqq_algo_p',          'Vec_f r = {zqq_p_N0, zqq_p_N2, zqq_p_N4, zqq_p_N6}; return r;')
     df = df.Define('zqq_algo_recoil_m',   'Vec_f r = {zqq_recoil_m_N0, zqq_recoil_m_N2, zqq_recoil_m_N4, zqq_recoil_m_N6}; return r;')
@@ -191,7 +181,7 @@ def W_reconstruction(df: 'ROOT.ROOT.RDataFrame'
                      ) -> 'ROOT.ROOT.RDataFrame':
 
     # Attempt to reconstruct WW with 4 jets
-    df = df.Define('pairs_WW_N4', 'FCCAnalyses::pair_WW_N4(jets_rp_cand_N4)')
+    df = df.Define('pairs_WW_N4', 'FCCAnalyses::pair_WW_N4(jets_rp_cand_N4, 80.4)')
     df = df.Define('W1',          'pairs_WW_N4[0]')
     df = df.Define('W2',          'pairs_WW_N4[1]')
     df = df.Define('W1_m',        'W1.M()')
@@ -207,6 +197,26 @@ def W_reconstruction(df: 'ROOT.ROOT.RDataFrame'
     return df
 
 
+def Z_reconstruction(df: 'ROOT.ROOT.RDataFrame'
+                     ) -> 'ROOT.ROOT.RDataFrame':
+
+    # Attempt to reconstruct WW with 4 jets
+    df = df.Define('pairs_ZZ_N4', 'FCCAnalyses::pair_WW_N4(jets_rp_cand_N4, 91.2)')
+    df = df.Define('Z1',          'pairs_ZZ_N4[0]')
+    df = df.Define('Z2',          'pairs_ZZ_N4[1]')
+    df = df.Define('Z1_m',        'Z1.M()')
+    df = df.Define('Z2_m',        'Z2.M()')
+    df = df.Define('Z1_p',        'Z1.P()')
+    df = df.Define('Z2_p',        'Z2.P()')
+    df = df.Define('Z1_theta',    'Z1.Theta()')
+    df = df.Define('Z2_theta',    'Z1.Theta()')
+    df = df.Define('Z1_costheta', 'Z1.CosTheta()')
+    df = df.Define('Z2_costheta', 'Z1.CosTheta()')
+    df = df.Define('delta_mZZ',   'FCCAnalyses::delta_mZZ(Z1_m, Z2_m, 91.2)')
+
+    return df
+
+
 def additional_variable(df: 'ROOT.ROOT.RDataFrame',
                         ecm: int
                         ) -> 'ROOT.ROOT.RDataFrame':
@@ -216,9 +226,10 @@ def additional_variable(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('acopolarity',  'FCCAnalyses::acopolarity(zqq_jets)')
     df = df.Define('deltaR',       'FCCAnalyses::deltaR(zqq_jets)')
 
+    df = df.Define('visibleEnergy',     'FCCAnalyses::visibleEnergy(ReconstructedParticles, zqq_jets)')
     df = df.Define('missingEnergy_rp', f'FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)')
-    df = df.Define('missingEnergy',    'missingEnergy_rp[0].energy')
-    df = df.Define('cosTheta_miss',    'FCCAnalyses::get_cosTheta_miss(missingEnergy_rp)')
+    df = df.Define('missingEnergy',     'missingEnergy_rp[0].energy')
+    df = df.Define('cosTheta_miss',     'FCCAnalyses::get_cosTheta_miss(missingEnergy_rp)')
     df = df.Define('missingMass',      f'FCCAnalyses::missingMass({ecm}, ReconstructedParticles)')
 
     # Thrust
@@ -229,7 +240,6 @@ def additional_variable(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('RP_px_q', 'RP_px[rps_charged_idx]')
     df = df.Define('RP_py_q', 'RP_py[rps_charged_idx]')
     df = df.Define('RP_pz_q', 'RP_pz[rps_charged_idx]')
-    df = df.Define('max_p_idx', 'FCCAnalyses::get_max_idx(rps_charged_p)')
 
     df = df.Define('thrust_vec',      'FCCAnalyses::Algorithms::calculate_thrust()(RP_px, RP_py, RP_pz)')
     df = df.Define('thrust',          'thrust_vec[0]')
@@ -281,6 +291,7 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
     df = best_algo_variables(df)
     df = jets_kinematics(df)
     df = W_reconstruction(df)
+    df = Z_reconstruction(df)
     df = additional_variable(df, ecm)
 
 
@@ -393,6 +404,7 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     df = best_algo_variables(df)
     df = jets_kinematics(df)
     df = W_reconstruction(df)
+    df = Z_reconstruction(df)
     df = additional_variable(df, ecm)
 
 
@@ -466,15 +478,18 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
 
 
 branch_list_qq =[
-    'zqq_m', 'zqq_p', 'zqq_recoil_m',
-    # 'zqq_recoil_m_mqq',  # 2D histogram
-    'zqq_theta', 'zqq_costheta',
-    'leading_p', 'leading_theta', 'leading_costheta',
-    'subleading_p', 'subleading_theta', 'subleading_costheta',
-    'delta_mWW', 'W1_m', 'W1_p', 'W2_m', 'W2_p',
-    'W1_theta', 'W2_theta', 'W1_costheta', 'W2_costheta',
-    'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',
-    'missingEnergy', 'cosTheta_miss', 'missingMass',
-    'thrust', 'thrust_costheta',
-    'njets', 'best_clustering_idx'
+    'leading_p',    'leading_theta',    'leading_costheta',      # Leading jet kinematics
+    'subleading_p', 'subleading_theta', 'subleading_costheta',   # Subleading jet kinematics
+    'zqq_m', 'zqq_p', 'zqq_theta', 'zqq_costheta',               # Z boson kinematics
+    'zqq_recoil_m',                                              # Recoil mass (Higgs candidate)
+    'W1_m', 'W1_p', 'W1_theta', 'W1_costheta',                   # W1 boson kinematics (4 jets clustering)
+    'W2_m', 'W2_p', 'W2_theta', 'W2_costheta',                   # W2 boson kinematics (4 jets clustering)
+    'Z1_m', 'Z1_p', 'Z1_theta', 'Z1_costheta',                   # Z1 boson kinematics (4 jets clustering)
+    'Z2_m', 'Z2_p', 'Z2_theta', 'Z2_costheta',                   # Z2 boson kinematics (4 jets clustering)
+    'delta_mWW', 'delta_mZZ',                                    # Distance from ZZ or WW mass
+    'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',     # Angular correlation variables
+    'visibleEnergy',                                             # Visible energy
+    'missingEnergy', 'cosTheta_miss', 'missingMass',             # Missing energy variables
+    'thrust', 'thrust_costheta',                                 # Thrust variables
+    'njets', 'best_clustering_idx'                               # Number of jets and best clustering variable
 ]

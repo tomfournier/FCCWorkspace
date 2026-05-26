@@ -20,7 +20,7 @@ inline constexpr float pz_365 = 143.0f;
 inline constexpr float mw = 80.4;
 
 
-inline int best_clustering_idx(Vec_f mz, Vec_f pz, Vec_f mrec, Vec_i njets, Vec_i njets_target, int ecm=240) {
+inline int best_clustering_idx(Vec_f mz, Vec_f pz, Vec_f mrec, Vec_i njets, Vec_i njets_target, int ecm = 240) {
 
     float frac_mz  = 1.0;
     float frac_pz  = 1.0;
@@ -108,7 +108,7 @@ inline Vec_rp jets2rp(const ROOT::VecOps::RVec<fastjet::PseudoJet> &pseudojets) 
 }
 
 
-inline Vec_tlv pair_WW_N4(Vec_rp in) {
+inline Vec_tlv pair_WW_N4(Vec_rp in, float mw) {
     // assume 4 input jets
     Vec_tlv ret;
 
@@ -194,7 +194,7 @@ inline float pair_W_dphi(Vec_rp in) {
 }
 
 
-inline Vec_rp select_jets(Vec_rp in, int njets_sel, Vec_rp reco) {
+inline Vec_rp select_jets(Vec_rp in) {
     // njets_sel = the current njets clustering algo
     Vec_rp ret;
     for(int i = 0; i < in.size(); i++) {
