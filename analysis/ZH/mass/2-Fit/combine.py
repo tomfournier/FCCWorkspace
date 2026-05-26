@@ -10,7 +10,6 @@ from pathlib import Path
 from package.userConfig import (
     loc, event
 )
-from package.config import z_decays, H_decays
 
 # Load config from temporary JSON if running automated, else prompt
 if os.environ.get('RUN'):
@@ -46,10 +45,7 @@ outputDir = loc.get('NOMINAL_DATACARD', cat, ecm, sel)
 inDir     = loc.get('EVENTS',           cat, ecm)
 
 # Define signal processes: ee -> Z(ll)H with various Higgs decay modes
-if sel=='Jan_sample':
-    samples_sig = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in H_decays]
-else:
-    samples_sig = event([f'wzp6_ee_{x}H_H{y}_ecm{ecm}'.replace('HZZ', 'HZZ_noInv') for x in z_decays for y in H_decays], inDir)
+samples_sig = [f'wzp6_ee_{cat}H_ecm{ecm}']
 sig_procs = {'sig': samples_sig}
 
 # Define background processes: ZZ, WW, Z/gamma, and rare processes
@@ -69,9 +65,7 @@ bkg_procs = {
 }
 
 # Define histogram names
-hName = [
-    'zll_recoil_m' if sel!='Jan_sample' else f'{cat}_zll_recoil_m_mva'
-]
+hName = ['zll_recoil_m']
 # Configure categories based on fit type: single category or visible/invisible split
 categories = [f'z_{cat}']
 hist_names = [hName[0]]

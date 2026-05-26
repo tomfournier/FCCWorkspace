@@ -35,8 +35,8 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc
 from package.config import (
     timer, mk_processes,
-    z_decays, H_decays,
-    colors, labels)
+    colors, labels
+)
 from package.plots.cutflow import (
     get_cutflow,
     branches_from_cuts
@@ -52,7 +52,7 @@ cats, ecm = arg.cat.split('-'), arg.ecm
 lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
 # Selection strategies to analyze
 if arg.sels == '':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+    sels = ['Baseline']
 else:
     sels = arg.sels.split('-')
 
@@ -82,17 +82,6 @@ baseline_labels = {
 # Copy baseline cuts for each selection strategy
 cuts       = {sel: baseline_cuts.copy()   for sel in sels}
 cuts_label = {sel: baseline_labels.copy() for sel in sels}
-
-# Add additional cuts for specific selection strategies
-# cuts['Baseline_miss']['cut5']       = 'cosTheta_miss < 0.98'
-# cuts_label['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
-
-# vis_cut = 100 if ecm==240 else (170 if ecm==365 else 0)
-# cuts['Baseline_sep']['cut5']       = f'((visibleEnergy > {vis_cut}) | (visibleEnergy < {vis_cut} & cosTheta_miss < 0.99))'
-# cuts_label['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
-
-cuts['test']['cut5']       = 'zll_recoil_m > 100 & zll_recoil_m < 150'
-cuts_label['test']['cut5'] = '100 < m_{recoil} < 150 GeV'
 
 # Variables required for cutflow evaluation (must match those used in cuts)
 variables = [
@@ -139,7 +128,6 @@ def run(cats: list[str],
             procs, procs_decays,
             processes, colors, legend,
             cuts, cuts_label,
-            z_decays, H_decays,
             branches=branches,
             ecm=ecm,
             lumi=lumi,

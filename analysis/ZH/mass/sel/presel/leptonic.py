@@ -30,7 +30,8 @@ from .helper import setup_alias, cutflow
 ### HELPER FUNCTIONS ###
 ########################
 
-def lesp_properties(df: 'ROOT.ROOT.RDataFrame'
+def lesp_properties(df: 'ROOT.ROOT.RDataFrame',
+                    ecm: int
                     ) -> 'ROOT.ROOT.RDataFrame':
     """Define baseline lepton collections and isolation selections.
 
@@ -48,19 +49,19 @@ def lesp_properties(df: 'ROOT.ROOT.RDataFrame'
         - Isolated leptons: leps_sel_iso with count leps_sel_no
     """
     # Define all lepton properties (before cuts)
-    df = df.Define('leps_all',       'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
-    df = df.Define('leps_all_p',     'FCCAnalyses::ReconstructedParticle::get_p(leps_all)')
-    df = df.Define('leps_all_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(leps_all)')
-    df = df.Define('leps_all_phi',   'FCCAnalyses::ReconstructedParticle::get_phi(leps_all)')
-    df = df.Define('leps_all_q',     'FCCAnalyses::ReconstructedParticle::get_charge(leps_all)')
-    df = df.Define('leps_all_no',    'FCCAnalyses::ReconstructedParticle::get_n(leps_all)')
-    df = df.Define('leps_all_iso',   'FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)')
+    df = df.Define('leps_all',     'FCCAnalyses::ReconstructedParticle::get(Lepton0, ReconstructedParticles)')
+    df = df.Define('leps_all_p',   'FCCAnalyses::ReconstructedParticle::get_p(leps_all)')
+    df = df.Define('leps_all_iso', 'FCCAnalyses::coneIsolation(0.01, 0.5)(leps_all, ReconstructedParticles)')
+
+    if ecm == 240:
+        df = df.Define('leps_fsr', 'FCCAnalyses::recoverFSR(leps_all, Photon0, ReconstructedParticles, leps_all_iso, 1, 3.08, 1.80)')
+    elif ecm == 365:
+        df = df.Define('leps_fsr', 'FCCAnalyses::recoverFSR(leps_all, Photon0, ReconstructedParticles, leps_all_iso, 0, 0.25, 0.95)')
+    else:
+        raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
 
     # Apply momentum cut (p > 20 GeV) to reduce soft backgrounds
     df = df.Define('leps',         'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_all)')
-    df = df.Define('leps_p',       'FCCAnalyses::ReconstructedParticle::get_p(leps)')
-    df = df.Define('leps_theta',   'FCCAnalyses::ReconstructedParticle::get_theta(leps)')
-    df = df.Define('leps_phi',     'FCCAnalyses::ReconstructedParticle::get_phi(leps)')
     df = df.Define('leps_q',       'FCCAnalyses::ReconstructedParticle::get_charge(leps)')
     df = df.Define('leps_no',      'FCCAnalyses::ReconstructedParticle::get_n(leps)')
     df = df.Define('leps_iso',     'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)')
@@ -132,15 +133,10 @@ def Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(zll)[0]')
     df = df.Define('zll_pT',    'FCCAnalyses::ReconstructedParticle::get_pt(zll)[0]')
     df = df.Define('zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(zll)[0]')
-    df = df.Define('zll_phi',   'FCCAnalyses::ReconstructedParticle::get_phi(zll)[0]')
-
-    df = df.Define('zll_costheta', 'std::cos(zll_theta)')
 
     # Recoil mass: invariant mass of system recoiling against Z (Higgs candidate)
     df = df.Define('zll_recoil',   f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)')
     df = df.Define('zll_recoil_m',  'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
-    # Polar angle categorization: 0.8 < theta < 2.34 (barrel vs endcap)
-    df = df.Define('zll_category',  'FCCAnalyses::polarAngleCategorization(0.8, 2.34)(zll_leps)')
     return df
 
 
@@ -163,7 +159,6 @@ def lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('zll_leps_p',       'FCCAnalyses::ReconstructedParticle::get_p(zll_leps)')
     df = df.Define('zll_leps_pT',      'FCCAnalyses::ReconstructedParticle::get_pt(zll_leps)')
     df = df.Define('zll_leps_theta',   'FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)')
-    df = df.Define('zll_leps_phi',     'FCCAnalyses::ReconstructedParticle::get_phi(zll_leps)')
     # Identify which lepton has higher momentum
     df = df.Define('leading_p_idx',    '(zll_leps_p[0] > zll_leps_p[1]) ? 0 : 1')
     df = df.Define('subleading_p_idx', '(zll_leps_p[0] > zll_leps_p[1]) ? 1 : 0')
@@ -176,8 +171,6 @@ def lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
 
     df = df.Define('leading_theta',    'zll_leps_theta[leading_p_idx]')
     df = df.Define('subleading_theta', 'zll_leps_theta[subleading_p_idx]')
-    df = df.Define('leading_phi',      'zll_leps_phi[leading_p_idx]')
-    df = df.Define('subleading_phi',   'zll_leps_phi[subleading_p_idx]')
     return df
 
 
@@ -217,8 +210,6 @@ def additional_variables(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('cosTheta_miss', 'FCCAnalyses::get_cosTheta_miss(missingEnergy_rp')
     df = df.Define('missingMass',   f'FCCAnalyses::missingMass({ecm}, ReconstructedParticles)')
 
-    df = df.Define('enery_imbalance', 'FCCAnalyses::energy_imbalance()')
-
     return df
 
 
@@ -227,78 +218,12 @@ def additional_variables(df: 'ROOT.ROOT.RDataFrame',
 ### MAIN FUNCTIONS ###
 ######################
 
-# __________________________________________
-def training_ll(df: 'ROOT.ROOT.RDataFrame',
-                cat: str,
-                ecm: int
-                ) -> 'ROOT.ROOT.RDataFrame':
-    """Build training dataframe for leptonic channels without cutflow.
-
-    Applies baseline cuts and derives all kinematic features for MVA training.
-    Baseline cuts: ≥1 lepton with isolation, ≥2 opposite-sign leptons.
-    Includes Z mass/momentum cuts (currently disabled for dataset uniformity).
-    Recommended for BDT training and systematic studies.
-
-    Args:
-        df: Input RDataFrame-like object to augment.
-        cat (str): Final-state category, either 'mumu' or 'ee'.
-        ecm (int): Center-of-mass energy in GeV (240 or 365).
-
-    Returns:
-        The dataframe with complete kinematic feature set ready for training:
-        lepton properties, Z kinematics, angular variables, energy observables,
-        and Higgsstrahlungness discriminant.
-    """
-
-    df = setup_alias(df, cat)
-    df = lesp_properties(df)
-
-    ##########
-    ### CUT 0: all events
-    ##########
-
-    ##########
-    ### CUT 1: at least one lepton and at least one isolated lepton (I_rel < 0.25)
-    ##########
-    df = df.Filter('leps_no >= 1 && leps_sel_iso.size() > 0')
-
-    ##########
-    ### CUT 2: at least 2 leptons with opposite-sign
-    ##########
-    df = df.Filter('leps_no >= 2 && abs(Sum(leps_q)) < leps_q.size()')
-
-    # Build Z candidate with H veto, extract all kinematic observables
-    df = recoil_builder(df, ecm)
-    df = Z_kinematics(df, ecm)
-    df = lead_sublead_properties(df)
-    df = additional_variables(df, ecm)
-
-
-
-    ###########################
-    ### KINEMATIC SELECTION ###
-    ###########################
-
-    ##########
-    ### CUT 3: Z mass window
-    ##########
-    # df = df.Filter('zll_m > 86 && zll_m < 96')
-
-    ##########
-    ### CUT 4: Z momentum (CoM dependent)
-    ##########
-    # if ecm == 240:   df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
-    # elif ecm == 365: df = df.Filter('zll_p > 50 && zll_p < 150')  # 365 GeV
-
-    return df
-
-
-
 # _______________________________________________________
 def presel_ll(df: 'ROOT.ROOT.RDataFrame',
               cat: str,
               ecm: int,
-              dataset: str
+              dataset: str,
+              test: bool
               ) -> tuple['ROOT.ROOT.RDataFrame',
                          list[Union['ROOT.TH1',
                                     'ROOT.TParameter']]]:
@@ -329,7 +254,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
         df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
         df = df.Filter('!ww_leptonic')
 
-    df = lesp_properties(df)
+    df = lesp_properties(df, ecm)
 
     params.append(df.Histo1D(("leps_iso", "leps_iso", 4000, 0, 20), "leps_iso"))
     params.append(df.Histo1D(("leps_no", "leps_no", 20, 0, 20), "leps_no"))
@@ -342,7 +267,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 1: at least one lepton and at least one isolated lepton (I_rel < 0.25)
     ##########
-    df = df.Filter('leps_no >= 1 && leps_sel_iso.size() > 0')
+    df = df.Filter('leps_no >= 1 && leps_sel_no > 0')
     df, params = cutflow(df, params, 1)
 
     ##########
@@ -366,35 +291,45 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 3: Z mass window
     ##########
-    # df = df.Filter('zll_m > 86 && zll_m < 96')
-    # df, params = cutflow(df, params, 3)
+    if test:
+        df = df.Filter('zll_m > 86 && zll_m < 96')
+        df, params = cutflow(df, params, 3)
 
     ##########
     ### CUT 4: Z momentum (CoM dependent)
     ##########
-    # if ecm == 240:   df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
-    # elif ecm == 365: df = df.Filter('zll_p > 50 && zll_p < 150')  # 365 GeV
-    # df, params = cutflow(df, params, 4)
+    if test:
+        if ecm == 240:   df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
+        elif ecm == 365: df = df.Filter('zll_p > 50 && zll_p < 150')  # 365 GeV
+        df, params = cutflow(df, params, 4)
 
     ##########
     ### CUT 5: Recoil mass window (365 GeV)
     ##########
-    # if ecm==365: df = df.Filter('zll_recoil_m > 100 && zll_recoil_m < 150')
-    # df, params = cutflow(df, params, 5)
+    if test:
+        if ecm==365: df = df.Filter('zll_recoil_m > 100 && zll_recoil_m < 150')
+        df, params = cutflow(df, params, 5)
+
+    ##########
+    ### CUT 6: Cos(theta_miss) cut
+    ##########
+    if test:
+        df = df.Filter('cosTheta_miss < 0.98')
+        df, params = cutflow(df, params, 6)
 
     return df, params
 
 
 branch_list_ll = [
     # Lepton kinematics (leading and subleading)
-    'leading_p',    'leading_pT',    'leading_theta',    'leading_phi',
-    'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_phi',
+    'leading_p',    'leading_pT',    'leading_theta',
+    'subleading_p', 'subleading_pT', 'subleading_theta',
 
     # Angular correlation
     'acolinearity', 'acopolarity', 'acoplanarity', 'deltaR',
 
     # Z boson kinematics
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta', 'zll_costheta', 'zll_phi',
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',
 
     # Recoil mass (Higgs candidate)
     'zll_recoil_m',

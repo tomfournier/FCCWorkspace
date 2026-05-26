@@ -465,69 +465,52 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     big    = 80 if batch else 10
 
     # Common diboson processes
-    common = {
-        f'p8_ee_ZZ_ecm{ecm}': {'frac': 1, 'nb': middle},
-        f'p8_ee_WW_ecm{ecm}': {'frac': 1, 'nb': 5 if train else big},
+    common: dict[str, dict[str, int]] = {}
+    common[f'p8_ee_ZZ_ecm{ecm}'] = {'frac': 1, 'nb': middle}
+    if not train or (cat == 'qq'):
+        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 1, 'nb': big}
+
+    category_specific = {
+        'ee': {
+            f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1, 'nb': middle},
+            f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            f'wzp6_gammae_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            f'wzp6_gaga_ee_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
+        },
+        'mumu': {
+            f'p8_ee_WW_mumu_ecm{ecm}':         {'frac': 1, 'nb': middle},
+            f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
+            f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
+            f'wzp6_gaga_mumu_60_ecm{ecm}':     {'frac': 1, 'nb': middle},
+        },
+        'qq': {
+            f'wzp6_ee_qq_ecm{ecm}':            {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            # f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
+        },
     }
 
-    # Training mode: category-specific backgrounds only
+    # Training mode: category-specific backgrounds (reduced sample size)
     if train:
-        category_specific = {
-            'ee': {
-                f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1, 'nb': middle},
-                f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 1, 'nb': big},
-                f'wzp6_egamma_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
-                f'wzp6_gammae_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
-                f'wzp6_gaga_ee_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
-            },
-            'mumu': {
-                f'p8_ee_WW_mumu_ecm{ecm}':         {'frac': 1, 'nb': middle},
-                f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 1, 'nb': big},
-                f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
-                f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
-                f'wzp6_gaga_mumu_60_ecm{ecm}':     {'frac': 1, 'nb': middle},
-            },
-            'qq': {
-                f'wzp6_ee_qq_ecm{ecm}':            {'frac': 1, 'nb': big},
-                f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
-                f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
-                f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
-            },
-        }
         return {**common, **category_specific.get(cat, {})}
 
-    # Non-training mode: all ll backgrounds for ee/mumu, mixed for qq
-    # All lepton-pair backgrounds (ee, mumu, tautau)
-    ll_bkgs = {
-        f'p8_ee_WW_ee_ecm{ecm}':            {'frac': 1, 'nb': middle},
-        f'p8_ee_WW_mumu_ecm{ecm}':          {'frac': 1, 'nb': middle},
-        f'wzp6_ee_ee_Mee_30_150_ecm{ecm}':  {'frac': 1, 'nb': big},
-        f'wzp6_ee_mumu_ecm{ecm}':           {'frac': 1, 'nb': big},
+    # Non-training mode: comprehensive backgrounds (full sample)
+    # Lepton-pair backgrounds (ee, mumu, tautau channels)
+    nominal_bkgs = {
         f'wzp6_ee_tautau_ecm{ecm}':         {'frac': 1, 'nb': small},
-        f'wzp6_egamma_eZ_Zee_ecm{ecm}':     {'frac': 1, 'nb': middle},
-        f'wzp6_gammae_eZ_Zee_ecm{ecm}':     {'frac': 1, 'nb': middle},
-        f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':   {'frac': 1, 'nb': middle},
-        f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':   {'frac': 1, 'nb': middle},
-        f'wzp6_gaga_ee_60_ecm{ecm}':        {'frac': 1, 'nb': middle},
-        f'wzp6_gaga_mumu_60_ecm{ecm}':      {'frac': 1, 'nb': middle},
         f'wzp6_gaga_tautau_60_ecm{ecm}':    {'frac': 1, 'nb': small},
         f'wzp6_ee_nuenueZ_ecm{ecm}':        {'frac': 1, 'nb': small},
     }
 
+    bkgs = {**common, **category_specific.get(cat, {}), **nominal_bkgs}
     if cat in ['ee', 'mumu']:
-        return {**common, **ll_bkgs}
-    elif cat == 'qq':
-        # For qq: all ll backgrounds + qq-specific ones
-        qq_bkgs = {
-            f'wzp6_ee_qq_ecm{ecm}':          {'frac': 1, 'nb': big},
-            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': middle},
-            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':  {'frac': 1, 'nb': middle},
-            f'wzp6_gaga_qq_60_ecm{ecm}':     {'frac': 1, 'nb': small},
-        }
-        bkgs = {**common, **ll_bkgs, **qq_bkgs}
+        return bkgs
+    elif (cat == 'qq') and (ecm == 365):
         # Special case: top production at 365 GeV
-        if ecm == 365:
-            bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
+        bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
         return bkgs
 
     return common

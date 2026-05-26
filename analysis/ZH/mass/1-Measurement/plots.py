@@ -35,7 +35,6 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc
 from package.config import (
     timer, mk_processes,
-    z_decays, H_decays,
     colors, labels
 )
 from package.tools.utils import high_low_sels
@@ -59,7 +58,7 @@ if arg.sels=='':
         'Baseline_miss',
         'Baseline_sep',
         'Baseline_vis', 'Baseline_inv',
-        'test'
+        # 'test'
     ]
 else:
     sels = arg.sels.split('-')
@@ -79,21 +78,13 @@ processes = mk_processes(
 variables = [
     'leading_p', 'leading_pT', 'leading_theta',                               # leading lepton variables
     'subleading_p', 'subleading_pT', 'subleading_theta',                      # subleading lepton variables
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',  # 'zll_costheta',                  # Z boson properties
-    # 'zll_phi', 'leading_phi', 'subleading_phi',                               # Azimutal angles
+    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',                                  # Z boson properties
     'acolinearity', 'acoplanarity', 'deltaR',                                 # Angular separation variables
     'zll_recoil_m',                                                           # Recoil mass (Higgs candidate)
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',  # missingEnergy         # Missing energy and mass
+    'visibleEnergy', 'cosTheta_miss', 'missingMass', 'missingEnergy',         # Missing energy and mass
     'H',                                                                      # Higgsstrahlungness
-    'BDTscore',                                                               # BDT score
     'ConeIsolation', 'n_leptons'
 ]
-
-# Define signal and background samples for AAAyields
-plots = {
-    'signal':      {proc: processes[proc] for proc in ['ZH']},
-    'backgrounds': {proc: processes[proc] for proc in ['WW', 'ZZ', 'Zgamma', 'Rare']}
-}
 
 # Custom plot arguments for specific variables
 args = {
@@ -116,7 +107,13 @@ args = {
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cats, sels, vars, processes, colors, legend):
+def run(
+        cats: list[str],
+        sels: list[str],
+        vars: list[str],
+        processes: dict[str, list[str]],
+        colors: dict,
+        legend: dict):
     '''Generate distribution plots for all channels, selections, and variables.'''
     for cat in cats:
         LOGGER.info(f'Making plots for {cat} channel')
@@ -137,6 +134,11 @@ def run(cats, sels, vars, processes, colors, legend):
             # Generate yields plots unless skipped
             if arg.yields:
                 from package.plots.plotting import AAAyields
+                # Define signal and background samples for AAAyields
+                plots = {
+                    'signal':      {'ZH': [f'wzp6_ee_{cat}H_ecm{ecm}']},
+                    'backgrounds': {proc: processes[proc] for proc in ['WW', 'ZZ', 'Zgamma', 'Rare']}
+                }
                 AAAyields('zll_p', inDir, outDir, plots, legend, colors, cat, sel, ecm=ecm, lumi=lumi)
 
             # Generate distribution and decay plots unless all skipped
@@ -149,15 +151,6 @@ def run(cats, sels, vars, processes, colors, legend):
                         from package.plots.plotting import significance
                         for reverse in [True, False]:
                             significance(var, inDir, outDir, sel, procs, processes, reverse=reverse)
-
-                    # Generate Higgs decay mode plots unless skipped
-                    if arg.decay:
-                        from package.plots.plotting import args_decay, PlotDecays
-                        kwarg_decay = args_decay(var, sel, ecm, lumi, args)
-                        # Channel-specific decay plots (linear and log scale)
-                        for logY in [False, True]:
-                            PlotDecays(var, inDir, outDir, sel, [cat],    H_decays, logY=logY, tot=False, **kwarg_decay)
-                            PlotDecays(var, inDir, outDir, sel, z_decays, H_decays, logY=logY, tot=True,  **kwarg_decay)
 
                     # Generate standard distribution plots unless skipped
                     if arg.make:

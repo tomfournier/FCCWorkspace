@@ -7,15 +7,8 @@ import os
 # Analysis configuration and paths
 from package.userConfig import (
     loc, event, get_params,
-    frac, nb
 )
-from package.func.bdt import def_bdt, make_high_low
 from sel.final.leptonic import histos_ll
-from package.config import (
-    z_decays,
-    H_decays,
-    input_vars
-)
 
 cat, ecm, lumi = get_params(os.environ.copy(), '3-run.json', is_final=True)
 
@@ -61,60 +54,32 @@ intLumi = lumi * 1e6  # in pb-1
 ################################
 
 # Background samples:
-samples_bkg = [
+processList = event([
+    # Signal: ee -> ZH
+    f'wzp6_ee_{cat}H_ecm{ecm}',
+
     # Diboson:  ee -> VV
-    f'p8_ee_ZZ_ecm{ecm}',
-    f'p8_ee_WW_ecm{ecm}',
-    f'p8_ee_WW_ee_ecm{ecm}',
-    f'p8_ee_WW_mumu_ecm{ecm}',
-
-    # ee -> Z+jets
-    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
-    f'wzp6_ee_mumu_ecm{ecm}',
-    f'wzp6_ee_tautau_ecm{ecm}',
-
-    # Radiative: ey -> eZ(ll)
-    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_egamma_eZ_Zee_ecm{ecm}',
-    f'wzp6_gammae_eZ_Zee_ecm{ecm}',
-
-    # Diphoton: yy -> ll
-    f'wzp6_gaga_ee_60_ecm{ecm}',
-    f'wzp6_gaga_mumu_60_ecm{ecm}',
-    f'wzp6_gaga_tautau_60_ecm{ecm}',
-
-    # Invisible: ee -> nunuZ
-    f'wzp6_ee_nuenueZ_ecm{ecm}'
-]
-
-# Signal samples: ee -> Z(ll)H with all Higgs decay modes
-samples_sig = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in H_decays + ('ZZ_noInv',)]
-
-# Load event samples with events TTree
-samples = event(samples_sig + samples_bkg, inputDir)
-
-# Large samples requiring chunked processing
-big_sample = (
     f'p8_ee_ZZ_ecm{ecm}',
     f'p8_ee_WW_ecm{ecm}',
     f'p8_ee_WW_{cat}_ecm{ecm}',
 
+    # ee -> Z+jets
+    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
     f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu'
     else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+    f'wzp6_ee_tautau_ecm{ecm}',
 
+    # Radiative: ey -> eZ(ll)
     f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
     f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-    f'wzp6_gaga_{cat}_60_ecm{ecm}'
-)
 
-# Configure processing parameters for each sample
-processList = {i:{'fraction': frac, 'chunks': nb if i in big_sample else 1} for i in samples}
+    # Diphoton: yy -> ll
+    f'wzp6_gaga_{cat}_60_ecm{ecm}',
+    f'wzp6_gaga_tautau_60_ecm{ecm}',
 
-# Define BDT score from trained model and apply BDT cut
-sel_BDT = 'test'
-loc_BDT = loc.get('BDT', cat, ecm, sel_BDT)
-defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
+    # Invisible: ee -> nunuZ
+    f'wzp6_ee_nuenueZ_ecm{ecm}'
+], inputDir)
 
 
 
@@ -122,37 +87,16 @@ defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
 ### DEFINE CUT LIST ###
 #######################
 
-# Define range for CoM dependent variables
-p_up = 70 if ecm==240 else (150 if ecm==365 else 200)
-p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)
-
-# Define baseline selection cuts
-vis_cut = 100 if ecm==240 else (171 if ecm==365 else 0)
-m_cut, p_cut = 'zll_m > 86 && zll_m < 96', f'zll_p > {p_dw} && zll_p < {p_up}',
-rec_cut = ' && zll_recoil_m > 100 && zll_recoil_m < 150' if ecm==365 else ''
-
-Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
-vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' && visibleEnergy < {vis_cut}'
+if ecm == 240:
+    Baseline_cut = 'zll_m > 86 && zll_m < 96 && zll_p > 20 && zll_p < 70  && zll_recoil_m > 100 && zll_recoil_m < 150 && cosTheta_miss < 0.98'
+elif ecm == 365:
+    Baseline_cut = 'zll_m > 86 && zll_m < 96 && zll_p > 50 && zll_p < 150 && zll_recoil_m > 100 && zll_recoil_m < 150 && cosTheta_miss < 0.98'
 
 # Selection cut dictionary (key = selection name used in outputs)
 cutList = {
-    # 'Baseline':          Baseline_Cut,
-    # 'Baseline_vis':      vis,
-    # 'Baseline_inv':      inv,
-    # 'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
-    # 'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
-    'test':              Baseline_Cut
+    'Baseline':          Baseline_cut,
+    # 'test':              Baseline_cut
 }
-
-# List of selections to split into high/low BDT score regions
-sels = [
-    'Baseline',
-    'Baseline_miss',
-    'Baseline_sep',
-    'test'
-]
-# Split each selection into high and low BDT score regions
-cutList = make_high_low(cutList, bdt_cut, sels)
 
 
 
@@ -167,6 +111,3 @@ customHists: dict[str, dict[str, str | int | float]] = {
 
 # Output histogram definitions (name, title, binning)
 histoList: dict[str, dict[str, str | int | float]] = histos_ll
-histoList['BDTscore'] = {'name':'BDTscore',
-                         'title':'BDT score',
-                         'bin':1000,'xmin':0,'xmax':1}

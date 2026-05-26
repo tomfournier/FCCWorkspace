@@ -44,7 +44,6 @@ if TYPE_CHECKING:
 
 from ..tools.utils import get_df, mkdir
 from ..tools.process import getMetaInfo
-from ..config import h_colors, h_labels
 from ..logger import get_logger
 
 LOGGER = get_logger(__name__)
@@ -309,300 +308,6 @@ def CutFlow(
         other_col_width=25
     )
 
-# ______________________________________
-def CutFlowDecays(
-    flow: dict[str,
-               dict[str, Any |
-                    dict[str, float]]],
-    outDir: str,
-    cat: str,
-    sel: str,
-    h_decays: list[str],
-    cuts: dict[str, dict[str, str]],
-    labels: dict[str, dict[str, str]],
-    suffix: str = '',
-    ecm: int = 240,
-    lumi: float = 10.8,
-    outName: str = 'cutFlow_decays',
-    format: list[str] = ['png'],
-    yMin: float | int = 0,
-    yMax: float | int = 150
-     ) -> None:
-
-    '''Plot selection efficiencies across Higgs decay modes.
-
-    Renders efficiency curves (normalized to first cut) for each decay channel
-    and exports detailed efficiency tables and pull plots.
-
-    Args:
-        flow (dict[str, dict[str, ROOT.TH1 | dict[str, float]]]): Histograms indexed by decay channel.
-        outDir (str): Base directory for outputs.
-        cat (str): Channel (``ee`` or ``mumu``).
-        sel (str): Selection identifier.
-        h_decays (list[str]): Higgs decay mode identifiers to plot.
-        cuts (dict[str, dict[str, str]]): Cut definitions per selection.
-        labels (dict[str, dict[str, str]]): Axis labels per cut step.
-        suffix (str, optional): File name suffix. Defaults to ''.
-        ecm (int, optional): Beam energy in GeV. Defaults to 240.
-        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
-        outName (str, optional): Output file stem. Defaults to 'cutFlow_decays'.
-        format (list[str], optional): Image formats. Defaults to ['png'].
-        yMin (float | int, optional): Linear-scale Y-axis minimum (efficiency %). Defaults to 0.
-        yMax (float | int, optional): Linear-scale Y-axis maximum (efficiency %). Defaults to 150.
-    '''
-
-    import numpy as np
-    from .root import plotter
-    from .root.helper import (
-        mk_legend,
-        setup_latex,
-        style_hist,
-        build_cfg,
-    )
-    from .root.plotter import setup_cutflow_hist, save_canvas
-
-    # Create legend in top-center area for multiple decay channels
-    leg = mk_legend(
-        len(h_decays), columns=4,
-        x1=0.2, y1=0.925,
-        x2=0.95, y2=0.925,
-        border_size=0,
-        fill_style=0,
-        text_size=0.03,
-        set_margin=0.25
-    )
-
-    # Store original yields and prepare efficiency arrays
-    hists, hist_yield = [], []
-    nbins = len(cuts[sel])
-    eff_final, eff_final_err = [], []
-
-    contents, errors = [], []
-    for h_decay in h_decays:
-        h_sig = flow[h_decay]['hist'][0]
-        # Clone unscaled histogram for yield table
-        hist_yield.append(h_sig.Clone(f'yield_{h_decay}'))
-        # Normalize to first bin (efficiency in %)
-        style_hist(
-            h_sig,
-            color=h_colors[h_decay],
-            width=2, style=1,
-            scale=100./h_sig.GetBinContent(1)
-        )
-
-        leg.AddEntry(h_sig, h_labels[h_decay], 'L')
-        hists.append(h_sig)
-
-        # Extract final bin efficiency and uncertainty
-        eff_final.append(float(h_sig.GetBinContent(nbins)))
-        eff_final_err.append(float(h_sig.GetBinError(nbins)))
-
-        # Store normalized content and error arrays
-        contents.append(np.fromiter((
-            float(h_sig.GetBinContent(i+1)) for i in range(nbins)), dtype=float))
-        errors.append(np.fromiter((
-            float(h_sig.GetBinError(i+1)) for i in range(nbins)), dtype=float))
-
-    # Compute average efficiency across decay channels
-    hist_tot = hists[0].Clone('h_tot')
-    for hist in hists[1:]:
-        hist_tot.Add(hist)
-    hist_tot.Scale(1.0 / len(h_decays))
-    eff_avg = hist_tot.GetBinContent(nbins)
-    eff_avg_err = hist_tot.GetBinError(nbins)
-    # Min/max spreads relative to average
-    eff_min, eff_max = eff_avg-min(eff_final), max(eff_final)-eff_avg
-
-    # Configure linear-scale plot
-    cfg = build_cfg(
-        hists[-1], logX=False, logY=False,
-        xmin=0, xmax=nbins,
-        ymin=yMin, ymax=yMax,
-        xtitle='None',
-        ytitle='Selection efficiency [%]',
-        ecm=ecm, lumi=lumi,
-        cutflow=True
-    )
-    plotter.cfg = cfg
-
-    # Setup canvas and draw efficiency curves
-    cat_label = 'e' if cat=='ee' else '#mu'
-    canvas, dummy = setup_cutflow_hist(nbins, labels[sel], cat_label)
-    dummy.Draw('HIST')
-
-    # Add average efficiency statistics box
-    txt = setup_latex(0.04, 11, text_color=1, text_font=42)
-    txt.DrawLatex(0.2, 0.2, f'Avg eff: {eff_avg:.2f} #pm {eff_avg_err:.2f} %')
-    txt.DrawLatex(0.2, 0.15, f'Min/max: {eff_min:.2f}/{eff_max:.2f}')
-    txt.Draw('SAME')
-
-    for hist in hists:
-        hist.Draw('SAME HIST')
-    leg.Draw('SAME')
-
-    # Export efficiency plot
-    s = sel.replace('_high', '').replace('_low', '')
-    if '_high' in sel: d = 'high'
-    elif '_low' in sel: d = 'low'
-    else: d = 'nominal'
-    out = f'{outDir}/yield/{s}/{d}/cutflow'
-    save_canvas(canvas, out, outName, suffix, format)
-
-    # Build yield table from original (non-scaled) histograms
-    rows = []
-    for i in range(nbins):
-        row = [f'Cut {i}']
-        for j in range(len(hist_yield)):
-            yield_, err = contents[j][i], errors[j][i]
-            row.append('%.2e +/- %.2e' % (yield_, err))
-        rows.append(row)
-    write_table(
-        out, outName+suffix,
-        headers=('Cut',) + h_decays,
-        rows=rows,
-        first_col_width=10,
-        other_col_width=25
-    )
-
-    del canvas
-
-    # Generate detailed efficiency summary and pull plot
-    out_eff = f'{outDir}/yield/{s}/{d}/efficiency'
-    Efficiency(
-        out_eff, contents, errors, eff_final, eff_final_err,
-        eff_avg, eff_avg_err, eff_min, eff_max, h_decays,
-        nbins, suffix=suffix, format=format, ecm=ecm, lumi=lumi
-    )
-
-# ________________________________
-def Efficiency(
-    outDir: str,
-    contents: list['np.ndarray'],
-    errors: list['np.ndarray'],
-    eff_final: list[float],
-    eff_final_err: list[float],
-    eff_avg: float,
-    eff_avg_err: float,
-    eff_min: float,
-    eff_max: float,
-    h_decays: list[str],
-    nbins: int,
-    suffix: str = '',
-    format: list[str] = ['png'],
-    ecm: int = 240,
-    lumi: float = 10.8
-     ) -> None:
-
-    '''Produce efficiency summary plots and a compact table.
-
-    Args:
-        outDir (str): Output directory for plots and tables.
-        contents (list[np.ndarray]): Per-decay efficiency arrays per cut.
-        errors (list[np.ndarray]): Uncertainties matching ``contents``.
-        eff_final (list[float]): Final-step efficiencies per decay.
-        eff_final_err (list[float]): Final-step uncertainties per decay.
-        eff_avg (float): Average efficiency across decays.
-        eff_avg_err (float): Uncertainty on the average efficiency.
-        eff_min (float): Difference between average and minimum efficiency.
-        eff_max (float): Difference between maximum and average efficiency.
-        h_decays (list[str]): Ordered list of decay channel keys.
-        nbins (int): Number of cut steps.
-        suffix (str, optional): Optional suffix appended to output names. Defaults to ''.
-        format (list[str], optional): List of image formats. Defaults to ['png'].
-        ecm (int, optional): Center-of-mass energy. Defaults to 240.
-        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
-    '''
-
-    import ROOT
-    from .root import plotter
-    from .root.helper import (
-        canvas_margins,
-        setup_latex,
-        save_plot
-    )
-
-    # Create 2D pull plot with efficiency values and uncertainties
-    xMin, xMax = int(min(eff_final))-5, int(max(eff_final))+3
-    h_pulls = ROOT.TH2F('pulls', 'pulls', (xMax-xMin)*10, xMin, xMax, len(h_decays)+1, 0, len(h_decays)+1)
-    g_pulls = ROOT.TGraphErrors(len(h_decays)+1)
-
-    # Add average efficiency as first entry
-    g_pulls.SetPoint(0, eff_avg, 0.5); g_pulls.SetPointError(0, eff_avg_err, 0.)
-    h_pulls.GetYaxis().SetBinLabel(1, 'Average')
-
-    # Add per-decay final efficiencies
-    for i,h_decay in enumerate(h_decays):
-        g_pulls.SetPoint(i+1, eff_final[i], float(i+1) + 0.5)
-        g_pulls.SetPointError(i+1, eff_final_err[i], 0.)
-        h_pulls.GetYaxis().SetBinLabel(i+2, h_labels[h_decay])
-
-    # Setup canvas with grid for readability
-    canvas = plotter.canvas(800, 800)
-    canvas_margins(canvas, top=0.08, bottom=0.1, left=0.15, right=0.05)
-    canvas.SetFillStyle(4000)
-    canvas.SetGrid(1, 0)
-    canvas.SetTickx(1)
-
-    # Format axes
-    h_pulls.GetXaxis().SetTitle('Selection efficiency [%]')
-    h_pulls.GetXaxis().SetTitleSize(0.04)
-    h_pulls.GetXaxis().SetLabelSize(0.035)
-    h_pulls.GetXaxis().SetTitleOffset(1)
-    h_pulls.GetYaxis().SetLabelSize(0.055)
-    h_pulls.GetYaxis().SetTickLength(0)
-    h_pulls.GetYaxis().LabelsOption('v')
-    h_pulls.SetNdivisions(506, 'XYZ')
-    h_pulls.Draw('HIST 0')
-
-    # Draw average efficiency line
-    maxx = len(h_decays)+1
-    line = ROOT.TLine(eff_avg, 0, eff_avg, maxx)
-    line.SetLineColor(ROOT.kGray)
-    line.SetLineWidth(2)
-    line.Draw('SAME')
-
-    # Draw uncertainty band around average
-    shade = ROOT.TGraph()
-    shade.SetPoint(0, eff_avg-eff_avg_err, 0); shade.SetPoint(1, eff_avg+eff_avg_err, 0)
-    shade.SetPoint(2, eff_avg+eff_avg_err, maxx); shade.SetPoint(3, eff_avg-eff_avg_err, maxx)
-    shade.SetPoint(4, eff_avg-eff_avg_err, 0)
-    shade.SetFillColor(16); shade.SetFillColorAlpha(16, 0.35); shade.Draw('SAME F')
-
-    # Overlay efficiency points with error bars
-    g_pulls.SetMarkerSize(1.2); g_pulls.SetMarkerStyle(20); g_pulls.SetLineWidth(2)
-    g_pulls.Draw('P0 SAME')
-
-    # Add beam energy and luminosity label
-    latex = setup_latex(0.045, 30, text_color=1, text_font=42)
-    latex.DrawLatex(0.95, 0.925, f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}')
-    latex = setup_latex(0.045, 13, text_color=1, text_font=42)
-    latex.DrawLatex(0.15, 0.96, '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}')
-    # Add efficiency statistics
-    txt = setup_latex(0.04, 11, text_color=1, text_font=42)
-    txt.DrawLatex(0.2, 0.2, f'Avg eff: {eff_avg:.2f} #pm {eff_avg_err:.2f} %')
-    txt.DrawLatex(0.2, 0.15, f'Min/max: {eff_min:.2f}/{eff_max:.2f}')
-    txt.Draw('SAME')
-
-    # Export pull plot
-    save_plot(canvas, outDir, 'selection_efficiency', suffix, format)
-
-    # Build efficiency table with per-cut values
-    rows = []
-    for i in range(nbins):
-        row = [f'Cut {i}']
-        for arr, err in zip(contents, errors):
-            row.append('%.2f +/- %.2f' % (arr[i], err[i]))
-        rows.append(row)
-    # Export efficiency summary table with statistics
-    write_table(
-        outDir, 'selection_efficiency'+suffix,
-        headers=('Cut',)+h_decays,
-        rows=rows,
-        first_col_width=10, other_col_width=18,
-        footer_lines=[
-            f'Average: {eff_avg:.3f} +/- {eff_avg_err:.3f}',
-            f'Min/max: {eff_min:.3f}/{eff_max:.3f}']
-    )
 
 # _________________________________________
 def get_cutflow(
@@ -611,14 +316,11 @@ def get_cutflow(
     cat: str,
     sels: list[str],
     procs: list[str],
-    procs_decays: list[str],
     processes: dict[str, list[str]],
     colors: dict[str, dict[str, str]],
     legend: dict[str, dict[str, str]],
     cuts: dict[str, dict[str, str]],
     cuts_label: dict[str, dict[str, str]],
-    z_decays: list[str],
-    H_decays: list[str],
     format: list[str] = ['png'],
     ecm: int = 240,
     lumi: float = 10.8,
@@ -657,7 +359,6 @@ def get_cutflow(
         loc_json (str, optional): Path where JSON snapshots are stored. Defaults to ''.
     '''
 
-    import numpy as np
     from .python.helper import (
         _col_from_file,
         find_sample_files,
@@ -670,14 +371,10 @@ def get_cutflow(
 
     # Initialize event and file list dictionaries
     events, file_list = {}, {}
-    # Update process names to channel-specific variants if not computing totals
-    if not tot:
-        procs[0]        = f'Z{cat}H'
-        procs_decays[0] = f'z{cat}h'
 
     # Collect metadata from all samples
     LOGGER.info('Getting processed events')
-    for proc in tqdm(procs_decays):
+    for proc in tqdm(procs):
         for sample in processes[proc]:
             events[sample] = {}
 
@@ -697,7 +394,7 @@ def get_cutflow(
             col_map[sample] = set()
 
     LOGGER.info('Getting cuts from DataFrame')
-    for proc in procs_decays:
+    for proc in procs:
         LOGGER.debug(f'From {proc}')
         for sample in processes[proc]:
             LOGGER.info(f'From sample {sample}')
@@ -780,7 +477,6 @@ def get_cutflow(
                 procs, processes,
                 cuts, events,
                 cat, sel,
-                z_decays, H_decays,
                 ecm=ecm, json_file=json_file,
                 loc_json=out_json+f'/{sel}'
             )
@@ -794,14 +490,6 @@ def get_cutflow(
                 sig_scale=sig_scale,
                 yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
             )
-            # Render per-decay efficiency plots
-            LOGGER.info('Making CutflowDecays plot')
-            CutFlowDecays(
-                flow_decay, outDir, cat, sel,
-                H_decays, cuts, cuts_label,
-                ecm=ecm, lumi=lumi,
-                format=format
-            )
         else:
             # Compute both channel-specific and combined plots
             procs_cat, procs_tot = copy.deepcopy(procs), copy.deepcopy(procs)
@@ -813,12 +501,11 @@ def get_cutflow(
                 procs_cat, processes,
                 cuts, events,
                 cat, sel,
-                z_decays, H_decays,
                 ecm=ecm,
                 json_file=json_file,
                 loc_json=out_json+f'/{sel}'
             )
-            LOGGER.info('Makinf Cutflow plot')
+            LOGGER.info('Making Cutflow plot')
             CutFlow(
                 flow, outDir, cat, sel,
                 procs_cat, colors, legend, cuts, cuts_label,
@@ -826,19 +513,11 @@ def get_cutflow(
                 format=format, sig_scale=sig_scale,
                 yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
             )
-            LOGGER.info('Makinf CutflowDecays plot')
-            CutFlowDecays(
-                flow_decay, outDir, cat, sel,
-                H_decays, cuts, cuts_label,
-                ecm=ecm, lumi=lumi,
-                format=format
-            )
 
             # Combined (ee+mumu) cutflow
             flow_tot, flow_decay_tot = get_flows(
                 procs_tot, processes,
                 cuts, events, cat, sel,
-                z_decays, H_decays,
                 ecm=ecm, json_file=json_file,
                 loc_json=loc_json+f'/{sel}',
                 tot=True
@@ -851,12 +530,4 @@ def get_cutflow(
                 suffix='_tot', format=format,
                 sig_scale=sig_scale,
                 yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
-            )
-            LOGGER.info('Making CutflowDecays plot')
-            CutFlowDecays(
-                flow_decay_tot, outDir, cat, sel,
-                H_decays, cuts, cuts_label,
-                ecm=ecm, lumi=lumi,
-                format=format, suffix='_tot',
-                yMin=-30, yMax=160
             )
