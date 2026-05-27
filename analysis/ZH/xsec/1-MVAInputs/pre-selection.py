@@ -43,7 +43,7 @@ nCPUS = 20  # Number of CPUs for parallel processing (-1 uses all available)
 
 # HTCondor batch system configuration (disabled by default)
 runBatch = True if env.get('RUN_BATCH') else False
-batchQueue = 'espresso'    # Queue for batch submission (alternatives: 'longlunch')
+batchQueue = 'longlunch'             # Queue for batch submission (alternatives: 'workday')
 compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
 
