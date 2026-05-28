@@ -7,20 +7,20 @@
 
 namespace FCCAnalyses {
 
-inline constexpr float frac_mz_240 = 1.0f;
-inline constexpr float frac_pz_240 = 1.0f;
+inline constexpr float frac_mz_240  = 1.0f;
+inline constexpr float frac_pz_240  = 1.0f;
 inline constexpr float frac_rec_240 = 1.0f;
 inline constexpr float pz_240 = 52.0f;
 
-inline constexpr float frac_mz_365 = 5.0f;
-inline constexpr float frac_pz_365 = 1.0f;
+inline constexpr float frac_mz_365  = 1.0f;
+inline constexpr float frac_pz_365  = 1.0f;
 inline constexpr float frac_rec_365 = 1.0f;
 inline constexpr float pz_365 = 143.0f;
 
 inline constexpr float mw = 80.4;
 
 
-inline int best_clustering_idx(Vec_f mz, Vec_f pz, Vec_f mrec, Vec_i njets, Vec_i njets_target, int ecm = 240) {
+inline int best_clustering_idx(Vec_f mz, Vec_f pz, Vec_f mrec, Vec_i njets, Vec_i njets_target, int ecm) {
 
     float frac_mz  = 1.0;
     float frac_pz  = 1.0;
@@ -135,62 +135,15 @@ inline Vec_tlv pair_WW_N4(Vec_rp in, float mw) {
         W2 = j2+j3;
     }
 
-    ret.push_back(W1);
-    ret.push_back(W2);
+    if (W1.P() > W2.P()) {
+        ret.push_back(W1);
+        ret.push_back(W2);
+    }
+    else {
+        ret.push_back(W2);
+        ret.push_back(W1);
+    }
     return ret;
-}
-
-
-inline Vec_f pair_W_p(Vec_rp in) {
-    // assume 4 input jets
-    Vec_f ret;
-
-    TLorentzVector j1, j2, j3, j4;
-    j1.SetXYZM(in[0].momentum.x, in[0].momentum.y, in[0].momentum.z, in[0].mass);
-    j2.SetXYZM(in[1].momentum.x, in[1].momentum.y, in[1].momentum.z, in[1].mass);
-    j3.SetXYZM(in[2].momentum.x, in[2].momentum.y, in[2].momentum.z, in[2].mass);
-    j4.SetXYZM(in[3].momentum.x, in[3].momentum.y, in[3].momentum.z, in[3].mass);
-
-    float chi2_1 = std::pow((j1+j2).M()-mw, 2) + std::pow((j3+j4).M()-mw, 2);
-    float chi2_2 = std::pow((j1+j3).M()-mw, 2) + std::pow((j2+j4).M()-mw, 2);
-    float chi2_3 = std::pow((j1+j4).M()-mw, 2) + std::pow((j2+j3).M()-mw, 2);
-    
-    float w1 = -999.;
-    float w2 = -999.;
-    if(chi2_1<chi2_2 && chi2_1<chi2_3) {
-        w1 = (j1+j2).P();
-        w2 = (j3+j4).P();
-    }
-    else if(chi2_2<chi2_1 && chi2_2<chi2_3) {
-        w1 = (j1+j3).P();
-        w2 = (j2+j4).P();
-    }
-    else if(chi2_3<chi2_1 && chi2_3<chi2_2) {
-        w1 = (j1+j4).P();
-        w2 = (j2+j3).P();
-    }
-    ret.push_back(w1);
-    ret.push_back(w2);
-    return ret;
-}
-
-
-inline float pair_W_dphi(Vec_rp in) {
-    TLorentzVector j1, j2, j3, j4;
-    j1.SetXYZM(in[0].momentum.x, in[0].momentum.y, in[0].momentum.z, in[0].mass);
-    j2.SetXYZM(in[1].momentum.x, in[1].momentum.y, in[1].momentum.z, in[1].mass);
-    j3.SetXYZM(in[2].momentum.x, in[2].momentum.y, in[2].momentum.z, in[2].mass);
-    j4.SetXYZM(in[3].momentum.x, in[3].momentum.y, in[3].momentum.z, in[3].mass);
-
-    float chi2_1 = std::pow((j1+j2).M()-mw, 2) + std::pow((j3+j4).M()-mw, 2);
-    float chi2_2 = std::pow((j1+j3).M()-mw, 2) + std::pow((j2+j4).M()-mw, 2);
-    float chi2_3 = std::pow((j1+j4).M()-mw, 2) + std::pow((j2+j3).M()-mw, 2);
-    
-    float ret = -999;
-    if(chi2_1<chi2_2 && chi2_1<chi2_3)      { ret = (j1+j2).DeltaPhi((j3+j4)); }
-    else if(chi2_2<chi2_1 && chi2_2<chi2_3) { ret = (j1+j3).DeltaPhi((j2+j4)); }
-    else if(chi2_3<chi2_1 && chi2_3<chi2_2) { ret = (j1+j4).DeltaPhi((j2+j3)); }
-    return std::abs(ret);
 }
 
 
@@ -211,14 +164,13 @@ inline Vec_rp select_jets(Vec_rp in) {
 struct resonanceBuilder_mass_recoil_hadronic {
     float m_resonance_mass;
     float m_recoil_mass;
-    float chi2_recoil_frac;
     float ecm;
-    resonanceBuilder_mass_recoil_hadronic(float arg_resonance_mass, float arg_recoil_mass, float arg_chi2_recoil_frac, float arg_ecm);
+    resonanceBuilder_mass_recoil_hadronic(float arg_resonance_mass, float arg_recoil_mass, float arg_ecm);
     Vec_rp operator()(Vec_rp legs);
 };
 
-inline resonanceBuilder_mass_recoil_hadronic::resonanceBuilder_mass_recoil_hadronic(float arg_resonance_mass, float arg_recoil_mass, float arg_chi2_recoil_frac, float arg_ecm) 
-    {m_resonance_mass = arg_resonance_mass, m_recoil_mass = arg_recoil_mass, chi2_recoil_frac = arg_chi2_recoil_frac, ecm = arg_ecm;}
+inline resonanceBuilder_mass_recoil_hadronic::resonanceBuilder_mass_recoil_hadronic(float arg_resonance_mass, float arg_recoil_mass, float arg_ecm) 
+    {m_resonance_mass = arg_resonance_mass, m_recoil_mass = arg_recoil_mass, ecm = arg_ecm;}
 
 inline Vec_rp resonanceBuilder_mass_recoil_hadronic::operator()(Vec_rp legs) {
     float frac_mz  = 1.0;
