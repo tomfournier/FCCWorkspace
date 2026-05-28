@@ -6,10 +6,11 @@ import os
 
 # Load analysis configuration and predefined histogram config
 from package.userConfig import loc, get_params
-from sel.final.leptonic import histos_ll
+from sel.final.leptonic import Baseline_cut_ll, histos_ll
+from sel.final.hadronic import Baseline_cut_qq, histos_qq
 
 # Load analysis parameters: decay category, CoM energy, luminosity, test flag
-cat, ecm, lumi, test = get_params(os.environ.copy(), '1-run.json', is_final=True)
+cat, ecm, lumi, test = get_params(os.environ.copy(), '1-run.json', is_final=True, qq_allowed=True)
 
 
 
@@ -50,14 +51,17 @@ processList = [
 
     # Main backgrounds: diboson and Drell-Yan
     f'p8_ee_ZZ_ecm{ecm}',
-    f'p8_ee_WW_{cat}_ecm{ecm}',
-    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee' else f'wzp6_ee_mumu_ecm{ecm}',
+    f'p8_ee_WW_ecm{ecm}' if cat=='qq' else f'p8_ee_WW_{cat}_ecm{ecm}',
+    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee' else f'wzp6_ee_{cat}_ecm{ecm}',
 
     # Rare backgrounds: radiative and diphoton processes
     f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
     f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-    f'wzp6_gaga_{cat}_60_ecm{ecm}'
 ]
+if (cat=='qq') and (ecm == 365):
+    processList.extend(['wzp6_ee_bbH_ecm365', 'wzp6_ee_ccH_ecm365', 'wzp6_ee_ssH_ecm365'])
+if cat in ['ee', 'mumu']:
+    processList.append(f'wzp6_gaga_{cat}_60_ecm{ecm}')
 
 
 
@@ -65,24 +69,14 @@ processList = [
 ### DEFINE SELECTION ###
 ########################
 
-# CoM-dependent kinematic bounds
-p_up = 70 if ecm==240 else (150 if ecm==365 else 240)  # Upper momentum cut [GeV]
-p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)    # Lower momentum cut [GeV]
-
-# Baseline selection cuts (dilepton mass and momentum requirements)
-m_cut = 'zll_m > 86 && zll_m < 96'           # Z boson mass window [GeV]
-p_cut = f'zll_p > {p_dw} && zll_p < {p_up}'  # Dilepton momentum window
-rec_cut = ' && zll_recoil_m > 100 && zll_recoil_m < 150' if ecm==365 else ''  # Recoil mass (365 GeV only)
-Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
-
 # Selection cuts dictionary for ROOT filtering
 # Keys: selection names appearing in output file names and histograms
-cutList = {
-    # 'sel0':     'return true;',        # No cuts (diagnostics)
-    'Baseline':  Baseline_Cut,         # Baseline selection
-    'test':      Baseline_Cut,         # Test selection (same cuts as baseline)
-    'test1':     Baseline_Cut
-}
+cutList: dict[str, str] = {}
+# cutList['sel0'] = 'return true;'  # No cuts
+if cat in ['ee', 'mumu']:
+    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
+elif cat == 'qq':
+    cutList['Baseline'] = Baseline_cut_qq(ecm)   # Baseline selection (hadronic channel)
 doTree = False if 'sel0' in cutList else doTree  # Do not write TTree if sel0 is in cutList
 
 
@@ -92,4 +86,6 @@ doTree = False if 'sel0' in cutList else doTree  # Do not write TTree if sel0 is
 #################################
 
 # Output histogram definitions (name, title, binning)
-histoList = histos_ll
+if cat in ['ee', 'mumu']: histoList = histos_ll
+elif cat == 'qq':         histoList = histos_qq
+else: raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')

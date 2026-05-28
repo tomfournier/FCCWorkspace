@@ -1,3 +1,17 @@
+def Baseline_cut_ll(ecm: int) -> str:
+    cut = 'zll_m > 86 && zll_m < 96'
+
+    if ecm == 240:
+        cut += ' && zll_p > 20 && zqq_p < 70'
+    elif ecm == 365:
+        cut += ' && zll_p > 50 && zll_p < 150'
+        cut += ' && zll_recoil_m > 100 && zll_recoil_m < 150'
+    else:
+        raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
+
+    return cut
+
+
 # Output histogram definitions (name, title, binning)
 histos_ll = {
 

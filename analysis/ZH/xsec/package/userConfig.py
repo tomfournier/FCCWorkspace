@@ -477,7 +477,7 @@ def get_params(
             ecm = int(input('Wrong input selected, choose between 240 and 365: '))
         lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
-        test = input('Do selection without kinematic cuts? [Yes/No, True/False]: ')
+        test = input('Do selection with kinematic cuts? [Yes/No, True/False]: ')
         while test.lower() not in ['yes', 'y', 'no', 'n', 't', 'true', 'false', 'f']:
             test = input('Wrong input selected, choose between Yes/No or True/False: ')
         test = test.lower() in ['yes', 'y', 'true', 't']
