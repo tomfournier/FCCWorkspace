@@ -2,7 +2,13 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
 ###########################################################
 
-import os
+import os, sys
+
+# Add parent directory to path so package and sel modules are found
+# This is necessary for HTCondor batch jobs to find local modules
+script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
 
 # Load analysis configuration and preselection functions
 from package.userConfig import loc, get_params
@@ -36,14 +42,13 @@ prodTag = 'FCCee/winter2023/IDEA/'
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = 'FCCee_procDict_winter2023_IDEA.json'
 
-# Parallel processing configuration
-nCPUS = 20  # Number of CPUs for parallel processing (-1 uses all available)
-
 # HTCondor batch system configuration (disabled by default)
 runBatch = True if env.get('RUN_BATCH') else False
 batchQueue = 'longlunch'  # Queue for batch submission (alternatives: 'espresso')
 compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
+# Parallel processing configuration
+nCPUS = 8 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
 
 
 ##########################

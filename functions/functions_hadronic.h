@@ -63,7 +63,7 @@ inline int best_clustering_idx(Vec_f mz, Vec_f pz, Vec_f mrec, Vec_i njets, Vec_
 }
 
 
-inline float delta_mWW(float m1, float m2, float mw){
+inline float delta_mVV(float m1, float m2, float mw){
     float dm1 = std::pow(m1 - mw, 2);
     float dm2 = std::pow(m2 - mw, 2);
     

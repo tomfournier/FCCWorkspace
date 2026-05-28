@@ -2,7 +2,13 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os
+import os, sys
+
+# Add parent directory to path so package and sel modules are found
+# This is necessary for HTCondor batch jobs to find local modules
+script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
 
 from package.userConfig import loc, get_params
 from package.config import get_process_list
@@ -14,7 +20,7 @@ from sel.presel.hadronic import training_qq, branch_list_qq
 # ecm: center of mass energy (e.g., 240, 365 GeV)
 # test: whether to apply kinematic cuts or not
 env = os.environ.copy()
-cat, ecm, test = get_params(env, '1-run.json')
+cat, ecm, test = get_params(env, '1-run.json', qq_allowed=True)
 
 
 
@@ -38,14 +44,13 @@ prodTag = 'FCCee/winter2023_training/IDEA/'
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 
-# Parallel processing configuration (default 4)
-nCPUS = 20  # Number of CPUs for parallel processing (-1 uses all available)
-
 # HTCondor batch system configuration (disabled by default)
 runBatch = True if env.get('RUN_BATCH') else False
 batchQueue = 'longlunch'             # Queue for batch submission (alternatives: 'workday')
 compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
+# Parallel processing configuration (default 4)
+nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
 
 
 ################################
