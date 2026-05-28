@@ -761,7 +761,7 @@ def significance(
     from_had = origin > 25
 
     xlabels = [r'$I_{rel}$', r'$I_{rel}$ (only charged)', r'$I_{rel}$ (only neutral)', r'$I_{rel}$ (no photon)']
-    for iso, xlabel in zip(['', '_ch', '_ne', '_ph'], xlabels):
+    for iso, xlabel in zip(['', '_ch', '_ne', '_ph', '_PH'], xlabels):
         Iso_name = f'LEPS_iso{iso}'
         leps_iso = data[Iso_name]
 
