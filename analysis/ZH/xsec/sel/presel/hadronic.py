@@ -16,7 +16,7 @@ def veto_leptonic(df: 'ROOT.ROOT.RDataFrame',
                   ) -> 'ROOT.ROOT.RDataFrame':
 
     if cat == 'mumu': df = df.Define(f'leps_{cat}', 'FCCAnalyses::ReconstructedParticle::sel_p(20)(muons_all)')
-    elif cat == 'ee': df = df.Define(f'leps_{cat}', 'FCCAnalyses::ReconstrutedParticle::sel_p(20)(electrons_all)')
+    elif cat == 'ee': df = df.Define(f'leps_{cat}', 'FCCAnalyses::ReconstructedParticle::sel_p(20)(electrons_all)')
     else: raise ValueError(f'cat = {cat} not supported')
 
     df = df.Define(f'leps_{cat}_q',       f'FCCAnalyses::ReconstructedParticle::get_charge(leps_{cat})')
