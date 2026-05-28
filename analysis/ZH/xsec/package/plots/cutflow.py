@@ -710,8 +710,9 @@ def get_cutflow(
 
     # Collect metadata from all samples
     LOGGER.info('Getting processed events')
-    for proc in tqdm(procs_decays):
-        for sample in processes[proc]:
+    for proc in procs_decays:
+        LOGGER.info(f'For proc {proc}')
+        for sample in tqdm(processes[proc]):
             events[sample] = {}
 
             # Find all input files for this sample
@@ -839,7 +840,7 @@ def get_cutflow(
                 json_file=json_file,
                 loc_json=out_json+f'/{sel}'
             )
-            LOGGER.info('Makinf Cutflow plot')
+            LOGGER.info('Making Cutflow plot')
             CutFlow(
                 flow, outDir, cat, sel,
                 procs_cat, colors, legend, cuts, cuts_label,

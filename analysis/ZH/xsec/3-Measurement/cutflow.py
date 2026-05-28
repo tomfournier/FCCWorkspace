@@ -78,8 +78,8 @@ baseline_cuts = {
     'cut0': '',                                                      # Diagnostic: no cuts
     'cut1': '',                                                      # Lepton isolation (applied in pre-selection)
     'cut2': '',                                                      # Opposite-sign requirement
-    'cut3': '' if arg.test else  'zll_m > 86 & zll_m < 96',          # Z mass window [GeV]
-    'cut4': '' if arg.test else f'zll_p > {p_dw} & zll_p < {p_up}'   # Dilepton momentum window
+    'cut3': '' if arg.kin else  'zll_m > 86 & zll_m < 96',           # Z mass window [GeV]
+    'cut4': '' if arg.kin else f'zll_p > {p_dw} & zll_p < {p_up}'    # Dilepton momentum window
 }
 
 # Human-readable labels for cuts (displayed in plots)
@@ -91,7 +91,7 @@ baseline_labels = {
     'cut4': f'{p_dw} < p_{{#ell^{{+}}#ell^{{-}}}} < {p_up} GeV'  # Momentum selection
 }
 if ecm == 365:
-    baseline_cuts['cut5']   = '' if arg.test else 'zll_recoil_m > 100 && zll_recoil_m < 150'  # Recoil mass selection (if 365 GeV)
+    baseline_cuts['cut5']   = '' if arg.kin else 'zll_recoil_m > 100 && zll_recoil_m < 150'  # Recoil mass selection (if 365 GeV)
     baseline_labels['cut5'] = '100 < m_{recoil} < 150 GeV'
 
 # Copy baseline cuts for each selection strategy
@@ -139,8 +139,9 @@ def run(cats: list[str],
         procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
         # Define input and output directories
-        inDir  = loc.get('EVENTS_TEST',       cat, ecm)
-        outDir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
+        if arg.kin: inDir = loc.get('EVENTS_TEST', cat, ecm)
+        else:       inDir = loc.get('EVENTS',      cat, ecm)
+        outDir = loc.get('PLOTS_MEASUREMENT',      cat, ecm)
 
         # Extract required branches from cuts and variables
         branches = branches_from_cuts(cuts, variables)
