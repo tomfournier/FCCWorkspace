@@ -644,9 +644,14 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
         ValueError: If cat is unsupported.
     '''
 
-    small  = 5  if batch else 1
-    middle = 40 if batch else 5
-    big    = 80 if batch else 10
+    if train:
+        small  = 5  if batch else 1
+        middle = 5  if batch else 5
+        big    = 10 if batch else 10
+    else:
+        small  = 5  if batch else 1
+        middle = 40 if batch else 5
+        big    = 80 if batch else 10
 
     # Common diboson processes
     common: dict[str, dict[str, int]] = {}
