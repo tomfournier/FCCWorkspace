@@ -26,8 +26,9 @@ parser = create_parser(
     bias=True,             # Include bias test options
     bias_extra=True,       # Include extra bias test parameters
     polarization=True,     # Include polarization/scale options
-    target='bb',           # Default Higgs decay mode
-    pert=1.05              # Default perturbation for bias test
+    default_target='bb',   # Default Higgs decay mode
+    default_pert=1.05,     # Default perturbation for bias test
+    do_bias=True           # Remove fit exclusive argument
 )
 arg = parse_args(parser, comb=True)
 set_log(arg)
@@ -116,7 +117,7 @@ def _setup_cache() -> None:
 
     # Preload the most used histograms
     hNames = ('zll_recoil_m',)
-    LOGGER.info('Preloading histograms and cross-section before bias loop')
+    LOGGER.debug('Preloading histograms and cross-section before bias loop')
     preload_histograms(samples, h_inDir, hNames=hNames, rmww=True)
 
     # Warm up xsec cache for both rmww variants to avoid repeated computations in downstream calls
@@ -145,17 +146,18 @@ def run_fit(target: str,
     # Generate pseudodata and datacard using cached histograms (same process)
     tot = 'tot' not in arg.extra
     decays = h_decays if target!='inv' else H_decays
-    pseudo_datacard(
-        h_inDir, inDir,
-        cat, ecm, target, pert,
-        z_decays, decays,
-        processes,
-        tot=tot, scales=scale,
-        freeze=arg.freeze, float_bkg=arg.float, plot_dc=arg.plot_dc
-    )
+    if not arg.combine:
+        pseudo_datacard(
+            h_inDir, inDir,
+            cat, ecm, target, pert,
+            z_decays, decays,
+            processes,
+            tot=tot, scales=scale,
+            freeze=arg.freeze, float_bkg=arg.float
+        )
 
     # Now run the fit via subprocess (fit.py only, datacard already exists)
-    cmd = ['python3', '5-Fit/fit.py', '--bias', '--target', target,
+    cmd = ['python3', '5-Fit/fit.py', '--bias', '--target', target, '--no-timer',
            '--pert', str(pert), '--ecm', str(ecm), '--no-print'] + cmd_args
 
     result = subprocess.run(cmd, check=False, capture_output=False, text=True, env=os.environ.copy())
@@ -184,7 +186,7 @@ def get_bias(inDir: str,
     # Initialize bias list for each decay mode
     bias = [0.0] * len(h_decays)
 
-    _setup_cache()
+    if not arg.combine: _setup_cache()
 
     for idx, h_decay in enumerate(h_decays):
         LOGGER.info(f'Running fit for {h_decay} channel')
@@ -193,7 +195,7 @@ def get_bias(inDir: str,
         # Pass cat, ecm, sel, proc_scales to run_fit for cached histogram access
         mu = run_fit(h_decay, pert, cmd_args, cat, ecm, sel)
         bias[idx] = 100 * (mu - pert)
-        LOGGER.info(f'Bias obtained: {bias[idx]:.3f}')
+        LOGGER.info(f'Bias obtained: {bias[idx]:.3f}\n')
 
         # Generate pseudodata ratio plots (only for single channel, not combined)
         if not arg.combine:
@@ -263,7 +265,7 @@ if __name__=='__main__':
 
         # Run bias test for all decay modes
         df, bias = get_bias(
-            inDir, h_inDir, loc_result, H_decays,
+            inDir, loc_result, H_decays,
             cat, sel, pert, cmd_args,
             ecm=ecm, lumi=lumi
         )

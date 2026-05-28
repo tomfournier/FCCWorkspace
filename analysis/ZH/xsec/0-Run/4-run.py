@@ -69,7 +69,7 @@ ecms = [int(e) for e in arg.ecm.split('-')]          # Energies: [240] or [240, 
 
 # Parse selection strategies (from command-line or defaults)
 if arg.sels == '':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']  # Default selections
+    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep']  # Default selections
 else:
     sels = arg.sels.split('-')  # Parse from command-line
 

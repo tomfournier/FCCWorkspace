@@ -186,7 +186,7 @@ def preload_histograms(
         for proc, histos in not_found.items():
             LOGGER.warning(f"Problem for {proc}, Couldn't find {' '.join(histos)}")
 
-    LOGGER.info(f'Preloading complete. Cached {len(HIST_CACHE)} files')
+    LOGGER.info(f'Preloading complete. Cached {len(HIST_CACHE)} files\n')
 
 
 # __________________________________

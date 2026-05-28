@@ -292,12 +292,12 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
         default=True,
         help='Include all the Z decays in the cutflow'
     )
-    # args.add_argument(
-    #     '--test',
-    #     action=BooleanOptionalAction,
-    #     default=True,
-    #     help='Use events from files with kinematic cuts made (smaller files)'
-    # )
+    args.add_argument(
+        '--kin',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Use events from files with Baseline kinematic cuts already made (smaller files)'
+    )
 
 
 def add_optimize_args(
@@ -376,6 +376,7 @@ def add_polarization(parser: ArgumentParser) -> None:
 
 def add_fit_args(
         parser: ArgumentParser,
+        bias: bool = False,
         default_target: str = '',
         default_pert: float = 1.0
          ) -> None:
@@ -388,35 +389,36 @@ def add_fit_args(
         help=f'Perturbation/scale factor (default: {default_pert})'
     )
     args.add_argument(
-        '--target',
-        type=str,
-        default=default_target,
-        help=f'Target pseudodata (default: "{default_target}")'
-    )
-    args.add_argument(
         '--combine', '--comb',
         action='store_true',
         default=False,
         help='Combine channels for fit'
     )
-    args.add_argument(
-        '--bias',
-        action='store_true',
-        default=False,
-        help='Run bias test instead of nominal fit'
-    )
-    args.add_argument(
-        '--timer',
-        action=BooleanOptionalAction,
-        default=True,
-        help='Display elapsed time'
-    )
-    args.add_argument(
-        '--print',
-        action=BooleanOptionalAction,
-        default=True,
-        help='Suppress uncertainty output'
-    )
+    if not bias:
+        args.add_argument(
+            '--target',
+            type=str,
+            default=default_target,
+            help=f'Target pseudodata (default: "{default_target}")'
+        )
+        args.add_argument(
+            '--bias',
+            action='store_true',
+            default=False,
+            help='Run bias test instead of nominal fit'
+        )
+        args.add_argument(
+            '--timer',
+            action=BooleanOptionalAction,
+            default=True,
+            help='Display elapsed time'
+        )
+        args.add_argument(
+            '--print',
+            action=BooleanOptionalAction,
+            default=True,
+            help='Suppress uncertainty output'
+        )
 
 def add_fit_plot_args(
         parser: ArgumentParser,
@@ -527,6 +529,7 @@ def create_parser(
         bias_extra: bool = False,
         default_target: str = '',
         default_pert: float = 1.0,
+        do_bias: bool = False,
         description: str = 'Analysis script'
          ) -> ArgumentParser:
     '''
@@ -611,7 +614,7 @@ def create_parser(
     if polarization:
         add_polarization(parser)
     if fit:
-        add_fit_args(parser, default_target=default_target, default_pert=default_pert)
+        add_fit_args(parser, default_target=default_target, default_pert=default_pert, bias=do_bias)
     if fit_plot:
         add_fit_plot_args(parser)
     if bias and fit:

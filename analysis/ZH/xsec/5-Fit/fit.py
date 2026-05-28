@@ -92,7 +92,7 @@ tar     = f'_{arg.target}' if arg.bias else ''                       # Bias test
 dc_comb = loc.get('COMBINE', '', arg.ecm, arg.sel)  # Combined datacard location
 
 # Define full file paths for workspace, logs, and results
-ws_file    = ws  / f'/ws{tar}.root'                  # Workspace file (workspace.root or workspace_bb.root)
+ws_file    = ws  / f'ws{tar}.root'                   # Workspace file (workspace.root or workspace_bb.root)
 log_text   = log / f'log_text2workspace{tar}.txt'    # Text2workspace log
 result_log = log / f'log_results{tar}.txt'           # Fit results log
 
@@ -310,7 +310,7 @@ def res_saving(
         with open(f'{res}/results{tar}.txt', 'w') as f:
             f.write(f'{mu}\n{err}\n')
 
-        LOGGER.info(f'Saved results in {res}/results{tar}.txt')
+        LOGGER.debug(f'Saved results in {res}/results{tar}.txt')
 
 
 ######################

@@ -336,8 +336,9 @@ def make_datacard(
 
     # Write datacard to file
     fOut = f'{outDir}/datacard_{target}.txt'
-    LOGGER.info(f'Saving datacard to {fOut}')
-    with open(fOut, 'w') as f: f.write(dc)
+    LOGGER.debug(f'Saving datacard to {fOut}')
+    with open(fOut, 'w') as f:
+        f.write(dc)
 
     LOGGER.debug(f'\n{dc}\n')
 
@@ -413,17 +414,17 @@ def pseudo_datacard(
 
     # Create output directory and save histograms
     mkdir(outDir)
-    LOGGER.info('Saving pseudo histograms')
+    LOGGER.debug('Saving pseudo histograms')
     fOut = f'{outDir}/datacard_{target}.root'
 
     with ROOT.TFile(fOut, 'RECREATE'):
         for h in hists:
             h.Write()
 
-    LOGGER.info(f'Histograms saved in {fOut}')
+    LOGGER.debug(f'Histograms saved in {fOut}')
 
     # Generate datacard for combine fit
-    LOGGER.info('Making datacard')
+    LOGGER.debug('Making datacard')
     make_datacard(
         outDir, procs, target, 1.01, categories,
         freezeBkgs=freeze, floatBkgs=float_bkg,

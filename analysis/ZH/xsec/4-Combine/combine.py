@@ -44,7 +44,7 @@ intLumi  = 1      # Luminosity scaling factor for normalization
 # Define input/output directories
 inputDir  = loc.get('HIST_PROCESSED',   cat, ecm, sel)  # Processed histograms from step 4
 outputDir = loc.get('NOMINAL_DATACARD', cat, ecm, sel)  # Output datacards for combine
-inDir     = loc.get('EVENTS',           cat, ecm)           # Event sample directory
+inDir     = loc.get('EVENTS_TEST',      cat, ecm)           # Event sample directory
 
 # Define signal processes: ZH production with all Higgs decay modes
 samples_sig = event([f'wzp6_ee_{x}H_H{y}_ecm{ecm}'.replace('HZZ', 'HZZ_noInv') for x in z_decays for y in H_decays], inDir)

@@ -1282,19 +1282,12 @@ def PseudoRatio(
     '''
 
     import numpy as np
-    from matplotlib.pyplot import subplots, close
+    import matplotlib.pyplot as plt
     import mplhep as hep
-    hep.style.use('CMS')
 
     from .python.plotter import set_plt_style, set_labels, savefigs
     from ..func.bias import hist_from_datacard
     set_plt_style()
-
-    import warnings
-    warnings.filterwarnings('ignore', message='The value of the smallest subnormal for')
-
-    # Lazy-load bias helpers
-
 
     hist_sig, hist_pseudo = hist_from_datacard(
         inDir, target, cat, procs
@@ -1309,39 +1302,36 @@ def PseudoRatio(
     else:
         sig, pseudo = hist_sig, hist_pseudo
 
-    ratio, _, errs = hep.comparison.get_comparison(
-        pseudo, sig, comparison='ratio'
-    )
+    fig, axes = plt.subplots(2,1, height_ratios=[4, 1])
+
+    np.seterr(divide="ignore", invalid="ignore")
+    ratio = np.where(sig!=0, pseudo.values() / sig.values(), np.nan)
+    np.seterr(divide="warn", invalid="warn")
     bins = sig.axes[0].edges
 
-    valid = bins[:-1][np.isfinite(ratio)]
+    valid: np.ndarray = bins[:-1][np.isfinite(ratio)]
     xMin, xMax = valid.min(), valid.max()
 
     r = (pseudo.sum().value / sig.sum().value - 1) * 100
 
-    fig, [ax1, ax2] = subplots(2, 1, height_ratios=[4, 1])
+    ax1: plt.Axes = axes[0]
 
-    hep.histplot(
-        sig.view(flow=False).value, bins=bins, ax=ax1,
-        histtype='step', linewidth=3,
-        label='Signal', color='tab:blue',
-        yerr=None
-    )
-    hep.histplot(
-        pseudo, ax=ax1,
-        histtype='errorbar', linewidth=2, color='black',
-        marker='o', markersize=4, linestyle='',
-        label='Pseudo-signal', capsize=3
-    )
-    hep.histplot(
-        ratio, bins=bins, yerr=errs, ax=ax2,
-        histtype='band'
-    )
+    # Create step plot for signal using duplicate values
+    sig_vals = sig.values()
+    x_step_sig = np.repeat(bins, 2)[1:-1]
+    y_step_sig = np.repeat(sig_vals, 2)
+    ax1.plot(x_step_sig, y_step_sig, label='Signal', color='tab:blue', linewidth=3)
+
+    B = (bins[:-1] + bins[1:]) / 2
+    ax1.errorbar(B, pseudo.values(), yerr=np.sqrt(pseudo.variances()),
+                 label='Pseudo-signal', color='black', linewidth=2, linestyle='',
+                 marker='o', markersize=4, capsize=3)
+
+    ax2: plt.Axes = axes[1]
     hep.histplot(
         ratio, bins=bins, ax=ax2,
-        histtype='errorbar',
+        histtype='step',
         linewidth=2, color='black',
-        marker='o', markersize=4
     )
 
     ax1.plot(0, 0, linestyle='', marker=',',
@@ -1370,10 +1360,11 @@ def PseudoRatio(
     xtitle = r'm$_{\mathrm{recoil}}$ High [GeV]' if 'high' in sel \
         else r'm$_{\mathrm{recoil}}$ Low [GeV]'
     ytitle = 'Normalized to Unity' if density else 'Events'
-    set_labels(ax2, xtitle, 'Ratio', left='None')
+    set_labels(ax2, xtitle, 'Ratio', left='')
     set_labels(ax1, '', ytitle, right=lumi_text)
 
-    out = f'{outDir}/high' if 'high' in sel else f'{outDir}/low'
+    # Use consistent path handling with _parse_selection_dir
+    out = _parse_selection_dir(sel, outDir, 'PseudoRatio')
     mkdir(out)
     savefigs(fig, out, outName, suffix=f'_{target}', format=format)
-    close(fig)
+    plt.close(fig)
