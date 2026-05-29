@@ -68,10 +68,12 @@ def make_pseudojets(df: 'ROOT.ROOT.RDataFrame',
         df = df.Define('muons',     'FCCAnalyses::sel_range(40, 95, false)(muons_all, muons_all_p)')
         df = df.Define('photons',   'FCCAnalyses::sel_range(40, 95, false)(photons_all, photons_all_p)')
         df = df.Define('electrons', 'FCCAnalyses::sel_range(40, 95, false)(electrons_all, electrons_all_p)')
-    else:
+    elif ecm == 365:
         df = df.Define('muons',     'FCCAnalyses::sel_range(20, 170, false)(muons_all, muons_all_p)')
         df = df.Define('photons',   'FCCAnalyses::sel_range(20, 170, false)(photons_all, photons_all_p)')
         df = df.Define('electrons', 'FCCAnalyses::sel_range(20, 170, false)(electrons_all, electrons_all_p)')
+    else:
+        raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
 
     df = df.Define('rps_no_photons',                 'FCCAnalyses::ReconstructedParticle::remove(ReconstructedParticles, photons)')
     df = df.Define('rps_no_photons_muons',           'FCCAnalyses::ReconstructedParticle::remove(rps_no_photons, muons)')
@@ -79,12 +81,11 @@ def make_pseudojets(df: 'ROOT.ROOT.RDataFrame',
     df = df.Alias('rps_sel', 'rps_no_photons_muons_electrons')
 
     # Define PF candidates collection by removing the muons, electrons and photons
-    df = df.Define('RP_px',  'FCCAnalyses::ReconstructedParticle::get_px(rps_sel)')
-    df = df.Define('RP_py',  'FCCAnalyses::ReconstructedParticle::get_py(rps_sel)')
-    df = df.Define('RP_pz',  'FCCAnalyses::ReconstructedParticle::get_pz(rps_sel)')
-    df = df.Define('RP_e',   'FCCAnalyses::ReconstructedParticle::get_e(rps_sel)')
-    df = df.Define('RP_m',   'FCCAnalyses::ReconstructedParticle::get_mass(rps_sel)')
-    df = df.Define('RP_q',   'FCCAnalyses::ReconstructedParticle::get_charge(rps_sel)')
+    df = df.Define('RP_px', 'FCCAnalyses::ReconstructedParticle::get_px(rps_sel)')
+    df = df.Define('RP_py', 'FCCAnalyses::ReconstructedParticle::get_py(rps_sel)')
+    df = df.Define('RP_pz', 'FCCAnalyses::ReconstructedParticle::get_pz(rps_sel)')
+    df = df.Define('RP_e',  'FCCAnalyses::ReconstructedParticle::get_e(rps_sel)')
+    df = df.Define('RP_q',  'FCCAnalyses::ReconstructedParticle::get_charge(rps_sel)')
     df = df.Define('pseudo_jets', 'FCCAnalyses::JetClusteringUtils::set_pseudoJets(RP_px, RP_py, RP_pz, RP_e)')
 
     return df
@@ -123,7 +124,8 @@ def compare_algo(df: 'ROOT.ROOT.RDataFrame',
                                  'ROOT.TParameter']]:
 
     df = df.Define('zqq_algo',            'std::vector<Vec_rp> r = {zqq_N0, zqq_N2, zqq_N4, zqq_N6}; return r;')
-    df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {zqq_jets_N0, zqq_jets_N2, zqq_jets_N4, zqq_jets_N6}; return r;')
+    # df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {zqq_jets_N0, zqq_jets_N2, zqq_jets_N4, zqq_jets_N6}; return r;')
+    df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {jets_rp_cand_N0, jets_rp_cand_N2, jets_rp_cand_N4, jets_rp_cand_N6}; return r;')
     df = df.Define('zqq_algo_m',          'Vec_f r = {zqq_m_N0, zqq_m_N2, zqq_m_N4, zqq_m_N6}; return r;')
     df = df.Define('zqq_algo_p',          'Vec_f r = {zqq_p_N0, zqq_p_N2, zqq_p_N4, zqq_p_N6}; return r;')
     df = df.Define('zqq_algo_recoil_m',   'Vec_f r = {zqq_recoil_m_N0, zqq_recoil_m_N2, zqq_recoil_m_N4, zqq_recoil_m_N6}; return r;')
@@ -313,7 +315,7 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     if test:
         if   ecm == 240: df = df.Filter('zqq_m > 20 && zqq_m < 140')  # loose
-        elif ecm == 365: df = df.Filter('zqq_m > 20 && zqq_m < 200')  # loose
+        elif ecm == 365: df = df.Filter('zqq_m > 60 && zqq_m < 200')  # loose
         else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
 
     ##########
@@ -321,7 +323,7 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     if test:
         if   ecm == 240: df = df.Filter('zqq_p > 20 && zqq_p < 90')
-        elif ecm == 365: df = df.Filter('zqq_p > 60 && zqq_p < 160')
+        elif ecm == 365: df = df.Filter('zqq_p > 20 && zqq_p < 160')
         else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
 
     ##########

@@ -3,7 +3,6 @@
 #include <TLorentzVector.h>
 #include <edm4hep/ReconstructedParticleData.h>
 #include <cmath>
-#include <iostream>
 
 namespace FCCAnalyses {
 
@@ -196,7 +195,7 @@ inline Vec_rp resonanceBuilder_mass_recoil_hadronic::operator()(Vec_rp legs) {
     int n = legs.size();
     
     if(n > 1) {
-        ROOT::VecOps::RVec<bool> v(n);
+        Vec_b v(n);
         std::fill(v.end() - 2, v.end(), true); // helper variable for permutations
         do {
             std::vector<int> pair;
@@ -266,8 +265,15 @@ inline Vec_rp resonanceBuilder_mass_recoil_hadronic::operator()(Vec_rp legs) {
             bestReso.emplace_back(l2);
         }
         else {
-            std::cout << "ERROR: resonanceBuilder_mass_recoil, no mininum found." << std::endl;
-            exit(1);
+            auto dummy = edm4hep::ReconstructedParticleData();
+            dummy.momentum.x = 0;
+            dummy.momentum.y = 0;
+            dummy.momentum.z = 0;
+            dummy.mass = 0;
+            result.emplace_back(dummy);
+            result.emplace_back(dummy);
+            result.emplace_back(dummy);
+            return result;
         }
         return bestReso;
     }

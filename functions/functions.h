@@ -112,7 +112,7 @@ inline float cosThetaMissingEnergy(Vec_rp in) {
 
 // deltaR between two reco particles, based on eta
 inline float deltaR(Vec_rp in) {
-    if(in.size() != 2) return -1;
+    if(in.size() < 2) return -999;
     
     TLorentzVector tlv1;
     tlv1.SetPxPyPzE(in.at(0).momentum.x, in.at(0).momentum.y, in.at(0).momentum.z, in.at(0).energy);
