@@ -20,7 +20,11 @@ from sel.presel.hadronic import training_qq, branch_list_qq
 # ecm: center of mass energy (e.g., 240, 365 GeV)
 # test: whether to apply kinematic cuts or not
 env = os.environ.copy()
-cat, ecm, test = get_params(env, '1-run.json', qq_allowed=True)
+
+# Get UUID from environment (set by 1-run.py), fallback to default if UUID not set
+run_uuid = env.get('RUN_UUID')
+config_name = f'1-run-{run_uuid}.json' if run_uuid else '1-run.json'
+cat, ecm, test = get_params(env, config_name, qq_allowed=True)
 
 
 
@@ -49,6 +53,9 @@ runBatch = True if env.get('RUN_BATCH') else False
 batchQueue = 'longlunch'             # Queue for batch submission (alternatives: 'workday')
 compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
+# User batch configuration: only set in batch mode to export RUN_UUID
+userBatchConfig = env.get('RUN_USER_BATCH_CONFIG', '')
+
 # Parallel processing configuration (default 4)
 nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
 
@@ -61,7 +68,6 @@ processList = get_process_list(
     cat, ecm, train=True, batch=runBatch,
     chunks={'wzp6_gaga_ee_60_ecm365': 1}
 )
-
 
 
 

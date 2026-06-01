@@ -21,7 +21,7 @@ Usage:
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, sys, json, time, subprocess
+import os, sys, json, time, subprocess, uuid
 
 from pathlib import Path
 
@@ -95,9 +95,10 @@ def run(cat: str,
         ) -> None:
     '''Execute one stage with a temporary config and streamed output.
 
-    Builds a JSON file with cat/ecm/lumi, sets RUN=1, and calls the proper
+    Builds a JSON config file with cat/ecm/lumi, sets RUN=1, and calls the proper
     fccanalysis subcommand for the requested stage while piping stdout/stderr
-    through to the parent terminal.
+    through to the parent terminal. Uses unique filenames only in batch mode to avoid
+    race conditions from concurrent batch submissions.
 
     Args:
         cat (str): Lepton channel identifier ('ee' or 'mumu').
@@ -108,20 +109,34 @@ def run(cat: str,
     Returns:
         int: Return code from the subprocess.
     '''
-    cfg_path = Path(loc.RUN) / '1-run.json'
+    # Only use UUID for batch mode to avoid race conditions with concurrent submissions
+    # For local execution, the standard 1-run.json is fine since it runs sequentially
+    run_uuid = None
+    if arg.batch:
+        run_uuid = uuid.uuid4().hex[:8]
+        config_filename = f'1-run-{run_uuid}.json'
+    else:
+        config_filename = '1-run.json'
+
+    cfg_path = Path(loc.RUN) / config_filename
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build configuration dictionary
     lumi = 10.8 if ecm == 240 else (3.12 if ecm==365 else -1)
     config = {'cat': cat, 'ecm': ecm, 'lumi': lumi, 'test': arg.test}
 
-    # Write configuration to temporary JSON file(s)
+    # Write configuration to temporary JSON file
     cfg_path.write_text(json.dumps(config))
 
     # Set up environment with RUN flag for automated mode detection
     env = os.environ.copy()
     env['RUN'] = '1'
     if arg.batch:
+        env['RUN_UUID'] = run_uuid  # Pass UUID only for batch mode
+        # Create a userBatchConfig file that exports the UUID for batch jobs
+        userBatchConfig = Path(loc.RUN) / 'userBatch.Config'
+        userBatchConfig.write_text(f'export RUN_UUID={run_uuid}\n')
+        env['RUN_USER_BATCH_CONFIG'] = str(userBatchConfig)
         env['RUN_BATCH'] = '1'
 
     script_path = f'{path}/{script}.py'
@@ -131,22 +146,19 @@ def run(cat: str,
     length = len(msg) + 2
     LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
-    try:
-        # Execute fccanalysis with modified environment and stream output
-        result = subprocess.run(
-            ['fccanalysis', cmds[script], script_path],
-            env=env,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
-        # Completion status marker
-        status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
-        msg = f'{status}: [{script}] {cat = } | {ecm = } | test = {arg.test}'
-        length = len(msg) + 2
-        LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
-        return result.returncode
-    finally:
-        pass
+    # Execute fccanalysis with modified environment and stream output
+    result = subprocess.run(
+        ['fccanalysis', cmds[script], script_path],
+        env=env,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+    )
+    # Completion status marker
+    status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
+    msg = f'{status}: [{script}] {cat = } | {ecm = } | test = {arg.test}'
+    length = len(msg) + 2
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
+    return result.returncode
 
 
 ######################
