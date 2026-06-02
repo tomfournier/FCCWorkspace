@@ -386,8 +386,8 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 1: Veto w.r.t leptonic channel to ensure orthogonality
     ##########
-    df = veto_leptonic(df, ecm, 'mumu')
-    df = veto_leptonic(df, ecm, 'ee')
+    df = veto_leptonic(df, 'mumu', ecm)
+    df = veto_leptonic(df, 'ee',   ecm)
     df, hists = cutflow(df, hists, 1)
 
     df = make_pseudojets(df, ecm)
