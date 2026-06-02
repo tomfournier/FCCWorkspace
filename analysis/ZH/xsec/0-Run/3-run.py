@@ -20,7 +20,7 @@ Usage:
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, sys, json, time, subprocess
+import os, sys, uuid, json, time, subprocess
 
 from pathlib import Path
 
@@ -110,8 +110,15 @@ def run(cat: str,
     Returns:
         int: Return code from the subprocess.
     '''
+    run_uuid = None
+    if arg.batch:
+        run_uuid = uuid.uuid4().hex[:8]
+        config_name = f'3-run-{run_uuid}.json'
+    else:
+        config_name = '3-run.json'
+
     # Create configuration directory if it doesn't exist
-    cfg_path = Path(loc.RUN) / '3-run.json'
+    cfg_path = Path(loc.RUN) / config_name
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build configuration dictionary
@@ -126,6 +133,11 @@ def run(cat: str,
     env = os.environ.copy()
     env['RUN'] = '1'
     if arg.batch:
+        env['RUN_UUID'] = run_uuid  # Pass UUID only for batch mode
+        # Create a userBatchConfig file that exports the UUID for batch mode
+        userBatchConfig = Path(loc.RUN) / 'userBatch.Config'
+        userBatchConfig.write_text(f'export RUN_UUID={run_uuid}\n')
+        env['RUN_USER_BATCH_CONFIG'] = str(userBatchConfig)
         env['RUN_BATCH'] = '1'
 
     script_path = f'{path}/{script}.py'
@@ -152,22 +164,19 @@ def run(cat: str,
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
         else ['python', script_path] + extra_args
 
-    try:
-        # Execute fccanalysis with modified environment and stream output
-        result = subprocess.run(
-            cmd,
-            env=env,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
-        # Completion status marker
-        status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
-        msg = f'{status}: [{script}] {cat = } | {ecm = } | test = {arg.test}'
-        length = len(msg) + 2
-        LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
-        return result.returncode
-    finally:
-        pass
+    # Execute fccanalysis with modified environment and stream output
+    result = subprocess.run(
+        cmd,
+        env=env,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+    )
+    # Completion status marker
+    status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
+    msg = f'{status}: [{script}] {cat = } | {ecm = } | test = {arg.test}'
+    length = len(msg) + 2
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
+    return result.returncode
 
 
 ######################

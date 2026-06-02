@@ -650,8 +650,8 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
         big    = 10 if batch else 10
     else:
         small  = 5  if batch else 1
-        middle = 40 if batch else 5
-        big    = 80 if batch else 10
+        middle = 20 if batch else 5
+        big    = 30 if batch else 10
 
     # Common diboson processes
     common: dict[str, dict[str, int]] = {}
@@ -697,9 +697,10 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     bkgs = {**common, **category_specific.get(cat, {}), **nominal_bkgs}
     if cat in ['ee', 'mumu']:
         return bkgs
-    elif (cat == 'qq') and (ecm == 365):
+    elif cat == 'qq':
         # Special case: top production at 365 GeV
-        bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
+        if ecm == 365:
+            bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
         return bkgs
 
     return common

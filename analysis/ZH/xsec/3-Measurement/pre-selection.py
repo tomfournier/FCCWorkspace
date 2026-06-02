@@ -16,9 +16,18 @@ from package.config import get_process_list
 from sel.presel.leptonic import presel_ll, branch_list_ll
 from sel.presel.hadronic import presel_qq, branch_list_qq
 
-# Load analysis parameters: decay category, CoM energy, test flag
+# Load environment to know which configuration to use
 env = os.environ.copy()
-cat, ecm, test = get_params(env, '3-run.json')
+
+# Get UUID from environment (set by 1-run.py), fallback to default if UUID not set
+run_uuid = env.get('RUN_UUID')
+config_name = f'3-run-{run_uuid}.json' if run_uuid else '3-run.json'
+
+# Load analysis configuration from JSON or environment variables
+# cat: decay category (ee, mumu, qq)
+# ecm: center of mass energy (e.g., 240, 365 GeV)
+# test: whether to apply kinematic cuts or not
+cat, ecm, test = get_params(env, config_name, qq_allowed=True)
 
 
 
@@ -47,8 +56,11 @@ runBatch = True if env.get('RUN_BATCH') else False
 batchQueue = 'longlunch'  # Queue for batch submission (alternatives: 'espresso')
 compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
+# User batch configuration: only set in batch mode to export RUN_UUID
+userBatchConfig = env.get('RUN_USER_BATCH_CONFIG', '')
+
 # Parallel processing configuration
-nCPUS = 8 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
+nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
 
 
 ##########################
@@ -56,7 +68,7 @@ nCPUS = 8 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses
 ##########################
 
 # Retrieve all samples for this channel and energy from central configuration
-processList = get_process_list(cat, ecm)
+processList = get_process_list(cat, ecm, batch=runBatch)
 
 
 

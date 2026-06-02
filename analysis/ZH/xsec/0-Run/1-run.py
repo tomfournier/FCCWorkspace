@@ -21,7 +21,7 @@ Usage:
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, sys, json, time, subprocess, uuid
+import os, sys, uuid, json, time, subprocess
 
 from pathlib import Path
 
@@ -114,11 +114,11 @@ def run(cat: str,
     run_uuid = None
     if arg.batch:
         run_uuid = uuid.uuid4().hex[:8]
-        config_filename = f'1-run-{run_uuid}.json'
+        config_name = f'1-run-{run_uuid}.json'
     else:
-        config_filename = '1-run.json'
+        config_name = '1-run.json'
 
-    cfg_path = Path(loc.RUN) / config_filename
+    cfg_path = Path(loc.RUN) / config_name
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build configuration dictionary
@@ -127,6 +127,7 @@ def run(cat: str,
 
     # Write configuration to temporary JSON file
     cfg_path.write_text(json.dumps(config))
+    LOGGER.info(f'Wrote config file to {cfg_path}')
 
     # Set up environment with RUN flag for automated mode detection
     env = os.environ.copy()

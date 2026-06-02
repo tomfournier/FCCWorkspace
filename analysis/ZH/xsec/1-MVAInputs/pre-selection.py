@@ -15,15 +15,17 @@ from package.config import get_process_list
 from sel.presel.leptonic import training_ll, branch_list_ll
 from sel.presel.hadronic import training_qq, branch_list_qq
 
-# Load analysis configuration from JSON or environment variables
-# cat: decay category (ee, mumu, qq)
-# ecm: center of mass energy (e.g., 240, 365 GeV)
-# test: whether to apply kinematic cuts or not
+# Load environment to know which configuration to use
 env = os.environ.copy()
 
 # Get UUID from environment (set by 1-run.py), fallback to default if UUID not set
 run_uuid = env.get('RUN_UUID')
 config_name = f'1-run-{run_uuid}.json' if run_uuid else '1-run.json'
+
+# Load analysis configuration from JSON or environment variables
+# cat: decay category (ee, mumu, qq)
+# ecm: center of mass energy (e.g., 240, 365 GeV)
+# test: whether to apply kinematic cuts or not
 cat, ecm, test = get_params(env, config_name, qq_allowed=True)
 
 
