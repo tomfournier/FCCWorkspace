@@ -69,7 +69,7 @@ variables = sorted([var for var in vars if 'zqq_m_recoil_m' not in var])  # Remo
 # Keys: analysis identifier | Values: list of selection cut names to plot
 # Selection names must match those defined in final-selection.py
 selections = {}
-selections['ZH'] = ['Baseline']
+selections['ZH'] = ['sel0', 'Baseline']
 
 # Additional descriptive labels for each selection cut
 # Displayed below plot titles for clarity

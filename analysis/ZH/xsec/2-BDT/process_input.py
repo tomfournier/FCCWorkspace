@@ -3,13 +3,13 @@
 #################################
 
 # Standard library imports for timing and command-line arguments
-from time import time
+import time
 
 # Data manipulation
 import pandas as pd
 
 # Start execution timer
-t = time()
+t = time.time()
 
 
 
@@ -22,7 +22,7 @@ from package.logger import get_logger
 parser = create_parser(
     cat_single=True,
     include_sels=True,
-    allow_qq=False,
+    allow_qq=True,
     description='BDT Input Processing Script'
 )
 arg = parse_args(parser, True)
@@ -42,7 +42,8 @@ LOGGER.debug('Loading custom modules')
 from package.userConfig import loc
 from package.config import (
     timer,                      # Performance timing utility
-    input_vars                  # List of variables for BDT training
+    input_vars_ll,              # List of variables for BDT training (hadronic channel)
+    input_vars_qq               # List of variables for BDT training (hadronic channel)
 )
 
 # File I/O and process dictionary utilities
@@ -72,10 +73,11 @@ LOGGER.debug('Modules loaded')
 # Analysis parameters from command-line arguments
 cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
 inDir = loc.get('HIST_MVA', cat, ecm)  # Input directory with MVA histograms
+input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
 # Selection strategies to process (from command-line or defaults)
 if arg.sels=='':
-    sels = ['Baseline', 'test']  # Default selections if not specified
+    sels = ['Baseline']          # Default selections if not specified
 else:
     sels = arg.sels.split('-')   # Parse selection names from command-line
 
@@ -84,12 +86,14 @@ modes = {
     f'Z{cat}H':      f'wzp6_ee_{cat}H_ecm{ecm}',                 # Signal: ZH production
     'ZZ':            f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
     f'Z{cat}':       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'  # Background: Z+jets
-                     else f'wzp6_ee_mumu_ecm{ecm}',
-    f'WW{cat}':      f'p8_ee_WW_{cat}_ecm{ecm}',              # Background: diboson WW
-    f'gammae_{cat}': f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',       # Background: radiative Z
-    f'egamma_{cat}': f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Background: radiative Z
-    f'gaga_{cat}':   f'wzp6_gaga_{cat}_60_ecm{ecm}'           # Background: diphoton
+                     else f'wzp6_ee_{cat}_ecm{ecm}',
+    f'WW{cat}':      f'p8_ee_WW_ecm{ecm}' if cat == 'qq'         # Background: diboson WW
+                     else f'p8_ee_WW_{cat}_ecm{ecm}',
+    f'gammae_{cat}': f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',          # Background: radiative Z
+    f'egamma_{cat}': f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',          # Background: radiative Z
 }
+if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
+    modes[f'gaga_{cat}'] = f'wzp6_gaga_{cat}_60_ecm{ecm}'        # Background: diphoton
 
 # Process dictionary with cross-sections and normalization info
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
@@ -146,21 +150,15 @@ def run(inDir: str,
         # Initialize storage containers for each process
         files, df, eff, N_events = {}, {}, {}, {}
 
-        # Skip diphoton process at 365 GeV (efficiency too low, not enough events)
-        if cat=='ee' and ecm==365:
-            Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}
-        else:
-            Modes = modes.copy()
-
         # Formatting for aligned console output
-        lenght = max(len(m) for m in Modes)
-        modes_list = list(Modes.keys())
+        lenght = max(len(m) for m in modes)
+        modes_list = list(modes.keys())
         LOGGER.info(f'Modes used: {" ".join(modes_list)}\n')
 
         # Process each decay mode: load dataframe, compute weights
         for mode in modes_list:
             # Locate histogram files for this process and selection
-            files[mode] = get_paths(mode, inDir, Modes, f'_{sel}')
+            files[mode] = get_paths(mode, inDir, modes, f'_{sel}')
 
             # Load data from TTrees and calculate survival efficiency
             df[mode], eff[mode], N_events[mode] = counts_and_effs(files[mode], vars, only_eff=False)
@@ -172,11 +170,11 @@ def run(inDir: str,
             df[mode] = additional_info(df[mode], mode, sig)
 
         # Calculate how many events to use from each process for balanced training
-        N_BDT_inputs = BDT_input_numbers(df, Modes, sig, eff, xsec, frac)
+        N_BDT_inputs = BDT_input_numbers(df, modes, sig, eff, xsec, frac)
 
         LOGGER.debug('Printing BDT inputs number for the different modes')
         # Split data into training (50%) and validation (50%) sets per process
-        for mode in Modes:
+        for mode in modes:
             space = '\n' if mode == modes_list[-1] else ''
             LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}{space}')
             df[mode] = df_split_data(
@@ -185,7 +183,7 @@ def run(inDir: str,
             )
 
         # Merge all processes and save to single pickle file for BDT training
-        dfsum = pd.concat([df[mode] for mode in Modes])
+        dfsum = pd.concat([df[mode] for mode in modes])
         to_pkl(dfsum, outDir)
 
 

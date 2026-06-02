@@ -67,13 +67,21 @@ LOGGER = get_logger(__name__)
 #############################
 
 # Tuple of kinematic variables used as input features for BDT training
-input_vars = (
+input_vars_ll = (
     'leading_p',    'leading_theta',
     'subleading_p', 'subleading_theta',
     'acolinearity', 'acoplanarity',
-    'zll_m',
-    'zll_p',
-    'zll_theta'
+    'zll_m', 'zll_p', 'zll_theta'
+)
+
+input_vars_qq = (
+    'leading_p',    'leading_costheta',
+    'subleading_p', 'subleading_costheta',
+    'acolinearity', 'acoplanarity',
+    'zqq_p',        'zqq_costheta',
+    'W1_m', 'W1_p', 'W1_costheta',
+    'W2_m', 'W2_p', 'W2_costheta',
+    'thrust'
 )
 
 
@@ -242,7 +250,14 @@ modes_color = {
     'WWee':        'tab:green',
     'egamma_ee':   'tab:purple',
     'gammae_ee':   'tab:brown',
-    'gaga_ee':     'tab:pink'
+    'gaga_ee':     'tab:pink',
+
+    'ZqqH':        'tab:blue',
+    'Zqq':         'tab:red',
+    'WWqq':        'tab:green',
+    'egamma_qq':   'tab:purple',
+    'gammae_qq':   'tab:brown',
+    'gaga_qq':     'tab:pink'
 }
 
 
@@ -299,16 +314,16 @@ labels = {
 }
 
 # LaTeX labels for kinematic variables (used in matplotlib importance plots)
-vars_label = {
+vars_label_ll = {
     'leading_p':        r'$p_{\ell,leading}$',
     'leading_pT':       r'$p_{T,leading}$',
     'leading_theta':    r'$\theta_{\ell,leading}$',
-    'leading_phi':      r'$\phi_{\ell, leading}$',
+    'leading_phi':      r'$\phi_{\ell,leading}$',
 
     'subleading_p':     r'$p_{\ell,subleading}$',
     'subleading_pT':    r'$p_{T,subleading}$',
     'subleading_theta': r'$\theta_{\ell,subleading}$',
-    'subleading_phi':   r'$\phi_{\ell, subleading}$',
+    'subleading_phi':   r'$\phi_{\ell,subleading}$',
 
     'acolinearity':     r'$\Delta\theta_{\ell^{+}\ell^{-}}$',
     'acoplanarity':     r'$\pi - \Delta\phi_{\ell^{+}\ell^{-}}$',
@@ -330,12 +345,63 @@ vars_label = {
     'BDTscore':         r'BDT Score'
 }
 
+vars_label_qq = {
+    'leading_p':             r'$p_{jet,leading}$',
+    'leading_pT':            r'$p_{T,leading}$',
+    'leading_theta':         r'$\theta_{jet,leading}$',
+    'leading_costheta':      r'$\cos\theta_{jet,leading}$',
+    'leading_phi':           r'$\phi_{jet,leading}$',
+
+    'subleading_p':          r'$p_{jet,subleading}$',
+    'subleading_pT':         r'$p_{T,subleading}$',
+    'subleading_theta':      r'$\theta_{jet,subleading}$',
+    'subleading_costheta':   r'$\cos\theta_{jet,subleading}$',
+    'subleading_phi':        r'$\phi_{jet,subleading}$',
+
+    'acolinearity':          r'$\Delta\theta_{jj}$',
+    'acoplanarity':          r'$\pi - \Delta\phi_{jj}$',
+    'deltaR':                r'$\Delta R$',
+
+    'zqq_m':                 r'$m_{jj}$',
+    'zqq_p':                 r'$p_{jj}$',
+    'zqq_pT':                r'$p_{T,jj}$',
+    'zqq_theta':             r'$\theta_{jj}$',
+    'zqq_costheta':          r'$\cos\theta_{jj}$',
+    'zqq_phi':               r'$\phi_{jj}$',
+
+    'W1_m':                  r'$m_{W1}$',
+    'W1_p':                  r'$p_{W1}$',
+    'W1_costheta':           r'$\cos\theta_{W1}$',
+
+    'W2_m':                  r'$m_{W2}$',
+    'W2_p':                  r'$p_{W2}$',
+    'W2_costheta':           r'$\cos\theta_{W2}$',
+
+    'thrust':                r'$T$',
+    'thrust_costheta':       r'$\cos\theta_{T}$',
+
+    'zqq_recoil_m':          r'$m_{recoil}$',
+    'cosTheta_miss':         r'$\cos\theta_{miss}$',
+
+    'visibleEnergy':         r'$E_{vis}$',
+    'missingMass':           r'$m_{miss}$',
+
+    'BDTscore':              r'BDT Score'
+}
+
+
+
 # LaTeX x-axis labels with units (used in histogram plots)
-vars_xlabel = vars_label.copy()
+vars_xlabel_ll = vars_label_ll.copy()
 for v in ['leading_p', 'leading_pT', 'subleading_p', 'subleading_pT',
           'zll_m', 'zll_p', 'zll_recoil_m', 'visibleEnergy', 'missingMass']:
-    vars_xlabel[v] += ' [GeV]'
-vars_xlabel['H'] += ' [GeV$^{2}$]'
+    vars_xlabel_ll[v] += ' [GeV]'
+vars_xlabel_ll['H'] += ' [GeV$^{2}$]'
+
+vars_xlabel_qq = vars_label_qq.copy()
+for v in ['leading_p', 'leading_pT', 'subleading_p', 'subleading_pT',
+          'zqq_m', 'zqq_p', 'zqq_recoil_m', 'visibleEnergy', 'missingMass']:
+    vars_xlabel_qq[v] += ' [GeV]'
 
 # LaTeX labels for analysis modes (physics processes)
 modes_label = {
@@ -352,7 +418,14 @@ modes_label = {
     'WWee':        r'$e^+e^-\rightarrow W^{+}W^{-}[\nu_{e}e]$',
     'egamma_ee':   r'$e^-\gamma\rightarrow e^-Z(e^+e^-)$',
     'gammae_ee':   r'$e^+\gamma\rightarrow e^+Z(e^+e^-)$',
-    'gaga_ee':     r'$\gamma\gamma\rightarrow e^+e^-$'
+    'gaga_ee':     r'$\gamma\gamma\rightarrow e^+e^-$',
+
+    'ZqqH':        r'$e^+e^-\rightarrow Z(q\bar{q})H$',
+    'Zqq':         r'$e^+e^-\rightarrow Z/\gamma^{*}\rightarrow q\bar{q}$',
+    'WWqq':        r'$e^+e^-\rightarrow W^{+}W^{-}[had]$',
+    'egamma_qq':   r'$e^-\gamma\rightarrow e^-Z(q\bar{q})$',
+    'gammae_qq':   r'$e^+\gamma\rightarrow e^+Z(q\bar{q})$',
+    'gaga_qq':     r'$\gamma\gamma\rightarrow q\bar{q}$'
 }
 
 process_label = {

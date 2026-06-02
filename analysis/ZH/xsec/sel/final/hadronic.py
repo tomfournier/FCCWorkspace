@@ -25,16 +25,16 @@ histos_qq = {
                             'title':'p_{jet,leading} [GeV]',
                             'bin':1000,'xmin':0,'xmax':250},
 
-    # 'leading_pT':          {'name':'leading_pT',
-    #                         'title':'p_{T,jet,leading} [GeV]',
-    #                         'bin':1000,'xmin':0,'xmax':250},
+    'leading_pT':          {'name':'leading_pT',
+                            'title':'p_{T,jet,leading} [GeV]',
+                            'bin':1000,'xmin':0,'xmax':250},
 
     'leading_theta':       {'name':'leading_theta',
                             'title':'#theta_{jet,leading}',
                             'bin':128, 'xmin':0, 'xmax':3.2},
 
     'leading_costheta':    {'name':'leading_costheta',
-                            'title':'#theta_{jet,leading}',
+                            'title':'cos#theta_{jet,leading}',
                             'bin':1000,'xmin':-1,'xmax':1},
 
     # Lepton kinematics: subleading lepton
@@ -42,16 +42,16 @@ histos_qq = {
                             'title':'p_{l,subleading} [GeV]',
                             'bin':800,'xmin':0,'xmax':200},
 
-    # 'subleading_pT':       {'name':'subleading_pT',
-    #                         'title':'p_{T,l,subleading} [GeV]',
-    #                         'bin':800,'xmin':0,'xmax':200},
+    'subleading_pT':       {'name':'subleading_pT',
+                            'title':'p_{T,l,subleading} [GeV]',
+                            'bin':800,'xmin':0,'xmax':200},
 
     'subleading_theta':    {'name':'subleading_theta',
                             'title':'#theta_{l,subleading}',
                             'bin':128, 'xmin':0, 'xmax':3.2},
 
     'subleading_costheta': {'name':'subleading_costheta',
-                            'title':'#theta_{jet,subleading}',
+                            'title':'cos#theta_{jet,subleading}',
                             'bin':1000,'xmin':-1,'xmax':1},
 
     # Angular separation between leptons
@@ -73,20 +73,24 @@ histos_qq = {
 
     # Z boson properties
     'zqq_m':               {'name':'zqq_m',
-                            'title':'m_{ljj} [GeV]',
+                            'title':'m_{jj} [GeV]',
                             'bin':2000,'xmin':0,'xmax':200},
 
     'zqq_p':               {'name':'zqq_p',
                             'title':'p_{jj} [GeV]',
                             'bin':2500,'xmin':0,'xmax':250},
 
-    # 'zqq_pT':              {'name':'zll_pT',
-    #                         'title':'p_{T,l^{+}l^{-}} [GeV]',
-    #                         'bin':2500,'xmin':0,'xmax':250},
+    'zqq_pT':              {'name':'zqq_pT',
+                            'title':'p_{T,l^{+}l^{-}} [GeV]',
+                            'bin':2500,'xmin':0,'xmax':250},
 
     'zqq_theta':           {'name':'zqq_theta',
                             'title':'#theta_{jj}',
                             'bin':128,'xmin':0,'xmax':3.2},
+
+    'zqq_costheta':        {'name':'zqq_costheta',
+                            'title':'cos#theta_{jj}',
+                            'bin':1000,'xmin':-1,'xmax':1},
 
     # Recoil mass (Higgs candidate)
     'zqq_recoil_m':        {'name':'zqq_recoil_m',

@@ -19,7 +19,7 @@ from package.logger import get_logger
 parser = create_parser(
     cat_single=True,
     include_sels=True,
-    allow_qq=False,
+    allow_qq=True,
     description='BDT Training Script'
 )
 arg = parse_args(parser, True)
@@ -36,7 +36,8 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc  # Directory management utilities
 from package.config import (
     timer,                          # Performance timing utility
-    input_vars                      # List of training variables
+    input_vars_ll,                  # List of training variables (leptonic channel)
+    input_vars_qq                   # List of training variables (hadronic channel)
 )
 from package.func.bdt import (
     print_stats,                    # Display event counts per process
@@ -53,10 +54,11 @@ from package.func.bdt import (
 
 # Analysis parameters from command-line arguments
 cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
+input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
 # Selection strategies for BDT training (from command-line or defaults)
 if arg.sels=='':
-    sels = ['Baseline', 'test']  # Default selections if not specified
+    sels = ['Baseline']          # Default selections if not specified
 else:
     sels = arg.sels.split('-')   # Parse selection names from command-line
 
@@ -66,8 +68,9 @@ modes = [
     f'Z{cat}H',                        # Signal
     'ZZ', f'WW{cat}', f'Z{cat}',       # Major backgrounds: diboson and Drell-Yan
     f'egamma_{cat}', f'gammae_{cat}',  # Photon-induced backgrounds
-    f'gaga_{cat}'                      # Diphoton background
 ]
+if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
+    modes.append(f'gaga_{cat}')        # Diphoton background
 
 # XGBoost hyperparameter configuration
 # These parameters control the BDT learning and regularization
@@ -120,17 +123,10 @@ def run(sels: list[str],
         # Output: Trained BDT models and metadata
         outDir = loc.get('BDT',        cat, ecm, sel)
 
-        # Skip diphoton process at 365 GeV (efficiency too low, not enough events)
-        if cat=='ee' and ecm==365:
-            if 'gaga_ee' in modes:
-                Modes = [m for m in modes if m!='gaga_ee']
-        else:
-            Modes = modes.copy()
-
         # Load preprocessed training dataframe
         LOGGER.debug('Loading preprocessed training data')
         df = pd.read_pickle(f'{inDir}/preprocessed.pkl')
-        print_stats(df, Modes)
+        print_stats(df, modes)
 
         # Create training and validation datasets (50% training, 50% validation)
         LOGGER.debug('Splitting data into training and validation sample')

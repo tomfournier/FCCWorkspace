@@ -25,7 +25,7 @@ parser = create_parser(
     cat_single=True,
     include_sels=True,
     bdt_eval=True,
-    allow_qq=False,
+    allow_qq=True,
     description='BDT Evaluation Script'
 )
 arg = parse_args(parser, True)
@@ -44,10 +44,12 @@ from package.userConfig import loc, plot_file
 
 # Import configuration utilities and labels paremeters
 from package.config import (
-    timer, warning,                # Utility functions
-    input_vars,                    # Training variable list
-    modes_label, modes_color,      # Plot styling for processes
-    vars_label, vars_xlabel        # Variable naming for plots
+    timer,                           # Utility function
+    input_vars_ll,                   # Training variable list (leptonic channel)
+    input_vars_qq,                   # Training variable list (hadronic channel)
+    modes_label, modes_color,        # Plot styling for processes
+    vars_label_ll, vars_xlabel_ll,   # Variable naming for plots (leptonic channel)
+    vars_label_qq, vars_xlabel_qq    # Variable naming for plots (hadronic channel)
 )
 
 # Import data handling utilities
@@ -69,10 +71,13 @@ from package.func.bdt import (
 
 # Analysis parameters from command-line arguments
 cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
+input_vars  = input_vars_ll  if cat in ['ee', 'mumu'] else input_vars_qq
+vars_label  = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq
+vars_xlabel = vars_xlabel_ll if cat in ['ee', 'mumu'] else vars_xlabel_qq
 
 # Selection strategies to evaluate (from command-line or defaults)
 if arg.sels=='':
-    sels = ['Baseline', 'test']  # Default selections if not specified
+    sels = ['Baseline']          # Default selections if not specified
 else:
     sels = arg.sels.split('-')   # Parse selection names from command-line
 
@@ -80,14 +85,16 @@ else:
 # Used for loading data and labeling plots
 modes = {
     f'Z{cat}H':      f'wzp6_ee_{cat}H_ecm{ecm}',                 # Signal: ZH production
-    f'WW{cat}':      f'p8_ee_WW_{cat}_ecm{ecm}',                 # Background: diboson WW
+    f'WW{cat}':      f'p8_ee_WW_ecm{ecm}' if cat == 'qq'         # Background: diboson WW
+                     else f'p8_ee_WW_{cat}_ecm{ecm}',
     'ZZ':            f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
     f'Z{cat}':       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'  # Background: Z+jets
-                     else f'wzp6_ee_mumu_ecm{ecm}',
-    f'egamma_{cat}': f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Background: radiative Z
-    f'gammae_{cat}': f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',       # Background: radiative Z
-    f'gaga_{cat}':   f'wzp6_gaga_{cat}_60_ecm{ecm}'           # Background: diphoton
+                     else f'wzp6_ee_{cat}_ecm{ecm}',
+    f'egamma_{cat}': f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',          # Background: radiative Z
+    f'gammae_{cat}': f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',          # Background: radiative Z
 }
+if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
+    modes[f'gaga_{cat}'] = f'wzp6_gaga_{cat}_60_ecm{ecm}'        # Background: diphoton
 
 
 
@@ -129,9 +136,10 @@ def plot_metrics(df: 'pd.DataFrame',
     """
 
     # Set LaTeX labels for final state particles
-    if cat=='mumu': label = r'$Z(\mu^+\mu^-)H$'
-    elif cat=='ee': label = r'$Z(e^+e^-)H$'
-    else: warning('Invalid final state')
+    if cat == 'mumu': label = r'$Z(\mu^+\mu^-)H$'
+    elif cat == 'ee': label = r'$Z(e^+e^-)H$'
+    elif cat == 'qq': label = r'$Z(q\bar{q})H$'
+    else: raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
     # Create output directory
     mkdir(outDir)
@@ -226,16 +234,10 @@ if __name__=='__main__':
             # Histograms for reference
             data_path = loc.get('HIST_MVA', cat, ecm, sel)
 
-            # Skip diphoton at 365 GeV (efficiency too low, not enough events)
-            if cat=='ee' and ecm==365:
-                Modes = {m:proc for m, proc in modes.items() if m not in 'gaga_ee'}
-            else:
-                Modes = modes.copy()
-
             # Load preprocessed evaluation data
             LOGGER.info(f'Getting DataFrame from {sel}')
             df = load_data(inDir)
-            print_stats(df, Modes)
+            print_stats(df, modes)
 
             # Load trained XGBoost model
             LOGGER.debug('Loading trained BDT model')
@@ -251,7 +253,7 @@ if __name__=='__main__':
             results, epochs, x_axis, best_iteration = get_metrics(bdt)
 
             # Generate all evaluation plots and performance metrics
-            plot_metrics(df, bdt, input_vars, results, x_axis, Modes, cat, outDir)
+            plot_metrics(df, bdt, input_vars, results, x_axis, modes, cat, outDir)
 
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt

@@ -116,13 +116,24 @@ def counts_and_effs(
     import uproot
     import pandas as pd
 
-    # Single pass through files: extract both N_events and dataframes
     N_events = 0
-    dfs = []
+    selected_events = 0
 
+    # Fast path: only count efficiency without loading data into memory
+    # Significantly faster for large datasets (millions of events)
+    if only_eff:
+        for f in files:
+            with uproot.open(f) as file:
+                N_events += file['eventsProcessed'].value
+                tree = file['events']
+                # Count entries directly without loading data
+                selected_events += tree.num_entries
+        return selected_events / N_events if N_events > 0 else 0.0
+
+    # Full path: load data and return dataframe with efficiency
+    dfs = []
     for f in files:
         with uproot.open(f) as file:
-            # Get total generated events
             N_events += file['eventsProcessed'].value
             # Read events tree
             tree = file['events']
@@ -134,10 +145,7 @@ def counts_and_effs(
     df = pd.concat(dfs, ignore_index=True, copy=False) if dfs else pd.DataFrame()
     eff = df.shape[0] / N_events if N_events > 0 else 0.0
 
-    if only_eff:
-        return eff
-    else:
-        return df, eff, N_events
+    return df, eff, N_events
 
 # ______________________
 def additional_info(
@@ -391,7 +399,7 @@ def load_model(inDir: str) -> 'xgb.XGBClassifier':
     '''
     import joblib
     fpath = f'{inDir}/xgb_bdt.joblib'
-    LOGGER.info(f'Loading BDT model {fpath}')
+    LOGGER.info(f'Loading BDT model from {fpath}')
     return joblib.load(fpath)
 
 # ____________________________
