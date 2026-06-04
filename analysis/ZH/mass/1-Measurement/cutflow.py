@@ -33,6 +33,7 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 from package.userConfig import loc
+from sel.final import histo_list
 from package.config import (
     timer, mk_processes,
     colors, labels
@@ -49,7 +50,7 @@ from package.plots.cutflow import (
 #############################
 
 cats, ecm = arg.cat.split('-'), arg.ecm
-lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
+lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 # Selection strategies to analyze
 if arg.sels == '':
     sels = ['Baseline']
@@ -68,7 +69,6 @@ p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)
 baseline_cuts = {
     'cut0': '', 'cut1': '', 'cut2': '',
     'cut3': 'zll_m > 86 & zll_m < 96',
-    'cut4': f'zll_p > {p_dw} & zll_p < {p_up}'
 }
 # Human-readable labels for baseline cuts
 baseline_labels = {
@@ -76,22 +76,29 @@ baseline_labels = {
     'cut1': '#geq 1#ell^{#pm} + ISO',
     'cut2': '#geq 2 #ell^{#pm} + OS',
     'cut3': '86 < m_{#ell^{+}#ell^{-}} < 96 GeV',
-    'cut4': f'{p_dw} < p_{{#ell^{{+}}#ell^{{-}}}} < {p_up} GeV'
 }
+if ecm == 240:
+    baseline_cuts['cut4']   = 'zll_p > 20 & zll_p < 70'
+    baseline_labels['cut4'] = '20 < p_{#ell^{+}#ell^{-}} < 70 GeV'
+
+    baseline_cuts['cut5']   = 'cosTheta_miss < 0.98'
+    baseline_labels['cut5'] = 'cos#theta_{miss} < 0.98'
+elif ecm == 365:
+    baseline_cuts['cut4']   = 'zll_p > 50 & zll_p < 150'
+    baseline_labels['cut4'] = '50 < p_{#ell^{+}#ell^{-}} < 150 GeV'
+
+    baseline_cuts['cut5']   = 'zll_recoil_m > 100 & zll_recoil_m < 150'
+    baseline_labels['cut5'] = '100 < m_{recoil} < 150 GeV'
+
+    baseline_cuts['cut6']   = 'cosTheta_miss < 0.98'
+    baseline_labels['cut6'] = 'cos#theta_{miss} < 0.98'
 
 # Copy baseline cuts for each selection strategy
 cuts       = {sel: baseline_cuts.copy()   for sel in sels}
 cuts_label = {sel: baseline_labels.copy() for sel in sels}
 
 # Variables required for cutflow evaluation (must match those used in cuts)
-variables = [
-    'leading_p',    'leading_theta',
-    'subleading_p', 'subleading_theta',
-    'zll_m', 'zll_p', 'zll_theta', 'zll_recoil_m',
-    'acolinearity',  'acoplanarity',  'zll_deltaR',
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',
-    'H', 'BDTscore'
-]
+variables = histo_list.keys()
 
 
 

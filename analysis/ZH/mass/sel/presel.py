@@ -22,13 +22,47 @@ from typing import TYPE_CHECKING, Union
 if TYPE_CHECKING:
     import ROOT
 
-from .helper import setup_alias, cutflow
-
 
 
 ########################
 ### HELPER FUNCTIONS ###
 ########################
+
+def setup_alias(df: 'ROOT.ROOt.RDataFrame',
+                cat: str
+                ) -> 'ROOT.ROOT.RDataFrame':
+    """Attach collection aliases based on final state.
+
+    Args:
+        df: RDataFrame-like object used throughout the selection chain.
+        cat (str): Final-state category, either 'mumu' or 'ee'.
+
+    Returns:
+        The input dataframe with lepton, MC association, and particle aliases defined.
+
+    Raises:
+        ValueError: If an unsupported category is provided.
+    """
+    # Alias for MC truth matching and particle collections
+    df = df.Alias('MCRecoAssociations0', 'MCRecoAssociations#0.index')
+    df = df.Alias('MCRecoAssociations1', 'MCRecoAssociations#1.index')
+    df = df.Alias('Particle0', 'Particle#0.index')
+    df = df.Alias('Particle1', 'Particle#1.index')
+    df = df.Alias('Photon0',   'Photon#0.index')
+
+    # Alias for lepton collections based on final state
+    if cat == 'mumu':
+        df = df.Alias('Lepton0', 'Muon#0.index')
+    elif cat == 'ee':
+        df = df.Alias('Lepton0', 'Electron#0.index')
+    elif cat == 'qq':
+        df = df.Alias('Muon0',     'Muon#0.index')
+        df = df.Alias('Electron0', 'Electron#0.index')
+    else:
+        raise ValueError(f'cat {cat} is not supported, choose between [ee, mumu, qq]')
+
+    return df
+
 
 def lesp_properties(df: 'ROOT.ROOT.RDataFrame',
                     ecm: int
@@ -213,20 +247,35 @@ def additional_variables(df: 'ROOT.ROOT.RDataFrame',
     return df
 
 
+def cutflow(df: 'ROOT.ROOT.RDataFrame',
+            hists: list['ROOT.TH1'],
+            cut: int
+            ) -> 'ROOT.ROOT.RDataFrame':
+
+    # Ensure no duplicate column is defined
+    if f'cut{cut}' in df.GetColumnNames():
+        raise ValueError(f'cut{cut} is already defined')
+
+    df = df.Define(f'cut{cut}', str(cut))
+    hists.append(df.Histo1D(('cutFlow', '', 50, 0, 50), f'cut{cut}'))
+    return df, hists
+
+
 
 ######################
 ### MAIN FUNCTIONS ###
 ######################
 
 # _______________________________________________________
-def presel_ll(df: 'ROOT.ROOT.RDataFrame',
-              cat: str,
-              ecm: int,
-              dataset: str,
-              test: bool
-              ) -> tuple['ROOT.ROOT.RDataFrame',
-                         list[Union['ROOT.TH1',
-                                    'ROOT.TParameter']]]:
+def presel(
+        df: 'ROOT.ROOT.RDataFrame',
+        cat: str,
+        ecm: int,
+        dataset: str,
+        test: bool
+         ) -> tuple['ROOT.ROOT.RDataFrame',
+                    list[Union['ROOT.TH1',
+                               'ROOT.TParameter']]]:
     """Apply leptonic preselection with full cutflow tracking.
 
     Executes complete preselection chain with event counting at each stage:
@@ -320,7 +369,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     return df, params
 
 
-branch_list_ll = [
+branch_list = [
     # Lepton kinematics (leading and subleading)
     'leading_p',    'leading_pT',    'leading_theta',
     'subleading_p', 'subleading_pT', 'subleading_theta',

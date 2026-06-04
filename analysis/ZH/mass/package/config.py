@@ -320,24 +320,7 @@ def timer(t: float
 ### PROCESSES FUNCTION ###
 ##########################
 
-def _as_tuple(seq: Sequence[str] | None,
-              fallback: tuple[str, ...]
-              ) -> tuple[str, ...]:
-    '''Convert sequence to tuple or return fallback if None.
-
-    Args:
-        seq: Input sequence to convert, or None.
-        fallback: Default tuple to use if seq is None.
-
-    Returns:
-        Tuple from seq if provided, otherwise fallback.
-    '''
-    return tuple(seq) if seq is not None else fallback
-
 def _build_processes(z_set: tuple[str, ...],
-                     h_set: tuple[str, ...],
-                     H_set: tuple[str, ...],
-                     q_set: tuple[str, ...],
                      ecm: int) -> dict[str,
                                        tuple[str, ...]]:
     '''Build process name dictionary from decay modes and center-of-mass energy.
@@ -347,41 +330,31 @@ def _build_processes(z_set: tuple[str, ...],
 
     Args:
         z_set: Z boson decay modes.
-        h_set: Higgs decay modes (without invisible).
-        H_set: Higgs decay modes (with invisible).
-        q_set: Quark decay channels.
         ecm: Center-of-mass energy in GeV.
 
     Returns:
         Dictionary mapping process keys to tuples of full process names.
     '''
     return {
-        'ZH':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in h_set),
-        'ZeeH':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_set),
-        'ZmumuH': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_set),
-        'ZqqH':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in h_set),
-
-        # Lowercase variants include H -> Inv decay
-        'zh':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in H_set),
-        'zeeh':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in H_set),
-        'zmumuh': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in H_set),
-        'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in H_set),
+        'ZH':     tuple(f'wzp6_ee_{x}H_ecm{ecm}' for x in z_set),
+        'ZeeH':   tuple(f'wzp6_ee_eeH_ecm{ecm}',),
+        'ZmumuH': tuple(f'wzp6_ee_mumuH_ecm{ecm}',),
 
         'WW': (
-            f'p8_ee_WW_ecm{ecm}',
-            f'p8_ee_WW_mumu_ecm{ecm}',
             f'p8_ee_WW_ee_ecm{ecm}',
+            f'p8_ee_WW_mumu_ecm{ecm}',
+            f'p8_ee_WW_ecm{ecm}',
         ),
         'ZZ': (f'p8_ee_ZZ_ecm{ecm}',),
         'Zgamma': (
-            f'wzp6_ee_tautau_ecm{ecm}',
-            f'wzp6_ee_mumu_ecm{ecm}',
             f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+            f'wzp6_ee_mumu_ecm{ecm}',
+            f'wzp6_ee_tautau_ecm{ecm}',
         ),
         'Rare': (
+            f'wzp6_gammae_eZ_Zee_ecm{ecm}',
             f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
             f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-            f'wzp6_gammae_eZ_Zee_ecm{ecm}',
             f'wzp6_egamma_eZ_Zee_ecm{ecm}',
             f'wzp6_gaga_ee_60_ecm{ecm}',
             f'wzp6_gaga_mumu_60_ecm{ecm}',
@@ -461,14 +434,17 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     '''
 
     small  = 5  if batch else 1
-    middle = 40 if batch else 5
-    big    = 80 if batch else 10
+    middle = 20 if batch else 5
+    big    = 30 if batch else 10
 
     # Common diboson processes
-    common: dict[str, dict[str, int]] = {}
-    common[f'p8_ee_ZZ_ecm{ecm}'] = {'frac': 1, 'nb': middle}
-    if not train or (cat == 'qq'):
-        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 1, 'nb': big}
+    common: dict[str, dict[str, int]] = {
+        f'p8_ee_WW_ecm{ecm}':            {'frac': 1, 'nb': big},
+        f'p8_ee_ZZ_ecm{ecm}':            {'frac': 1, 'nb': middle},
+        f'wzp6_ee_tautau_ecm{ecm}':      {'frac': 1, 'nb': small},
+        f'wzp6_gaaga_tautau_ecm{ecm}':   {'frac': 1, 'nb': small},
+        f'wzp6_ee_nuenueZ_ecm{ecm}':     {'frac': 1, 'nb': small},
+    }
 
     category_specific = {
         'ee': {
@@ -485,42 +461,16 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
             f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
             f'wzp6_gaga_mumu_60_ecm{ecm}':     {'frac': 1, 'nb': middle},
         },
-        'qq': {
-            f'wzp6_ee_qq_ecm{ecm}':            {'frac': 1, 'nb': big},
-            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
-            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
-            # f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
-        },
     }
 
-    # Training mode: category-specific backgrounds (reduced sample size)
-    if train:
-        return {**common, **category_specific.get(cat, {})}
-
-    # Non-training mode: comprehensive backgrounds (full sample)
-    # Lepton-pair backgrounds (ee, mumu, tautau channels)
-    nominal_bkgs = {
-        f'wzp6_ee_tautau_ecm{ecm}':         {'frac': 1, 'nb': small},
-        f'wzp6_gaga_tautau_60_ecm{ecm}':    {'frac': 1, 'nb': small},
-        f'wzp6_ee_nuenueZ_ecm{ecm}':        {'frac': 1, 'nb': small},
-    }
-
-    bkgs = {**common, **category_specific.get(cat, {}), **nominal_bkgs}
-    if cat in ['ee', 'mumu']:
-        return bkgs
-    elif (cat == 'qq') and (ecm == 365):
-        # Special case: top production at 365 GeV
-        bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
-        return bkgs
-
-    return common
+    bkgs = {**common, **category_specific.get(cat, {})}
+    return bkgs
 
 
 def get_process_list(
         cat: str,
         ecm: int,
         z_decays: tuple[str, ...] = (),
-        h_decays: tuple[str, ...] = (),
         train: bool = False,
         batch: bool = False,
         onlysig: bool = False,
@@ -551,25 +501,24 @@ def get_process_list(
     Raises:
         ValueError: If onlysig and onlybkg are both True, or invalid cat/ecm.
     '''
-    frac = frac or {}
-    chunks = chunks or {}
+    frac    = frac    or {}
+    chunks  = chunks  or {}
     include = include or {}
     exclude = exclude or set()
 
     if onlysig and onlybkg:
         raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
 
-    nb = 4 if batch else 1
-
     # Build signals
+    sigs = [f'wzp6_ee_{x}H_ecm{ecm}' for x in z_decays]
     sigs = [f'wzp6_ee_{cat}H_ecm{ecm}']
 
     # Build backgrounds
-    bkgs = _build_background_dict(cat, ecm, train)
+    bkgs = _build_background_dict(cat, ecm, train, batch)
 
     # Assemble processes, applying custom overrides
     process_sig = {
-        s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, nb)}
+        s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1)}
         for s in sigs if s not in exclude
     }
     process_bkg = {

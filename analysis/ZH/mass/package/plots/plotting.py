@@ -1,8 +1,8 @@
 '''Plotting utilities.
 
 Provides:
-- Plotting functions for histograms and distributions: `makePlot()`, `PlotDecays()`,
-  `significance()`, `PseudoRatio()`, `AAAyields()`, `Bias()`.
+- Plotting functions for histograms and distributions: `makePlot(),
+  `significance()`, `AAAyields()`.
 - Utility functions for managing plot arguments: `get_args()`, `args_decay()`,
   `_ensure_plt_style()`.
 - Histogram conversion utilities: `hist_to_arrays()`.
@@ -12,10 +12,7 @@ Provides:
 Functions:
 - `significance()`: Plot running significance and signal efficiency for cut optimization.
 - `makePlot()`: Draw signal/background histograms with optional stacking.
-- `PlotDecays()`: Compare Higgs decay modes with unit normalization.
-- `PseudoRatio()`: Create ratio plots comparing nominal and pseudo-signal distributions.
 - `AAAyields()`: Render yields summary canvas with process yields and metadata.
-- `Bias()`: Plot bias distributions per Higgs decay mode with uncertainty bands.
 - `get_args()`, `args_decay()`: Manage and merge plotting configuration arguments.
 
 Conventions:

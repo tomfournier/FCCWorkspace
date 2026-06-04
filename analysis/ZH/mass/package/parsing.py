@@ -46,15 +46,9 @@ def add_cat_argument(
 
     def_value = default or ('ee-mumu' if multi else '')
 
-    choices = ['ee', 'mumu', 'qq'] if allow_qq else ['ee', 'mumu']
+    choices = ['ee', 'mumu']
     if multi:
         choices.extend(['ee-mumu', 'mumu-ee'])
-        if allow_qq:
-            choices.extend([
-                'ee-qq', 'ee-mumu-qq', 'ee-qq-mumu',
-                'mumu-qq', 'mumu-ee-qq', 'mumu-qq-ee',
-                'qq-ee', 'qq-mumu', 'qq-ee-mumu', 'qq-mumu-ee'
-            ])
     if allow_empty:
         choices.append('')
 
@@ -62,8 +56,8 @@ def add_cat_argument(
         group = parser.add_argument_group('General arguments')
 
     # Use metavar to show a concise pattern instead of listing all choices
-    metavar = 'CHANNELS' if multi else ('{ee, mumu, qq}' if allow_qq else '{ee, mumu}')
-    help_text = ('Final state lepton category: ee, mumu' + ', qq' if allow_qq else '' +
+    metavar = 'CHANNELS' if multi else '{ee, mumu}'
+    help_text = ('Final state lepton category: ee, mumu' +
                  (' or combinations separated by dash like ee-mumu' if multi else '') +
                  f' (default: "{def_value}")')
 
@@ -235,27 +229,11 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
         default=False,
         help='Include all the Z decays in the cutflow'
     )
-
-def add_polarization(parser: ArgumentParser) -> None:
-    '''Add polarization and luminosity scaling arguments.'''
-    args = parser.add_argument_group('Polarization arguments')
     args.add_argument(
-        '--polL',
-        action='store_true',
-        default=False,
-        help='Scale to left polarization'
-    )
-    args.add_argument(
-        '--polR',
-        action='store_true',
-        default=False,
-        help='Scale to right polarization'
-    )
-    args.add_argument(
-        '--ILC',
-        action='store_true',
-        default=False,
-        help='Scale to ILC luminosity'
+        '--kin',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Use events from files with Baseline kinematic cuts already made (smaller files)'
     )
 
 
@@ -329,7 +307,6 @@ def create_parser(
         batch: bool = False,
         plots: bool = False,
         cutflow: bool = False,
-        polarization: bool = False,
         fit: bool = False,
         mass_fit: bool = False,
         description: str = 'Analysis script'
@@ -350,14 +327,9 @@ def create_parser(
         include_sels: Add --sels (batch selections)
         run_stages: Add --run with N stages (0=none, 2/3/4 for pipeline stages)
         batch: Add --batch for HTCondor
-        bdt_eval: Add basic BDT eval args (metric, tree)
-        bdt_extra: Add extended BDT args (check, hl) - requires bdt_eval=True
         optimize: Add optimization args (procs, nevents, incr)
-        polarization: Add --polL, --polR, --ILC
         fit: Add fit arguments
-        bias: Add bias test arguments - requires fit=True
-        default_target: Default value for --target
-        default_pert: Default value for --pert
+        mass: Add mass fit arguments
         description: Parser description
 
     Returns:
@@ -393,8 +365,6 @@ def create_parser(
         add_plots_args(parser)
     if cutflow:
         add_cutflow_args(parser)
-    if polarization:
-        add_polarization(parser)
     if fit:
         add_fit_args(parser)
     if mass_fit:
@@ -437,11 +407,6 @@ def parse_args(
 
     return args
 
-
-# Keep legacy convenience function for backwards compatibility
-def include_polarizations(parser: ArgumentParser) -> None:
-    '''Legacy function - use add_polarization() instead.'''
-    add_polarization(parser)
 
 
 # ==================== #

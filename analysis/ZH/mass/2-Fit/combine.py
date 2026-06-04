@@ -13,7 +13,7 @@ from package.userConfig import (
 
 # Load config from temporary JSON if running automated, else prompt
 if os.environ.get('RUN'):
-    cfg_file = Path(loc.RUN) / '4-run.json'
+    cfg_file = Path(loc.RUN) / '2-run.json'
     if cfg_file.exists():
         cfg = json.loads(cfg_file.read_text())
         cat, ecm, sel = cfg['cat'], cfg['ecm'], cfg['sel']
@@ -26,7 +26,7 @@ else:
     sel = input('Select a selection: ')
 
 if cat not in ['ee', 'mumu']:
-    raise ValueError(f'Invalid channel: {cat}. Must be "ee" or "mumu"')
+    raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
 
 
@@ -64,11 +64,9 @@ bkg_procs = {
                     f'wzp6_ee_nuenueZ_ecm{ecm}'], inDir)
 }
 
-# Define histogram names
-hName = ['zll_recoil_m']
 # Configure categories based on fit type: single category or visible/invisible split
 categories = [f'z_{cat}']
-hist_names = [hName[0]]
+hist_names = 'zll_recoil_m'
 
 # Define systematic uncertainties: normalization uncertainties for backgrounds
 systs = {}
