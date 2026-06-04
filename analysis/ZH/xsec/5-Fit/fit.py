@@ -50,6 +50,9 @@ from package.config import timer  # Timing utility
 ###############################
 
 # Set category to combined if combining channels
+if arg.lep and arg.combine:
+    raise ValueError("Cannot use '--lep' and '--combine' at the same time")
+if arg.lep:     arg.cat = 'leptonic'
 if arg.combine: arg.cat = 'combined'
 
 # Bundle arguments for directory lookup
@@ -147,13 +150,23 @@ def fitting(
         dc_combined = dc / f'datacard{tar}{comb}.txt'
 
         # Combine datacards from multiple channels if requested
-        if arg.combine:
+        if arg.lep:
             dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
             dc_ee = dc_comb /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
 
-            LOGGER.info('Combining datacards')
+            LOGGER.info('Combining datacards from ee and mumu channel')
             with open(dc_combined, 'w') as out:
                 subprocess.run(['combineCards.py', dc_mu, dc_ee],
+                               stdout=out, env=env, check=True)
+
+        if arg.combine:
+            dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
+            dc_ee = dc_comb /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
+            dc_qq = dc_comb /  'qq'  / tp / 'datacard' / f'datacard{tar}.txt'
+
+            LOGGER.info('Combining datacards from all channels')
+            with open(dc_combined, 'w') as out:
+                subprocess.run(['combineCards.py', dc_mu, dc_ee, dc_qq],
                                stdout=out, env=env, check=True)
 
         # Convert datacard to RooFit workspace

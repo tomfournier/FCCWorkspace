@@ -68,7 +68,10 @@ from package.func.bias import pseudo_datacard                 # Bias test utilit
 # Bundle parsed arguments for configuration
 cat, ecm, sel, pert = arg.cat, arg.ecm, arg.sel, arg.pert  # Perturbation factor for bias test
 lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)     # Integrated luminosity [ab^-1]
-cat = 'combined' if arg.combine else cat                   # Use 'combined' for channel combination
+if arg.lep and arg.combine:
+    raise ValueError("Cannot use '--lep' and '--combine' at the same time")
+cat = 'leptonic' if arg.lep     else cat                   # Use 'leptonic' for ee and mumu channel combination
+cat = 'combined' if arg.combine else cat                   # Use 'combined' for all channels combination
 
 # Build process definitions for analysis
 processes = mk_processes(ecm=ecm)
@@ -77,6 +80,8 @@ processes = mk_processes(ecm=ecm)
 cmd_args = []
 if arg.cat:
     cmd_args.extend(['--cat', f'{arg.cat}'])  # Category argument
+if arg.lep:
+    cmd_args.append('--lep')
 if arg.combine:
     cmd_args.append('--combine')                # Combine channels flag
 cmd_args.extend(['--sel', f'{sel}'])          # Selection strategy

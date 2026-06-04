@@ -389,10 +389,16 @@ def add_fit_args(
         help=f'Perturbation/scale factor (default: {default_pert})'
     )
     args.add_argument(
+        '--lep',
+        action='store_true',
+        default=False,
+        help='Combine ee and mumu channel for fit'
+    )
+    args.add_argument(
         '--combine', '--comb',
         action='store_true',
         default=False,
-        help='Combine channels for fit'
+        help='Combine all channels for fit'
     )
     if not bias:
         args.add_argument(
