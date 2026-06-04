@@ -6,6 +6,7 @@ import os
 
 # Load analysis configuration and predefined histogram config
 from package.userConfig import loc, get_params
+from package.config import get_process_list
 from sel.final.leptonic import Baseline_cut_ll, histos_ll
 from sel.final.hadronic import Baseline_cut_qq, histos_qq
 
@@ -45,23 +46,7 @@ intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 
 # Samples to process: ZH signal and main background processes
 # These are processed through final selection cuts and histogram filling
-processList = [
-    # Signal: ZH production
-    f'wzp6_ee_{cat}H_ecm{ecm}',
-
-    # Main backgrounds: diboson and Drell-Yan
-    f'p8_ee_ZZ_ecm{ecm}',
-    f'p8_ee_WW_ecm{ecm}' if cat=='qq' else f'p8_ee_WW_{cat}_ecm{ecm}',
-    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee' else f'wzp6_ee_{cat}_ecm{ecm}',
-
-    # Rare backgrounds: radiative and diphoton processes
-    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
-    f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-]
-if (cat=='qq') and (ecm == 365):
-    processList.extend(['wzp6_ee_bbH_ecm365', 'wzp6_ee_ccH_ecm365', 'wzp6_ee_ssH_ecm365'])
-if cat in ['ee', 'mumu']:
-    processList.append(f'wzp6_gaga_{cat}_60_ecm{ecm}')
+processList = get_process_list(cat, ecm, train=True).keys()
 
 
 

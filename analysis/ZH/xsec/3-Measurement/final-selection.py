@@ -8,16 +8,18 @@ import os
 from package.userConfig import (
     loc, event, get_params
 )
-from package.func.bdt import def_bdt, make_high_low  # BDT score binning utilities
-from sel.final.leptonic import histos_ll             # Histogram definitions
+from package.func.bdt import def_bdt, make_high_low          # BDT score binning utilities
+from sel.final.leptonic import Baseline_cut_ll, histos_ll    # Histogram definitions (leptonic channel)
+from sel.final.hadronic import Baseline_cut_qq, histos_qq    # Histogram definitions (hadronic channel)
 from package.config import (
-    z_decays,      # Z boson decay modes
-    H_decays,      # Higgs boson decay modes
-    input_vars     # BDT input variables for classification
+    input_vars_ll,    # BDT input variables for classification (leptonic channel)
+    input_vars_qq,    # BDT input variables for classification (hadronic channel)
+    get_process_list
 )
 
 # Load analysis parameters: decay category, CoM energy, luminosity, test flag
 cat, ecm, lumi, test = get_params(os.environ.copy(), '3-run.json', is_final=True)
+input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
 
 
@@ -54,35 +56,15 @@ intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
-# Background samples:
-samples_bkg = [
-    # Diboson:  ee -> VV
-    f'p8_ee_ZZ_ecm{ecm}',
-    f'p8_ee_WW_ecm{ecm}',
-    f'p8_ee_WW_{cat}_ecm{ecm}',
-
-    # ee -> Z+jets
-    f'wzp6_ee_mumu_ecm{ecm}' if cat=='mumu'
-    else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
-    f'wzp6_ee_tautau_ecm{ecm}',
-
-    # Radiative: ey -> eZ(ll)
-    f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
-    f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-
-    # Diphoton: yy -> ll
-    f'wzp6_gaga_{cat}_60_ecm{ecm}',
-    f'wzp6_gaga_tautau_60_ecm{ecm}',
-
-    # Invisible: ee -> nunuZ
-    f'wzp6_ee_nuenueZ_ecm{ecm}'
-]
-
-# Signal samples: ee -> Z(ll)H with all Higgs decay modes
-samples_sig = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in H_decays + ('ZZ_noInv',)]
+# Samples processed during pre-selection
+samples = get_process_list(cat, ecm).keys()
 
 # Load event samples with events TTree
-processList = event(samples_sig + samples_bkg, inputDir)
+processList = event(samples, inputDir)
+if f'p8_ee_WW_ee_ecm{ecm}' in processList:
+    processList.remove(f'p8_ee_WW_ee_ecm{ecm}')
+if f'p8_ee_WW_mumu_ecm{ecm}' in processList:
+    processList.remove(f'p8_ee_WW_mumu_ecm{ecm}')
 
 # Define BDT score from trained model and apply BDT cut
 sel_BDT = 'Baseline'
@@ -95,32 +77,29 @@ defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
 ### DEFINE CUT LIST ###
 #######################
 
-# Define range for CoM dependent variables
-p_up = 70 if ecm==240 else (150 if ecm==365 else 200)
-p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)
-
-# Define baseline selection cuts
-vis_cut = 100 if ecm==240 else (171 if ecm==365 else 0)
-m_cut, p_cut = 'zll_m > 86 && zll_m < 96', f'zll_p > {p_dw} && zll_p < {p_up}',
-rec_cut = ' && zll_recoil_m > 100 && zll_recoil_m < 150' if ecm==365 else ''
-
-Baseline_Cut = m_cut + ' && ' + p_cut + rec_cut
-vis, inv = Baseline_Cut + f' && visibleEnergy > {vis_cut}', Baseline_Cut + f' && visibleEnergy < {vis_cut}'
-
 # Selection cut dictionary (key = selection name used in outputs)
-cutList = {
-    'Baseline':          Baseline_Cut,
-    'Baseline_vis':      vis,
-    'Baseline_inv':      inv,
-    'Baseline_miss':     Baseline_Cut + ' && cosTheta_miss < 0.98',
-    'Baseline_sep':      '(('+vis+') || ('+inv+' && cosTheta_miss < 0.99))',
-    # 'test':              Baseline_Cut,
-}
+cutList: dict[str, str] = {}
+cutList['sel0'] = 'return true;'
+if cat in ['ee', 'mumu']:
+    Baseline = Baseline_cut_ll(ecm)
+    cutList['Baseline']      = Baseline
+    cutList['Baseline_miss'] = Baseline + ' && cosTheta_miss < 0.98'
+    if ecm == 240:
+        cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 100'
+        cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 100'
+        cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 100) || (visibleEnergy < 100 && cosTheta_miss < 0.99))'
+    elif ecm == 365:
+        cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 171'
+        cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
+        cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
+elif cat == 'qq':
+    Baseline = Baseline_cut_qq(ecm)
+    cutList['Baseline'] = Baseline
+else:
+    raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
 # List of selections to split into high/low BDT score regions
-sels = [
-    'Baseline', 'Baseline_miss', 'Baseline_sep', 'test'
-]
+sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
 
@@ -130,13 +109,13 @@ cutList = make_high_low(cutList, bdt_cut, sels)
 ### DEFINE HISTOGRAM SETTINGS ###
 #################################
 
-customHists: dict[str, dict[str, str | int | float]] = {
-    'leps_iso':     {'name':'ConeIsolation', 'title':'I_{rel}'},
-    'leps_iso_no':  {'name':'n_leptons', 'title':'N_{leptons}'}
-}
+customHists: dict[str, dict[str, str | int | float]] = {}
+if cat in ['ee', 'mumu']:
+    customHists['leps_iso']    = {'name':'ConeIsolation', 'title':'I_{rel}'}
+    customHists['leps_iso_no'] = {'name':'n_leptons', 'title':'Isolated leptons'}
 
 # Output histogram definitions (name, title, binning)
-histoList: dict[str, dict[str, str | int | float]] = histos_ll
+histoList = histos_ll if cat in ['ee', 'mumu'] else histos_qq
 histoList['BDTscore'] = {'name':'BDTscore',
                          'title':'BDT score',
                          'bin':1000,'xmin':0,'xmax':1}

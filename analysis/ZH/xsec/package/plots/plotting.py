@@ -54,8 +54,6 @@ if TYPE_CHECKING:
 from ..config import (
     h_colors,
     h_labels,
-    vars_label,
-    vars_xlabel
 )
 from ..tools.utils import mkdir
 from ..logger import get_logger
@@ -208,6 +206,7 @@ def _extract_nested_args(
 def get_args(
     var: str,
     sel: str,
+    cat: str,
     ecm: int,
     lumi: float,
     args: dict[str,
@@ -295,7 +294,13 @@ def get_args(
     arg.setdefault('logX',   False)
 
     arg.setdefault('stack',  False)
-    arg.setdefault('sig_scale', 1.)
+    if cat in ['ee', 'mumu']:
+        arg.setdefault('sig_scale', 1.)
+    elif cat == 'qq':
+        arg.setdefault('sig_scale', 10)
+    else:
+        raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
+
 
     return arg
 
@@ -397,6 +402,8 @@ def significance(
     sel: str,
     procs: list[str],
     processes: dict[str, list[str]],
+    vars_label: dict[str, str],
+    vars_xlabel: dict[str, str],
     locx: str = 'right',
     locy: str = 'top',
     xMin: Union[float, int, None] = None,
@@ -919,6 +926,8 @@ def AAAyields(
         ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow #mu^{+}#mu^{-} + X'
     elif cat == 'ee':
         ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow e^{+}e^{-} + X'
+    elif cat == 'qq':
+        ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow q#bar{q} + X'
     else:
         raise ValueError(f'{cat} value is not supported')
 
@@ -1057,8 +1066,8 @@ def AAAyields(
     for dy, (label, integral, entries) in enumerate(yields.values()):
         latex_yield.extend([
             ('#bf{#it{' + label + '}}', 0.18, 0.4-dy*0.05, 0.035),
-            ('#bf{#it{' + str(int(integral)) + '}}', 0.5, 0.4-dy*0.05, 0.035),
-            ('#bf{#it{' + str(int(entries)) + '}}', 0.75, 0.4-dy*0.05, 0.035)
+            ('#bf{#it{' + f'{integral:,.0f}' + '}}', 0.5, 0.4-dy*0.05, 0.035),
+            ('#bf{#it{' + f'{entries:,.0f}' + '}}', 0.75, 0.4-dy*0.05, 0.035)
         ])
     draw_latex(latex, latex_yield)
 

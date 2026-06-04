@@ -34,6 +34,8 @@ LOGGER = get_logger(__name__)
 
 # Load directory paths and cutflow analysis functions
 from package.userConfig import loc
+from sel.final.leptonic import histos_ll
+from sel.final.hadronic import histos_qq
 from package.config import (
     timer,              # Timing utility
     mk_processes,       # Build process definitions
@@ -55,69 +57,118 @@ from package.plots.cutflow import (
 # Decay categories to analyze (from command-line: cat1-cat2 format)
 cats, ecm = arg.cat.split('-'), arg.ecm
 # Integrated luminosity [ab^-1]
-lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)
+lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 # Selection strategies to analyze (from command-line or defaults)
 if arg.sels == '':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']  # Default selections
+    sels = ['Baseline']  # Default selection
 else:
     sels = arg.sels.split('-')  # Parse from command-line
 
 
 
-###################
-### DEFINE CUTS ###
-###################
-
-# CoM-dependent kinematic bounds for baseline selection
-p_up = 70 if ecm==240 else (150 if ecm==365 else 240)  # Upper momentum cut [GeV]
-p_dw = 20 if ecm==240 else (50 if ecm==365 else 0)     # Lower momentum cut [GeV]
+############################
+### DEFINE LEPTONIC CUTS ###
+############################
 
 # Define sequential baseline selection cuts
-baseline_cuts = {
+baseline_cuts_ll = {
     'cut0': '',                                                      # Diagnostic: no cuts
     'cut1': '',                                                      # Lepton isolation (applied in pre-selection)
     'cut2': '',                                                      # Opposite-sign requirement
     'cut3': '' if arg.kin else  'zll_m > 86 & zll_m < 96',           # Z mass window [GeV]
-    'cut4': '' if arg.kin else f'zll_p > {p_dw} & zll_p < {p_up}'    # Dilepton momentum window
 }
 
 # Human-readable labels for cuts (displayed in plots)
-baseline_labels = {
+baseline_labels_ll = {
     'cut0': 'No cut',                                            # Diagnostic baseline
     'cut1': '#geq 1#ell^{#pm} + ISO',                            # Lepton with isolation
     'cut2': '#geq 2 #ell^{#pm} + OS',                            # Dilepton pair, opposite sign
     'cut3': '86 < m_{#ell^{+}#ell^{-}} < 96 GeV',                # Z boson mass selection
-    'cut4': f'{p_dw} < p_{{#ell^{{+}}#ell^{{-}}}} < {p_up} GeV'  # Momentum selection
 }
-if ecm == 365:
-    baseline_cuts['cut5']   = '' if arg.kin else 'zll_recoil_m > 100 && zll_recoil_m < 150'  # Recoil mass selection (if 365 GeV)
-    baseline_labels['cut5'] = '100 < m_{recoil} < 150 GeV'
+
+if ecm == 240:
+    baseline_cuts_ll['cut4']   = '' if arg.kin else 'zll_p > 20 & zll_p < 70'                   # Dilepton momentum window (240 GeV)
+    baseline_labels_ll['cut4'] = '20 < p_{#ell^{+}#ell^{-}} < 70 GeV'
+elif ecm == 365:
+    baseline_cuts_ll['cut4']   = '' if arg.kin else 'zll_p > 50 & zll_p < 150'                  # Dilepton momentum window (365 GeV)
+    baseline_labels_ll['cut4'] = '50 < p_{#ell^{+}#ell^{-}} < 150 GeV'
+
+    baseline_cuts_ll['cut5']   = '' if arg.kin else 'zll_recoil_m > 100 && zll_recoil_m < 150'  # Recoil mass selection (if 365 GeV)
+    baseline_labels_ll['cut5'] = '100 < m_{recoil} < 150 GeV'
+
 
 # Copy baseline cuts for each selection strategy
-cuts       = {sel: baseline_cuts.copy()   for sel in sels}
-cuts_label = {sel: baseline_labels.copy() for sel in sels}
+cuts_ll       = {sel: baseline_cuts_ll.copy()   for sel in sels}
+cuts_label_ll = {sel: baseline_labels_ll.copy() for sel in sels}
 
 # Add additional cuts for specific selection strategies
-cuts['Baseline_miss']['cut5']       = 'cosTheta_miss < 0.98'
-cuts_label['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
+if ecm == 240:
+    if 'Baseline_miss' in sels:
+        cuts_ll['Baseline_miss']['cut5']       = 'cosTheta_miss < 0.98'
+        cuts_label_ll['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
 
-vis_cut = 100 if ecm==240 else (170 if ecm==365 else 0)
-cuts['Baseline_sep']['cut5']       = f'((visibleEnergy > {vis_cut}) | (visibleEnergy < {vis_cut} & cosTheta_miss < 0.99))'
-cuts_label['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
+    if 'Baseline_sep' in sels:
+        cuts_ll['Baseline_sep']['cut5']       = '((visibleEnergy > 100) | (visibleEnergy < 100 & cosTheta_miss < 0.99))'
+        cuts_label_ll['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
+elif ecm == 365:
+    if 'Baseline_miss' in sels:
+        cuts_ll['Baseline_miss']['cut6']       = 'cosTheta_miss < 0.98'
+        cuts_label_ll['Baseline_miss']['cut6'] = 'cos#theta_{miss} < 0.98'
 
-cuts['test']['cut5']       = 'zll_recoil_m > 100 & zll_recoil_m < 150'
-cuts_label['test']['cut5'] = '100 < m_{recoil} < 150 GeV'
+    if 'Baseline_sep' in sels:
+        cuts_ll['Baseline_sep']['cut6']       = '((visibleEnergy > 171) | (visibleEnergy < 171 & cosTheta_miss < 0.99))'
+        cuts_label_ll['Baseline_sep']['cut6'] = 'cos#theta_{miss} < 0.99 [inv]'
 
-# Variables required for cutflow evaluation (must match those used in cuts)
-variables = [
-    'leading_p',    'leading_theta',
-    'subleading_p', 'subleading_theta',
-    'zll_m', 'zll_p', 'zll_theta', 'zll_recoil_m',
-    'acolinearity',  'acoplanarity',  'deltaR',
-    'visibleEnergy', 'cosTheta_miss', 'missingMass',
-    'H'
-]
+
+
+###############################
+### DEFINE HADRONICNIC CUTS ###
+###############################
+
+# Define sequential baseline selection cuts
+baseline_cuts_qq = {
+    'cut0': '',
+    'cut1': '',
+    'cut2': '',
+    'cut5': '' if arg.kin else 'zqq_costheta < 0.85',
+    'cut6': '' if arg.kin else 'acolinearity > 0.35',
+    'cut7': '' if arg.kin else 'delta_mWW > 6',
+    'cut8': '' if arg.kin else 'cosTheta_miss < 0.995',
+}
+
+# Human-readable labels for cuts (displayed in plots)
+baseline_labels_qq = {
+    'cut0': 'No cut',
+    'cut1': 'Veto leptonic',
+    'cut2': 'Clustering',
+    'cut5': 'cos#theta_{jj} < 0.85',
+    'cut6': 'Acolinearity > 0.35',
+    'cut7': 'WW pair mass',
+    'cut8': 'cos#theta_{miss} < 0.995',
+}
+
+if ecm == 240:
+    baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 20 & zqq_m. < 140'
+    baseline_labels_qq['cut3'] = '20 < m_{jj} < 140'
+
+    baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 90'
+    baseline_labels_qq['cut4'] = '20 < p_{jj} < 70 GeV'
+
+elif ecm == 365:
+    baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 60 & zqq_m. < 200'
+    baseline_labels_qq['cut3'] = '60 < m_{jj} < 200'
+
+    baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 160'
+    baseline_labels_qq['cut4'] = '20 < p_{jj} < 160 GeV'
+
+    baseline_cuts_qq['cut9']   = '' if arg.kin else 'thrust < 0.85'
+    baseline_labels_qq['cut9'] = 'Thrust < 0.85'
+
+
+# Copy baseline cuts for each selection strategy
+cuts_qq       = {sel: baseline_cuts_ll.copy()   for sel in sels}
+cuts_label_qq = {sel: baseline_labels_ll.copy() for sel in sels}
 
 
 
@@ -137,6 +188,13 @@ def run(cats: list[str],
         # Define process names (signal must be first)
         procs = [f'Z{cat}H' if not arg.tot else 'ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
         procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
+
+        histos = histos_ll if cat in ['ee', 'mumu'] else histos_qq
+        variables = [v for v in histos.keys() if v not in 'zqq_m_recoil_m']
+
+        cuts = cuts_ll if cat in ['ee', 'mumu'] else cuts_qq
+        cuts_label = cuts_label_ll if cat in ['ee', 'mumu'] else cuts_label_qq
+
 
         # Define input and output directories
         if arg.kin: inDir = loc.get('EVENTS_TEST', cat, ecm)
