@@ -130,7 +130,7 @@ def _init_colors() -> None:
     Creates ROOT color indices for signal and background processes.
     Called automatically by _get_colors_dict() on first use.
     """
-    global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR
+    global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR, _TT_COLOR
     if _ZH_COLOR is None:
         root = _get_root()
         _ZH_COLOR   = root.TColor.GetColor('#e42536')  # Red for ZH signal
@@ -138,6 +138,7 @@ def _init_colors() -> None:
         _ZZ_COLOR   = root.TColor.GetColor('#5790fc')  # Blue for ZZ background
         _ZG_COLOR   = root.TColor.GetColor('#964a8b')  # Purple for Z/gamma
         _RARE_COLOR = root.TColor.GetColor('#9c9ca1')  # Gray for rare processes
+        _TT_COLOR   = root.TColor.GetColor("#1414ad")  # Dark blue for tt processes
 
 def _get_h_colors_dict() -> dict:
     """Lazy-load h_colors with color constants.
@@ -185,7 +186,8 @@ def _get_colors_dict() -> dict:
         'ZZ'       : _ZZ_COLOR,
         'Zgamma'   : _ZG_COLOR,
         'Zqqgamma' : _ZG_COLOR,
-        'Rare'     : _RARE_COLOR
+        'Rare'     : _RARE_COLOR,
+        'tt'       : _TT_COLOR
     }
 
 class LazyDict(dict):
@@ -310,7 +312,8 @@ labels = {
     'WW'     : 'W^{+}W^{-}',
     'ZZ'     : 'ZZ',
     'Zgamma' : 'Z/#gamma^{*} #rightarrow f#bar{f}+#gamma(#gamma)',
-    'Rare'   : 'Rare'
+    'Rare'   : 'Rare',
+    'tt'     : 't#bar{t}'
 }
 
 # LaTeX labels for kinematic variables (used in matplotlib importance plots)
@@ -562,7 +565,7 @@ def _build_processes(z_set: tuple[str, ...],
     Returns:
         Dictionary mapping process keys to tuples of FCC sample names.
     '''
-    return {
+    processes =  {
         'ZH':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in h_set),
         'ZeeH':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_set),
         'ZmumuH': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_set),
@@ -575,27 +578,33 @@ def _build_processes(z_set: tuple[str, ...],
         'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in H_set),
 
         'WW': (
-            f'p8_ee_WW_ecm{ecm}',
-            f'p8_ee_WW_mumu_ecm{ecm}',
             f'p8_ee_WW_ee_ecm{ecm}',
+            f'p8_ee_WW_mumu_ecm{ecm}',
+            f'p8_ee_WW_ecm{ecm}',
         ),
         'ZZ': (f'p8_ee_ZZ_ecm{ecm}',),
         'Zgamma': (
-            f'wzp6_ee_tautau_ecm{ecm}',
-            f'wzp6_ee_mumu_ecm{ecm}',
             f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
+            f'wzp6_ee_mumu_ecm{ecm}',
+            f'wzp6_ee_tautau_ecm{ecm}',
+            f'wzp6_ee_qq_ecm{ecm}',
         ),
         'Rare': (
-            f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
-            f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
             f'wzp6_gammae_eZ_Zee_ecm{ecm}',
+            f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
+            f'wzp6_gammae_eZ_Zqq_ecm{ecm}',
             f'wzp6_egamma_eZ_Zee_ecm{ecm}',
+            f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
+            f'wzp6_egamma_eZ_Zqq_ecm{ecm}',
             f'wzp6_gaga_ee_60_ecm{ecm}',
             f'wzp6_gaga_mumu_60_ecm{ecm}',
             f'wzp6_gaga_tautau_60_ecm{ecm}',
             f'wzp6_ee_nuenueZ_ecm{ecm}',
         ),
     }
+    if ecm == 365:
+        processes['tt'] = ('p8_ee_tt_ecm365',)
+    return processes
 
 @lru_cache(maxsize=None)
 def _default_processes(ecm: int
@@ -771,6 +780,8 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     if cat in ['ee', 'mumu']:
         return bkgs
     elif cat == 'qq':
+        bkgs[f'p8_ee_WW_ee_ecm{ecm}']   = {'frac': 1, 'nb': middle}
+        bkgs[f'p8_ee_WW_mumu_ecm{ecm}'] = {'frac': 1, 'nb': middle}
         # Special case: top production at 365 GeV
         if ecm == 365:
             bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}

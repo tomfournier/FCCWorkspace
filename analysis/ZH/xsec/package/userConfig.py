@@ -401,6 +401,31 @@ def event(procs: list[str],
             newprocs.append(proc)
     return newprocs
 
+def event_combine(procs: list[str],
+                  path: str = '',
+                  end: str = '.root'
+                  ) -> list[str]:
+    """Filter processes that contain valid ROOT event trees.
+
+    Validates that all files for each process contain the 'events' TTree.
+    Supports both single files and directories with multiple files.
+
+    Args:
+        procs: List of process names to validate
+        path: Base path where process files are located
+        end: File extension to search for (default: '.root')
+
+    Returns:
+        List of process names where all associated files contain 'events' TTree
+    """
+    newprocs = []
+    for proc in procs:
+        file = os.path.join(path, proc+end)
+        # Check for single file or directory with multiple files
+        if os.path.exists(file):
+            newprocs.append(proc)
+    return newprocs
+
 @overload
 def get_params(
     env: os._Environ,

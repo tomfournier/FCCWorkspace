@@ -500,6 +500,74 @@ def concat(
 
     return h_concat
 
+
+# _______________
+def unroll(hist, outName: str):
+
+    import ROOT
+
+    if "TH1" in hist.ClassName():
+        hist.SetName(outName)
+        return hist
+
+    elif "TH2" in hist.ClassName():
+        # Get the number of bins in X and Y
+        n_bins_x = hist.GetNbinsX()
+        n_bins_y = hist.GetNbinsY()
+
+        # Create a 1D histogram to hold the unrolled data
+        n_bins_1d = n_bins_x * n_bins_y
+        h1 = ROOT.TH1D("h1", "1D Unrolled Histogram", n_bins_1d, 0.5, n_bins_1d + 0.5)
+
+        # Loop over all bins in the 2D histogram
+        for bin_x in range(1, n_bins_x + 1):  # Bin indexing starts at 1
+            for bin_y in range(1, n_bins_y + 1):
+                # Calculate the global bin number for the 1D histogram
+                bin_1d = (bin_y - 1) * n_bins_x + bin_x
+
+                # Get the content and error from the 2D histogram
+                content = hist.GetBinContent(bin_x, bin_y)
+                error = hist.GetBinError(bin_x, bin_y)
+
+                # Set the content and error in the 1D histogram
+                h1.SetBinContent(bin_1d, content)
+                h1.SetBinError(bin_1d, error)
+        h1.SetName(outName)
+        return h1
+
+
+    elif "TH3" in hist.ClassName():
+        # Get binning information
+        nbinsX = hist.GetNbinsX()
+        nbinsY = hist.GetNbinsY()
+        nbinsZ = hist.GetNbinsZ()
+        nbins1D = nbinsX * nbinsY * nbinsZ
+
+        # Create a 1D histogram with the correct number of bins
+        h1 = ROOT.TH1D("h1_unrolled", "Unrolled 3D Histogram", nbins1D, 0, nbins1D)
+
+        # Fill the 1D histogram by unrolling the 3D histogram
+        bin1D = 1  # ROOT bins are 1-based
+        for x in range(1, nbinsX + 1):
+            for y in range(1, nbinsY + 1):
+                for z in range(1, nbinsZ + 1):
+                    content = hist.GetBinContent(x, y, z)
+                    error = hist.GetBinError(x, y, z)  # Retrieve bin error
+                    if content < 0:
+                        LOGGER.warning(f'Negative content for {hist.GetName()}:\n'
+                                       f'bin ({x}, {y}, {z}) = {content} +/- {error}')
+                        content = 0
+                        error = 0
+
+                    h1.SetBinContent(bin1D, content)
+                    h1.SetBinError(bin1D, error)  # Set the bin error
+                    bin1D += 1  # Increment the 1D bin index
+        h1.SetName(outName)
+        return h1
+    else:
+        hist.SetName(outName)
+        return hist
+
 # ____________________________________
 def proc_scale(
     hist: 'ROOT.TH1',

@@ -40,11 +40,11 @@ from package.userConfig import loc
 from package.config import (
     timer,              # Timing utility
     mk_processes,       # Build process definitions
-    z_decays,           # Z boson decay modes
+    get_process_list,
     H_decays            # Higgs decay modes
 )
-from package.tools.utils import mkdir               # Directory creation
-from package.tools.process import get_hist, concat  # Histogram utilities
+from package.tools.utils import mkdir                       # Directory creation
+from package.tools.process import get_hist, concat, unroll  # Histogram utilities
 
 
 
@@ -55,12 +55,9 @@ from package.tools.process import get_hist, concat  # Histogram utilities
 # Decay categories to process (from command-line: cat1-cat2 format)
 cats, ecm = arg.cat.split('-'), arg.ecm
 
-# Histograms to process for BDT training/measurement
-hNames = ['zll_recoil_m']  # Recoil mass (Higgs candidate)
-
 # Selection strategies to process (from command-line or defaults)
 if arg.sels=='':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep']  # Default selections
+    sels = ['Baseline']  # Default selections
 else:
     sels = arg.sels.split('-')  # Parse from command-line
 
@@ -81,47 +78,9 @@ if procs_scales!={}:
 
 # Define physics processes and their Higgs decay modes
 processes = mk_processes(
-    ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'],
+    ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'] + ['tt'] if ecm == 365 else [],
     H_decays=H_decays+('ZZ_noInv',), ecm=ecm
 )
-
-# Background samples: WW, ZZ, Z/gamma -> ll, photon processes, invisible decays
-samples_bkg = [
-    # ee -> WW
-    f'p8_ee_WW_ecm{ecm}',
-    f'p8_ee_WW_ee_ecm{ecm}',
-    f'p8_ee_WW_mumu_ecm{ecm}',
-
-    # ee -> ZZ
-    f'p8_ee_ZZ_ecm{ecm}',
-
-    # ee -> Z/ga -> ll
-    f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
-    f'wzp6_ee_mumu_ecm{ecm}',
-    f'wzp6_ee_tautau_ecm{ecm}',
-
-    # e ga -> e Z(ll)
-    f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-    f'wzp6_egamma_eZ_Zee_ecm{ecm}',
-    f'wzp6_gammae_eZ_Zee_ecm{ecm}',
-
-    # ga ga -> ll
-    f'wzp6_gaga_ee_60_ecm{ecm}',
-    f'wzp6_gaga_mumu_60_ecm{ecm}',
-    f'wzp6_gaga_tautau_60_ecm{ecm}',
-
-    # ee -> nu nu Z
-    f'wzp6_ee_nuenueZ_ecm{ecm}'
-]
-
-# Signal samples: ee -> Z(ll)H(decay) with all Higgs decay modes
-samples_sig = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in H_decays + ('ZZ_noInv',)]
-# Add additional signal modes: ee -> eeH, mumuH, and Hinv
-samples_sig.extend([f'wzp6_ee_eeH_ecm{ecm}', f'wzp6_ee_mumuH_ecm{ecm}', f'wzp6_ee_ZH_Hinv_ecm{ecm}'])
-
-# Combine signal and background samples
-samples = samples_sig + samples_bkg
 
 
 
@@ -131,8 +90,6 @@ samples = samples_sig + samples_bkg
 
 def run(cats: str,
         sels: str,
-        hNames: list[str],
-        samples: list[str]
         ) -> None:
     """Process measurement histograms: split by BDT score and combine channels.
 
@@ -145,8 +102,6 @@ def run(cats: str,
     Args:
         cats: List of decay categories to process
         sels: List of selection strategies
-        hNames: Names of histograms to process
-        samples: List of physics processes to handle
 
     Returns:
         None (writes processed histograms to HIST_PROCESSED directories)
@@ -156,6 +111,10 @@ def run(cats: str,
     for cat in cats:
         LOGGER.info(f'Processing histograms for {cat}')
         inDir = loc.get('HIST_PREPROCESSED', cat, ecm)
+
+        # Histograms to process for BDT training/measurement
+        hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_m_recoil_m']
+        samples = get_process_list(cat, ecm).keys()
 
         # Process each selection strategy
         for sel in sels:
@@ -208,9 +167,17 @@ def run(cats: str,
 
                     has_valid_hist = True
                     # Concatenate high and low region histograms
-                    h = concat([h_low, h_high], hName)
+                    if cat in ['ee', 'mumu']:
+                        h = concat([h_low, h_high], hName)
+                        hists.extend([h, h_high, h_low])
+                    elif cat == 'qq':
+                        h_high_1D = unroll(h_high, 'zqq_fit_high')
+                        h_low_1D  = unroll(h_low,  'zqq_fit_low')
+                        h = concat([h_high_1D, h_low_1D], 'zqq_fit')
 
-                    hists.extend([h, h_high, h_low])
+                        hists.extend([h, h_high, h_low, h_high_1D, h_low_1D])
+                    else:
+                        raise ValueError(f'{cat = } is not supported, choose between [ee, mumu, qq]')
 
                 # Skip sample if no valid histograms found
                 if not has_valid_hist:
@@ -233,7 +200,7 @@ def run(cats: str,
 if __name__=='__main__':
     try:
         # Run histogram processing pipeline
-        run(cats, sels, hNames, samples)
+        run(cats, sels)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:
