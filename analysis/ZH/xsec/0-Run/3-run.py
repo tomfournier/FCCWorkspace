@@ -150,10 +150,10 @@ def run(cat: str,
     # Build per-stage arguments and apply plotting cutflow flags
     extra_args = ['--cat', cat, '--ecm', str(ecm)]
     if 'plots' in script:
-        if arg.yields: extra_args.append('--yields')
-        if arg.decay:  extra_args.append('--decay')
-        if arg.make:   extra_args.append('--make')
-        if arg.scan:   extra_args.append('--scan')
+        if not arg.yields: extra_args.append('--no-yields')
+        if not arg.decay:  extra_args.append('--no-decay')
+        if not arg.make:   extra_args.append('--no-make')
+        if arg.scan:       extra_args.append('--scan')
     elif 'cutflow' in script:
         if not arg.tot:  extra_args.append('--no-tot')
         if not arg.test: extra_args.append('--no-test')
