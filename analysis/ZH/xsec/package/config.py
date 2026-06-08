@@ -737,9 +737,9 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
 
     # Common diboson processes
     common: dict[str, dict[str, int]] = {}
-    common[f'p8_ee_ZZ_ecm{ecm}'] = {'frac': 1, 'nb': middle}
+    common[f'p8_ee_ZZ_ecm{ecm}'] = {'frac': 0.5 if cat=='qq' else 1, 'nb': middle}
     if not train or (cat == 'qq'):
-        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 1, 'nb': big}
+        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 0.1 if cat=='qq' else 1, 'nb': big}
 
     category_specific = {
         'ee': {
@@ -757,9 +757,9 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
             f'wzp6_gaga_mumu_60_ecm{ecm}':     {'frac': 1, 'nb': middle},
         },
         'qq': {
-            f'wzp6_ee_qq_ecm{ecm}':            {'frac': 1, 'nb': big},
-            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
-            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            f'wzp6_ee_qq_ecm{ecm}':            {'frac': 0.5, 'nb': big},
+            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1,   'nb': middle},
+            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1,   'nb': middle},
             # f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
         },
     }
