@@ -149,14 +149,14 @@ baseline_labels_qq = {
 }
 
 if ecm == 240:
-    baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 20 & zqq_m. < 140'
+    baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 20 & zqq_m < 140'
     baseline_labels_qq['cut3'] = '20 < m_{jj} < 140'
 
     baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 90'
     baseline_labels_qq['cut4'] = '20 < p_{jj} < 70 GeV'
 
 elif ecm == 365:
-    baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 60 & zqq_m. < 200'
+    baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 60 & zqq_m < 200'
     baseline_labels_qq['cut3'] = '60 < m_{jj} < 200'
 
     baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 160'
@@ -167,8 +167,8 @@ elif ecm == 365:
 
 
 # Copy baseline cuts for each selection strategy
-cuts_qq       = {sel: baseline_cuts_ll.copy()   for sel in sels}
-cuts_label_qq = {sel: baseline_labels_ll.copy() for sel in sels}
+cuts_qq       = {sel: baseline_cuts_qq.copy()   for sel in sels}
+cuts_label_qq = {sel: baseline_labels_qq.copy() for sel in sels}
 
 
 
@@ -190,11 +190,10 @@ def run(cats: list[str],
         procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
         histos = histos_ll if cat in ['ee', 'mumu'] else histos_qq
-        variables = [v for v in histos.keys() if v not in 'zqq_m_recoil_m']
+        variables = [v for v in histos.keys() if v!='zqq_m_recoil_m']
 
         cuts = cuts_ll if cat in ['ee', 'mumu'] else cuts_qq
         cuts_label = cuts_label_ll if cat in ['ee', 'mumu'] else cuts_label_qq
-
 
         # Define input and output directories
         if arg.kin: inDir = loc.get('EVENTS_TEST', cat, ecm)
