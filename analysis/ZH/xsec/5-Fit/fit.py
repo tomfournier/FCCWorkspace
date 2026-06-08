@@ -233,7 +233,8 @@ def root_extraction(
     LOGGER.debug('Extracting results from RooFitResult')
     try:
         import ROOT
-        file = ROOT.TFile.Open(file)
+        # Convert PathObj to string if necessary
+        file = ROOT.TFile.Open(str(file))
         if not file or file.IsZombie():
             LOGGER.warning(f'Could not open {file}')
             return -100, -100
@@ -279,7 +280,7 @@ def res_extraction(res_log: str
 
     # Parse log file for signal strength result
     # (parse from end to find latest result)
-    with open(res_log) as file:
+    with open(str(res_log)) as file:
         lines = file.readlines()
         for line in reversed(lines):
             parts = line.replace('\t', ' ').split()
@@ -320,7 +321,7 @@ def res_saving(
             LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
 
         # Write results to output file
-        with open(f'{res}/results{tar}.txt', 'w') as f:
+        with open(str(res) + f'/results{tar}.txt', 'w') as f:
             f.write(f'{mu}\n{err}\n')
 
         LOGGER.debug(f'Saved results in {res}/results{tar}.txt')
