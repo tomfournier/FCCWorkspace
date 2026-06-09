@@ -99,8 +99,9 @@ elif ecm == 365:
 
 
 # Copy baseline cuts for each selection strategy
-cuts_ll       = {sel: baseline_cuts_ll.copy()   for sel in sels}
-cuts_label_ll = {sel: baseline_labels_ll.copy() for sel in sels}
+# Sort cuts by number and copy for each selection strategy
+cuts_ll       = {sel: {k: baseline_cuts_ll[k]   for k in sorted(baseline_cuts_ll.keys())}   for sel in sels}
+cuts_label_ll = {sel: {k: baseline_labels_ll[k] for k in sorted(baseline_labels_ll.keys())} for sel in sels}
 
 # Add additional cuts for specific selection strategies
 if ecm == 240:
@@ -166,9 +167,9 @@ elif ecm == 365:
     baseline_labels_qq['cut9'] = 'Thrust < 0.85'
 
 
-# Copy baseline cuts for each selection strategy
-cuts_qq       = {sel: baseline_cuts_qq.copy()   for sel in sels}
-cuts_label_qq = {sel: baseline_labels_qq.copy() for sel in sels}
+# Sort cuts by number and copy for each selection strategy
+cuts_qq       = {sel: {k: baseline_cuts_qq[k]   for k in sorted(baseline_cuts_qq.keys())}   for sel in sels}
+cuts_label_qq = {sel: {k: baseline_labels_qq[k] for k in sorted(baseline_labels_qq.keys())} for sel in sels}
 
 
 
