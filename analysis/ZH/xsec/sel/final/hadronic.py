@@ -8,7 +8,7 @@ def Baseline_cut_qq(ecm: int) -> str:
         cut += ' && zqq_p > 20 && zqq_p < 160'
     else:
         raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
-    cut += ' && zqq_costheta < 0.85'
+    cut += ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
     cut += ' && acolinearity > 0.35'
     cut += ' && delta_mWW > 6'
     cut += ' && cosTheta_miss < 0.995'

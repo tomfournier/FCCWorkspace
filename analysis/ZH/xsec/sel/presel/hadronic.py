@@ -329,7 +329,7 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
     ### CUT 5: Z Polar angle
     ##########
     if test:
-        df = df.Filter('zqq_costheta < 0.85')
+        df = df.Filter('zqq_costheta > -0.85 && zqq_costheta < 0.85')
 
     ##########
     ### CUT 6: Acolinearity
@@ -438,7 +438,7 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ### CUT 5: Z Polar angle
     ##########
     if test:
-        df = df.Filter('zqq_costheta < 0.85')
+        df = df.Filter('zqq_costheta > -0.85 && zqq_costheta < 0.85')
         df, hists = cutflow(df, hists, 5)
 
     ##########
