@@ -148,7 +148,8 @@ def run(inDir: str,
         outDir = loc.get('MVA_INPUTS', cat, ecm, sel)
 
         # Initialize storage containers for each process
-        files, df, eff, N_events = {}, {}, {}, {}
+        files, eff, N_events = {}, {}, {}
+        df: dict[str, pd.DataFrame] = {}
 
         # Formatting for aligned console output
         lenght = max(len(m) for m in modes)
@@ -174,16 +175,20 @@ def run(inDir: str,
 
         LOGGER.debug('Printing BDT inputs number for the different modes')
         # Split data into training (50%) and validation (50%) sets per process
+        good_modes = []
         for mode in modes:
             space = '\n' if mode == modes_list[-1] else ''
             LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}{space}')
+            if df[mode].shape[0] == 0:
+                continue
             df[mode] = df_split_data(
                 df[mode], N_BDT_inputs,
                 eff, xsec, N_events, mode
             )
+            good_modes.append(mode)
 
         # Merge all processes and save to single pickle file for BDT training
-        dfsum = pd.concat([df[mode] for mode in modes])
+        dfsum = pd.concat([df[mode] for mode in good_modes])
         to_pkl(dfsum, outDir)
 
 

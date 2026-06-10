@@ -226,7 +226,16 @@ def df_split_data(
     '''
     from sklearn.model_selection import train_test_split
 
-    sampled: pd.DataFrame = df.sample(n=N_BDT_inputs[mode], random_state=1)
+    n_events = df.shape[0]
+    if n_events == 0:
+        LOGGER.error(f'No event for mode {mode}')
+        exit(1)
+    elif n_events < N_BDT_inputs[mode]:
+        LOGGER.warning(f'For mode {mode}: n_events < BDT input ({n_events:,} vs {N_BDT_inputs[mode]:,})\n'
+                       'Using the total number of events available')
+        sampled: pd.DataFrame = df.sample(n_events, random_state=1)
+    else:
+        sampled: pd.DataFrame = df.sample(N_BDT_inputs[mode], random_state=1)
     # Split 50/50 into training and validation sets
     df0: pd.DataFrame; df1: pd.DataFrame
     df0, df1 = train_test_split(sampled, test_size=0.5, random_state=7)
