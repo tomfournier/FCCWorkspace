@@ -739,7 +739,10 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     common: dict[str, dict[str, int]] = {}
     common[f'p8_ee_ZZ_ecm{ecm}'] = {'frac': 0.25 if cat=='qq' else 1, 'nb': middle}
     if not train or (cat == 'qq'):
-        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 0.05 if cat=='qq' else 1, 'nb': big}
+        if train:
+            common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 0.2 if (cat=='qq') and (ecm==240) else 1, 'nb': big}
+        else:
+            common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 0.05 if cat=='qq' else 1, 'nb': big}
 
     category_specific = {
         'ee': {
