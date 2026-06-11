@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     import numpy as np
 
 from ..tools.utils import get_df, mkdir
-from ..tools.process import getMetaInfo
+from ..tools.process import get_range_decay, getMetaInfo
 from ..config import h_colors, h_labels
 from ..logger import get_logger
 
@@ -160,8 +160,8 @@ def CutFlow(
     format: list[str] = ['png'],
     suffix: str = '',
     sig_scale: float = 1.0,
-    yMin: float = 1e4,
-    yMax: float = 1e10
+    yMin: float | None = None,
+    yMax: float | None = None
      ) -> None:
 
     '''Render cutflow histogram with stacked backgrounds, signal overlay, and significance.
@@ -236,7 +236,7 @@ def CutFlow(
                         if sig_scale!=1 else legend[procs[0]], 'L')
 
     # Setup background stack and total background histogram
-    st, h_bkg_tot = ROOT.THStack(), None
+    st, h_bkg_tot, bkgs = ROOT.THStack(), None, []
     st.SetName('stack')
     for bkg in procs[1:]:
         h_bkg = flow[bkg]['hist'][0]
@@ -244,8 +244,10 @@ def CutFlow(
         # Accumulate total background for overlay
         if h_bkg_tot is None:
             h_bkg_tot = h_bkg.Clone('h_bkg_tot')
+            bkgs.append(h_bkg)
         else:
             h_bkg_tot.Add(h_bkg)
+            bkgs.append(h_bkg)
 
         style_hist(
             h_bkg,
@@ -262,7 +264,7 @@ def CutFlow(
     h_bkg_tot.SetLineWidth(2)
 
     # Extract yields and errors for significance calculation
-    nbins = len(cuts[sel])
+    nbins = h_bkg_tot.GetNbinsX()
     contents = np.vstack([
         np.fromiter((float(hist.GetBinContent(i+1)) for i in range(nbins)), dtype=float)
         for hist in hists_yields
@@ -285,13 +287,16 @@ def CutFlow(
         ymin=yMin,ymax=yMax,
         ecm=ecm, lumi=lumi,
         xtitle='None',
-        cutflow=True
+        cutflow=True,
+        hists=bkgs
     )
     plotter.cfg = cfg
 
     # Setup canvas with cut step labels
     cat_label = 'e' if cat=='ee' else '#mu'
-    canvas, dummy = setup_cutflow_hist(nbins, labels[sel], cat_label)
+    # Convert labels dict to ordered list matching histogram bin order
+    labels_ordered = {k: labels[sel][k] for k in sorted(labels[sel].keys())}
+    canvas, dummy = setup_cutflow_hist(nbins, labels_ordered, cat_label)
 
     # Draw histograms in order: dummy frame, backgrounds, total bkg, signal, legend
     dummy.Draw('HIST')
@@ -437,20 +442,27 @@ def CutFlowDecays(
     eff_min, eff_max = eff_avg-min(eff_final), max(eff_final)-eff_avg
 
     # Configure linear-scale plot
+    ref_hist = next(iter(hists))
     cfg = build_cfg(
-        hists[-1], logX=False, logY=False,
+        ref_hist,
+        logX=False, logY=False,
         xmin=0, xmax=nbins,
         ymin=yMin, ymax=yMax,
         xtitle='None',
         ytitle='Selection efficiency [%]',
         ecm=ecm, lumi=lumi,
-        cutflow=True
+        range_func=get_range_decay,
+        cutflow=True,
+        decay=True,
+        hists=hists
     )
     plotter.cfg = cfg
 
     # Setup canvas and draw efficiency curves
     cat_label = 'e' if cat=='ee' else '#mu'
-    canvas, dummy = setup_cutflow_hist(nbins, labels[sel], cat_label)
+    # Convert labels dict to ordered list matching histogram bin order
+    labels_ordered = {k: labels[sel][k] for k in sorted(labels[sel].keys())}
+    canvas, dummy = setup_cutflow_hist(nbins, labels_ordered, cat_label)
     dummy.Draw('HIST')
 
     # Add average efficiency statistics box
@@ -730,6 +742,7 @@ def get_cutflow(
             has_file = bool(flist)
             processed = events[sample]['eventsProcessed']
             xsec = events[sample]['cross-section']
+
             # Compute luminosity scaling factor: lumi [ab^-1] * 1e6 [fb/ab] * xsec [fb] / N_events
             scale_sample = (lumi * 1e6 * xsec / processed) if (processed and scaled) else 1.0
 
@@ -747,6 +760,7 @@ def get_cutflow(
                         if df is None or df.empty:
                             # Store filter expressions even if no data
                             for cut, filter in cuts[sel].items():
+                                LOGGER.debug(f'{cut = }, {filter = }')
                                 events[sample][sel]['filter'][cut] = filter
                             continue
 
@@ -754,6 +768,7 @@ def get_cutflow(
                         df_mask = np.ones(len(df), dtype=bool)
                         for cut, filter in cuts[sel].items():
                             events[sample][sel]['filter'][cut] = filter
+                            LOGGER.debug(f'{cut = }, {filter = }')
                             # Evaluate cut expression and accumulate passing events
                             count, df_mask = get_count(
                                 df, df_mask, [f],
@@ -775,6 +790,7 @@ def get_cutflow(
                     events[sample][sel] = {'raw_count': {}, 'cut': {}, 'err': {}, 'filter': {}}
                     for cut, filter in cuts[sel].items():
                         events[sample][sel]['filter'][cut] = filter
+                        LOGGER.debug(f'{cut = }, {filter = }')
                         # Only populate first cut with scaled generator events
                         if cut=='cut0' and processed:
                             scale = lumi * 1e6 * xsec / processed
@@ -789,7 +805,7 @@ def get_cutflow(
     # Save event counts to JSON for bookkeeping
     LOGGER.info('Dumping events in a json file')
     out_json = f'{loc_json}/{ecm}/{cat}'
-    dump_json(events, out_json, f'events_{cat}_{ecm}')
+    dump_json(events, out_json, 'events')
 
     # Generate plots and tables for each selection
     for sel in sels:
@@ -813,8 +829,7 @@ def get_cutflow(
                 procs, colors, legend, cuts, cuts_label,
                 ecm=ecm, lumi=lumi,
                 outName='cutFlow', format=format,
-                sig_scale=sig_scale,
-                yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
+                sig_scale=sig_scale
             )
             # Render per-decay efficiency plots
             LOGGER.info('Making CutflowDecays plot')
@@ -845,8 +860,7 @@ def get_cutflow(
                 flow, outDir, cat, sel,
                 procs_cat, colors, legend, cuts, cuts_label,
                 ecm=ecm, lumi=lumi, outName='cutFlow',
-                format=format, sig_scale=sig_scale,
-                yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
+                format=format, sig_scale=sig_scale
             )
             LOGGER.info('Makinf CutflowDecays plot')
             CutFlowDecays(
@@ -871,8 +885,7 @@ def get_cutflow(
                 procs_tot, colors, legend, cuts, cuts_label,
                 ecm=ecm, lumi=lumi,
                 suffix='_tot', format=format,
-                sig_scale=sig_scale,
-                yMin=1e4 if ecm==240 else (1e2 if ecm==365 else 1)
+                sig_scale=sig_scale
             )
             LOGGER.info('Making CutflowDecays plot')
             CutFlowDecays(
@@ -880,5 +893,5 @@ def get_cutflow(
                 H_decays, cuts, cuts_label,
                 ecm=ecm, lumi=lumi,
                 format=format, suffix='_tot',
-                yMin=-30, yMax=160
+                yMin=0 if cat=='qq' else -30, yMax=160
             )

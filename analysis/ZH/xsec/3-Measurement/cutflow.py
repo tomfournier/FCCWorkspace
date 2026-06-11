@@ -132,7 +132,7 @@ baseline_cuts_qq = {
     'cut0': '',
     'cut1': '',
     'cut2': '',
-    'cut5': '' if arg.kin else 'zqq_costheta < 0.85',
+    'cut5': '' if arg.kin else 'zqq_costheta > -0.85 & zqq_costheta < 0.85',
     'cut6': '' if arg.kin else 'acolinearity > 0.35',
     'cut7': '' if arg.kin else 'delta_mWW > 6',
     'cut8': '' if arg.kin else 'cosTheta_miss < 0.995',
@@ -143,7 +143,7 @@ baseline_labels_qq = {
     'cut0': 'No cut',
     'cut1': 'Veto leptonic',
     'cut2': 'Clustering',
-    'cut5': 'cos#theta_{jj} < 0.85',
+    'cut5': '|cos#theta_{jj}| < 0.85',
     'cut6': 'Acolinearity > 0.35',
     'cut7': 'WW pair mass',
     'cut8': 'cos#theta_{miss} < 0.995',
@@ -204,6 +204,7 @@ def run(cats: list[str],
         # Extract required branches from cuts and variables
         branches = branches_from_cuts(cuts, variables)
         br_str = ', '.join(br for br in branches)
+        if not branches: branches = [variables[0]]
         LOGGER.info(f'Only importing these branches from the .root file: {br_str}')
 
         # Generate cutflow plots and tables

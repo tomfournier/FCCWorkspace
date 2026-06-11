@@ -302,7 +302,7 @@ def getcut(
 
 # ________________________________________
 def get_count(
-    df: 'pd.DataFrame',
+    df: 'pd.DataFrame' | None,
     df_mask: 'np.ndarray' | None,
     file_list: list[str],
     cut_name: str,
@@ -326,13 +326,14 @@ def get_count(
     Returns:
         tuple: (event count, updated boolean mask combining previous mask with new filter).
     '''
-    if df is None or df.empty:
-        return 0, df_mask
 
     # Try to read directly from pre-computed histogram in ROOT files
     if filter_expr == '':
         count = get_cut(file_list, cut_name)
         return count, df_mask
+
+    if df is None or df.empty:
+        return 0, df_mask
 
     # Fall back to dataframe filtering
     try:
@@ -436,7 +437,8 @@ def get_flow(
     json_file: bool = False,
     loc: str = '',
     outName: str = 'flow',
-    suffix: str = ''
+    suffix: str = '',
+    save_hist: bool = False
      ) -> dict[str,
                dict[str,
                     'ROOT.TH1' | dict[str,
@@ -498,7 +500,15 @@ def get_flow(
         flow[proc]['hist'].append(hist)
 
     if json_file:
+        mkdir(loc)
         dump_json(flow, loc, outName+_sel+suffix, hist=True, procs=procs)
+
+    if save_hist:
+        mkdir(loc)
+        with ROOT.TFile(f"{loc}/{outName}{_sel}{suffix}.root", 'RECREATE'):
+            for proc in procs:
+                h = flow[proc]['hist'][0]
+                h.Write()
     return flow
 
 # _______________________________________________________

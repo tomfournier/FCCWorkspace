@@ -156,26 +156,26 @@ def build_cfg(
         dict: Complete plotting configuration dictionary.
     '''
     # Adjust scale factors for log/linear y-axis
-    scale_min, scale_max = 5e-1 if logY else 1, 1e4 if logY else 1.5
-    if not cutflow:
-        if not decay:
-            xMin, xMax, yMin, yMax = range_func(
-                [hist], hists, logY=logY, stack=stack, strict=strict,
-                xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
-                scale_min=scale_min, scale_max=scale_max
-            )
-        else:
-            xMin, xMax, yMin, yMax = range_func(
-                hists, logY=logY,  strict=strict,
-                xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
-                scale_min=scale_min, scale_max=scale_max
-            )
+    if cutflow:
+        scale_min, scale_max = 5e-1 if logY else 1, 1e2 if logY else 1.5
     else:
-        if (xmin is None) or (xmax is None) or \
-                (ymin is None) or (ymax is None):
-            warning('Range was not set, aborting...')
-        xMin, xMax, yMin, yMax = xmin, xmax, ymin, ymax
+        scale_min, scale_max = 5e-1 if logY else 1, 1e4 if logY else 1.5
+    if not decay:
+        xMin, xMax, yMin, yMax = range_func(
+            [hist], hists, logY=logY, stack=stack, strict=strict,
+            xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
+            scale_min=scale_min, scale_max=scale_max
+        )
+    else:
+        xMin, xMax, yMin, yMax = range_func(
+            hists, logY=logY, strict=strict,
+            xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
+            scale_min=scale_min, scale_max=scale_max
+        )
 
+    if cutflow:
+        xMin, xMax = xmin, xmax
+        if ymin is not None and (ymin < yMin): yMin = ymin
     # Determine x-axis title from parameter or histogram
     if xtitle=='':
         xTitle = hist.GetXaxis().GetTitle()
