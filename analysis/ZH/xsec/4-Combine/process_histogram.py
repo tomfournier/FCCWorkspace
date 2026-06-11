@@ -148,7 +148,7 @@ def run(cats: str,
                     h_high = get_hist(
                         hName, sample, processes, inDir,
                         suffix=suffix_high,
-                        rebin=1,
+                        rebin=2 if cat=='qq' else 1,
                         proc_scales=procs_scales
                     )
                     h_low  = get_hist(
