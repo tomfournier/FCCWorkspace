@@ -69,7 +69,7 @@ def add_cat_argument(
         group = parser.add_argument_group('General arguments')
 
     # Use metavar to show a concise pattern instead of listing all choices
-    metavar = 'CHANNELS' if multi else ('{ee, mumu, qq}' if allow_qq else '{ee, mumu}')
+    metavar = 'CHANNELS' if multi else 'CHANNEL'
     help_text = ('Final state lepton category: ee, mumu' + ', qq' if allow_qq else '' +
                  (' or combinations separated by dash like ee-mumu' if multi else '') +
                  f' (default: "{def_value}")')
@@ -104,7 +104,7 @@ def add_ecm_argument(
     if group is None:
         group = parser.add_argument_group('General arguments')
 
-    metavar = 'ENERGIES' if multi else '{240, 365}'
+    metavar = 'ENERGIES' if multi else 'ENERGY'
     help_text = ('Center-of-mass energy in GeV: 240 or 365' +
                  (' or combinations separated by dash like 240-365' if multi else '') +
                  ' (default: 240)')
@@ -169,7 +169,7 @@ def add_run_argument(
         raise ValueError(f'n_stages must be 2, 3, or 4, got {n_stages}')
 
     if group is None:
-        group = parser.add_argument_group('Execution arguments')
+        group: ArgumentParser = parser.add_argument_group('Execution arguments')
 
     help_text = f'Pipeline stages to execute (1-{n_stages} or combinations separated by dash) (default: {default})'
 
@@ -211,7 +211,7 @@ def add_batch_argument(
          ) -> None:
     '''Add --batch for HTCondor batch processing.'''
     if group is None:
-        group = parser.add_argument_group('Execution arguments')
+        group: ArgumentParser = parser.add_argument_group('Execution arguments')
     group.add_argument(
         '--batch',
         action='store_true',
@@ -450,7 +450,7 @@ def add_fit_plot_args(
     args.add_argument(
         '--sig2',
         action='store_true',
-        help='Plot 95% CL'
+        help='Plot 95%% CL'
     )
     args.add_argument(
         '--bias',
@@ -458,9 +458,14 @@ def add_fit_plot_args(
         help='Do likelyhood scan for bias fit'
     )
     args.add_argument(
-        '--comb',
+        '--lep',
         action='store_true',
-        help='Do the likelyhood scan for combine fit'
+        help='Do the likelyhood scan for the leptonic channel'
+    )
+    args.add_argument(
+        '--combine',
+        action='store_true',
+        help='Do the likelyhood scan for all channel'
     )
     args.add_argument(
         '--which',

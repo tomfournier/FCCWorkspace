@@ -29,12 +29,13 @@ from package.parsing import create_parser, parse_args, set_log
 from package.logger import get_logger
 parser = create_parser(
     cat_multi=True,
+    allow_empty=True,
     ecm_multi=True,
     include_sels=True,
     fit_plot=True,
     description='Fit Plots Script'
 )
-arg = parse_args(parser, validate_cat=True)
+arg = parse_args(parser, False, False)
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -71,13 +72,15 @@ plt.ioff()
 
 # Parse main inputs
 cats, ecms, sels = arg.cat.split('-'), arg.ecm.split('-'), arg.sels.split('-')
-if arg.comb: cats.append('combined')
+if arg.lep:     cats.append('leptonic')
+if arg.combine: cats.append('combined')
 
 params_label = {
     'ee':       r'$Z(\to e^+e^-)H$',
     'mumu':     r'$Z(\to\mu^+\mu^-)H$',
     'qq':       r'$Z(\tp q\bar{q})H$',
-    'combined': r'$Z(\to\ell^+\ell^-)H$',
+    'leptonic': r'$Z(\to\ell^+\ell^-)H$',
+    'combined': r'$Z(\to\text{all})H$',
     # 'combined': r'ZH',
     '240':      '240 GeV',
     '365':      '365 GeV',
