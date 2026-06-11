@@ -61,14 +61,9 @@ samples = get_process_list(cat, ecm).keys()
 
 # Load event samples with events TTree
 processList = event(samples, inputDir)
-if f'p8_ee_WW_ee_ecm{ecm}' in processList:
-    processList.remove(f'p8_ee_WW_ee_ecm{ecm}')
-if f'p8_ee_WW_mumu_ecm{ecm}' in processList:
-    processList.remove(f'p8_ee_WW_mumu_ecm{ecm}')
 
 # Define BDT score from trained model and apply BDT cut
-sel_BDT = 'Baseline'
-loc_BDT = loc.get('BDT', cat, ecm, sel_BDT)
+loc_BDT = loc.get('BDT', cat, ecm, 'Baseline')
 defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
 
 
@@ -112,7 +107,11 @@ cutList = make_high_low(cutList, bdt_cut, sels)
 customHists: dict[str, dict[str, str | int | float]] = {}
 if cat in ['ee', 'mumu']:
     customHists['leps_iso']    = {'name':'ConeIsolation', 'title':'I_{rel}'}
-    customHists['leps_iso_no'] = {'name':'n_leptons', 'title':'Isolated leptons'}
+    customHists['leps_iso_no'] = {'name':'n_leptons',     'title':'Isolated leptons'}
+else:
+    customHists['best_cluster_idx'] = {'name':'best_cluster_idx', 'title':'Best clustering algorithm'}
+    customHists['njets_inclusive']  = {'name':'njets_inclusive',  'title':'Number of jets (inclusive)'}
+    customHists['njets_incl']       = {'name':'njets_incl',       'title':'Number of jets (inclusive)'}
 
 # Output histogram definitions (name, title, binning)
 histoList = histos_ll if cat in ['ee', 'mumu'] else histos_qq
