@@ -306,7 +306,10 @@ def get_hist(
         scale = xsec_new / xsec
 
     if rebin!=1:
-        h.Rebin(rebin)
+        try:
+            h.Rebin2D(rebin)
+        except Exception:
+            h.Rebin(rebin)
 
     if scale!=1.0:
         h.Scale(scale)

@@ -68,6 +68,8 @@ from package.func.bias import pseudo_datacard                 # Bias test utilit
 # Bundle parsed arguments for configuration
 cat, ecm, sel, pert = arg.cat, arg.ecm, arg.sel, arg.pert  # Perturbation factor for bias test
 lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)     # Integrated luminosity [ab^-1]
+if (arg.cat and arg.lep) or (arg.cat and arg.combine):
+    raise ValueError("Cannot use '--cat' and '--lep' or '--combine' at the same time")
 if arg.lep and arg.combine:
     raise ValueError("Cannot use '--lep' and '--combine' at the same time")
 cat = 'leptonic' if arg.lep     else cat                   # Use 'leptonic' for ee and mumu channel combination
@@ -111,8 +113,7 @@ def _setup_cache() -> None:
     # Determine processed histogram directory
 
     # Process labels used across plots and pseudo-data
-    sig_label = ('ZH' if 'tot' not in arg.extra else f'Z{cat}H')
-    procs_labels = [sig_label, 'WW', 'ZZ', 'Zgamma', 'Rare']
+    procs_labels = ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
     processes = mk_processes(procs_labels, ecm=ecm)
 
     # Flatten actual sample names for caching
@@ -121,7 +122,7 @@ def _setup_cache() -> None:
         samples.extend(processes[p])
 
     # Preload the most used histograms
-    hNames = ('zll_recoil_m',)
+    hNames = ('zqq_fit',) if cat=='qq' else ('zll_recoil_m',)
     LOGGER.debug('Preloading histograms and cross-section before bias loop')
     preload_histograms(samples, h_inDir, hNames=hNames, rmww=True)
 
@@ -162,7 +163,7 @@ def run_fit(target: str,
         )
 
     # Now run the fit via subprocess (fit.py only, datacard already exists)
-    cmd = ['python3', '5-Fit/fit.py', '--bias', '--target', target, '--no-timer',
+    cmd = ['python', '5-Fit/fit.py', '--bias', '--target', target, '--no-timer',
            '--pert', str(pert), '--ecm', str(ecm), '--no-print'] + cmd_args
 
     result = subprocess.run(cmd, check=False, capture_output=False, text=True, env=os.environ.copy())
@@ -208,8 +209,7 @@ def get_bias(inDir: str,
             args = {
                 'inDir': inDir, 'outDir': outDir,
                 'cat': cat, 'target': h_decay,
-                'procs': ['ZH' if 'tot' not in arg.extra else f'Z{cat}H',
-                          'WW', 'ZZ', 'Zgamma', 'Rare'],
+                'procs': ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'],
                 'ecm': ecm, 'lumi': lumi, 'pert': pert
             }
             # Create plots for high and low selection regions

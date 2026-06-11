@@ -1114,6 +1114,7 @@ def Bias(
     ROOT.gStyle.SetOptTitle(0)
 
     from .root import plotter
+    from ..tools.process import get_range_decay
     from .root.helper import (
         build_cfg, setup_latex, savecanvas
     )
@@ -1160,9 +1161,11 @@ def Bias(
         ymin=0, ymax=len(h_decays),
         ytitle='None',
         ecm=ecm, lumi=lumi,
+        range_func=get_range_decay,
+        hists=[h_pulls],
         strict=False,
-        hists=None,
-        cutflow=True
+        cutflow=True,
+        decay=True
     )
 
     plotter.cfg = cfg
