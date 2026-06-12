@@ -78,10 +78,9 @@ if arg.combine: cats.append('combined')
 params_label = {
     'ee':       r'$Z(\to e^+e^-)H$',
     'mumu':     r'$Z(\to\mu^+\mu^-)H$',
-    'qq':       r'$Z(\tp q\bar{q})H$',
+    'qq':       r'$Z(\to q\bar{q})H$',
     'leptonic': r'$Z(\to\ell^+\ell^-)H$',
-    'combined': r'$Z(\to\text{all})H$',
-    # 'combined': r'ZH',
+    'combined': r'$ZH$',
     '240':      '240 GeV',
     '365':      '365 GeV',
 }
@@ -108,13 +107,17 @@ def read_tree_data(
         x_data = tree[param].array(library="np")
         y_data = 2 * tree["deltaNLL"].array(library="np")
 
+    LOGGER.debug(f'Found {len(x_data)} point in {file_path}')
+
     # Create combined array, sort, and remove duplicates
     data = np.column_stack([x_data, y_data])
     data = data[data[:, 0].argsort()]  # Sort by x
     data = data[np.diff(data[:, 0], prepend=-np.inf) > 1e-8]  # Remove x duplicates
+    LOGGER.debug(f'Removed {len(x_data)-len(data)} duplicate, {len(data)} points remaining')
 
     # Remove points above y cutoff
     data = data[data[:, 1] <= y_cut]
+    LOGGER.debug(f'Removed points greater than {y_cut = }, {len(data)} points remaining')
 
     return data[:, 0], data[:, 1]
 
@@ -286,8 +289,9 @@ def plot_1d_scans(
                     ax.plot([cr['hi'], cr['hi']], [0, yv], color=scan['color'], alpha=0.5, linestyle='dashed')
 
         # Draw horizontal reference lines for 1σ and 2σ
-        ax.axhline(y=1.0, color='gray', linestyle='dashed')
-        ax.axhline(y=4.0, color='gray', linestyle='dashed')
+        ax.axhline(1.0,   color='gray', linestyle='dashed')
+        ax.axhline(4.0,   color='gray', linestyle='dashed')
+        ax.axhline(y_cut, color='black')
 
         # Formatting
         set_labels(ax, param, r'$-2\Delta\ln\mathcal{L}$', right=right)
@@ -295,8 +299,8 @@ def plot_1d_scans(
         # Calculate required y_max based on data and text
         max_y_smooth = max(np.max(scan['y_smooth']) for scan in scans_data)
         num_text_lines = sum(1 + (1 if sig2 else 0) for _ in scans_data)
-        text_box_height = num_text_lines * 0.45
-        y_max_required = max_y_smooth + text_box_height   # +0.5 margin
+        text_box_height = num_text_lines * 0.7
+        y_max_required = max_y_smooth + text_box_height + 0.5   # +0.5 margin
         effective_y_max = max(y_max, y_max_required)
 
         ax.set_ylim(0, effective_y_max)
