@@ -59,7 +59,7 @@ customLabel    = 'Training sample'  # Custom label shown on plots
 # Comprehensive list of kinematic variables to plot (sorted alphabetically)
 # These variables are computed in pre-selection.py and filled into histograms by final-selection.py
 vars = histos_ll.keys() if cat in ['ee', 'mumu'] else (histos_qq.keys() if cat=='qq' else [])
-variables = sorted([var for var in vars if 'zqq_m_recoil_m' not in var])  # Remove 2D histogram (not supported by FCCAnalyses)
+variables = sorted([var for var in vars if var!='zqq_m_recoil_m'])  # Remove 2D histogram (not supported by FCCAnalyses)
 
 #####################################
 ### PLOT CONFIGURATION DICTIONARY ###
