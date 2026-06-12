@@ -59,7 +59,7 @@ LOGGER = get_logger(__name__)
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-def parse_channels(cat_arg: str, combine: bool) -> list[str]:
+def parse_channels(cat_arg: str, lep: bool, combine: bool) -> list[str]:
     '''Return channel list from CLI values.
 
     If `combine` is requested, include the combined fit channel ('comb').
@@ -73,10 +73,8 @@ def parse_channels(cat_arg: str, combine: bool) -> list[str]:
         List of channel identifiers to process
     '''
     cats_local = cat_arg.split('-') if cat_arg else []
-    if combine:
-        return ['comb'] if not cats_local or cats_local == [''] else (
-            cats_local + ['comb']
-        )
+    if lep:     cats_local.append('lep')
+    if combine: cats_local.append('comb')
     return cats_local
 
 
@@ -93,8 +91,8 @@ def parse_ecms(ecm_arg: str) -> list[int]:
 
 
 # Parse channel configuration and center-of-mass energies
-cats = parse_channels(arg.cat, arg.combine)  # Includes 'comb' if --combine specified
-ecms = parse_ecms(arg.ecm)                           # Convert to list of integers
+cats = parse_channels(arg.cat, arg.lep, arg.combine)  # Includes 'comb' if --combine specified
+ecms = parse_ecms(arg.ecm)                                        # Convert to list of integers
 
 # Selection strategies to process (from command-line or defaults)
 if arg.sels == '':
@@ -146,7 +144,9 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
     cmd = [sys.executable, script_path, '--ecm', str(ecm), '--sel', sel]
 
     # Add channel or combine flag
-    if cat == 'comb':
+    if cat == 'lep':
+        cmd.append('--lep')
+    elif cat == 'comb':
         cmd.append('--comb')
     else:
         cmd.extend(['--cat', cat])
