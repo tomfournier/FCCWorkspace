@@ -8,9 +8,17 @@ import os
 from package.userConfig import (
     loc, event, get_params
 )
-from package.func.bdt import def_bdt, make_high_low          # BDT score binning utilities
-from sel.final.leptonic import Baseline_cut_ll, histos_ll    # Histogram definitions (leptonic channel)
-from sel.final.hadronic import Baseline_cut_qq, histos_qq    # Histogram definitions (hadronic channel)
+from package.func.bdt import def_bdt, make_high_low  # BDT score binning utilities
+from sel.final.leptonic import (
+    Baseline_cut_ll,  # Baseline cut definition      (leptonic channel)
+    histos_ll,        # Histogram definitions        (leptonic channel)
+    custom_hists_ll   # Custom histogram definitions (leptonic channel)
+)
+from sel.final.hadronic import (
+    Baseline_cut_qq,  # Baseline cut definition      (hadronic channel)
+    histos_qq,        # Histogram definitions        (hadronic channel)
+    custom_hists_qq   # Custom histogram definitions (hadronic channel)
+)
 from package.config import (
     input_vars_ll,    # BDT input variables for classification (leptonic channel)
     input_vars_qq,    # BDT input variables for classification (hadronic channel)
@@ -74,7 +82,7 @@ defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
 
 # Selection cut dictionary (key = selection name used in outputs)
 cutList: dict[str, str] = {}
-cutList['sel0'] = 'return true;'
+if not test: cutList['sel0'] = 'return true;'
 if cat in ['ee', 'mumu']:
     Baseline = Baseline_cut_ll(ecm)
     cutList['Baseline']      = Baseline
@@ -89,12 +97,13 @@ if cat in ['ee', 'mumu']:
         cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
     Baseline = Baseline_cut_qq(ecm)
-    cutList['Baseline'] = Baseline
+    # cutList['Baseline']  = Baseline
+    cutList['test'] = Baseline
 else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
 # List of selections to split into high/low BDT score regions
-sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test', 'test1']
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
 
@@ -104,14 +113,8 @@ cutList = make_high_low(cutList, bdt_cut, sels)
 ### DEFINE HISTOGRAM SETTINGS ###
 #################################
 
-customHists: dict[str, dict[str, str | int | float]] = {}
-if cat in ['ee', 'mumu']:
-    customHists['leps_iso']    = {'name':'ConeIsolation', 'title':'I_{rel}'}
-    customHists['leps_iso_no'] = {'name':'n_leptons',     'title':'Isolated leptons'}
-else:
-    customHists['best_cluster_idx'] = {'name':'best_cluster_idx', 'title':'Best clustering algorithm'}
-    customHists['njets_inclusive']  = {'name':'njets_inclusive',  'title':'Number of jets (inclusive)'}
-    customHists['njets_incl']       = {'name':'njets_incl',       'title':'Number of jets (inclusive)'}
+# Custom histogram made at the pre-selection
+customHists = custom_hists_ll if cat in ['ee', 'mumu'] else custom_hists_qq
 
 # Output histogram definitions (name, title, binning)
 histoList = histos_ll if cat in ['ee', 'mumu'] else histos_qq
