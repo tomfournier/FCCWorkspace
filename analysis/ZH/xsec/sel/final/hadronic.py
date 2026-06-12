@@ -17,6 +17,18 @@ def Baseline_cut_qq(ecm: int) -> str:
     return cut
 
 
+custom_hists_qq = {
+    'best_cluster_idx': {'name':'best_cluster_idx',
+                         'title':'Best clustering algorithm'},
+
+    'njets_inclusive':  {'name':'njets_inclusive',
+                         'title':'Number of jets (inclusive)'},
+
+    'njets_incl':       {'name':'njets_incl',
+                         'title':'Number of jets (inclusive)'}
+}
+
+
 # Output histogram definitions (name, title, binning)
 histos_qq = {
 
@@ -99,7 +111,7 @@ histos_qq = {
 
     'zqq_m_recoil_m':      {'cols':['zqq_m', 'zqq_recoil_m'],
                             'title':'m_{jj} - m_{recoil} [GeV]',
-                            'bins':[(120, 60, 120), (100, 100, 150)]},
+                            'bins':[(60, 60, 120), (50, 100, 150)]},
 
     # Visible and invisible information
     'cosTheta_miss':       {'name':'cosTheta_miss',
