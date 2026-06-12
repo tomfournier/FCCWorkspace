@@ -148,7 +148,7 @@ def run(cats: str,
                     h_high = get_hist(
                         hName, sample, processes, inDir,
                         suffix=suffix_high,
-                        rebin=2 if cat=='qq' else 1,
+                        rebin=1,
                         proc_scales=procs_scales
                     )
                     h_low  = get_hist(
@@ -162,18 +162,18 @@ def run(cats: str,
                         continue
 
                     # Rename histograms to denote region
-                    h_high.SetName(h_high.GetName()+'_high')
-                    h_low.SetName(h_low.GetName()+'_low')
+                    h_high.SetName(f'z{cat}_fit_high')
+                    h_low.SetName(f'z{cat}_fit_low')
 
                     has_valid_hist = True
                     # Concatenate high and low region histograms
                     if cat in ['ee', 'mumu']:
-                        h = concat([h_low, h_high], hName)
+                        h = concat([h_low, h_high], hName, f'z{cat}_fit')
                         hists.extend([h, h_high, h_low])
                     elif cat == 'qq':
-                        h_high_1D = unroll(h_high, 'zqq_fit_high')
-                        h_low_1D  = unroll(h_low,  'zqq_fit_low')
-                        h = concat([h_high_1D, h_low_1D], 'zqq_fit')
+                        h_high_1D = unroll(h_high, f'z{cat}_fit_high')
+                        h_low_1D  = unroll(h_low,  f'z{cat}_fit_low')
+                        h = concat([h_high_1D, h_low_1D], f'z{cat}_fit')
 
                         hists.extend([h, h_high, h_low, h_high_1D, h_low_1D])
                     else:

@@ -52,11 +52,11 @@ sig_procs = {'sig': samples_sig}  # Combine all signal samples under 'sig' label
 
 # Define background processes with their respective samples
 bkg_procs = {
-    'ZZ':     event_combine([f'p8_ee_ZZ_ecm{ecm}'], inputDir),      # Diboson ZZ
+    'ZZ':     event_combine([f'p8_ee_ZZ_ecm{ecm}'], inputDir),   # Diboson ZZ
     'WW':     event_combine([f'p8_ee_WW_ecm{ecm}',                    # Diboson WW
                              f'p8_ee_WW_ee_ecm{ecm}',
                              f'p8_ee_WW_mumu_ecm{ecm}'], inputDir),
-    'Zgamma': event_combine([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',       # Drell-Yan processes
+    'Zgamma': event_combine([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',       # ee -> ff processes
                              f'wzp6_ee_mumu_ecm{ecm}',
                              f'wzp6_ee_tautau_ecm{ecm}',
                              f'wzp6_ee_qq_ecm{ecm}'], inputDir),
@@ -66,20 +66,12 @@ bkg_procs = {
                              f'wzp6_gaga_tautau_60_ecm{ecm}',
                              f'wzp6_ee_nuenueZ_ecm{ecm}'], inputDir)
 }
-if (cat == 'qq') and (ecm == 365):
-    bkg_procs['tt'] = ['p8_ee_tt_ecm365']
+# if (cat == 'qq') and (ecm == 365):
+#     bkg_procs['tt'] = ['p8_ee_tt_ecm365']
 
 
-if cat in ['ee', 'mumu']:
-    hist_names = ['zll_recoil_m']  # Category identifier (e.g., 'z_ee', 'z_mumu')
-    categories = [f'z_{cat}']      # Histogram name for this category
-elif cat == 'qq':
-    # hist_names = ['zqq_fit_high', 'zqq_fit_low']
-    # categories = ['zqq_high', 'zqq_low']
-    hist_names = ['zqq_fit']
-    categories = ['z_qq']
-
-
+categories = [f'z_{cat}']     # Category identifier (e.g., 'z_ee', 'z_mumu', 'z_qq')
+hist_names = [f'z{cat}_fit']  # Histogram name for this category
 
 # Define systematic uncertainties
 # Log-normal normalization uncertainties (1% each) for all background processes
