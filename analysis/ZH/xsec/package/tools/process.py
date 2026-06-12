@@ -254,6 +254,7 @@ def get_hist(
     inDir: str,
     suffix: str = '',
     rebin: int = 1,
+    is_2d: bool = False,
     proc_scales: dict[str, float] = {}
      ) -> 'ROOT.TH1':
     '''
@@ -307,9 +308,9 @@ def get_hist(
         scale = xsec_new / xsec
 
     if rebin!=1:
-        try:
+        if is_2d:
             h.Rebin2D(rebin)
-        except Exception:
+        else:
             h.Rebin(rebin)
 
     if scale!=1.0:

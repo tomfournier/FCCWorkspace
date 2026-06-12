@@ -140,6 +140,7 @@ def run(cfg_dir: str,
         if arg.polR: extra_args.append('--polR')
         if arg.ILC:  extra_args.append('--ILC')
         if arg.sels!='': extra_args.extend(['--sels', arg.sels])
+        if arg.verbose: extra_args.append('--v')
 
     # Use fccanalysis subcommands when available; fall back to python for others
     cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \

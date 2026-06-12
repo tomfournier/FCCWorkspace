@@ -71,7 +71,8 @@ bkg_procs = {
 
 
 categories = [f'z_{cat}']     # Category identifier (e.g., 'z_ee', 'z_mumu', 'z_qq')
-hist_names = [f'z{cat}_fit']  # Histogram name for this category
+# hist_names = [f'z{cat}_fit']  # Histogram name for this category
+hist_names = ['zqq_m_recoil_m_fit']
 
 # Define systematic uncertainties
 # Log-normal normalization uncertainties (1% each) for all background processes
