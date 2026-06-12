@@ -46,8 +46,8 @@ from package.config import (
     vars_xlabel_qq
 )
 from package.tools.utils import high_low_sels  # High/low control region helpers
-from sel.final.leptonic import histos_ll
-from sel.final.hadronic import histos_qq
+from sel.final.leptonic import histos_ll, custom_hists_ll
+from sel.final.hadronic import histos_qq, custom_hists_qq
 from package.tools.process import (
     preload_histograms,     # Preload histogram cache for performance
     clear_histogram_cache   # Clear cache when done
@@ -117,8 +117,11 @@ def run(
         LOGGER.info(f'Making plots for {cat} channel')
         # Define process names for specific channel (signal must be first)
         procs = [f'Z{cat}H'] + procs_bkg
-        histos = histos_ll if cat in ['ee', 'mumu'] else histos_qq
-        vars = [v for v in histos.keys() if v != 'zqq_m_recoil_m'] + ['BDTscore']
+        if cat in ['ee', 'mumu']:
+            vars = list(histos_ll) + list(custom_hists_ll)
+        elif cat == 'qq':
+            vars = [v for v in histos_qq if v!='zqq_m_recoil_m'] + list(custom_hists_qq)
+        vars.append('BDTscore')
 
         vars_label  = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq
         vars_xlabel = vars_xlabel_ll if cat in ['ee', 'mumu'] else vars_xlabel_qq

@@ -31,25 +31,6 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-# Lazy import of ROOT - only load when colors are accessed
-_ROOT = None
-
-def _get_root():
-    """Lazily import ROOT when needed for color definitions.
-
-    Defers ROOT import until colors are actually accessed to avoid unnecessary
-    overhead if only simple features are used.
-
-    Returns:
-        The ROOT module.
-    """
-    global _ROOT
-    if _ROOT is None:
-        import ROOT
-        _ROOT = ROOT
-    return _ROOT
-
-
 import sys
 
 from time import time
@@ -116,6 +97,25 @@ quarks   = QUARKS
 ### PROCESSES COLOR ###
 #######################
 
+# Lazy import of ROOT - only load when colors are accessed
+_ROOT = None
+
+def _get_root():
+    """Lazily import ROOT.
+
+    Defers ROOT import until it is actually accessed to avoid unnecessary overhead.
+
+    Returns:
+        The ROOT module.
+    """
+    global _ROOT
+    if _ROOT is None:
+        LOGGER.info('Loading ROOT...')
+        import ROOT
+        _ROOT = ROOT
+    return _ROOT
+
+
 # Lazy-loaded ROOT colors - these are computed on first access
 # ROOT color indices (lazily initialized on first access)
 _ZH_COLOR   = None   # Red for ZH signal
@@ -133,11 +133,11 @@ def _init_colors() -> None:
     global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR, _TT_COLOR
     if _ZH_COLOR is None:
         root = _get_root()
-        _ZH_COLOR   = root.TColor.GetColor('#e42536')  # Red for ZH signal
-        _WW_COLOR   = root.TColor.GetColor('#f89c20')  # Orange for WW background
-        _ZZ_COLOR   = root.TColor.GetColor('#5790fc')  # Blue for ZZ background
-        _ZG_COLOR   = root.TColor.GetColor('#964a8b')  # Purple for Z/gamma
-        _RARE_COLOR = root.TColor.GetColor('#9c9ca1')  # Gray for rare processes
+        _ZH_COLOR   = root.TColor.GetColor('#e42536')  # Red       for ZH signal
+        _WW_COLOR   = root.TColor.GetColor('#f89c20')  # Orange    for WW background
+        _ZZ_COLOR   = root.TColor.GetColor('#5790fc')  # Blue      for ZZ background
+        _ZG_COLOR   = root.TColor.GetColor('#964a8b')  # Purple    for Z/gamma
+        _RARE_COLOR = root.TColor.GetColor('#9c9ca1')  # Gray      for rare processes
         _TT_COLOR   = root.TColor.GetColor("#1414ad")  # Dark blue for tt processes
 
 def _get_h_colors_dict() -> dict:
@@ -316,95 +316,115 @@ labels = {
     'tt'     : 't#bar{t}'
 }
 
-# LaTeX labels for kinematic variables (used in matplotlib importance plots)
-vars_label_ll = {
-    'leading_p':        r'$p_{\ell,leading}$',
-    'leading_pT':       r'$p_{T,leading}$',
+# LaTeX labels for kinematic variables with units
+vars_xlabel_ll = {
+    'leading_p':        r'$p_{\ell,leading}$ [GeV]',
+    'leading_pT':       r'$p_{T,leading}$ [GeV]',
     'leading_theta':    r'$\theta_{\ell,leading}$',
     'leading_phi':      r'$\phi_{\ell,leading}$',
 
-    'subleading_p':     r'$p_{\ell,subleading}$',
-    'subleading_pT':    r'$p_{T,subleading}$',
+    'subleading_p':     r'$p_{\ell,subleading}$ [GeV]',
+    'subleading_pT':    r'$p_{T,subleading}$ [GeV]',
     'subleading_theta': r'$\theta_{\ell,subleading}$',
     'subleading_phi':   r'$\phi_{\ell,subleading}$',
 
-    'acolinearity':     r'$\Delta\theta_{\ell^{+}\ell^{-}}$',
+    'acolinearity':     r'$\Delta\alpha_{\ell^{+}\ell^{-}}$',
     'acoplanarity':     r'$\pi - \Delta\phi_{\ell^{+}\ell^{-}}$',
+    'acopolarity':      r'$\Delta\theta_{\ell^{+}\ell^{-}}$',
     'deltaR':           r'$\Delta R$',
 
-    'zll_m':            r'$m_{\ell^{+}\ell^{-}}$',
-    'zll_p':            r'$p_{\ell^{+}\ell^{-}}$',
-    'zll_pT':           r'$p_{T, \ell^{+}\ell^{-}}$',
+    'zll_m':            r'$m_{\ell^{+}\ell^{-}}$ [GeV]',
+    'zll_p':            r'$p_{\ell^{+}\ell^{-}}$ [GeV]',
+    'zll_pT':           r'$p_{T, \ell^{+}\ell^{-}}$ [GeV]',
     'zll_theta':        r'$\theta_{\ell^{+}\ell^{+}}$',
+    'zll_costheta':     r'$\cos\theta_{\ell^{+}\ell^{+}}$',
     'zll_phi':          r'$\phi_{\ell^{+}\ell^{-}}$',
 
-    'zll_recoil_m':     r'$m_{recoil}$',
+    'zll_recoil_m':     r'$m_{recoil}$ [GeV]',
     'cosTheta_miss':    r'$\cos\theta_{miss}$',
 
-    'visibleEnergy':    r'$E_{vis}$',
-    'missingMass':      r'$m_{miss}$',
+    'visibleEnergy':    r'$E_{vis}$ [GeV]',
+    'missingEnergy':    r'$E_{miss}$ [GeV]',
+    'missingMass':      r'$m_{miss}$ [GeV]',
 
-    'H':                r'$H$',
-    'BDTscore':         r'BDT Score'
+    'H':                r'$H$ [GeV$^{2}$]',
+    'BDTscore':         r'BDT Score',
+
+    'leps_iso':         r'$I_{rel}$',
+    'leps_iso_no':      r'Isolated leptons'
 }
 
-vars_label_qq = {
-    'leading_p':             r'$p_{jet,leading}$',
-    'leading_pT':            r'$p_{T,leading}$',
+vars_xlabel_qq = {
+    'leading_p':             r'$p_{jet,leading}$ [GeV]',
+    'leading_pT':            r'$p_{T,leading}$ [GeV]',
     'leading_theta':         r'$\theta_{jet,leading}$',
     'leading_costheta':      r'$\cos\theta_{jet,leading}$',
     'leading_phi':           r'$\phi_{jet,leading}$',
 
-    'subleading_p':          r'$p_{jet,subleading}$',
-    'subleading_pT':         r'$p_{T,subleading}$',
+    'subleading_p':          r'$p_{jet,subleading}$ [GeV]',
+    'subleading_pT':         r'$p_{T,subleading}$ [GeV]',
     'subleading_theta':      r'$\theta_{jet,subleading}$',
     'subleading_costheta':   r'$\cos\theta_{jet,subleading}$',
     'subleading_phi':        r'$\phi_{jet,subleading}$',
 
-    'acolinearity':          r'$\Delta\theta_{jj}$',
+    'acolinearity':          r'$\Delta\alpha_{jj}$',
     'acoplanarity':          r'$\pi - \Delta\phi_{jj}$',
+    'acopolarity':           r'$\Delta\theta_{jj}$',
     'deltaR':                r'$\Delta R$',
 
-    'zqq_m':                 r'$m_{jj}$',
-    'zqq_p':                 r'$p_{jj}$',
-    'zqq_pT':                r'$p_{T,jj}$',
+    'zqq_m':                 r'$m_{jj}$ [GeV]',
+    'zqq_p':                 r'$p_{jj}$ [GeV]',
+    'zqq_pT':                r'$p_{T,jj}$ [GeV]',
     'zqq_theta':             r'$\theta_{jj}$',
     'zqq_costheta':          r'$\cos\theta_{jj}$',
     'zqq_phi':               r'$\phi_{jj}$',
 
-    'W1_m':                  r'$m_{W1}$',
-    'W1_p':                  r'$p_{W1}$',
+    'W1_m':                  r'$m_{W1}$ [GeV]',
+    'W1_p':                  r'$p_{W1}$ [GeV]',
+    'W1_theta':              r'$\theta_{W1}$',
     'W1_costheta':           r'$\cos\theta_{W1}$',
 
-    'W2_m':                  r'$m_{W2}$',
-    'W2_p':                  r'$p_{W2}$',
+    'W2_m':                  r'$m_{W2}$ [GeV]',
+    'W2_p':                  r'$p_{W2}$ [GeV]',
+    'W2_theta':              r'$\theta_{W2}$',
     'W2_costheta':           r'$\cos\theta_{W2}$',
+
+    'Z1_m':                  r'$m_{W1}$ [GeV]',
+    'Z1_p':                  r'$p_{W1}$ [GeV]',
+    'Z1_theta':              r'$\theta_{W1}$',
+    'Z1_costheta':           r'$\cos\theta_{W1}$',
+
+    'Z2_m':                  r'$m_{W2}$ [GeV]',
+    'Z2_p':                  r'$p_{W2}$ [GeV]',
+    'Z2_theta':              r'$\theta_{W2}$',
+    'Z2_costheta':           r'$\cos\theta_{W2}$',
+
+    'delta_mWW':             r'$\Delta m_{WW}$ [GeV]',
+    'delta_mZZ':             r'$\Delta m_{ZZ}$ [GeV]',
 
     'thrust':                r'$T$',
     'thrust_costheta':       r'$\cos\theta_{T}$',
 
-    'zqq_recoil_m':          r'$m_{recoil}$',
+    'zqq_recoil_m':          r'$m_{recoil}$ [GeV]',
     'cosTheta_miss':         r'$\cos\theta_{miss}$',
 
-    'visibleEnergy':         r'$E_{vis}$',
-    'missingMass':           r'$m_{miss}$',
+    'visibleEnergy':         r'$E_{vis}$ [GeV]',
+    'missingEnergy':         r'$E_{miss}$ [GeV]',
+    'missingMass':           r'$m_{miss}$ [GeV]',
 
-    'BDTscore':              r'BDT Score'
+    'BDTscore':              r'BDT Score',
+
+    'best_clustering_idx':   'Best clustering algorithm',
+    'best_cluster_idx':      'Best clustering algorithm',
+    'njets_inclusive':       'Number of jets (inclusive)',
+    'njets_incl':            'Number of jets (inclusive)',
+    'njets':                 r'n_{jets}'
 }
 
+# LaTeX x-axis labels without units
+vars_label_ll = {k.replace(' [GeV]', '').replace(' [GeV$^{2}$]', ''): v for k, v in vars_xlabel_ll.items()}
+vars_label_qq = {k.replace(' [GeV]', '').replace(' [GeV$^{2}$]', ''): v for k, v in vars_xlabel_qq.items()}
 
-
-# LaTeX x-axis labels with units (used in histogram plots)
-vars_xlabel_ll = vars_label_ll.copy()
-for v in ['leading_p', 'leading_pT', 'subleading_p', 'subleading_pT',
-          'zll_m', 'zll_p', 'zll_recoil_m', 'visibleEnergy', 'missingMass']:
-    vars_xlabel_ll[v] += ' [GeV]'
-vars_xlabel_ll['H'] += ' [GeV$^{2}$]'
-
-vars_xlabel_qq = vars_label_qq.copy()
-for v in ['leading_p', 'leading_pT', 'subleading_p', 'subleading_pT',
-          'zqq_m', 'zqq_p', 'zqq_recoil_m', 'visibleEnergy', 'missingMass']:
-    vars_xlabel_qq[v] += ' [GeV]'
 
 # LaTeX labels for analysis modes (physics processes)
 modes_label = {

@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 
 from .utils import get_procDict
 from ..logger import get_logger
+from ..config import _get_root
 
 LOGGER = get_logger(__name__)
 
@@ -105,7 +106,7 @@ def preload_histograms(
         rebin (int, optional): Rebinning factor to apply. Defaults to 1.
         rmww (bool, optional): Apply WW cross-section correction. Defaults to True.
     '''
-    import ROOT
+    ROOT = _get_root()
     from tqdm import tqdm
 
     LOGGER.info('Preloading histograms into cache...')
