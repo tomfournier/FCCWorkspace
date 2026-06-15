@@ -803,8 +803,10 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     if cat in ['ee', 'mumu']:
         return bkgs
     elif cat == 'qq':
-        bkgs[f'p8_ee_WW_ee_ecm{ecm}']   = {'frac': 1, 'nb': middle}
-        bkgs[f'p8_ee_WW_mumu_ecm{ecm}'] = {'frac': 1, 'nb': middle}
+        bkgs[f'p8_ee_WW_ee_ecm{ecm}']         = {'frac': 1, 'nb': middle}
+        bkgs[f'p8_ee_WW_mumu_ecm{ecm}']       = {'frac': 1, 'nb': middle}
+        bkgs[f'p8_ee_ee_Mee_30_150_ecm{ecm}'] = {'frac': 1, 'nb': big}
+        bkgs[f'p8_ee_mumu_ecm{ecm}']          = {'frac': 1, 'nb': big}
         # Special case: top production at 365 GeV
         if ecm == 365:
             bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
