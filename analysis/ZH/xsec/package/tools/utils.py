@@ -34,11 +34,10 @@ LOGGER = get_logger(__name__)
 
 # __________________
 def get_paths(
-    mode: str,
+    proc: str,
     path: str,
-    modes: str,
     suffix: str = ''
-     ) -> list:
+     ) -> list[str]:
     '''
     Retrieve ROOT file paths based on mode and suffix.
 
@@ -54,8 +53,14 @@ def get_paths(
     from glob import glob
 
     # Construct full path from base path and mode pattern
-    fpath = os.path.join(path, modes[mode] + suffix)
-    return glob(f'{fpath}.root')
+    fpath = os.path.join(path, proc + suffix)
+    if os.path.exists(fpath+'.root'):
+        return [fpath+'.root']
+    elif os.path.exists(fpath):
+        return glob(f'{fpath}/*')
+    else:
+        LOGGER.error(f'{fpath} not found')
+        exit(1)
 
 
 # __________________________
@@ -134,7 +139,7 @@ def get_procDict(
 # ________________________________________
 def update_keys(
     procDict: dict[str, dict[str, float]],
-    modes: list[str]
+    modes: dict[str, list[str]]
      ) -> dict[str, dict[str, float]]:
     '''
     Update dictionary keys by reversing mode name mappings.

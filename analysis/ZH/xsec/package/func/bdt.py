@@ -151,6 +151,7 @@ def counts_and_effs(
 def additional_info(
     df: 'pd.DataFrame',
     mode: str,
+    proc: str,
     sig: str
      ) -> 'pd.DataFrame':
     '''Add sample mode and signal label columns to dataframe.
@@ -158,19 +159,21 @@ def additional_info(
     Args:
         df (pd.DataFrame): Input dataframe.
         mode (str): Sample mode/process name.
+        proc (str): Underlying process name within the mode.
         sig (str): Signal process name for classification.
 
     Returns:
         pd.DataFrame: Dataframe with added 'sample' and 'isSignal' columns.
     '''
-    df['sample'] = mode
+    df['sample']   = mode
+    df['proc']     = proc
     df['isSignal'] = int(mode == sig)  # Add sample identifier and signal flag
     return df
 
 # __________________________
 def BDT_input_numbers(
     df: 'pd.DataFrame',
-    modes: list[str],
+    modes: dict[str, list[str]],
     sig: str,
     eff: dict[str, float],
     xsec: dict[str, float],
@@ -182,7 +185,7 @@ def BDT_input_numbers(
 
     Args:
         df (pd.DataFrame): Dataframe grouped by mode containing events.
-        modes (list[str]): List of process modes.
+        modes (dict[str, list[str]]): Mapping of modes to their process lists.
         sig (str): Signal process name.
         eff (dict[str, float]): Selection efficiency per mode.
         xsec (dict[str, float]): Cross-section per mode (in pb).
@@ -194,10 +197,12 @@ def BDT_input_numbers(
     N_BDT_inputs: dict[str, int] = {}
     # Total background cross-section weighted by efficiency
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in modes if mode != sig)
+    if xsec_tot_bkg <= 0:
+        LOGGER.warning('Total background normalization is zero; returning zero BDT inputs for backgrounds')
     for m in modes:
         N_BDT_inputs[m] = (
             int(frac[m] * df[m].shape[0]) if m == sig else
-            int(frac[m] * df[sig].shape[0] * (eff[m] * xsec[m] / xsec_tot_bkg)))
+            int(frac[m] * df[sig].shape[0] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
     return N_BDT_inputs
 
 # ________________________________
