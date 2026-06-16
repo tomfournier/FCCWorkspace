@@ -422,8 +422,8 @@ vars_xlabel_qq = {
 }
 
 # LaTeX x-axis labels without units
-vars_label_ll = {k.replace(' [GeV]', '').replace(' [GeV$^{2}$]', ''): v for k, v in vars_xlabel_ll.items()}
-vars_label_qq = {k.replace(' [GeV]', '').replace(' [GeV$^{2}$]', ''): v for k, v in vars_xlabel_qq.items()}
+vars_label_ll = {k: v.replace(' [GeV]', '').replace(' [GeV$^{2}$]', '') for k, v in vars_xlabel_ll.items()}
+vars_label_qq = {k: v.replace(' [GeV]', '').replace(' [GeV$^{2}$]', '') for k, v in vars_xlabel_qq.items()}
 
 
 # LaTeX labels for analysis modes (physics processes)
@@ -803,10 +803,12 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
     if cat in ['ee', 'mumu']:
         return bkgs
     elif cat == 'qq':
-        bkgs[f'p8_ee_WW_ee_ecm{ecm}']         = {'frac': 1, 'nb': middle}
-        bkgs[f'p8_ee_WW_mumu_ecm{ecm}']       = {'frac': 1, 'nb': middle}
-        bkgs[f'p8_ee_ee_Mee_30_150_ecm{ecm}'] = {'frac': 1, 'nb': big}
-        bkgs[f'p8_ee_mumu_ecm{ecm}']          = {'frac': 1, 'nb': big}
+        bkgs[f'p8_ee_WW_ee_ecm{ecm}']           = {'frac': 1,   'nb': middle}
+        bkgs[f'p8_ee_WW_mumu_ecm{ecm}']         = {'frac': 1,   'nb': middle}
+        bkgs[f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'] = {'frac': 0.1, 'nb': big}
+        bkgs[f'wzp6_ee_mumu_ecm{ecm}']          = {'frac': 0.1, 'nb': big}
+
+        bkgs[f'wzp6_ee_tautau_ecm{ecm}']['frac'] = 0.5
         # Special case: top production at 365 GeV
         if ecm == 365:
             bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
