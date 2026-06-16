@@ -51,15 +51,15 @@ histos_qq = {
 
     # Lepton kinematics: subleading lepton
     'subleading_p':        {'name':'subleading_p',
-                            'title':'p_{l,subleading} [GeV]',
+                            'title':'p_{jet,subleading} [GeV]',
                             'bin':800,'xmin':0,'xmax':200},
 
     'subleading_pT':       {'name':'subleading_pT',
-                            'title':'p_{T,l,subleading} [GeV]',
+                            'title':'p_{T,subleading} [GeV]',
                             'bin':800,'xmin':0,'xmax':200},
 
     'subleading_theta':    {'name':'subleading_theta',
-                            'title':'#theta_{l,subleading}',
+                            'title':'#theta_{jet,subleading}',
                             'bin':128, 'xmin':0, 'xmax':3.2},
 
     'subleading_costheta': {'name':'subleading_costheta',
@@ -68,15 +68,15 @@ histos_qq = {
 
     # Angular separation between leptons
     'acolinearity':        {'name':'acolinearity',
-                            'title':'#Delta#alpha_{l^{+}l^{-}}',
+                            'title':'#Delta#alpha_{jj}',
                             'bin':256,'xmin':0,'xmax':3.2},
 
     'acopolarity':         {'name':'acopolarity',
-                            'title':'#Delta#theta_{l^{+}l^{-}}',
+                            'title':'#Delta#theta_{jj}',
                             'bin':256,'xmin':0,'xmax':3.2},
 
     'acoplanarity':        {'name':'acoplanarity',
-                            'title':'#pi-#Delta#phi_{l^{+}l^{-}}',
+                            'title':'#pi-#Delta#phi_{jj}',
                             'bin':256,'xmin':0,'xmax':3.2},
 
     'deltaR':              {'name':'deltaR',
@@ -93,7 +93,7 @@ histos_qq = {
                             'bin':2500,'xmin':0,'xmax':250},
 
     'zqq_pT':              {'name':'zqq_pT',
-                            'title':'p_{T,l^{+}l^{-}} [GeV]',
+                            'title':'p_{T,jj} [GeV]',
                             'bin':2500,'xmin':0,'xmax':250},
 
     'zqq_theta':           {'name':'zqq_theta',
@@ -110,6 +110,10 @@ histos_qq = {
                             'bin':200,'xmin':100,'xmax':150},
 
     'zqq_m_recoil_m':      {'cols':['zqq_m', 'zqq_recoil_m'],
+                            'title':'m_{jj} - m_{recoil} [GeV]',
+                            'bins':[(120, 60, 120), (100, 100, 150)]},
+
+    'zqq_m_recoil_m_test': {'cols':['zqq_m', 'zqq_recoil_m'],
                             'title':'m_{jj} - m_{recoil} [GeV]',
                             'bins':[(60, 60, 120), (50, 100, 150)]},
 
