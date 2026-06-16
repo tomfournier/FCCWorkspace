@@ -39,7 +39,7 @@ from package.logger import get_logger               # Logging setup
 parser = create_parser(
     cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
     ecm_multi=True,        # Support multiple energies (--ecm 240-365)
-    allow_qq=False,        # Disable hadronic channel (ee/mumu only)
+    allow_qq=True,         # Disable hadronic channel (ee/mumu only)
     include_sels=True,     # Include selection strategy options
     bdt_eval=True,         # Include BDT evaluation options (metrics, trees, checks)
     run_stages=3,          # BDT pipeline has 3 stages: process + train + evaluate
@@ -116,10 +116,10 @@ def run(cat: str,
         extra_args.append('-v')
 
     if 'evaluation' in script:
-        if arg.metric: extra_args.append('--metric')
-        if arg.tree:   extra_args.append('--tree')
-        if arg.check:  extra_args.append('--check')
-        if arg.hl:     extra_args.append('--hl')
+        if not arg.metric: extra_args.append('--no-metric')
+        if arg.tree:       extra_args.append('--tree')
+        if arg.check:      extra_args.append('--check')
+        if arg.hl:         extra_args.append('--hl')
     if arg.sels!='':
         extra_args.extend(['--sels', arg.sels])
 
