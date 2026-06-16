@@ -95,9 +95,10 @@ tar     = f'_{arg.target}' if arg.bias else ''                       # Bias test
 dc_comb = loc.get('COMBINE', '', arg.ecm, arg.sel)  # Combined datacard location
 
 # Define full file paths for workspace, logs, and results
-ws_file    = ws  / f'ws{tar}.root'                   # Workspace file (workspace.root or workspace_bb.root)
-log_text   = log / f'log_text2workspace{tar}.txt'    # Text2workspace log
-result_log = log / f'log_results{tar}.txt'           # Fit results log
+ws_file     = ws  / f'ws{tar}.root'                   # Workspace file (workspace.root or workspace_bb.root)
+log_text    = log / f'log_text2workspace{tar}.txt'    # Text2workspace log
+result_fit  = log / f'log_results{tar}_fit.txt'       # Fit results log (fit results)
+result_scan = log / f'log_results{tar}_scan.txt'      # Fit results log (likelyhood scan)
 
 # Set up environment for subprocess calls
 env = os.environ.copy()
@@ -179,22 +180,22 @@ def fitting(
         text_status = 'ok'
 
         # Stage 1: Quick fit with --algo none to find best fit point and save RooFitResult
-        with open(result_log, 'w') as log_out:
+        with open(result_fit, 'w') as log_out:
             LOGGER.info('Stage 1: Quick fit to find best fit point')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '10', '-t', '0', '--expectSignal=1', '-n', f'Xsec{tar}',
-                            '--algo', 'none', '--saveFitResult'],
+                            '--algo', 'none'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
         fit_status = 'ok'
 
         # Stage 2: Grid scan using the fit result from stage 1 for faster convergence
-        with open(result_log, 'a') as log_out:
+        with open(result_scan, 'w') as log_out:
             LOGGER.info('Stage 2: Grid scan for likelihood profile')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '10', '-t', '0', '--expectSignal=1', '-n', f'Xsec{tar}',
                             '--rMin', '0', '--rMax', '2', '--alignEdges', '1', '--squareDistPoiStep',
-                            '--algo', 'grid', '--points', '200', '--autoRange', '3'],
+                            '--algo', 'grid', '--points', '20', '--autoRange', '3'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
         grid_status = 'ok'
@@ -211,8 +212,10 @@ def fitting(
         # Add execution stamps to log files for tracking
         if log_text.exists():
             add_stamp(log_text, f'log_text2workspace{tar}', text_status)
-        if result_log.exists():
-            add_stamp(result_log, f'log_results{tar}', f'{fit_status},{grid_status}')
+        if result_fit.exists():
+            add_stamp(result_fit, f'log_results{tar}_fit', fit_status)
+        if result_scan.exists():
+            add_stamp(result_scan, f'log_results{tar}_fit', grid_status)
 
 
 
@@ -338,13 +341,13 @@ if __name__=='__main__':
         if ret != 0: sys.exit(ret)
 
         # Extract results using primary method: log file extraction
-        LOGGER.info('Falling back to log file extraction')
-        mu, err = res_extraction(result_log)
+        mu, err = res_extraction(result_fit)
 
         # Fallback to ROOFitResult extraction if log file extraction fails
-        if (mu == -100) and (err == -100):
-            file = ws / f'multidimfitXsec{tar}.root'
-            mu, err = root_extraction(file)
+        # Add '--saveFitResult' to Stage 1 command to use these commented lines
+        # if (mu == -100) and (err == -100):
+        #     file = ws / f'multidimfitXsec{tar}.root'
+        #     mu, err = root_extraction(file)
 
         # Save results to output file
         res_saving(mu, err, res)
