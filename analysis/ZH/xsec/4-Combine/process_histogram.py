@@ -175,7 +175,7 @@ def run(cats: str,
                     elif cat == 'qq':
                         h_high_1D = unroll(h_high, h_high.GetName()+'_fit_high_1D')
                         h_low_1D  = unroll(h_low,  h_low.GetName()+'_fit_low_1D')
-                        h = concat([h_high_1D, h_low_1D], hName+'_fit')
+                        h = concat([h_low_1D, h_high_1D], hName+'_fit')
 
                         hists.extend([h, h_high, h_low, h_high_1D, h_low_1D])
                     else:
