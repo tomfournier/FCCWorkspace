@@ -97,13 +97,12 @@ if cat in ['ee', 'mumu']:
         cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
     Baseline = Baseline_cut_qq(ecm)
-    # cutList['Baseline']  = Baseline
-    cutList['test'] = Baseline
+    cutList['Baseline']  = Baseline
 else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
 # List of selections to split into high/low BDT score regions
-sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test', 'test1']
+sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
 

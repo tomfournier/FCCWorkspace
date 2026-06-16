@@ -190,8 +190,12 @@ def run(cats: list[str],
         procs = [f'Z{cat}H' if not arg.tot else 'ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
         procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
 
+        if (cat=='qq') and (ecm==365):
+            procs.append('tt')
+            procs_decays.append('tt')
+
         histos = histos_ll if cat in ['ee', 'mumu'] else histos_qq
-        variables = [v for v in histos.keys() if v!='zqq_m_recoil_m']
+        variables = [v for v in histos.keys() if (v!='zqq_m_recoil_m') and (v!='zqq_m_recoil_m_test')]
 
         cuts = cuts_ll if cat in ['ee', 'mumu'] else cuts_qq
         cuts_label = cuts_label_ll if cat in ['ee', 'mumu'] else cuts_label_qq
