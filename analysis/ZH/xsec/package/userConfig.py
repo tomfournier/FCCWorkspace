@@ -88,11 +88,11 @@ class LocPath(str):
             LocPath or PathObj with an `astype()` method for roundtrip conversion
         """
         # str → LocPath; Path → PathObj; keep interface symmetric
-        if type is str:
+        if (type is str) or (type is LocPath):
             return LocPath(self)
-        elif type is Path:
+        elif (type is Path) or (type is PathObj):
             return PathObj(str(self))
-        raise TypeError("Only 'str' or 'Path' supported")
+        raise TypeError("Only 'str', 'LocPath', 'PathObj' or 'Path' supported")
 
     def get(self,
             name: Union[str, None] = None,
@@ -127,7 +127,7 @@ class PathObj(_PathBase):
     """
 
     def astype(self,
-               type: Type[Union[str, Path]]
+               type: Type[Union[str, Path, LocPath, 'PathObj']]
                ) -> Union[LocPath,
                           'PathObj']:
         """Convert to str (LocPath) or Path (PathObj).
@@ -139,11 +139,11 @@ class PathObj(_PathBase):
             LocPath or PathObj with an `astype()` method for roundtrip conversion
         """
         # Path → PathObj; str → LocPath; keep interface symmetric
-        if type is Path:
+        if (type is Path) or (type is PathObj):
             return PathObj(str(self))
-        elif type is str:
+        elif (type is str) or (type is LocPath):
             return LocPath(str(self))
-        raise TypeError("Only 'str' or 'Path' supported")
+        raise TypeError("Only 'str', 'LocPath', 'PathObj' or 'Path' supported")
 
     def get(self, name: str,
             cat: Union[str, None] = None,
