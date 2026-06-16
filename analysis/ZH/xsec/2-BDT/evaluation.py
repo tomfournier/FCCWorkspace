@@ -40,7 +40,8 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Import plot configuration and directory paths
-from package.userConfig import loc, plot_file
+from package.userConfig import loc, PathObj, plot_file
+loc.set_default_type(PathObj)
 
 # Import configuration utilities and labels paremeters
 from package.config import (
@@ -53,7 +54,7 @@ from package.config import (
 )
 
 # Import data handling utilities
-from package.tools.utils import mkdir, load_data
+from package.tools.utils import load_data
 
 # Import BDT model utilities
 from package.func.bdt import (
@@ -111,7 +112,7 @@ def plot_metrics(df: 'pd.DataFrame',
                  x_axis: 'np.ndarray',
                  modes: list[str],
                  cat: str,
-                 outDir: str) -> None:
+                 outDir: PathObj) -> None:
     """Generate comprehensive BDT evaluation plots and performance metrics.
 
     Creates multiple categories of plots:
@@ -136,13 +137,13 @@ def plot_metrics(df: 'pd.DataFrame',
     """
 
     # Set LaTeX labels for final state particles
-    if cat == 'mumu': label = r'$Z(\mu^+\mu^-)H$'
-    elif cat == 'ee': label = r'$Z(e^+e^-)H$'
-    elif cat == 'qq': label = r'$Z(q\bar{q})H$'
+    if cat == 'mumu': label = r'$Z(\to \mu^+\mu^-)H$'
+    elif cat == 'ee': label = r'$Z(\to e^+e^-)H$'
+    elif cat == 'qq': label = r'$Z(\to q\bar{q})H$'
     else: raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
     # Create output directory
-    mkdir(outDir)
+    outDir.mkdir(exist_ok=True, parents=True)
 
     if arg.metric:
         # Lazily import plotting functions for model performance
