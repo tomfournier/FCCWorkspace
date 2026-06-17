@@ -109,11 +109,11 @@ histos_qq = {
                             'title':'m_{recoil} [GeV]',
                             'bin':200,'xmin':100,'xmax':150},
 
-    'zqq_m_recoil_m':      {'cols':['zqq_m', 'zqq_recoil_m'],
+    'zqq_m_recoil_m':      {'cols':['zqq_recoil_m', 'zqq_m'],
                             'title':'m_{jj} - m_{recoil} [GeV]',
                             'bins':[(120, 60, 120), (100, 100, 150)]},
 
-    'zqq_m_recoil_m_test': {'cols':['zqq_m', 'zqq_recoil_m'],
+    'zqq_m_recoil_m_test': {'cols':['zqq_recoil_m', 'zqq_m'],
                             'title':'m_{jj} - m_{recoil} [GeV]',
                             'bins':[(60, 60, 120), (50, 100, 150)]},
 

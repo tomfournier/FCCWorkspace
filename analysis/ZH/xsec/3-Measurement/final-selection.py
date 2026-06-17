@@ -19,15 +19,10 @@ from sel.final.hadronic import (
     histos_qq,        # Histogram definitions        (hadronic channel)
     custom_hists_qq   # Custom histogram definitions (hadronic channel)
 )
-from package.config import (
-    input_vars_ll,    # BDT input variables for classification (leptonic channel)
-    input_vars_qq,    # BDT input variables for classification (hadronic channel)
-    get_process_list
-)
+from package.config import get_process_list
 
 # Load analysis parameters: decay category, CoM energy, luminosity, test flag
 cat, ecm, lumi, test = get_params(os.environ.copy(), '3-run.json', is_final=True)
-input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
 
 
@@ -71,8 +66,11 @@ samples = get_process_list(cat, ecm).keys()
 processList = event(samples, inputDir)
 
 # Define BDT score from trained model and apply BDT cut
-loc_BDT = loc.get('BDT', cat, ecm, 'Baseline')
-defineList, bdt_cut = def_bdt(input_vars, loc_BDT)
+if test:
+    loc_BDT = loc.get('BDT', cat, ecm, 'test')
+else:
+    loc_BDT = loc.get('BDT', cat, ecm, 'Baseline')
+defineList, bdt_cut = def_bdt(loc_BDT)
 
 
 
@@ -97,7 +95,10 @@ if cat in ['ee', 'mumu']:
         cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
     Baseline = Baseline_cut_qq(ecm)
-    cutList['Baseline']  = Baseline
+    if test:
+        cutList['test'] = Baseline
+    else:
+        cutList['Baseline'] = Baseline
 else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
