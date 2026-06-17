@@ -149,14 +149,12 @@ def run(cats: str,
                         hName, sample, processes, inDir,
                         suffix=suffix_high,
                         rebin=1,
-                        is_2d='m_recoil_m' in hName,
                         proc_scales=procs_scales
                     )
                     h_low  = get_hist(
                         hName, sample, processes, inDir,
                         suffix=suffix_low,
                         rebin=1,
-                        is_2d='m_recoil_m' in hName,
                         proc_scales=procs_scales
                     )
 
@@ -164,22 +162,19 @@ def run(cats: str,
                         continue
 
                     # Rename histograms to denote region
-                    h_high.SetName(h_high.GetName()+'_fit_high')
-                    h_low.SetName(h_low.GetName()+'_fit_low')
+                    h_high.SetName(hName+'_fit_high')
+                    h_low.SetName(hName+'_fit_low')
 
                     has_valid_hist = True
                     # Concatenate high and low region histograms
-                    if cat in ['ee', 'mumu']:
-                        h = concat([h_low, h_high], hName, f'z{cat}_fit')
+                    if 'TH1' in h_high.ClassName():
+                        h = concat([h_low, h_high], hName, hName+'_fit')
                         hists.extend([h, h_high, h_low])
-                    elif cat == 'qq':
-                        h_high_1D = unroll(h_high, h_high.GetName()+'_fit_high_1D')
-                        h_low_1D  = unroll(h_low,  h_low.GetName()+'_fit_low_1D')
-                        h = concat([h_low_1D, h_high_1D], hName+'_fit')
-
-                        hists.extend([h, h_high, h_low, h_high_1D, h_low_1D])
                     else:
-                        raise ValueError(f'{cat = } is not supported, choose between [ee, mumu, qq]')
+                        h_high_1D = unroll(h_high, hName+'_fit_high_1D')
+                        h_low_1D  = unroll(h_low,  hName+'_fit_low_1D')
+                        h = concat([h_low_1D, h_high_1D], hName+'_fit')
+                        hists.extend([h, h_high, h_low, h_high_1D, h_low_1D])
 
                 # Skip sample if no valid histograms found
                 if not has_valid_hist:
