@@ -223,6 +223,36 @@ def fitting(
 ### RESULTS EXTRACTION ###
 ##########################
 
+def check_log(res_log: str) -> None:
+    '''Check if the fit has converged'''
+    LOGGER.info('Fit done, extracting results')
+
+    # Parse log file for signal strength result
+    # (parse from end to find latest result)
+    status = None
+    with open(str(res_log)) as file:
+        lines = file.readlines()
+        for line in reversed(lines):
+            if 'Minimization finished with status=' in line:
+                status = int(line.split('=')[-1])
+                break
+
+    if status is None:
+        LOGGER.error(f"Couldn't find minimization status in {res_log}\nAborting...")
+        exit(1)
+    elif status == 0:
+        LOGGER.debug(f'Minimization success, {status = }')
+    elif status == 1:
+        LOGGER.warning(f'Minimizaiton finished with {status = }\n'
+                       f'Check the log at {res_log}')
+    elif status == -1:
+        LOGGER.error('The minimization did not converge\n'
+                     f'Check the log at {res_log}\nAborting...')
+        exit(1)
+
+
+
+
 def root_extraction(
         file: str
          ) -> tuple[float,
@@ -339,6 +369,9 @@ if __name__=='__main__':
         # Execute the fitting pipeline
         ret = fitting(dr, dc, ws, tp, dc_comb, env)
         if ret != 0: sys.exit(ret)
+
+        # Check if the fit went well
+        check_log(result_fit)
 
         # Extract results using primary method: log file extraction
         mu, err = res_extraction(result_fit)
