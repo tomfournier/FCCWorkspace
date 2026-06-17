@@ -58,6 +58,7 @@ from package.func.bdt import (
     counts_and_effs,            # Calculate event counts and efficiencies
     additional_info,            # Add signal/background labels and weights
     BDT_input_numbers,          # Determine optimal training set sizes
+    sample_df_by_xsec,          # Sample process dataframes in proportion to cross-sections
     df_split_data               # Split data into training/validation sets
 )
 
@@ -93,6 +94,9 @@ modes = {
 }
 if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
     modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']        # Background: diphoton
+
+# if (cat == 'qq') and (ecm == 365):
+#     modes[f'Z{cat}H'].extend(['wzp6_ee_bbH_ecm365', 'wzp6_ee_ccH_ecm365', 'wzp6_ee_ssH_ecm365'])
 
 # Process dictionary with cross-sections and normalization info
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
@@ -135,12 +139,15 @@ def run(
 
     # Extract cross sections for each process (used for normalization)
     xsec: dict[str, float] = {}
+    proc_xsec: dict[str, float] = {}
     for mode, procs in modes.items():
         xsec[mode] = sum(procDict[proc]['crossSection'] for proc in procs)
+        for proc in procs:
+            proc_xsec[proc] = procDict[proc]['crossSection']
 
     # Set uniform reweighting fraction for all processes
     # (can be adjusted to emphasize specific backgrounds)
-    frac = {mode: 0.5 if mode==sig else 1.0 for mode in modes}
+    frac = {mode: 1.0 if mode==sig else 1.0 for mode in modes}
 
     for sel in sels:
         # Output directory for preprocessed pickle files
@@ -159,20 +166,30 @@ def run(
         for mode in modes_list:
             procs = modes[mode]
             # Locate histogram files for this process and selection
-            df_mode = []
+            df_mode: dict[str, pd.DataFrame] = {}
+            selected_events = 0
             for proc in procs:
                 files = get_paths(proc, inDir, f'_{sel}')
 
                 # Load data from TTrees and calculate survival efficiency
                 df_proc, eff_proc[proc], N_procs[proc] = counts_and_effs(files, vars, only_eff=False)
                 N_events[mode] += N_procs[proc]
+                selected_events += df_proc.shape[0]
 
                 # Add signal/background classification and event weights
                 df_proc = additional_info(df_proc, mode, proc, sig)
-                df_mode.append(df_proc)
+                df_mode[proc] = df_proc
 
-            df[mode]  = pd.concat(df_mode)
-            eff[mode] = df[mode].shape[0] / N_events[mode] if N_events[mode] > 0 else 0.0
+            if selected_events == 0:
+                df[mode] = pd.DataFrame()
+                eff[mode] = 0.0
+                LOGGER.info(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}\n'
+                            f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%')
+                continue
+
+            # Sample the mode dataframe in proportion to process cross-sections.
+            df[mode] = sample_df_by_xsec(df_mode, proc_xsec, eff_proc, selected_events, mode=mode)
+            eff[mode] = selected_events / N_events[mode] if N_events[mode] > 0 else 0.0
 
             LOGGER.info(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}\n'
                         f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%')
