@@ -74,16 +74,28 @@ if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
 
 # XGBoost hyperparameter configuration
 # These parameters control the BDT learning and regularization
-config = {
-    'n_estimators': 350,       # Number of boosting rounds (trees to grow)
-    'learning_rate': 0.20,     # Step size shrinkage (lower = more conservative)
-    'max_depth': 3,            # Maximum tree depth (3 = shallow trees, reduces overfitting)
-    'subsample': 0.5,          # Subsample ratio of training instances per tree
-    'gamma': 3,                # Minimum loss reduction required for tree split
-    'min_child_weight': 10,    # Minimum sum of instance weight in leaf node
-    'max_delta_step': 0,       # Maximum delta step for weight update (0 = no limit)
-    'colsample_bytree': 0.5,   # Subsample ratio of columns when building each tree
+configs = {
+    'lep': {
+        'n_estimators': 350,                           # Number of boosting rounds (trees to grow)
+        'learning_rate': 0.20,                         # Step size shrinkage (lower = more conservative)
+        'max_depth': 3,                                # Maximum tree depth (3 = shallow trees, reduces overfitting)
+        'subsample': 0.5,                              # Subsample ratio of training instances per tree
+        'gamma': 3,                                    # Minimum loss reduction required for tree split
+        'min_child_weight': 10,                        # Minimum sum of instance weight in leaf node
+        'max_delta_step': 0,                           # Maximum delta step for weight update (0 = no limit)
+        'colsample_bytree': 0.5,                       # Subsample ratio of columns when building each tree
+        'early_stopping_rounds': 25,                   # Validation metric needs to improve at least once every early stopping round
+        'eval_metric': ['error', 'logloss', 'auc']     # Metrics to use for monitoring the training
+    },
+    'had': {
+        'objective': 'binary:logistic',                # Learning task and the correspondinf learning objective to be used
+        'eval_metric': ['error', 'logloss', 'auc'],    # Metrics to use for monitoring the training
+        'n_estimators': 350,                           # Number of boosting round (tree to grow)
+        'max_depth': 5,                                # Maximum tree depth
+        'early_stopping_rounds': 1                     # Validation metric need to improve at least once every early stoppinf round
+    }
 }
+config = configs['lep'] if cat in ['ee', 'mumu'] else configs['had']
 
 
 
@@ -95,7 +107,6 @@ def run(sels: list[str],
         modes: list[str],
         vars: list[str],
         config: dict[str, str],
-        early: int = 25
         ) -> None:
     """Train XGBoost BDT models for each selection strategy.
 
@@ -137,7 +148,7 @@ def run(sels: list[str],
         bdt = train_model(
             X_train, y_train,
             X_valid, y_valid,
-            config, early
+            config
         )
 
         # Serialize trained model to disk (joblib and root format)
