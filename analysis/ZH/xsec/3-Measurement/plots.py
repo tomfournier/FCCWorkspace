@@ -63,12 +63,9 @@ cats, ecm = arg.cat.split('-'), arg.ecm
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 # Selection strategies to plot
-if arg.sels=='':
-    sels = ['Baseline']
-else:
-    sels = arg.sels.split('-')
-hl = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
-sels = high_low_sels(sels, hl)
+if arg.sels=='': sels = ['Baseline']
+else:            sels = arg.sels.split('-')
+if arg.hl: sels = high_low_sels(sels, arg.hlsel)
 
 
 # Define physics processes

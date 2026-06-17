@@ -281,6 +281,18 @@ def add_plots_args(parser: ArgumentParser) -> None:
         default=False,
         help='Make significance scan plots',
     )
+    args.add_argument(
+        '--hl',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Include <sel>_high/_low selection to plot'
+    )
+    args.add_argument(
+        '--hlsel',
+        type='str',
+        default='Baseline-Baseline_miss-Baseline_sep-test',
+        help='sels to include in the hl plot'
+    )
 
 
 def add_cutflow_args(parser: ArgumentParser) -> None:
