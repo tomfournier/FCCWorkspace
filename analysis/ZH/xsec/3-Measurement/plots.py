@@ -177,6 +177,7 @@ def run(
                         kwarg = get_args(var, sel, cat, ecm, lumi, args)
                         # Signal vs background plots (linear and log scale)
                         for logY in [False, True]:
+                            kwarg['sig_scale'] = 1 if logY else kwarg['sig_scale']
                             makePlot(var, inDir, outDir, sel, procs,     processes, colors, legend, logY=logY, **kwarg)
                             makePlot(var, inDir, outDir, sel, procs_tot, processes, colors, legend, logY=logY, **kwarg)
 
