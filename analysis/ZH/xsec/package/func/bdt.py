@@ -3,6 +3,7 @@
 Provides:
 - Data preparation and loading: `counts_and_effs()`, `additional_info()`, `split_data()`.
 - Sample balancing: `BDT_input_numbers()`, `df_split_data()`.
+- Sample balancing: `sample_df_by_xsec()`: Sample process dataframes within a mode in proportion to `eff * xsec`.
 - Model training and evaluation: `train_model()`, `evaluate_bdt()`, `get_metrics()`.
 - Model persistence: `save_model()`, `load_model()`.
 - ROOT integration: `def_bdt()`, `make_high_low()`.
@@ -58,7 +59,7 @@ Lazy Imports:
 import warnings
 warnings.filterwarnings('ignore', message='The value of the smallest subnormal for')
 
-from typing import overload, Sequence, TYPE_CHECKING
+from typing import overload, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import numpy as np
@@ -202,8 +203,123 @@ def BDT_input_numbers(
     for m in modes:
         N_BDT_inputs[m] = (
             int(frac[m] * df[m].shape[0]) if m == sig else
-            int(frac[m] * df[sig].shape[0] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
+            int(frac[m] * df[sig].shape[0] * frac[sig] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
     return N_BDT_inputs
+
+# __________________________
+def sample_df_by_xsec(
+    df_mode: dict[str, 'pd.DataFrame'],
+    proc_xsec: dict[str, float],
+    proc_eff: dict[str, float],
+    target_events: int,
+    mode: str = '',
+    random_state: int = 1,
+     ) -> 'pd.DataFrame':
+    '''Sample and concatenate process dataframes in proportion to eff * xsec.
+
+    Args:
+        df_mode (dict[str, pd.DataFrame]): Dataframes keyed by process name.
+        proc_xsec (dict[str, float]): Cross-sections keyed by process name.
+        proc_eff (dict[str, float]): Selection efficiencies keyed by process name.
+        target_events (int): Total number of events to keep after sampling.
+        mode (str, optional): Mode name used for log messages. Defaults to ''.
+        random_state (int, optional): Random seed used for sampling. Defaults to 1.
+
+    Returns:
+        pd.DataFrame: Concatenated dataframe sampled in proportion to eff * xsec.
+    '''
+    import math
+    import pandas as pd
+
+    if not df_mode:
+        return pd.DataFrame()
+
+    available = {
+        proc: df.shape[0]
+        for proc, df in df_mode.items()
+        if df.shape[0] > 0 and proc_xsec.get(proc, 0) > 0 and proc_eff.get(proc, 0) > 0
+    }
+    if not available:
+        return pd.DataFrame()
+
+    if len(available) == 1:
+        proc = next(iter(available))
+        LOGGER.debug(f'Only one process found for {mode}; keeping {proc} without resampling.')
+        return df_mode[proc]
+
+    total_available = sum(available.values())
+    proc_weight = {
+        proc: proc_xsec[proc] * proc_eff[proc]
+        for proc in available
+    }
+    total_weight = sum(proc_weight.values())
+    if total_weight <= 0:
+        LOGGER.warning(
+            f'Cannot sample {mode} proportionally: total eff*xsec is non-positive. '
+            'Returning the concatenation of all available process dataframes.'
+        )
+        return pd.concat([df_mode[proc] for proc in available], ignore_index=True)
+
+    max_feasible = min(
+        math.floor(available[proc] * total_weight / proc_weight[proc])
+        for proc in available
+    )
+    total_sampled = min(target_events, total_available, max_feasible)
+    if total_sampled < target_events:
+        LOGGER.info(
+            f'Reducing total events for {mode} from {target_events:,} to {total_sampled:,} '
+            'to preserve the expected process proportions.'
+        )
+    proc_width    = max(len(proc) for proc in available)
+
+    ideal_counts = {
+        proc: total_sampled * proc_weight[proc] / total_weight
+        for proc in available
+    }
+    proc_targets = {
+        proc: min(available[proc], int(ideal_counts[proc]))
+        for proc in available
+    }
+    remaining = total_sampled - sum(proc_targets.values())
+    ordered_procs = sorted(
+        available,
+        key=lambda proc: ideal_counts[proc] - proc_targets[proc],
+        reverse=True,
+    )
+
+    while remaining > 0:
+        progressed = False
+        for proc in ordered_procs:
+            if remaining == 0:
+                break
+            if proc_targets[proc] < available[proc]:
+                proc_targets[proc] += 1
+                remaining -= 1
+                progressed = True
+        if not progressed:
+            break
+
+    sampled_mode = []
+    sampled_counts = {}
+    for proc in available:
+        n_target = proc_targets[proc]
+        proc_df = df_mode[proc]
+        if n_target < proc_df.shape[0]:
+            sampled_df = proc_df.sample(n_target, random_state=random_state)
+        else:
+            sampled_df = proc_df
+        sampled_mode.append(sampled_df)
+        sampled_counts[proc] = sampled_df.shape[0]
+
+    total_sampled = sum(sampled_counts.values())
+    for proc in available:
+        expected_fraction = (proc_weight[proc] / total_weight) * 100 if total_weight > 0 else 0.0
+        actual_fraction = sampled_counts[proc] / total_sampled * 100 if total_sampled > 0 else 0.0
+        if abs(expected_fraction - actual_fraction) > 1e-3:
+            LOGGER.warning(f'Fraction in {mode:<{max(len(mode), 1)}} from {proc:<{proc_width}} = '
+                           f'expected {expected_fraction:.3f}% | actual {actual_fraction:.3f}%')
+
+    return pd.concat(sampled_mode, ignore_index=True)
 
 # ________________________________
 def df_split_data(
@@ -317,8 +433,7 @@ def train_model(
     X_valid: 'np.ndarray',
     y_valid: 'np.ndarray',
     config: dict[str,
-                 str | int | float],
-    early: int
+                 str | int | float | list[str]],
      ) -> 'xgb.XGBClassifier':
     '''Train XGBoost model with early stopping.
 
@@ -335,16 +450,7 @@ def train_model(
     '''
     import xgboost as xgb
 
-    cfg = dict(config)
-    # Set default XGBoost parameters
-    cfg.setdefault('use_label_encoder', False)
-    cfg.setdefault('verbosity', 1)
-    cfg.setdefault('tree_method', 'auto')
-
-    bdt = xgb.XGBClassifier(
-        **cfg, eval_metric=['error', 'logloss', 'auc'],
-        early_stopping_rounds=early
-    )
+    bdt = xgb.XGBClassifier(**config)
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
     LOGGER.info('Beginning the training')
     bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True)
@@ -455,7 +561,6 @@ def save_model(
 
 # ______________________________________
 def def_bdt(
-    vars: Sequence[str],
     loc_bdt: str,
     MVAVec:  str = 'MVAVec',
     score:   str = 'BDTscore',
@@ -475,7 +580,7 @@ def def_bdt(
     Returns:
         tuple: (updated defineList, BDT cut threshold).
     '''
-    import ROOT
+    import uproot, ROOT
     import numpy as np
 
     # Load TMVA model from ROOT file
@@ -483,7 +588,11 @@ def def_bdt(
         TMVA::Experimental::RBDT<> tmva("ZH_Recoil_BDT", "{loc_bdt}/xgb_bdt.root");
     ''')
 
-    var_list = ', (float)'.join(vars)
+    # Get the BDT inputs from the .root file
+    tlist = uproot.open(f'{loc_bdt}/xgb_bdt.root')['variables']
+    var_list = ', (float)'.join([str(x) for x in tlist])
+
+
     # Define feature vector if not already present
     if MVAVec not in defineList:
         defineList[MVAVec] = f'ROOT::VecOps::RVec<float>{{{var_list}}}'
