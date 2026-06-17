@@ -289,7 +289,7 @@ def add_plots_args(parser: ArgumentParser) -> None:
     )
     args.add_argument(
         '--hlsel',
-        type='str',
+        type=str,
         default='Baseline-Baseline_miss-Baseline_sep-test',
         help='sels to include in the hl plot'
     )
