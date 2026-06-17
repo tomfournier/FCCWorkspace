@@ -154,6 +154,8 @@ def run(cat: str,
         if not arg.decay:  extra_args.append('--no-decay')
         if not arg.make:   extra_args.append('--no-make')
         if arg.scan:       extra_args.append('--scan')
+        if not arg.hl:     extra_args.append('--no-hl')
+        extra_args.extend(['--hlsel', arg.hlsel])
     elif 'cutflow' in script:
         if not arg.tot:  extra_args.append('--no-tot')
         if not arg.test: extra_args.append('--no-test')
