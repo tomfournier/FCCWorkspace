@@ -45,13 +45,16 @@ def add_cat_argument(
         parser: ArgumentParser,
         multi: bool = False,
         allow_empty: bool = False,
-        default: str = '',
+        default: str | None = None,
         allow_qq: bool = True,
         group: str | None = None
          ) -> None:
     '''Add --cat/--cats argument for final state selection.'''
 
-    def_value = default or ('ee-mumu' if multi else '')
+    if default is None:
+        def_value = 'ee-mumu' if multi else ''
+    else:
+        def_value = default
 
     choices = ['ee', 'mumu', 'qq'] if allow_qq else ['ee', 'mumu']
     if multi:
@@ -486,6 +489,12 @@ def add_fit_plot_args(
         choices=['', 'cat', 'ecm', 'sel', 'decay'],
         help='Choose which parameter to compare'
     )
+    args.add_argument(
+        '--timer',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Print the elapsed time'
+    )
 
 
 def add_bias_args(parser: ArgumentParser, extra: bool = False) -> None:
@@ -527,7 +536,7 @@ def add_bias_args(parser: ArgumentParser, extra: bool = False) -> None:
 def create_parser(
         cat_single: bool = False,
         cat_multi: bool = False,
-        cat_default: str = '',
+        cat_default: str | None = None,
         allow_qq: bool = True,
         ecm_multi: bool = False,
         ecm_default: int | str | None = None,
