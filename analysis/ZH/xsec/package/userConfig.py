@@ -288,6 +288,7 @@ class loc(metaclass=locMeta):
     NOMINAL_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")       # Combine job logs
     NOMINAL_RESULT      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/results")   # Fit results and plots
     NOMINAL_DATACARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/datacard")  # Combine datacards
+    NOMINAL_FASTSCAN    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/fastscan")  # To check the nll of the fit
     NOMINAL_WS          = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/WS")        # Combine workspaces
 
     # Bias test outputs: templates use {sel}, {ecm}, {cat} placeholders
@@ -295,6 +296,7 @@ class loc(metaclass=locMeta):
     BIAS_FIT_RESULT     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/fit")   # Individual toy fit results
     BIAS_RESULT         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/results/bias")  # Bias summaries and statistics
     BIAS_DATACARD       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Combine datacards
+    BIAS_FASTSCAN       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/fastscan")      # To check the nll of the fit
     BIAS_WS             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Combine workspaces
 
 
