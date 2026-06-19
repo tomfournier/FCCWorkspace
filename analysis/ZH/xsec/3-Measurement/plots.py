@@ -117,7 +117,7 @@ def run(
         if cat in ['ee', 'mumu']:
             vars = list(histos_ll) + list(custom_hists_ll)
         elif cat == 'qq':
-            vars = [v for v in histos_qq if (v!='zqq_m_recoil_m' and v!='zqq_m_recoil_m_test')] + list(custom_hists_qq)
+            vars = [v for v in histos_qq if ('m_recoil_m' not in v)] + list(custom_hists_qq)
         vars.append('BDTscore')
 
         vars_label  = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq

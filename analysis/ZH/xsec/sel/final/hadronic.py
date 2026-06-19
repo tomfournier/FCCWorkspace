@@ -117,6 +117,14 @@ histos_qq = {
                             'title':'m_{jj} - m_{recoil} [GeV]',
                             'bins':[(50, 100, 150), (60, 60, 120)]},
 
+    'zqq_m_recoil_m_test1':{'cols':['zqq_recoil_m', 'zqq_m'],
+                            'title':'m_{jj} - m_{recoil} [GeV]',
+                            'bins':[(100, 100, 150), (200, 40, 140)]},
+
+    'zqq_m_recoil_m_test2':{'cols':['zqq_recoil_m', 'zqq_m'],
+                            'title':'m_{jj} - m_{recoil} [GeV]',
+                            'bins':[(50, 100, 150), (100, 40, 140)]},
+
     # Visible and invisible information
     'cosTheta_miss':       {'name':'cosTheta_miss',
                             'title':'|cos#theta_{miss}|',
