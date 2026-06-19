@@ -70,9 +70,11 @@ bkg_procs = {
 #     bkg_procs['tt'] = ['p8_ee_tt_ecm365']
 
 
+# categories = [f'z_{cat}_high', f'z_{cat}_low']     # Category identifier (e.g., 'z_ee', 'z_mumu', 'z_qq')
+# hist_names = ['zqq_m_recoil_m_fit_high', 'zqq_m_recoil_m_fit_low']  # Histogram name for this category
+
 categories = [f'z_{cat}']     # Category identifier (e.g., 'z_ee', 'z_mumu', 'z_qq')
-# hist_names = [f'z{cat}_fit']  # Histogram name for this category
-hist_names = ['zqq_m_recoil_m_fit']
+hist_names = ['zqq_recoil_m_fit']  # Histogram name for this category
 
 # Define systematic uncertainties
 # Log-normal normalization uncertainties (1% each) for all background processes

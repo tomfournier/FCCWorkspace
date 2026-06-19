@@ -43,8 +43,11 @@ from package.config import (
     get_process_list,
     H_decays            # Higgs decay modes
 )
-from package.tools.utils import mkdir                       # Directory creation
-from package.tools.process import get_hist, concat, unroll  # Histogram utilities
+from package.tools.utils import mkdir     # Directory creation
+from package.tools.process import (       # Histogram utilities
+    get_hist, concat,
+    unroll, stack_hist
+)
 
 
 
@@ -113,7 +116,9 @@ def run(cats: str,
         inDir = loc.get('HIST_PREPROCESSED', cat, ecm)
 
         # Histograms to process for BDT training/measurement
-        hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_m_recoil_m', 'zqq_m_recoil_m_test', 'zqq_recoil_m']
+        hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_m_recoil_m', 'zqq_m_recoil_m_test', 'zqq_recoil_m',
+                                                                 'zqq_m_recoil_m_test1', 'zqq_m_recoil_m_test2',
+                                                                 'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_mva_jan']
         samples = get_process_list(cat, ecm).keys()
 
         # Process each selection strategy
@@ -145,18 +150,32 @@ def run(cats: str,
                 for hName in hNames:
 
                     # Retrieve high and low region histograms with optional scaling
-                    h_high = get_hist(
-                        hName, sample, processes, inDir,
-                        suffix=suffix_high,
-                        rebin=1,
-                        proc_scales=procs_scales
-                    )
-                    h_low  = get_hist(
-                        hName, sample, processes, inDir,
-                        suffix=suffix_low,
-                        rebin=1,
-                        proc_scales=procs_scales
-                    )
+                    if 'mva' in hName:
+                        h_high = get_hist(
+                            hName+'_high', sample, processes, inDir,
+                            suffix_high,
+                            rebin=1,
+                            proc_scales=procs_scales
+                        )
+                        h_low  = get_hist(
+                            hName+'_low', sample, processes, inDir,
+                            suffix_low,
+                            rebin=1,
+                            proc_scales=procs_scales
+                        )
+                    else:
+                        h_high = get_hist(
+                            hName, sample, processes, inDir,
+                            suffix_high,
+                            rebin=1,
+                            proc_scales=procs_scales
+                        )
+                        h_low  = get_hist(
+                            hName, sample, processes, inDir,
+                            suffix_low,
+                            rebin=1,
+                            proc_scales=procs_scales
+                        )
 
                     if h_high is None or h_low is None:
                         continue
@@ -170,11 +189,15 @@ def run(cats: str,
                     if 'TH1' in h_high.ClassName():
                         h = concat([h_low, h_high], hName, hName+'_fit')
                         hists.extend([h, h_high, h_low])
-                    else:
+                    elif 'TH2' in h_high.ClassName():
                         h_high_1D = unroll(h_high, hName+'_fit_high_1D')
                         h_low_1D  = unroll(h_low,  hName+'_fit_low_1D')
                         h = concat([h_low_1D, h_high_1D], hName+'_fit')
                         hists.extend([h, h_high, h_low, h_high_1D, h_low_1D])
+                    elif 'TH3' in h_high.ClassName():
+                        h = stack_hist([h_low, h_high], hName)
+                        h_1d = unroll(h, hName+'_fit')
+                        hists.extend([h, h_1d, h_low, h_high])
 
                 # Skip sample if no valid histograms found
                 if not has_valid_hist:

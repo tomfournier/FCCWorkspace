@@ -32,6 +32,9 @@ Process Scaling:
 Lazy Imports:
 - ROOT lazy-loaded when histograms are first accessed
 - numpy and tqdm lazy-loaded only when needed
+
+Range Helpers:
+- Histogram range slicing: `range_hist()`, `range_hist_2d()`, `range_hist_3d()`
 '''
 
 import os
@@ -495,8 +498,14 @@ def concat(
         nbins = hist.GetNbinsX()
 
         for bin_idx in range(1, nbins + 1):
-            h_concat.SetBinContent(bin_offset+bin_idx, hist.GetBinContent(bin_idx))
-            h_concat.SetBinError(bin_offset+bin_idx, hist.GetBinError(bin_idx))
+            # Avoid zero value for the fit
+            if hist.GetBinContent(bin_idx) == 0:
+                h_concat.SetBinContent(bin_offset+bin_idx, 1e-5)
+                h_concat.SetBinError(bin_offset+bin_idx, 1e-5)
+                pass
+            else:
+                h_concat.SetBinContent(bin_offset+bin_idx, hist.GetBinContent(bin_idx))
+                h_concat.SetBinError(bin_offset+bin_idx,   hist.GetBinError(bin_idx))
 
         bin_offset += nbins
 
@@ -533,6 +542,9 @@ def unroll(hist, outName: str):
                 content = hist.GetBinContent(bin_x, bin_y)
                 error = hist.GetBinError(bin_x, bin_y)
 
+                # Avoid zero value for the fit
+                if content == 0: content, error = 1e-5, 1e-5
+
                 # Set the content and error in the 1D histogram
                 h1.SetBinContent(bin_1d, content)
                 h1.SetBinError(bin_1d, error)
@@ -556,7 +568,7 @@ def unroll(hist, outName: str):
             for y in range(1, nbinsY + 1):
                 for z in range(1, nbinsZ + 1):
                     content = hist.GetBinContent(x, y, z)
-                    error = hist.GetBinError(x, y, z)  # Retrieve bin error
+                    error   = hist.GetBinError(x, y, z)  # Retrieve bin error
                     if content < 0:
                         LOGGER.warning(f'Negative content for {hist.GetName()}:\n'
                                        f'bin ({x}, {y}, {z}) = {content} +/- {error}')
@@ -571,6 +583,244 @@ def unroll(hist, outName: str):
     else:
         hist.SetName(outName)
         return hist
+
+
+def range_hist(
+        hist_original: 'ROOT.TH1',
+        x_min: float | int,
+        x_max: float | int
+         ) -> 'ROOT.TH1':
+
+    import ROOT
+
+    # Get the bin numbers corresponding to the range
+    bin_min = hist_original.FindBin(x_min)
+    bin_max = hist_original.FindBin(x_max)
+
+    hist_selected = ROOT.TH1D(hist_original.GetName()+"new", "", bin_max - bin_min, x_min, x_max)
+
+    for bin in range(bin_min, bin_max + 1):
+        new_bin = bin - bin_min + 1  # Adjust for new histogram bin indexing
+        hist_selected.SetBinContent(new_bin, hist_original.GetBinContent(bin))
+        hist_selected.SetBinError(new_bin,   hist_original.GetBinError(bin))  # Preserve errors
+
+    LOGGER.debug(f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
+    return hist_selected
+
+
+def _axis_bin_edges(axis, bin_min: int, bin_max: int):
+    """
+    Collect the bin edges for a selected axis range.
+
+    The returned edge list includes the lower edge of the first selected bin and
+    the upper edge of the last selected bin.
+    """
+    from array import array
+
+    edges = [axis.GetBinLowEdge(bin_idx) for bin_idx in range(bin_min, bin_max + 2)]
+    return array('d', edges)
+
+
+def range_hist_2d(
+        hist_original: 'ROOT.TH2',
+        x_min: float | int,
+        x_max: float | int,
+        y_min: float | int,
+        y_max: float | int,
+        outName: str = ''
+         ) -> 'ROOT.TH2':
+    import ROOT
+
+    xaxis = hist_original.GetXaxis()
+    yaxis = hist_original.GetYaxis()
+
+    x_bin_min = xaxis.FindBin(x_min)
+    x_bin_max = xaxis.FindBin(x_max)
+    y_bin_min = yaxis.FindBin(y_min)
+    y_bin_max = yaxis.FindBin(y_max)
+
+    x_edges = _axis_bin_edges(xaxis, x_bin_min, x_bin_max)
+    y_edges = _axis_bin_edges(yaxis, y_bin_min, y_bin_max)
+
+    hist_selected = ROOT.TH2D(
+        outName if outName else hist_original.GetName() + '_range',
+        hist_original.GetTitle(),
+        x_bin_max - x_bin_min + 1,
+        x_edges,
+        y_bin_max - y_bin_min + 1,
+        y_edges,
+    )
+    hist_selected.SetDirectory(0)
+
+    for x_bin in range(x_bin_min, x_bin_max + 1):
+        for y_bin in range(y_bin_min, y_bin_max + 1):
+            new_x_bin = x_bin - x_bin_min + 1
+            new_y_bin = y_bin - y_bin_min + 1
+            hist_selected.SetBinContent(new_x_bin, new_y_bin, hist_original.GetBinContent(x_bin, y_bin))
+            hist_selected.SetBinError(new_x_bin, new_y_bin, hist_original.GetBinError(x_bin, y_bin))
+
+    LOGGER.debug(f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
+    return hist_selected
+
+
+def range_hist_3d(
+        hist_original: 'ROOT.TH3',
+        x_min: float | int,
+        x_max: float | int,
+        y_min: float | int,
+        y_max: float | int,
+        z_min: float | int,
+        z_max: float | int,
+        outName: str = ''
+         ) -> 'ROOT.TH3':
+    import ROOT
+
+    xaxis = hist_original.GetXaxis()
+    yaxis = hist_original.GetYaxis()
+    zaxis = hist_original.GetZaxis()
+
+    x_bin_min = xaxis.FindBin(x_min)
+    x_bin_max = xaxis.FindBin(x_max)
+    y_bin_min = yaxis.FindBin(y_min)
+    y_bin_max = yaxis.FindBin(y_max)
+    z_bin_min = zaxis.FindBin(z_min)
+    z_bin_max = zaxis.FindBin(z_max)
+
+    x_edges = _axis_bin_edges(xaxis, x_bin_min, x_bin_max)
+    y_edges = _axis_bin_edges(yaxis, y_bin_min, y_bin_max)
+    z_edges = _axis_bin_edges(zaxis, z_bin_min, z_bin_max)
+
+    hist_selected = ROOT.TH3D(
+        outName if outName else hist_original.GetName() + '_range',
+        hist_original.GetTitle(),
+        x_bin_max - x_bin_min + 1,
+        x_edges,
+        y_bin_max - y_bin_min + 1,
+        y_edges,
+        z_bin_max - z_bin_min + 1,
+        z_edges,
+    )
+    hist_selected.SetDirectory(0)
+
+    for x_bin in range(x_bin_min, x_bin_max + 1):
+        for y_bin in range(y_bin_min, y_bin_max + 1):
+            for z_bin in range(z_bin_min, z_bin_max + 1):
+                new_x_bin = x_bin - x_bin_min + 1
+                new_y_bin = y_bin - y_bin_min + 1
+                new_z_bin = z_bin - z_bin_min + 1
+                hist_selected.SetBinContent(
+                    new_x_bin,
+                    new_y_bin,
+                    new_z_bin,
+                    hist_original.GetBinContent(x_bin, y_bin, z_bin),
+                )
+                hist_selected.SetBinError(
+                    new_x_bin,
+                    new_y_bin,
+                    new_z_bin,
+                    hist_original.GetBinError(x_bin, y_bin, z_bin),
+                )
+
+    LOGGER.debug(f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
+    return hist_selected
+
+def stack_hist(
+    h_list: list['ROOT.TH3'],
+    outName: str = ''
+     ) -> 'ROOT.TH3':
+    '''
+    Stack multiple 3D histograms along the z-axis.
+
+    The input histograms must share the same x/y binning. Their z-axes are
+    concatenated so the output histogram contains one z slice per input
+    histogram segment.
+
+    Args:
+        h_list (list[ROOT.TH3]): Histograms to stack along z.
+        outName (str, optional): Name for the output histogram. If empty, uses
+            the first histogram name with a '_stack' suffix.
+
+    Returns:
+        ROOT.TH3: Stacked 3D histogram.
+    '''
+    import ROOT
+
+    if not h_list:
+        raise ValueError('stack_hist requires at least one histogram')
+
+    ref_hist = h_list[0]
+    ref_xaxis = ref_hist.GetXaxis()
+    ref_yaxis = ref_hist.GetYaxis()
+
+    x_bins = ref_hist.GetNbinsX()
+    y_bins = ref_hist.GetNbinsY()
+
+    x_edges = _axis_bin_edges(ref_xaxis, 1, x_bins)
+    y_edges = _axis_bin_edges(ref_yaxis, 1, y_bins)
+
+    z_edges = []
+    z_offsets = []
+    current_z_bins = 0
+
+    for idx, hist in enumerate(h_list):
+        if hist.GetNbinsX() != x_bins or hist.GetNbinsY() != y_bins:
+            raise ValueError('All histograms passed to stack_hist must have the same x/y binning')
+
+        xaxis = hist.GetXaxis()
+        yaxis = hist.GetYaxis()
+        if xaxis.GetXmin() != ref_xaxis.GetXmin() or xaxis.GetXmax() != ref_xaxis.GetXmax():
+            raise ValueError('All histograms passed to stack_hist must share the same x-axis range')
+        if yaxis.GetXmin() != ref_yaxis.GetXmin() or yaxis.GetXmax() != ref_yaxis.GetXmax():
+            raise ValueError('All histograms passed to stack_hist must share the same y-axis range')
+
+        zaxis = hist.GetZaxis()
+        z_bins = hist.GetNbinsZ()
+
+        hist_z_edges = [zaxis.GetBinLowEdge(bin_idx) for bin_idx in range(1, z_bins + 2)]
+        if idx == 0:
+            z_edges.extend(hist_z_edges)
+        else:
+            if z_edges and z_edges[-1] != hist_z_edges[0]:
+                raise ValueError('Input histograms must have contiguous z-axis ranges')
+            z_edges.extend(hist_z_edges[1:])
+
+        z_offsets.append(current_z_bins)
+        current_z_bins += z_bins
+
+    from array import array
+
+    h_stack = ROOT.TH3D(
+        outName if outName else ref_hist.GetName() + '_stack',
+        ref_hist.GetTitle(),
+        x_bins,
+        x_edges,
+        y_bins,
+        y_edges,
+        current_z_bins,
+        array('d', z_edges),
+    )
+    h_stack.SetDirectory(0)
+
+    for hist, z_offset in zip(h_list, z_offsets):
+        for x_bin in range(1, x_bins + 1):
+            for y_bin in range(1, y_bins + 1):
+                for z_bin in range(1, hist.GetNbinsZ() + 1):
+                    new_z_bin = z_offset + z_bin
+                    h_stack.SetBinContent(
+                        x_bin,
+                        y_bin,
+                        new_z_bin,
+                        hist.GetBinContent(x_bin, y_bin, z_bin),
+                    )
+                    h_stack.SetBinError(
+                        x_bin,
+                        y_bin,
+                        new_z_bin,
+                        hist.GetBinError(x_bin, y_bin, z_bin),
+                    )
+
+    return h_stack
+
 
 # ____________________________________
 def proc_scale(
