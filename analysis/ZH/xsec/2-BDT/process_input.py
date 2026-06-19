@@ -207,7 +207,9 @@ def run(
                 continue
             df[mode] = df_split_data(
                 df[mode], N_BDT_inputs,
-                eff, xsec, N_events, mode
+                eff, xsec, N_events, mode,
+                10.8 if ecm==240 else (3.12 if ecm==365 else -1),
+                0.5 if cat in ['ee', 'mumu'] else (0.2 if cat=='qq' else -1)
             )
             good_modes.append(mode)
 

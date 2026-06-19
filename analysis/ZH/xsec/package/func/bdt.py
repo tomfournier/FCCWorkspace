@@ -329,7 +329,8 @@ def df_split_data(
     xsec: dict[str, float],
     N_events: dict[str, int],
     mode: str,
-    lumi: float = 10.8
+    lumi: float = 10.8,
+    test_size: float = 0.5
      ) -> 'pd.DataFrame':
     '''Sample events are split into training/validation sets with weights.
 
@@ -357,9 +358,10 @@ def df_split_data(
         sampled: pd.DataFrame = df.sample(n_events, random_state=1)
     else:
         sampled: pd.DataFrame = df.sample(N_BDT_inputs[mode], random_state=1)
+
     # Split 50/50 into training and validation sets
     df0: pd.DataFrame; df1: pd.DataFrame
-    df0, df1 = train_test_split(sampled, test_size=0.5, random_state=7)
+    df0, df1 = train_test_split(sampled, test_size=test_size, random_state=7)
 
     # Normalization weight per event
     sampled.loc[:, 'norm_weight'] = xsec[mode] / N_events[mode]
@@ -372,6 +374,7 @@ def df_split_data(
     coeff = eff[mode] * xsec[mode] * lumi * 1e6
     sampled.loc[df0.index, 'weights'] = coeff / df0.shape[0]
     sampled.loc[df1.index, 'weights'] = coeff / df1.shape[0]
+
     return sampled
 
 # ______________________
@@ -401,8 +404,11 @@ def print_stats(
 # ____________________________
 def split_data(
     df: 'pd.DataFrame',
-    vars: list[str]
+    vars: list[str],
+    weight: str = 'norm_weight'
      ) -> tuple['np.ndarray',
+                'np.ndarray',
+                'np.ndarray',
                 'np.ndarray',
                 'np.ndarray',
                 'np.ndarray']:
@@ -424,7 +430,10 @@ def split_data(
     # Labels (signal/background) for training and validation sets
     y_train = df.loc[train,  'isSignal'].to_numpy(np.int8, copy=False).ravel()
     y_valid = df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel()
-    return X_train, y_train, X_valid, y_valid
+
+    train_weight = df.loc[train,  weight].to_numpy(copy=False).ravel()
+    valid_weight = df.loc[~train, weight].to_numpy(copy=False).ravel()
+    return X_train, y_train, X_valid, y_valid, train_weight, valid_weight
 
 # ____________________________________
 def train_model(
@@ -432,6 +441,8 @@ def train_model(
     y_train: 'np.ndarray',
     X_valid: 'np.ndarray',
     y_valid: 'np.ndarray',
+    train_weight: 'np.ndarray',
+    valid_weight: 'np.ndarray',
     config: dict[str,
                  str | int | float | list[str]],
      ) -> 'xgb.XGBClassifier':
@@ -453,7 +464,7 @@ def train_model(
     bdt = xgb.XGBClassifier(**config)
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
     LOGGER.info('Beginning the training')
-    bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True)
+    bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True, sample_weight_eval_set=[train_weight, valid_weight])
     return bdt
 
 # ____________________________
