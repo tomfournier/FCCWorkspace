@@ -607,7 +607,8 @@ def _build_processes(z_set: tuple[str, ...],
             f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
             f'wzp6_ee_mumu_ecm{ecm}',
             f'wzp6_ee_tautau_ecm{ecm}',
-            f'wzp6_ee_qq_ecm{ecm}',
+            # f'wzp6_ee_qq_ecm{ecm}',
+            f'p8_ee_Zqq_ecm{ecm}',
         ),
         'Rare': (
             f'wzp6_gammae_eZ_Zee_ecm{ecm}',
@@ -781,6 +782,7 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
         },
         'qq': {
             f'wzp6_ee_qq_ecm{ecm}':            {'frac': 0.5, 'nb': big},
+            f'p8_ee_Zqq_ecm{ecm}':             {'frac': 0.1, 'nb': big},
             f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1,   'nb': middle},
             f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1,   'nb': middle},
             # f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},

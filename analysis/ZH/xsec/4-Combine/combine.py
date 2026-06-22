@@ -59,7 +59,8 @@ bkg_procs = {
     'Zgamma': event_combine([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',       # ee -> ff processes
                              f'wzp6_ee_mumu_ecm{ecm}',
                              f'wzp6_ee_tautau_ecm{ecm}',
-                             f'wzp6_ee_qq_ecm{ecm}'], inputDir),
+                            #  f'wzp6_ee_qq_ecm{ecm}',
+                             f'p8_ee_Zqq_ecm{ecm}'], inputDir),
     'Rare':   event_combine([f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Rare backgrounds
                              f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
                              f'wzp6_gaga_{cat}_60_ecm{ecm}',
@@ -74,7 +75,7 @@ bkg_procs = {
 # hist_names = ['zqq_m_recoil_m_fit_high', 'zqq_m_recoil_m_fit_low']  # Histogram name for this category
 
 categories = [f'z_{cat}']     # Category identifier (e.g., 'z_ee', 'z_mumu', 'z_qq')
-hist_names = ['zqq_recoil_m_fit']  # Histogram name for this category
+hist_names = ['zqq_m_recoil_m_mva_fit']  # Histogram name for this category
 
 # Define systematic uncertainties
 # Log-normal normalization uncertainties (1% each) for all background processes
