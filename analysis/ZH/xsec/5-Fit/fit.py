@@ -195,7 +195,7 @@ def fitting(
         with open(result_fit, 'w') as log_out:
             LOGGER.info('Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
-                            '-v', '2', '-t', '0', '--expectSignal=1', '-n', f'Xsec{tar}',
+                            '-v', '2', '-t', str(arg.toy), '--expectSignal=1', '-n', f'Xsec{tar}',
                             '--rMin', '0', '--rMax', '2', '--alignEdges', '1', '--squareDistPoiStep',
                             '--algo', 'grid', '--points', '100', '--autoRange', '5'],
                            stdout=log_out, stderr=subprocess.STDOUT,
@@ -339,20 +339,27 @@ def res_extraction(res_log: str
 
 def res_saving(
         mu: float,
-        err: float,
+        err: float | list[float],
         res: str
          ) -> None:
     '''Save fitting results (signal strength and uncertainty) to output file.'''
 
     # Check if results were successfully extracted
-    if (mu==-100) and (err==-100):
+    if (mu==-100):
         LOGGER.warning("Couldn't extract values of the fit, go to the log file to have more information")
     else:
         # Display results unless suppressed by flag
         if arg.print:
-            LOGGER.info('Results successfully extracted\n'
-                        f'mu = {mu:6f} +/- {err:6f}')
-            LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
+            if isinstance(err, float):
+                LOGGER.info('Results successfully extracted\n'
+                            f'mu = {mu:.6f} +/- {err:.6f}')
+                LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
+            elif isinstance(err, list):
+                LOGGER.info('Results successfully extracted\n'
+                            f'mu = {mu:.6f} +{err[0]:.6f}/-{err[1]:.6f}')
+                LOGGER.info(f'Uncertainty obtained on ZH cross-section: +{err[0]*100:.2f}/-{err[1]*100:.2f} %')
+            else:
+                raise ValueError('Wrong variable type for err. Only support float and list')
 
         # Write results to output file
         with open(str(res) + f'/results{tar}.txt', 'w') as f:
@@ -375,16 +382,19 @@ if __name__=='__main__':
 
         # Check if the fit went well
         fit_status  = check_log(result_fit)
-        mu, err, _ = process_scan(ws / f'higgsCombineXsec{tar}.MultiDimFit.mH125.root',
-                                  'r', 10, True)
+        out_file = f'higgsCombineXsec{tar}.MultiDimFit.mH125.123456.root' if arg.toy>0 \
+            else f'higgsCombineXsec{tar}.MultiDimFit.mH125.root'
+        mu, err_h, err_l = process_scan(ws / out_file,
+                                        'r', 10, True)
 
         # Save results to output file
-        res_saving(mu, err, res)
+        res_saving(mu, [err_h, err_l],  res)
 
         cmd = ['python', 'plots.py', '--ecm', str(arg.ecm), '--sels', str(arg.sel), '--no-timer']
         if arg.lep:       cmd.append('--lep')
         elif arg.combine: cmd.append('--comb')
         elif arg.cat:     cmd.extend(['--cat', arg.cat])
+        if arg.toy>0:    cmd.append('--toy')
 
         status = subprocess.run(cmd, cwd=Path(__file__).parent,
                                 env=env, check=False,

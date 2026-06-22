@@ -274,7 +274,7 @@ def plot_1d_scans(
         # Calculate required y_max based on data and text
         max_y_smooth = max([np.max(scan['y_smooth']) for scan in scans_data] + [y_max, y_cut])
         num_text_lines = sum(1 + (1 if sig2 else 0) for _ in scans_data)
-        text_box_height = num_text_lines * 0.7
+        text_box_height = num_text_lines * 1.1
         y_max_required = max_y_smooth + text_box_height + 0.5   # +0.5 margin
         effective_y_max = max(y_max, y_max_required)
 
@@ -286,23 +286,34 @@ def plot_1d_scans(
         ax.set_xlim([(all_x.min() - margin - 1)*100, (all_x.max() + margin - 1)*100])
 
         ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
-        ax.legend(loc='upper left', fontsize=15)
+        ax.legend(loc='upper left', fontsize=22)
 
         # Add text box with fit results (all scans)
-        textstr = ""
-        for i, scan in enumerate(scans_data):
+        text_lines = []
+        for scan in scans_data:
             err_hi_1, err_lo_1 = scan['err_1sig']
             err_hi_2, err_lo_2 = scan['err_2sig']
-            textstr += f"{scan['label']}: {param} = {scan['bestfit']:.3f}$_{{-{err_lo_1*100:.2f}\\%}}^{{+{err_hi_1*100:.2f}\\%}}$ (68\\%)"
+
+            if abs(err_hi_1 - err_lo_1) * 100 < 1e-2:
+                line_68 = rf"{scan['label']}: {param} = {scan['bestfit']:.3f}$\pm{err_hi_1*100:.2f}\%$ (68\%)"
+            else:
+                line_68 = f"{scan['label']}: {param} = {scan['bestfit']:.3f}$_{{-{err_lo_1*100:.2f}\\%}}^{{+{err_hi_1*100:.2f}\\%}}$ (68\\%)"
+            text_lines.append(line_68)
+
             if sig2:
-                textstr += f"\n{' '*len(scan['label'])}: {param} = {scan['bestfit']:.3f}$_{{-{err_lo_2*100:.2f}\\%}}^{{+{err_hi_2*100:.2f}\\%}}$ (95\\%)"
-            if i < len(scans_data) - 1:
-                textstr += "\n"
+                prefix = ' ' * len(scan['label'])
+                if abs(err_hi_2 - err_lo_2) * 100 < 1e-2:
+                    line_95 = rf"{prefix}: {param} = {scan['bestfit']:.3f}$\pm{err_hi_2*100:.2f}\%$ (95\%)"
+                else:
+                    line_95 = f"{prefix}: {param} = {scan['bestfit']:.3f}$_{{-{err_lo_2*100:.2f}\\%}}^{{+{err_hi_2*100:.2f}\\%}}$ (95\\%)"
+                text_lines.append(line_95)
+
+        textstr = "\n".join(text_lines)
 
         props = dict(boxstyle='round', facecolor='white', pad=0.8)
-        ax.text(0.975, 0.96, textstr, transform=ax.transAxes,
+        ax.text(0.97, 0.955, textstr, transform=ax.transAxes,
                 verticalalignment='top', horizontalalignment='right',
-                bbox=props, fontsize=15, family='monospace')
+                bbox=props, fontsize=20, family='monospace')
 
         # Save outputs
         savefigs(fig, output, 'Scan', suffix,plot_file)

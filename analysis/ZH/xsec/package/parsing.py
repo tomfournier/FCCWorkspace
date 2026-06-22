@@ -415,6 +415,12 @@ def add_fit_args(
         default=False,
         help='Combine all channels for fit'
     )
+    args.add_argument(
+        '--toy',
+        type=int,
+        default=-1,
+        help='Number of Toy MC extractions'
+    )
     if not bias:
         args.add_argument(
             '--target',
@@ -494,6 +500,11 @@ def add_fit_plot_args(
         action=BooleanOptionalAction,
         default=True,
         help='Print the elapsed time'
+    )
+    args.add_argument(
+        '--toy',
+        action='store_true',
+        help='Fit made with MC toys'
     )
 
 

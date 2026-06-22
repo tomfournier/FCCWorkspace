@@ -150,6 +150,8 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
         cmd.append('--comb')
     else:
         cmd.extend(['--cat', cat])
+    if arg.toy!=0:
+        cmd.extend(['--toy', arg.toy])
 
     # Append stage-specific arguments
     if script == 'fit':
