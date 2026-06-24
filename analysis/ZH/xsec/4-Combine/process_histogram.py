@@ -116,9 +116,7 @@ def run(cats: str,
         inDir = loc.get('HIST_PREPROCESSED', cat, ecm)
 
         # Histograms to process for BDT training/measurement
-        hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_m_recoil_m', 'zqq_m_recoil_m_test', 'zqq_recoil_m',
-                                                                 'zqq_m_recoil_m_test1', 'zqq_m_recoil_m_test2',
-                                                                 'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_mva_jan']
+        hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_mva_jan']
         samples = get_process_list(cat, ecm).keys()
 
         # Process each selection strategy
