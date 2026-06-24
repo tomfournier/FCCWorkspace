@@ -61,7 +61,7 @@ cutList: dict[str, str] = {}
 if cat in ['ee', 'mumu']:
     cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
-    cutList['Baseline'] = Baseline_cut_qq(ecm)   # Baseline selection (hadronic channel)
+    cutList['Baseline'] = Baseline_cut_qq(ecm, True, True)   # Baseline selection (hadronic channel)
 doTree = False if 'sel0' in cutList else doTree  # Do not write TTree if sel0 is in cutList
 
 
