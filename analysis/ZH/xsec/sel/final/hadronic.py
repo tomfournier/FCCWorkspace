@@ -1,4 +1,4 @@
-def Baseline_cut_qq(ecm: int) -> str:
+def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False) -> str:
     cut = ''
     if ecm == 240:
         cut += 'zqq_m > 20 && zqq_m < 140'
@@ -11,8 +11,10 @@ def Baseline_cut_qq(ecm: int) -> str:
     cut += ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
     cut += ' && acolinearity > 0.35'
     cut += ' && delta_mWW > 6'
-    cut += ' && cosTheta_miss < 0.995'
-    cut += ' && thrust < 0.85' if ecm == 365 else ''
+    if miss:
+        cut += ' && cosTheta_miss < 0.995'
+    if thrust and (ecm == 365):
+        cut += ' && thrust < 0.85'
 
     return cut
 
@@ -108,22 +110,6 @@ histos_qq = {
     'zqq_recoil_m':        {'name':'zqq_recoil_m',
                             'title':'m_{recoil} [GeV]',
                             'bin':200,'xmin':100,'xmax':150},
-
-    'zqq_m_recoil_m':      {'cols':['zqq_recoil_m', 'zqq_m'],
-                            'title':'m_{jj} - m_{recoil} [GeV]',
-                            'bins':[(100, 100, 150), (120, 60, 120)]},
-
-    'zqq_m_recoil_m_test': {'cols':['zqq_recoil_m', 'zqq_m'],
-                            'title':'m_{jj} - m_{recoil} [GeV]',
-                            'bins':[(50, 100, 150), (60, 60, 120)]},
-
-    'zqq_m_recoil_m_test1':{'cols':['zqq_recoil_m', 'zqq_m'],
-                            'title':'m_{jj} - m_{recoil} [GeV]',
-                            'bins':[(100, 100, 150), (200, 40, 140)]},
-
-    'zqq_m_recoil_m_test2':{'cols':['zqq_recoil_m', 'zqq_m'],
-                            'title':'m_{jj} - m_{recoil} [GeV]',
-                            'bins':[(50, 100, 150), (100, 40, 140)]},
 
     # Visible and invisible information
     'cosTheta_miss':       {'name':'cosTheta_miss',
