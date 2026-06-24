@@ -59,8 +59,9 @@ bkg_procs = {
     'Zgamma': event_combine([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',       # ee -> ff processes
                              f'wzp6_ee_mumu_ecm{ecm}',
                              f'wzp6_ee_tautau_ecm{ecm}',
-                            #  f'wzp6_ee_qq_ecm{ecm}',
-                             f'p8_ee_Zqq_ecm{ecm}'], inputDir),
+                             f'p8_ee_Zqq_ecm{ecm}' if ecm==240
+                             else f'wzp6_ee_qq_ecm{ecm}'
+                             ], inputDir),
     'Rare':   event_combine([f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Rare backgrounds
                              f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
                              f'wzp6_gaga_{cat}_60_ecm{ecm}',
