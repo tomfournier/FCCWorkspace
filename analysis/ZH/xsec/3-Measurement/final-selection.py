@@ -94,11 +94,19 @@ if cat in ['ee', 'mumu']:
         cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
         cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
-    Baseline = Baseline_cut_qq(ecm)
+    Baseline = Baseline_cut_qq(ecm, True, True)
     if test:
         cutList['test'] = Baseline
     else:
-        cutList['Baseline'] = Baseline
+        if ecm == 240:
+            cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 100) || (visibleEnergy < 100 && cosTheta_miss < 0.995))'
+        else:
+            cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.995))'
+        # cutList['Baseline'] = Baseline_cut_qq(ecm)
+        # cutList['Baseline_vis'] = Baseline_cut_qq(ecm) + ' && visibleEnergy > 100'
+        # cutList['Baseline_inv'] = Baseline_cut_qq(ecm) + ' && visibleEnergy < 100'
+        # cutList['Baseline_mass'] = Baseline_cut_qq(ecm) + ' && missingMass > 110'
+        # cutList['Baseline_nomass'] = Baseline_cut_qq(ecm) + ' && missingMass < 110'
 else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
@@ -122,24 +130,16 @@ histoList['BDTscore'] = {'name':'BDTscore',
                          'title':'BDT score',
                          'bin':1000,'xmin':0,'xmax':1}
 if cat == 'qq':
+    histoList['zqq_m_recoil_m_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
+                                            'bins':[(50, 100, 150), (100, 40, 140), (1, bdt_cut, 1)]}
+    histoList['zqq_m_recoil_m_mva_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
+                                           'bins':[(50, 100, 150), (100, 40, 140), (1, 0, bdt_cut)]}
     if ecm == 240:
-        histoList['zqq_m_recoil_m_mva'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                           'bins':[(50, 100, 150), (100, 40, 140), (100, 0, 1)]}
-        histoList['zqq_m_recoil_m_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                                'bins':[(50, 100, 150), (100, 40, 140), (1, bdt_cut, 1)]}
-        histoList['zqq_m_recoil_m_mva_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                               'bins':[(50, 100, 150), (100, 40, 140), (1, 0, bdt_cut)]}
         histoList['zqq_m_recoil_m_mva_jan_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
                                                     'bins':[(50, 100, 150), (100, 40, 140), (1, 0.75, 1)]}
         histoList['zqq_m_recoil_m_mva_jan_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
                                                    'bins':[(50, 100, 150), (100, 40, 140), (1, 0, 0.75)]}
     elif ecm == 365:
-        histoList['zqq_m_recoil_m_mva'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                           'bins':[(100, 100, 200), (100, 40, 140), (100, 0, 1)]}
-        histoList['zqq_m_recoil_m_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                                'bins':[(100, 100, 200), (100, 40, 140), (1, bdt_cut, 1)]}
-        histoList['zqq_m_recoil_m_mva_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                               'bins':[(100, 100, 200), (100, 40, 140), (1, 0, bdt_cut)]}
         histoList['zqq_m_recoil_m_mva_jan_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
                                                     'bins':[(100, 100, 200), (100, 40, 140), (1, 0.95, 1)]}
         histoList['zqq_m_recoil_m_mva_jan_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
