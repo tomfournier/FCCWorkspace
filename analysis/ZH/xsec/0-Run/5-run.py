@@ -151,7 +151,7 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
     else:
         cmd.extend(['--cat', cat])
     if arg.toy!=0:
-        cmd.extend(['--toy', arg.toy])
+        cmd.extend(['--toy', str(arg.toy)])
 
     # Append stage-specific arguments
     if script == 'fit':
