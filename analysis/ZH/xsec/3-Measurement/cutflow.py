@@ -107,19 +107,19 @@ cuts_label_ll = {sel: {k: baseline_labels_ll[k] for k in sorted(baseline_labels_
 if ecm == 240:
     if 'Baseline_miss' in sels:
         cuts_ll['Baseline_miss']['cut5']       = 'cosTheta_miss < 0.98'
-        cuts_label_ll['Baseline_miss']['cut5'] = 'cos#theta_{miss} < 0.98'
+        cuts_label_ll['Baseline_miss']['cut5'] = '|cos#theta_{miss}| < 0.98'
 
     if 'Baseline_sep' in sels:
         cuts_ll['Baseline_sep']['cut5']       = '((visibleEnergy > 100) | (visibleEnergy < 100 & cosTheta_miss < 0.99))'
-        cuts_label_ll['Baseline_sep']['cut5'] = 'cos#theta_{miss} < 0.99 [inv]'
+        cuts_label_ll['Baseline_sep']['cut5'] = '|cos#theta_{miss}| < 0.99 [inv]'
 elif ecm == 365:
     if 'Baseline_miss' in sels:
         cuts_ll['Baseline_miss']['cut6']       = 'cosTheta_miss < 0.98'
-        cuts_label_ll['Baseline_miss']['cut6'] = 'cos#theta_{miss} < 0.98'
+        cuts_label_ll['Baseline_miss']['cut6'] = '|cos#theta_{miss}| < 0.98'
 
     if 'Baseline_sep' in sels:
         cuts_ll['Baseline_sep']['cut6']       = '((visibleEnergy > 171) | (visibleEnergy < 171 & cosTheta_miss < 0.99))'
-        cuts_label_ll['Baseline_sep']['cut6'] = 'cos#theta_{miss} < 0.99 [inv]'
+        cuts_label_ll['Baseline_sep']['cut6'] = '|cos#theta_{miss}| < 0.99 [inv]'
 
 
 
@@ -146,19 +146,19 @@ baseline_labels_qq = {
     'cut5': '|cos#theta_{jj}| < 0.85',
     'cut6': 'Acolinearity > 0.35',
     'cut7': 'WW pair mass',
-    'cut8': 'cos#theta_{miss} < 0.995',
+    'cut8': '|cos#theta_{miss}| < 0.995',
 }
 
 if ecm == 240:
     baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 20 & zqq_m < 140'
-    baseline_labels_qq['cut3'] = '20 < m_{jj} < 140'
+    baseline_labels_qq['cut3'] = '20 < m_{jj} < 140 GeV'
 
     baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 90'
     baseline_labels_qq['cut4'] = '20 < p_{jj} < 70 GeV'
 
 elif ecm == 365:
     baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 60 & zqq_m < 200'
-    baseline_labels_qq['cut3'] = '60 < m_{jj} < 200'
+    baseline_labels_qq['cut3'] = '60 < m_{jj} < 200 GeV'
 
     baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 160'
     baseline_labels_qq['cut4'] = '20 < p_{jj} < 160 GeV'
