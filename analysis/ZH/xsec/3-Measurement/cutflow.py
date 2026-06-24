@@ -135,7 +135,7 @@ baseline_cuts_qq = {
     'cut5': '' if arg.kin else 'zqq_costheta > -0.85 & zqq_costheta < 0.85',
     'cut6': '' if arg.kin else 'acolinearity > 0.35',
     'cut7': '' if arg.kin else 'delta_mWW > 6',
-    'cut8': '' if arg.kin else 'cosTheta_miss < 0.995',
+    # 'cut8': '' if arg.kin else 'cosTheta_miss < 0.995',
 }
 
 # Human-readable labels for cuts (displayed in plots)
@@ -146,7 +146,7 @@ baseline_labels_qq = {
     'cut5': '|cos#theta_{jj}| < 0.85',
     'cut6': 'Acolinearity > 0.35',
     'cut7': 'WW pair mass',
-    'cut8': '|cos#theta_{miss}| < 0.995',
+    # 'cut8': '|cos#theta_{miss}| < 0.995',
 }
 
 if ecm == 240:
@@ -163,13 +163,20 @@ elif ecm == 365:
     baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 160'
     baseline_labels_qq['cut4'] = '20 < p_{jj} < 160 GeV'
 
-    baseline_cuts_qq['cut9']   = '' if arg.kin else 'thrust < 0.85'
-    baseline_labels_qq['cut9'] = 'Thrust < 0.85'
+    # baseline_cuts_qq['cut9']   = '' if arg.kin else 'thrust < 0.85'
+    # baseline_labels_qq['cut9'] = 'Thrust < 0.85'
 
 
 # Sort cuts by number and copy for each selection strategy
 cuts_qq       = {sel: {k: baseline_cuts_qq[k]   for k in sorted(baseline_cuts_qq.keys())}   for sel in sels}
 cuts_label_qq = {sel: {k: baseline_labels_qq[k] for k in sorted(baseline_labels_qq.keys())} for sel in sels}
+
+if 'Baseline_sep' in sels:
+    if ecm == 240:
+        cuts_qq['Baseline_sep']['cut8'] = '((visibleEnergy > 100) | (visibleEnergy < 100 & cosTheta_miss < 0.995))'
+    else:
+        cuts_qq['Baseline_sep']['cut8'] = '((visibleEnergy > 171) | (visibleEnergy < 171 & cosTheta_miss < 0.995))'
+    cuts_label_qq['Baseline_sep']['cut8'] = '|cos#theta_{miss}| < 0.995 [inv]'
 
 
 
