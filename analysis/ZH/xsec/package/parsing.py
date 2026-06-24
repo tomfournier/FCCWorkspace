@@ -421,6 +421,12 @@ def add_fit_args(
         default=-1,
         help='Number of Toy MC extractions'
     )
+    args.add_argument(
+        '--fastscan',
+        action='store_true',
+        default=False,
+        help='Do a fast scan to check the fit'
+    )
     if not bias:
         args.add_argument(
             '--target',
@@ -477,6 +483,18 @@ def add_fit_plot_args(
         '--bias',
         action='store_true',
         help='Do likelyhood scan for bias fit'
+    )
+    args.add_argument(
+        '--target',
+        type=str,
+        default='all',
+        help='Choose the target of the scan for bias test (default: all)'
+    )
+    args.add_argument(
+        '--only1',
+        action='store_true',
+        default=False,
+        help='Only compute the scan for one target at a time'
     )
     args.add_argument(
         '--lep',

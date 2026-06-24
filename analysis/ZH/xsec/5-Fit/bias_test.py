@@ -122,7 +122,7 @@ def _setup_cache() -> None:
         samples.extend(processes[p])
 
     # Preload the most used histograms
-    hNames = ('zqq_fit',) if cat=='qq' else ('zll_recoil_m',)
+    hNames = ('zqq_m_recoil_m_mva_fit',) if cat=='qq' else ('zll_recoil_m_fit',)
     LOGGER.debug('Preloading histograms and cross-section before bias loop')
     preload_histograms(samples, h_inDir, hNames=hNames, rmww=True)
 
@@ -164,7 +164,7 @@ def run_fit(target: str,
 
     # Now run the fit via subprocess (fit.py only, datacard already exists)
     cmd = ['python', '5-Fit/fit.py', '--bias', '--target', target, '--no-timer',
-           '--pert', str(pert), '--ecm', str(ecm), '--no-print'] + cmd_args
+           '--pert', str(pert), '--ecm', str(ecm), '--no-print', '--toy', '0'] + cmd_args
 
     result = subprocess.run(cmd, check=False, capture_output=False, text=True, env=os.environ.copy())
     if result.returncode != 0:

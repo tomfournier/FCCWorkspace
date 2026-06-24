@@ -198,6 +198,7 @@ def plot_1d_scans(
         suffix: str = '',
         right: str = '',
         sig2: bool = False,
+        bias: bool = False
          ) -> None:
     """
     Plot multiple 1D likelihood scans on the same figure.
@@ -295,17 +296,17 @@ def plot_1d_scans(
             err_hi_2, err_lo_2 = scan['err_2sig']
 
             if abs(err_hi_1 - err_lo_1) * 100 < 1e-2:
-                line_68 = rf"{scan['label']}: {param} = {scan['bestfit']:.3f}$\pm{err_hi_1*100:.2f}\%$ (68\%)"
+                line_68 = rf"{scan['label']}: {param} = {scan['bestfit']:.5f}$\pm{err_hi_1*100:.2f}\%$ (68\%)"
             else:
-                line_68 = f"{scan['label']}: {param} = {scan['bestfit']:.3f}$_{{-{err_lo_1*100:.2f}\\%}}^{{+{err_hi_1*100:.2f}\\%}}$ (68\\%)"
+                line_68 = f"{scan['label']}: {param} = {scan['bestfit']:.5f}$_{{-{err_lo_1*100:.2f}\\%}}^{{+{err_hi_1*100:.2f}\\%}}$ (68\\%)"
             text_lines.append(line_68)
 
             if sig2:
                 prefix = ' ' * len(scan['label'])
                 if abs(err_hi_2 - err_lo_2) * 100 < 1e-2:
-                    line_95 = rf"{prefix}: {param} = {scan['bestfit']:.3f}$\pm{err_hi_2*100:.2f}\%$ (95\%)"
+                    line_95 = rf"{prefix}: {param} = {scan['bestfit']:.5f}$\pm{err_hi_2*100:.2f}\%$ (95\%)"
                 else:
-                    line_95 = f"{prefix}: {param} = {scan['bestfit']:.3f}$_{{-{err_lo_2*100:.2f}\\%}}^{{+{err_hi_2*100:.2f}\\%}}$ (95\\%)"
+                    line_95 = f"{prefix}: {param} = {scan['bestfit']:.5f}$_{{-{err_lo_2*100:.2f}\\%}}^{{+{err_hi_2*100:.2f}\\%}}$ (95\\%)"
                 text_lines.append(line_95)
 
         textstr = "\n".join(text_lines)
@@ -316,7 +317,7 @@ def plot_1d_scans(
                 bbox=props, fontsize=20, family='monospace')
 
         # Save outputs
-        savefigs(fig, output, 'Scan', suffix,plot_file)
+        savefigs(fig, output, 'Scan', suffix, plot_file)
 
     finally:
         plt.close(fig)

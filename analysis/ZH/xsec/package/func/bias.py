@@ -382,7 +382,7 @@ def pseudo_datacard(
     import ROOT
 
     # Define histogram names and categories
-    hNames = ('zqq_fit',) if cat=='qq' else ('zll_recoil_m',)
+    hNames = ('zqq_m_recoil_m_mva_fit',) if cat=='qq' else ('zll_recoil_m_fit',)
     categories = (f'z_{cat}',)
 
     # List of processes and their samples

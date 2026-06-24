@@ -183,12 +183,13 @@ def fitting(
                            cwd=dr, env=env, check=True)
         text_status = 'ok'
 
-        with open(result_scan, 'w') as log_scan:
-            LOGGER.info('Doing a likelyhood scan to check the fit')
-            subprocess.run(['combineTool.py', '-M', 'FastScan', '-w', str(ws_file)+':w'],
-                           stdout=log_scan, stderr=subprocess.STDOUT,
-                           cwd=scan, env=env, check=True)
-        scan_status = 'ok'
+        if arg.fastscan:
+            with open(result_scan, 'w') as log_scan:
+                LOGGER.info('Doing a likelyhood scan to check the fit')
+                subprocess.run(['combineTool.py', '-M', 'FastScan', '-w', str(ws_file)+':w'],
+                               stdout=log_scan, stderr=subprocess.STDOUT,
+                               cwd=scan, env=env, check=True)
+            scan_status = 'ok'
 
 
         # Do the fit and a grid scan for likelyhood scan
@@ -213,7 +214,7 @@ def fitting(
         # Add execution stamps to log files for tracking
         if log_text.exists():
             add_stamp(log_text, f'log_text2workspace{tar}', text_status)
-        if result_scan.exists():
+        if result_scan.exists() and arg.fastscan:
             add_stamp(result_scan, f'log_fastscan{tar}', scan_status)
         if result_fit.exists():
             add_stamp(result_fit, f'log_results{tar}_fit', fit_status)
@@ -363,7 +364,12 @@ def res_saving(
 
         # Write results to output file
         with open(str(res) + f'/results{tar}.txt', 'w') as f:
-            f.write(f'{mu}\n{err}\n')
+            if isinstance(err, float):
+                f.write(f'{mu}\n{err}\n')
+            elif isinstance(err, list):
+                f.write(f'{mu}\n{err[0]}\n{err[1]}')
+            else:
+                raise ValueError('Wrong variable type for err. Only support float and list')
 
         LOGGER.debug(f'Saved results in {res}/results{tar}.txt')
 
@@ -394,7 +400,11 @@ if __name__=='__main__':
         if arg.lep:       cmd.append('--lep')
         elif arg.combine: cmd.append('--comb')
         elif arg.cat:     cmd.extend(['--cat', arg.cat])
-        if arg.toy>0:    cmd.append('--toy')
+        if arg.toy>0:     cmd.append('--toy')
+        if arg.bias:
+            cmd.append('--bias')
+            cmd.append('--only1')
+            cmd.extend(['--target', arg.target])
 
         status = subprocess.run(cmd, cwd=Path(__file__).parent,
                                 env=env, check=False,

@@ -74,19 +74,26 @@ def main():
 
     if arg.bias:
         # Individual plots for all combinations
-        targets = H_decays if 'all' in arg.targets else arg.target.split('-')
+        targets = H_decays if 'all' in arg.target else arg.target.split('-')
         for cat, ecm, sel in [(c, e, s) for c in cats for e in ecms for s in sels]:
             all_scans = []
             for i, target in enumerate(targets):
-                inDir  = loc.get('BIAS_WS',     cat, ecm, sel)
-                outDir = loc.get('BIAS_RESULT', cat, ecm, sel)
-                fIn = f'higgsCombineXsec{target}.MultiDimFit.mH125.123456.root' if arg.toy \
-                    else f'higgsCombineXsec{target}.MultiDimFit.mH125.root'
+                inDir  = loc.get('BIAS_WS',         cat, ecm, sel)
+                if arg.only1:
+                    outDir = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
+                else:
+                    outDir = loc.get('BIAS_RESULT', cat, ecm, sel)
+                fIn = f'higgsCombineXsec_{target}.MultiDimFit.mH125.123456.root' if arg.toy \
+                    else f'higgsCombineXsec_{target}.MultiDimFit.mH125.root'
                 scan   = (inDir / fIn,
                           H_labels.get(target, target),
                           colors[i % len(colors)])
+                if arg.only1:
+                    plot_1d_scans([scan], outDir, arg.param, arg.y_cut, arg.y_max, suffix='_'+target, bias=True)
+                    continue
                 all_scans.append(scan)
-            plot_1d_scans(all_scans, outDir, arg.param, arg.y_cut, arg.y_max)
+            if not arg.only1:
+                plot_1d_scans(all_scans, outDir, arg.param, arg.y_cut, arg.y_max, bias=True)
 
     else:
         if arg.which == '':
