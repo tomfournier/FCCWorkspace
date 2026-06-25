@@ -547,6 +547,12 @@ def add_bias_args(parser: ArgumentParser, extra: bool = False) -> None:
         default=False,
         help='Plot datacard contents'
     )
+    args.add_argument(
+        '--pseudo',
+        action='store_true',
+        default=False,
+        help='Plot the pseudo-ratio distribution'
+    )
 
     if extra:
         parser.add_argument(
