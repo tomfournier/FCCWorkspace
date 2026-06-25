@@ -125,7 +125,7 @@ def run(cat: str,
 
     # Execute stage script; pipe outputs through to this terminal
     cmd = ['python', script_path] + extra_args
-    LOGGER.info(f'Executing command: {" ".join(cmd)}')
+    LOGGER.debug(f'Executing command: {" ".join(cmd)}')
     result = subprocess.run(
         cmd,
         env=env,
