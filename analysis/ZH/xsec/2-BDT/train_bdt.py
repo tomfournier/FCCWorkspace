@@ -129,11 +129,7 @@ def run(sels: list[str],
 
         # Load preprocessed training dataframe
         LOGGER.debug('Loading preprocessed training data and input variables')
-        df, vars = load_data(f'{inDir}/preprocessed.pkl')
-
-        # Log the input variables being used for training
-        LOGGER.info('Training variable used for the training')
-        LOGGER.info(', '.join(var for var in vars) + '\n')
+        df, vars = load_data(inDir)
 
         print_stats(df, modes)
 

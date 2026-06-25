@@ -218,6 +218,8 @@ def load_data(
     fpath = os.path.join(inDir, filename+'.pkl')
     data = pickle.load(open(fpath, 'rb'))
     df, input_vars = data['data'], data['variables']
+    LOGGER.info('Training variable used for the training\n' +
+                ', '.join(input_vars) + '\n')
     return df, input_vars
 
 
