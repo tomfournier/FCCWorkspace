@@ -21,7 +21,7 @@ Lazy Imports:
 '''
 from __future__ import annotations
 
-import os, json
+import os
 
 from typing import Callable, TYPE_CHECKING
 
@@ -122,6 +122,8 @@ def get_procDict(
         FileNotFoundError: If the process dictionary file is not found.
     '''
 
+    import json
+
     # Check environment variable for FCC dictionaries directory
     env = os.getenv('FCCDICTSDIR')
     base_dir = env.split(':')[0] if env else fcc
@@ -199,7 +201,7 @@ def get_xsec(
 def load_data(
     inDir: str,
     filename: str = 'preprocessed'
-     ) -> pd.DataFrame:
+     ) -> tuple[pd.DataFrame, list[str]]:
     '''
     Load preprocessed data from a pickle file.
 
@@ -210,17 +212,19 @@ def load_data(
     Returns:
         pd.DataFrame: Loaded DataFrame.
     '''
-    import pandas as pd
+    import pickle
 
     # Construct pickle file path and load
     fpath = os.path.join(inDir, filename+'.pkl')
-    df = pd.read_pickle(fpath)
-    return df
+    data = pickle.load(open(fpath, 'rb'))
+    df, input_vars = data['data'], data['variables']
+    return df, input_vars
 
 
 # ________________________________
 def to_pkl(
     df: pd.DataFrame,
+    input_vars: list[str],
     path: str,
     filename: str = 'preprocessed'
      ) -> None:
@@ -232,10 +236,15 @@ def to_pkl(
         path (str): Output directory path.
         filename (str, optional): Filename without extension. Defaults to 'preprocessed'.
     '''
+    import pickle
 
     mkdir(path)
+    save = {
+        'data': df,
+        'variables': input_vars
+    }
     fpath = os.path.join(path, filename+'.pkl')
-    df.to_pickle(fpath)
+    pickle.dump(save, open(fpath, 'wb'))
     LOGGER.info(f'Preprocessed saved {fpath}')
 
 
@@ -253,6 +262,7 @@ def dump_json(
         file (str): Output file path.
         indent (int, optional): JSON indentation level. Defaults to 4.
     '''
+    import json
 
     with open(file, mode='w', encoding='utf-8') as fOut:
         json.dump(arg, fOut, indent=indent)
@@ -270,6 +280,7 @@ def load_json(
     Returns:
         dict: Loaded dictionary.
     '''
+    import json
 
     with open(file, mode='r',
               encoding='utf-8') as fIn:

@@ -46,8 +46,6 @@ loc.set_default_type(PathObj)
 # Import configuration utilities and labels paremeters
 from package.config import (
     timer,                           # Utility function
-    input_vars_ll,                   # Training variable list (leptonic channel)
-    input_vars_qq,                   # Training variable list (hadronic channel)
     modes_label, modes_color,        # Plot styling for processes
     vars_label_ll, vars_xlabel_ll,   # Variable naming for plots (leptonic channel)
     vars_label_qq, vars_xlabel_qq    # Variable naming for plots (hadronic channel)
@@ -72,7 +70,6 @@ from package.func.bdt import (
 
 # Analysis parameters from command-line arguments
 cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
-input_vars  = input_vars_ll  if cat in ['ee', 'mumu'] else input_vars_qq
 vars_label  = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq
 vars_xlabel = vars_xlabel_ll if cat in ['ee', 'mumu'] else vars_xlabel_qq
 
@@ -238,7 +235,7 @@ if __name__=='__main__':
 
             # Load preprocessed evaluation data
             LOGGER.info(f'Getting DataFrame from {sel}')
-            df = load_data(inDir)
+            df, input_vars = load_data(inDir)
             print_stats(df, modes)
 
             # Load trained XGBoost model

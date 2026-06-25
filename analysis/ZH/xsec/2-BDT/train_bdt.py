@@ -2,11 +2,14 @@
 ### IMPORT STANDARD LIBRARIES ###
 #################################
 
-from time import time
+import time
+
 import pandas as pd
 
+from package.tools.utils import load_data
+
 # Start timer for performance tracking
-t = time()
+t = time.time()
 
 
 
@@ -34,11 +37,7 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 from package.userConfig import loc  # Directory management utilities
-from package.config import (
-    timer,                          # Performance timing utility
-    input_vars_ll,                  # List of training variables (leptonic channel)
-    input_vars_qq                   # List of training variables (hadronic channel)
-)
+from package.config import timer    # Performance timing utility
 from package.func.bdt import (
     print_stats,                    # Display event counts per process
     split_data,                     # Create train/validation split
@@ -54,7 +53,6 @@ from package.func.bdt import (
 
 # Analysis parameters from command-line arguments
 cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
-input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
 # Selection strategies for BDT training (from command-line or defaults)
 if arg.sels=='':
@@ -105,7 +103,6 @@ config = configs['lep'] if cat in ['ee', 'mumu'] else configs['had']
 
 def run(sels: list[str],
         modes: list[str],
-        vars: list[str],
         config: dict[str, str],
         ) -> None:
     """Train XGBoost BDT models for each selection strategy.
@@ -124,10 +121,6 @@ def run(sels: list[str],
         None (saves trained models and feature maps to BDT directories)
     """
 
-    # Log the input variables being used for training
-    LOGGER.info('Training variable used for the training')
-    LOGGER.info(', '.join(var for var in vars) + '\n')
-
     for sel in sels:
         # Input: Preprocessed training data from process_input.py
         inDir  = loc.get('MVA_INPUTS', cat, ecm, sel)
@@ -135,8 +128,13 @@ def run(sels: list[str],
         outDir = loc.get('BDT',        cat, ecm, sel)
 
         # Load preprocessed training dataframe
-        LOGGER.debug('Loading preprocessed training data')
-        df = pd.read_pickle(f'{inDir}/preprocessed.pkl')
+        LOGGER.debug('Loading preprocessed training data and input variables')
+        df, vars = load_data(f'{inDir}/preprocessed.pkl')
+
+        # Log the input variables being used for training
+        LOGGER.info('Training variable used for the training')
+        LOGGER.info(', '.join(var for var in vars) + '\n')
+
         print_stats(df, modes)
 
         # Create training and validation datasets (50% training, 50% validation)
@@ -170,7 +168,7 @@ def run(sels: list[str],
 if __name__=='__main__':
     try:
         # Run BDT training pipeline
-        run(sels, modes, input_vars, config)
+        run(sels, modes, config)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

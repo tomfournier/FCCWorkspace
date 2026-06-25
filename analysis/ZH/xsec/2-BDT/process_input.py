@@ -215,7 +215,7 @@ def run(
 
         # Merge all processes and save to single pickle file for BDT training
         dfsum = pd.concat([df[mode] for mode in good_modes])
-        to_pkl(dfsum, outDir)
+        to_pkl(dfsum, input_vars, outDir)
 
 
 ######################
