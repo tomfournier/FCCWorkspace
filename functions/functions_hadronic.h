@@ -11,7 +11,7 @@ inline constexpr float frac_pz_240  = 1.0f;
 inline constexpr float frac_rec_240 = 1.0f;
 inline constexpr float pz_240 = 52.0f;
 
-inline constexpr float frac_mz_365  = 1.0f;
+inline constexpr float frac_mz_365  = 5.0f;
 inline constexpr float frac_pz_365  = 1.0f;
 inline constexpr float frac_rec_365 = 1.0f;
 inline constexpr float pz_365 = 143.0f;
@@ -107,7 +107,7 @@ inline Vec_rp jets2rp(const ROOT::VecOps::RVec<fastjet::PseudoJet> &pseudojets) 
 }
 
 
-inline Vec_tlv pair_WW_N4(Vec_rp in, float mw) {
+inline Vec_tlv pair_WW_N4(Vec_rp in, float mw, bool ordered = false) {
     // assume 4 input jets
     Vec_tlv ret;
 
@@ -134,13 +134,18 @@ inline Vec_tlv pair_WW_N4(Vec_rp in, float mw) {
         W2 = j2+j3;
     }
 
-    if (W1.P() > W2.P()) {
+    if (ordered) {
+        if (W1.P() > W2.P()) {
+            ret.push_back(W1);
+            ret.push_back(W2);
+        }
+        else {
+            ret.push_back(W2);
+            ret.push_back(W1);
+        }
+    } else {
         ret.push_back(W1);
         ret.push_back(W2);
-    }
-    else {
-        ret.push_back(W2);
-        ret.push_back(W1);
     }
     return ret;
 }
