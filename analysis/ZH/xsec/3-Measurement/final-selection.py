@@ -94,19 +94,21 @@ if cat in ['ee', 'mumu']:
         cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
         cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
-    Baseline = Baseline_cut_qq(ecm, True, True)
+    Baseline      = Baseline_cut_qq(ecm)
+    Baseline_miss = Baseline_cut_qq(ecm, True)
     if test:
-        cutList['test'] = Baseline
+        cutList['test'] = Baseline_cut_qq(ecm, True, True)
     else:
+        cutList['Baseline']      = Baseline
+        cutList['Baseline_miss'] = Baseline_miss
         if ecm == 240:
             cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 100) || (visibleEnergy < 100 && cosTheta_miss < 0.995))'
-        else:
+            cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 100'
+            cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 100'
+        elif ecm == 365:
             cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.995))'
-        # cutList['Baseline'] = Baseline_cut_qq(ecm)
-        # cutList['Baseline_vis'] = Baseline_cut_qq(ecm) + ' && visibleEnergy > 100'
-        # cutList['Baseline_inv'] = Baseline_cut_qq(ecm) + ' && visibleEnergy < 100'
-        # cutList['Baseline_mass'] = Baseline_cut_qq(ecm) + ' && missingMass > 110'
-        # cutList['Baseline_nomass'] = Baseline_cut_qq(ecm) + ' && missingMass < 110'
+            cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 171'
+            cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
 else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
