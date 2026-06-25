@@ -122,7 +122,7 @@ def _setup_cache() -> None:
         samples.extend(processes[p])
 
     # Preload the most used histograms
-    hNames = ('zqq_m_recoil_m_mva_fit',) if cat=='qq' else ('zll_recoil_m_fit',)
+    hNames = ('zqq_m_recoil_m_mva_fit',) if cat=='qq' else ('zll_recoil_m',)
     LOGGER.debug('Preloading histograms and cross-section before bias loop')
     preload_histograms(samples, h_inDir, hNames=hNames, rmww=True)
 
@@ -204,7 +204,7 @@ def get_bias(inDir: str,
         LOGGER.info(f'Bias obtained: {bias[idx]:.3f}\n')
 
         # Generate pseudodata ratio plots (only for single channel, not combined)
-        if not arg.combine:
+        if not arg.combine and arg.pseudo:
             LOGGER.info('Making plots for pseudo-signal')
             args = {
                 'inDir': inDir, 'outDir': outDir,
