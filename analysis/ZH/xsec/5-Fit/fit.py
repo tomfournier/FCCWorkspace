@@ -5,9 +5,7 @@
 import os, sys, subprocess
 
 from time import time
-from uuid import uuid4
 from pathlib import Path
-from datetime import datetime
 
 # Start timer for performance tracking
 t = time()
@@ -42,7 +40,12 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc, PathObj
 loc.set_default_type(Path)
 from package.config import timer  # Timing utility
-from package.func.fit import process_scan
+from package.func.fit import (
+    process_scan,
+    add_stamp,
+    check_log,
+    res_saving
+)
 
 
 
@@ -117,23 +120,6 @@ for dir_path in [dc, ws, log, res, scan]:
 ### FITTING PART ###
 ####################
 
-def add_stamp(
-        path: PathObj,
-        label: str,
-        status: str = 'ok'
-         ) -> None:
-    '''Add a timestamped stamp to a log file for tracking execution status.'''
-
-    # Generate timestamp and unique ID
-    ts = datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]
-    uniq = uuid4().hex[:8]
-    stamp = f'\n\n---- STAMP {label} [{status}]: {ts} | id={uniq}\n'
-
-    # Append stamp to log file
-    with open(path, 'a') as log_file:
-        log_file.write(stamp)
-    LOGGER.debug(f'Added STAMP: {ts} | id={uniq} | status={status} | file={label}')
-
 def fitting(
         dr: PathObj,
         dc: PathObj,
@@ -191,16 +177,17 @@ def fitting(
                                cwd=scan, env=env, check=True)
             scan_status = 'ok'
 
-
         # Do the fit and a grid scan for likelyhood scan
         with open(result_fit, 'w') as log_out:
             LOGGER.info('Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '2', '-t', str(arg.toy), '--expectSignal=1', '-n', f'Xsec{tar}',
-                            '--rMin', '0', '--rMax', '2', '--alignEdges', '1', '--squareDistPoiStep',
-                            '--algo', 'grid', '--points', '100', '--autoRange', '5'],
+                            '--rMin', '0.9', '--rMax', '1.1', '--autoRange', '5'
+                            '--alignEdges', '1', '--squareDistPoiStep',
+                            '--algo', 'grid', '--points', '100'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
+
         fit_status = 'ok'
         return 0
 
@@ -218,160 +205,6 @@ def fitting(
             add_stamp(result_scan, f'log_fastscan{tar}', scan_status)
         if result_fit.exists():
             add_stamp(result_fit, f'log_results{tar}_fit', fit_status)
-
-
-
-##########################
-### RESULTS EXTRACTION ###
-##########################
-
-def check_log(res_log: str) -> int | None:
-    '''Check if the fit has converged'''
-    LOGGER.debug('Fit done, checking fit log')
-
-    # Parse log file for signal strength result
-    # (parse from end to find latest result)
-    status = None, False
-    with open(str(res_log)) as file:
-        lines = file.readlines()
-        for line in reversed(lines):
-            if 'WARNING: MultiDimFit failed' in line:
-                status = -1
-                break
-        if status is None:
-            for line in reversed(lines):
-                if 'Minimization finished with status=' in line:
-                    status = int(line.split('=')[-1])
-
-    if status is None:
-        LOGGER.error(f"Couldn't find minimization status at {res_log}")
-    elif status == 0:
-        LOGGER.debug(f'Minimization success, {status = }')
-    elif status == 1:
-        LOGGER.warning(f'Minimization finished with {status = }\n'
-                       f'Check the log at {res_log}')
-    elif status == -1:
-        LOGGER.error('Minimization did not converge\n'
-                     f'Check the log at {res_log}')
-    return status
-
-
-def root_extraction(
-        file: str
-         ) -> tuple[float,
-                    float]:
-    '''Extract signal strength (mu) and uncertainty from RooFitResult ROOT file.
-
-    This is the primary extraction method using the RooFitResult object from
-    the first fit stage (--algo none --saveFitResult). Uses ROOT for reliable deserialization.
-    Falls back to log file parsing if ROOT is unavailable.
-    '''
-    LOGGER.debug('Extracting results from RooFitResult')
-    try:
-        import ROOT
-        # Convert PathObj to string if necessary
-        file = ROOT.TFile.Open(str(file))
-        if not file or file.IsZombie():
-            LOGGER.warning(f'Could not open {file}')
-            return -100, -100
-
-        fit_result = file.Get('fit_mdf')
-        if not fit_result:
-            LOGGER.warning(f'Could not find fit_mdf in {file}')
-            file.Close()
-            return -100, -100
-
-        # Get the parameter of interest (r)
-        pars = fit_result.floatParsFinal()
-        r_param = pars.find('r')
-
-        if not r_param:
-            LOGGER.warning('Could not find parameter r in fit result')
-            file.Close()
-            return -100, -100
-
-        mu, err = r_param.getVal(), r_param.getError()
-
-        LOGGER.debug('Successfully extracted from RooFitResult')
-        file.Close()
-        return mu, err
-
-    except ImportError:
-        LOGGER.warning('ROOT not available, falling back to log file extraction')
-        return -100, -100
-    except Exception as e:
-        LOGGER.warning(f'Failed to extract from ROOT file: {e}')
-        return -100, -100
-
-def res_extraction(res_log: str
-                   ) -> tuple[float,
-                              float]:
-    '''Extract signal strength (mu) and uncertainty from fit results log.
-
-    This is a fallback method that parses the log file for the fit result.
-    Used only if RooFitResult extraction fails.
-    '''
-    mu, err = -100, -100  # Initialize with error values
-
-    # Parse log file for signal strength result
-    # (parse from end to find latest result)
-    with open(str(res_log)) as file:
-        lines = file.readlines()
-        for line in lines:
-
-            # Match line format: r = value +/- error (limited)
-            if 'r = ' in line and '+/-' in line and '(limited)' in line:
-                result = line.replace('\t', ' ').replace('\n', '').split()
-                mu, err = float(result[-4]), float(result[-2])
-                break
-
-            # Match line format: r = value +/- error
-            if 'r = ' in line and '+/-' in line:
-                result = line.replace('\t', ' ').replace('\n', '').split()
-                mu, err = float(result[-3]), float(result[-1])
-                break
-    return mu, err
-
-
-
-######################
-### RESULTS SAVING ###
-######################
-
-def res_saving(
-        mu: float,
-        err: float | list[float],
-        res: str
-         ) -> None:
-    '''Save fitting results (signal strength and uncertainty) to output file.'''
-
-    # Check if results were successfully extracted
-    if (mu==-100):
-        LOGGER.warning("Couldn't extract values of the fit, go to the log file to have more information")
-    else:
-        # Display results unless suppressed by flag
-        if arg.print:
-            if isinstance(err, float):
-                LOGGER.info('Results successfully extracted\n'
-                            f'mu = {mu:.6f} +/- {err:.6f}')
-                LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
-            elif isinstance(err, list):
-                LOGGER.info('Results successfully extracted\n'
-                            f'mu = {mu:.6f} +{err[0]:.6f}/-{err[1]:.6f}')
-                LOGGER.info(f'Uncertainty obtained on ZH cross-section: +{err[0]*100:.2f}/-{err[1]*100:.2f} %')
-            else:
-                raise ValueError('Wrong variable type for err. Only support float and list')
-
-        # Write results to output file
-        with open(str(res) + f'/results{tar}.txt', 'w') as f:
-            if isinstance(err, float):
-                f.write(f'{mu}\n{err}\n')
-            elif isinstance(err, list):
-                f.write(f'{mu}\n{err[0]}\n{err[1]}')
-            else:
-                raise ValueError('Wrong variable type for err. Only support float and list')
-
-        LOGGER.debug(f'Saved results in {res}/results{tar}.txt')
 
 
 ######################
@@ -394,9 +227,9 @@ if __name__=='__main__':
                                         'r', 10, True)
 
         # Save results to output file
-        res_saving(mu, [err_h, err_l],  res)
+        res_saving(mu, [err_h, err_l],  res, arg.print, tar)
 
-        cmd = ['python', 'plots.py', '--ecm', str(arg.ecm), '--sels', str(arg.sel), '--no-timer']
+        cmd = ['python', 'plots.py', '--ecm', str(arg.ecm), '--sels', str(arg.sel), '--no-timer', '--sig2']
         if arg.lep:       cmd.append('--lep')
         elif arg.combine: cmd.append('--comb')
         elif arg.cat:     cmd.extend(['--cat', arg.cat])
