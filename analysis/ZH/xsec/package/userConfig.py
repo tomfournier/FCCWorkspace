@@ -231,8 +231,10 @@ class loc(metaclass=locMeta):
     """
 
     repo = str(Path(__file__).parent.parent.resolve())
+    base = str(Path(__file__).parent.parent.parent.parent.parent.resolve())
 
     # Templates as LocPath strings with placeholders: cat, ecm, sel
+    BASE                = LocPath(base)                    # Workspace directory
     ROOT                = LocPath(repo)                    # Repository root
     PACKAGE             = LocPath(f"{repo}/package")       # Python package directory
     OUT                 = LocPath(f"{repo}/output")        # Output root directory
