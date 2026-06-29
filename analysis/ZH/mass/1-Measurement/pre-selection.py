@@ -67,6 +67,18 @@ nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses
 
 # Retrieve all samples for this channel and energy from central configuration
 processList = get_process_list(cat, ecm, batch=runBatch)
+process = {
+    f'wzp6_ee_mumuH_ecm{ecm}':                  {'fraction':1},
+    f'wzp6_ee_mumuH_mH-lower-100MeV_ecm{ecm}':  {'fraction':1},
+    f'wzp6_ee_mumuH_mH-lower-50MeV_ecm{ecm}':   {'fraction':1},
+    f'wzp6_ee_mumuH_mH-higher-100MeV_ecm{ecm}': {'fraction':1},
+    f'wzp6_ee_mumuH_mH-higher-50MeV_ecm{ecm}':  {'fraction':1},
+    f'wzp6_ee_mumuH_mH-higher-50MeV_ecm{ecm}':  {'fraction':1},
+    f'wzp6_ee_mumuH_BES-lower-1pc_ecm{ecm}':    {'fraction':1},
+    f'wzp6_ee_mumuH_BES-higher-1pc_ecm{ecm}':   {'fraction':1},
+    f'wzp6_ee_mumuH_BES-lower-6pc_ecm{ecm}':    {'fraction':1},
+    f'wzp6_ee_mumuH_BES-higher-6pc_ecm{ecm}':   {'fraction':1},
+}
 
 
 
