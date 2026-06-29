@@ -449,7 +449,7 @@ def plot_1d_scans(
         # Formatting
         if param == 'r':
             param = r'$\mu_{ZH}$'
-            set_labels(ax, r'$\mu_{ZH}-1$ [\%]', r'$-2\Delta\ln\mathcal{L}$', right=right)
+            set_labels(ax, r'$\mu_{ZH}-1$ [\%]', r'$-2\Delta\ln\Lambda$', right=right)
         else:
             set_labels(ax, param, r'$-2\Delta\ln\Lambda$', right=right)
 

@@ -182,8 +182,8 @@ def fitting(
             LOGGER.info('Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '2', '-t', str(arg.toy), '--expectSignal=1', '-n', f'Xsec{tar}',
-                            '--rMin', '0.9', '--rMax', '1.1', '--autoRange', '5'
-                            '--alignEdges', '1', '--squareDistPoiStep',
+                            '--rMin', '0.9', '--rMax', '1.1', '--autoRange', '5',
+                            '--alignEdges', '1', '--squareDistPoiStep', '--robustHesse=1',
                             '--algo', 'grid', '--points', '100'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
