@@ -23,6 +23,7 @@ parser = create_parser(
     cat_single=True,
     include_sels=True,
     allow_qq=True,
+    bdt_inputs=True,
     description='BDT Input Processing Script'
 )
 arg = parse_args(parser, True)
@@ -188,7 +189,7 @@ def run(
                 continue
 
             # Sample the mode dataframe in proportion to process cross-sections.
-            df[mode] = sample_df_by_xsec(df_mode, proc_xsec, eff_proc, selected_events, mode=mode)
+            df[mode] = sample_df_by_xsec(df_mode, proc_xsec, eff_proc, selected_events, mode)
             eff[mode] = selected_events / N_events[mode] if N_events[mode] > 0 else 0.0
 
             LOGGER.info(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}\n'
@@ -196,7 +197,7 @@ def run(
 
 
         # Calculate how many events to use from each process for balanced training
-        N_BDT_inputs = BDT_input_numbers(df, modes, sig, eff, xsec, frac)
+        N_BDT_inputs = BDT_input_numbers(df, modes, sig, eff, xsec, frac, arg.all_inputs)
 
         LOGGER.debug('Printing BDT inputs number for the different modes')
         # Split data into training (50%) and validation (50%) sets per process

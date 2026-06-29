@@ -178,7 +178,8 @@ def BDT_input_numbers(
     sig: str,
     eff: dict[str, float],
     xsec: dict[str, float],
-    frac: dict[str, float]
+    frac: dict[str, float],
+    all_inputs: bool = False
      ) -> dict[str, int]:
     '''Calculate number of events to use for BDT training per process.
 
@@ -196,6 +197,10 @@ def BDT_input_numbers(
         dict[str, int]: Dictionary with number of BDT input events per mode.
     '''
     N_BDT_inputs: dict[str, int] = {}
+    if all_inputs:
+        LOGGER.info('Take all the events in the dataframes for training')
+        return {m:df[m].shape[0] for m in modes}
+
     # Total background cross-section weighted by efficiency
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in modes if mode != sig)
     if xsec_tot_bkg <= 0:
@@ -214,6 +219,7 @@ def sample_df_by_xsec(
     target_events: int,
     mode: str = '',
     random_state: int = 1,
+    all_inputs: bool = False
      ) -> 'pd.DataFrame':
     '''Sample and concatenate process dataframes in proportion to eff * xsec.
 
@@ -234,13 +240,18 @@ def sample_df_by_xsec(
     if not df_mode:
         return pd.DataFrame()
 
+
     available = {
         proc: df.shape[0]
         for proc, df in df_mode.items()
         if df.shape[0] > 0 and proc_xsec.get(proc, 0) > 0 and proc_eff.get(proc, 0) > 0
     }
+
     if not available:
         return pd.DataFrame()
+    if all_inputs:
+        LOGGER.debug('Returning the concatenation of all available process dataframe')
+        return pd.concat([df_mode[proc] for proc in available], ignore_index=True)
 
     if len(available) == 1:
         proc = next(iter(available))

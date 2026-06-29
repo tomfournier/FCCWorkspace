@@ -227,6 +227,17 @@ def add_batch_argument(
 # FEATURE GROUP BUILDERS (higher-level, feature-specific groups) #
 # ============================================================== #
 
+def add_bdt_inputs(parser: ArgumentParser) -> None:
+    '''Add BDT inputs script specific arguments'''
+    args = parser.add_argument_group('BDT inputs arguments')
+    args.add_argument(
+        '--all-inputs',
+        action='store_true',
+        default=False,
+        help='Use all the events in each mode for the training'
+    )
+
+
 def add_bdt_eval(parser: ArgumentParser) -> None:
     '''Add BDT evaluation arguments (metric, tree, optionally check, hl).'''
     args = parser.add_argument_group('Evaluation arguments')
@@ -582,6 +593,7 @@ def create_parser(
         run_default: str = '2-3',
         add_test: bool = False,
         batch: bool = False,
+        bdt_inputs: bool = False,
         bdt_eval: bool = False,
         plots: bool = False,
         cutflow: bool = False,
@@ -670,6 +682,8 @@ def create_parser(
         add_batch_argument(parser, group=exec)
 
     # Feature groups
+    if bdt_inputs:
+        add_bdt_inputs(parser)
     if bdt_eval:
         add_bdt_eval(parser)
     if plots:
