@@ -140,7 +140,6 @@ def fitting(
     try:
         dc_combined = dc / f'datacard{tar}{comb}.txt'
 
-        # Combine datacards from multiple channels if requested
         if arg.lep:
             dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
             dc_ee = dc_comb /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
@@ -149,7 +148,6 @@ def fitting(
             with open(dc_combined, 'w') as out:
                 subprocess.run(['combineCards.py', dc_mu, dc_ee],
                                stdout=out, env=env, check=True)
-
         if arg.combine:
             dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
             dc_ee = dc_comb /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
