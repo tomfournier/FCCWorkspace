@@ -46,7 +46,7 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc
 loc.set_default_type(Path)
 from package.config import timer
-from package.func.fit import plot_1d_scans, plot_2d_scans
+from package.func.fit import plot_1d_scans, plot_2d_scans, params_label
 
 
 
@@ -74,19 +74,59 @@ def main():
     colors  = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
 
     # Individual plots for all combinations
-    for cat, sel in [(c, s) for c in cats for s in sels]:
-        inDir  = loc.get('NLO_WS',     cat, '', sel)
-        outDir = loc.get('NLO_RESULT', cat, '', sel)
-        fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
-            else 'higgsCombineXsec.MultiDimFit.mH125.root'
-        scan = (inDir / fIn, "Observed", colors[0])
-        for param in params:
-            plot_1d_scans([scan], outDir, param,
-                          arg.y_cut, arg.y_max,
-                          sig2=arg.sig2, suffix='_'+param)
-        if len(params) > 1:
-            scan = (inDir / fIn, 'Best fit', 'black')
-            plot_2d_scans([scan], outDir, params[0], params[1])
+    if arg.which == '':
+        for cat, sel in [(c, s) for c in cats for s in sels]:
+            inDir  = loc.get('NLO_WS',     cat, '', sel)
+            outDir = loc.get('NLO_RESULT', cat, '', sel)
+            fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
+                else 'higgsCombineXsec.MultiDimFit.mH125.root'
+            scan = (inDir / fIn, "Observed", colors[0])
+            for param in params:
+                plot_1d_scans([scan], outDir, param,
+                              arg.y_cut, arg.y_max,
+                              sig2=arg.sig2, suffix='_'+param)
+            if len(params) > 1:
+                scan = (inDir / fIn, 'Best fit', 'black')
+                plot_2d_scans([scan], outDir, params[0], params[1])
+    else:
+        # Comparison plot: configure varying parameter and fixed values
+        from itertools import product
+
+        config = {
+                'cat': (cats, [[''], sels]),
+                'sel': (sels, [cats, ['']])
+        }
+        varying, fixed_lists = config[arg.which]
+        insert_pos = ['cat', '', 'sel'].index(arg.which)
+
+        for fixed_vals in product(*fixed_lists):
+            fixed_str = '_'.join(str(f) for f in fixed_vals)
+            param_label = ', '.join(params_label.get(str(f), f) for f in fixed_vals)
+
+            all_scans = []
+            for i, var_val in enumerate(varying):
+                param = list(fixed_vals)
+                param.insert(insert_pos, var_val)
+
+                inDir = loc.get('NLO_WS', *param)
+                fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
+                    else 'higgsCombineXsec.MultiDimFit.mH125.root'
+                scan  = (inDir / fIn,
+                         str(var_val),
+                         colors[i % len(colors)])
+                all_scans.append(scan)
+
+            out: Path = loc.get('PLOTS_FIT_SCAN') / arg.which
+            out.mkdir(exist_ok=True, parents=True)
+            for param in params:
+                plot_1d_scans(
+                    all_scans, out, param,
+                    arg.y_cut, arg.y_max,
+                    fixed_str+'_'+param, param_label,
+                    arg.sig2
+                )
+            if len(params) > 1:
+                plot_2d_scans(all_scans, outDir, params[0], params[1])
 
 
 ##########################

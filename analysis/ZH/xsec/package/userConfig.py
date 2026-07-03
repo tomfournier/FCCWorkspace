@@ -279,7 +279,8 @@ class loc(metaclass=locMeta):
     PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis measurement plots
     PLOTS_OPTIMISATION  = LocPath(f"{repo}/output/plots/optimisation/ecm/cat")    # Selection optimisation plots
     PLOTS_FSR           = LocPath(f"{repo}/output/plots/fsr/ecm/cat")             # FSR analysis plots
-    PLOTS_FIT_SCAN      = LocPath(f"{repo}/output/plots/fit/scans")                # Likelyhood scan comparison plots
+    PLOTS_FIT_SCAN      = LocPath(f"{repo}/output/plots/fit/scans")               # Likelyhood scan comparison plots
+    PLOTS_FIT_NLO       = LocPath(f"{repo}/output/plots/fit/nlo")                 # NLO scan comparison plots
 
     # Statistical fit: templates use {sel}, {ecm}, {cat} placeholders
     COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")           # Combine root directory
