@@ -146,7 +146,7 @@ def fitting(
 
             LOGGER.info('Combining datacards from ee and mumu channel')
             with open(dc_combined, 'w') as out:
-                subprocess.run(['combineCards.py', dc_mu, dc_ee],
+                subprocess.run(['combineCards.py', f'mumu={dc_mu}', f'ee={dc_ee}'],
                                stdout=out, env=env, check=True)
         if arg.combine:
             dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
@@ -155,7 +155,7 @@ def fitting(
 
             LOGGER.info('Combining datacards from all channels')
             with open(dc_combined, 'w') as out:
-                subprocess.run(['combineCards.py', dc_mu, dc_ee, dc_qq],
+                subprocess.run(['combineCards.py', f'mumu={dc_mu}', f'ee={dc_ee}', f'qq={dc_qq}'],
                                stdout=out, env=env, check=True)
 
         # Convert datacard to RooFit workspace
@@ -180,9 +180,10 @@ def fitting(
             LOGGER.info('Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '2', '-t', str(arg.toy), '--expectSignal=1', '-n', f'Xsec{tar}',
-                            '--rMin', '0.9', '--rMax', '1.1', '--autoRange', '5',
+                            '--rMin', '0.95', '--rMax', '1.05' if not arg.bias else '1.1',
+                            '--autoRange', '5',
                             '--alignEdges', '1', '--squareDistPoiStep', '--robustHesse=1',
-                            '--algo', 'grid', '--points', '100'],
+                            '--algo', 'grid', '--points', '100', '--cminInitialHesse', '1'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
 
