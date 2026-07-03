@@ -404,7 +404,8 @@ def add_fit_args(
         parser: ArgumentParser,
         bias: bool = False,
         default_target: str = '',
-        default_pert: float = 1.0
+        default_pert: float = 1.0,
+        nlo: bool = False
          ) -> None:
     '''Add fit arguments (pert, target, combine, bias, timer, print).'''
     args = parser.add_argument_group('Fit arguments')
@@ -462,6 +463,13 @@ def add_fit_args(
             action=BooleanOptionalAction,
             default=True,
             help='Suppress uncertainty output'
+        )
+    if nlo:
+        args.add_argument(
+            '--model',
+            type=str,
+            default='SMEFT_Cphi_Cbox',
+            help='Model to use for the fit'
         )
 
 def add_fit_plot_args(
@@ -586,6 +594,7 @@ def create_parser(
         allow_qq: bool = True,
         ecm_multi: bool = False,
         ecm_default: int | str | None = None,
+        no_ecm: bool = False,
         allow_empty: bool = False,
         include_sel: bool = False,
         include_sels: bool = False,
@@ -608,6 +617,7 @@ def create_parser(
         bias_extra: bool = False,
         default_target: str = '',
         default_pert: float = 1.0,
+        is_nlo: bool = False,
         do_bias: bool = False,
         description: str = 'Analysis script'
          ) -> ArgumentParser:
@@ -664,20 +674,20 @@ def create_parser(
 
     # Core arguments (share the same groups)
     if cat_single or cat_multi:
-        add_cat_argument(parser, multi=cat_multi, allow_empty=allow_empty, default=cat_default, allow_qq=allow_qq, group=general)
-    if ecm_multi or (cat_single or cat_multi):
-        add_ecm_argument(parser, multi=ecm_multi, default=ecm_default, group=general)
+        add_cat_argument(parser, cat_multi, allow_empty, cat_default, allow_qq, general)
+    if (ecm_multi or (cat_single or cat_multi)) and not no_ecm:
+        add_ecm_argument(parser, ecm_multi, ecm_default, general)
     add_verbose_argument(parser, group=general)
 
     # Selection arguments (share the same group)
     if include_sel:
-        add_sel_argument(parser, default='Baseline' if fit or bias else '', group=general)
+        add_sel_argument(parser, 'Baseline' if fit or bias else '', general)
     if include_sels:
         add_sels_argument(parser, default='', group=general)
 
     # Execution arguments (share the same group)
     if run_stages > 0:
-        add_run_argument(parser, n_stages=run_stages, default=run_default, add_test=add_test, group=exec)
+        add_run_argument(parser, run_stages, run_default, add_test, exec)
     if batch:
         add_batch_argument(parser, group=exec)
 
@@ -695,11 +705,11 @@ def create_parser(
     if polarization:
         add_polarization(parser)
     if fit:
-        add_fit_args(parser, default_target=default_target, default_pert=default_pert, bias=do_bias)
+        add_fit_args(parser, do_bias, default_target, default_pert, is_nlo)
     if fit_plot:
         add_fit_plot_args(parser)
     if bias and fit:
-        add_bias_args(parser, extra=bias_extra)
+        add_bias_args(parser, bias_extra)
 
     return parser
 

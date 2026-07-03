@@ -282,9 +282,9 @@ class loc(metaclass=locMeta):
     PLOTS_FIT_SCAN      = LocPath(f"{repo}/output/plots/fit/scans")                # Likelyhood scan comparison plots
 
     # Statistical fit: templates use {sel}, {ecm}, {cat} placeholders
-    COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")          # Combine root directory
-    COMBINE_NOMINAL     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")  # Nominal analysis
-    COMBINE_BIAS        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")     # Bias test results
+    COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")           # Combine root directory
+    COMBINE_NOMINAL     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal")   # Nominal analysis
+    COMBINE_BIAS        = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias")      # Bias test results
 
     # Nominal fit outputs: templates use {sel}, {ecm}, {cat} placeholders
     NOMINAL_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/nominal/log")       # Combine job logs
@@ -300,6 +300,14 @@ class loc(metaclass=locMeta):
     BIAS_DATACARD       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/datacard")      # Combine datacards
     BIAS_FASTSCAN       = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/fastscan")      # To check the nll of the fit
     BIAS_WS             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/bias/WS")            # Combine workspaces
+
+    # Self-coupling outputs: templates use {sel}, {ecm}, {cat} placeholders
+    NLO                = LocPath(f"{repo}/output/data/nlo/sel/cat")               # Self-coupling root directory
+    NLO_LOG            = LocPath(f"{repo}/output/data/nlo/sel/cat/log")           # Combine job logs
+    NLO_RESULT         = LocPath(f"{repo}/output/data/nlo/sel/cat/results")       # Fit results and plots
+    NLO_DATACARD       = LocPath(f"{repo}/output/data/nlo/sel/cat/datacard")      # Combine datacards
+    NLO_FASTSCAN       = LocPath(f"{repo}/output/data/nlo/sel/cat/fastscan")      # To check the nll of the fit
+    NLO_WS             = LocPath(f"{repo}/output/data/nlo/sel/cat/WS")            # Combine workspaces
 
 
     @staticmethod

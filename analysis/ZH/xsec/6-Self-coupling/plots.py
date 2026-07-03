@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""
+Simplified 1D likelihood scan plotter using matplotlib and uproot.
+Optimized for speed and simplicity while maintaining plot1DScan.py structure.
+"""
+
+####################################
+### IMPORT MODULES AND FUNCTIONS ###
+####################################
+
+import time
+
+from pathlib import Path
+
+# Start execution timer
+t = time.time()
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_multi=True,
+    cat_default='',
+    allow_empty=True,
+    no_ecm=True,
+    include_sels=True,
+    fit_plot=True,
+    description='Fit Plots Script'
+)
+arg = parse_args(parser, False, False)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+###########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
+###########################################################
+
+from package.userConfig import loc
+loc.set_default_type(Path)
+from package.config import timer
+from package.func.fit import plot_1d_scans, plot_2d_scans
+
+
+
+####################
+### CONFIG SETUP ###
+####################
+
+# Parse main inputs
+sels = arg.sels.split('-')
+cats = [cat for cat in arg.cat.split('-') if cat]
+if arg.lep:
+    cats = cats + ['leptonic'] if cats else ['leptonic']
+if arg.combine:
+    cats = cats + ['combined'] if cats else ['combined']
+params = arg.param.split('-')
+
+
+
+##########################
+### EXECUTION FUNCTION ###
+##########################
+
+def main():
+
+    colors  = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
+
+    # Individual plots for all combinations
+    for cat, sel in [(c, s) for c in cats for s in sels]:
+        inDir  = loc.get('NLO_WS',     cat, '', sel)
+        outDir = loc.get('NLO_RESULT', cat, '', sel)
+        fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
+            else 'higgsCombineXsec.MultiDimFit.mH125.root'
+        scan = (inDir / fIn, "Observed", colors[0])
+        for param in params:
+            plot_1d_scans([scan], outDir, param,
+                          arg.y_cut, arg.y_max,
+                          sig2=arg.sig2, suffix='_'+param)
+        if len(params) > 1:
+            scan = (inDir / fIn, 'Best fit', 'black')
+            plot_2d_scans([scan], outDir, params[0], params[1])
+
+
+##########################
+### EXECUTION FUNCTION ###
+##########################
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
+    finally:
+        # Print execution time
+        if arg.timer: timer(t)

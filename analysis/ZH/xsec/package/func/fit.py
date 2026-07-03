@@ -5,7 +5,9 @@
 import uproot
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.tri import Triangulation
 
 from pathlib import Path
 from scipy.interpolate import UnivariateSpline
@@ -52,6 +54,13 @@ params_label = {
     'combined': r'$ZH$',
     '240':      '240 GeV',
     '365':      '365 GeV',
+}
+
+coeffs_label = {
+    'r':     r'$\mu_{ZH}$',
+    'Cphi':  r'$C_{\phi}$',
+    'CphiD': r'$C_{\phi D}$',
+    'Cbox':  r'$C_{\mathrm{Box}}$',
 }
 
 
@@ -201,7 +210,8 @@ def res_saving(
         err: float | list[float],
         res: str,
         print_result: bool = True,
-        target: str = ''
+        target: str = '',
+        param: str = 'r'
          ) -> None:
     '''Save fitting results (signal strength and uncertainty) to output file.'''
 
@@ -211,14 +221,16 @@ def res_saving(
     else:
         # Display results unless suppressed by flag
         if print_result:
+            p = 6 if param=='r' else 2
             if isinstance(err, float):
                 LOGGER.info('Results successfully extracted\n'
-                            f'mu = {mu:.6f} +/- {err:.6f}')
+                            f'mu = {mu:.{p}f} +/- {err:.{p}f}')
                 LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
             elif isinstance(err, list):
                 LOGGER.info('Results successfully extracted\n'
-                            f'mu = {mu:.6f} +{err[0]:.6f}/-{err[1]:.6f}')
-                LOGGER.info(f'Uncertainty obtained on ZH cross-section: +{err[0]*100:.2f}/-{err[1]*100:.2f} %')
+                            f'mu = {mu:.{p}f} +{err[0]:.{p}f}/-{err[1]:.{p}f}')
+                if param == 'r':
+                    LOGGER.info(f'Uncertainty obtained on ZH cross-section: +{err[0]*100:.2f}/-{err[1]*100:.2f} %')
             else:
                 raise ValueError('Wrong variable type for err. Only support float and list')
 
@@ -268,6 +280,75 @@ def read_tree_data(
     LOGGER.debug(f'Removed points greater than {y_cut = }, {len(data)} points remaining')
 
     return data[:, 0], data[:, 1]
+
+
+def read_tree_data_2d(
+        file_path: Path,
+        x_param: str = 'Cphi',
+        y_param: str = 'Cbox',
+        z_cut: float | int = 1e0
+         ) -> tuple[np.ndarray,
+                    np.ndarray,
+                    np.ndarray]:
+    """
+    Read a 2D likelihood scan from a ROOT file using uproot.
+
+    Returns x, y, and 2*deltaNLL arrays with duplicate (x, y) points collapsed.
+    """
+    with uproot.open(file_path) as f:
+        tree = f['limit']
+
+        if x_param not in tree.keys():
+            raise KeyError(f"Branch '{x_param}' not found in {file_path}")
+        if y_param not in tree.keys():
+            raise KeyError(f"Branch '{y_param}' not found in {file_path}")
+
+        raw_data: pd.DataFrame = tree.arrays([x_param, y_param, 'deltaNLL'], library='pd')
+        raw_data['deltaNLL'] *= 2
+
+    LOGGER.debug(f'Found {raw_data.shape[0]} point in {file_path}')
+
+    data = raw_data[raw_data['deltaNLL']<=z_cut].to_numpy()
+    LOGGER.debug(f'Removed points greater than {z_cut = }, {len(data)} points remaining')
+
+    if len(data) == 0:
+        return data[:, 0], data[:, 1], data[:, 2]
+
+    coords = data[:, :2]
+    uniq_coords, inverse = np.unique(coords, axis=0, return_inverse=True)
+    uniq_z = np.full(len(uniq_coords), np.inf)
+    np.minimum.at(uniq_z, inverse, data[:, 2])
+
+    data = np.column_stack([uniq_coords, uniq_z])
+    data = data[data[:, 0].argsort(kind='mergesort')]
+
+    LOGGER.debug(f'Removed {len(raw_data) - len(data)} duplicate, {len(data)} points remaining')
+
+    return data[:, 0], data[:, 1], data[:, 2]
+
+
+def process_scan_2d(
+        input_file: Path,
+        x_param: str = 'Cphi',
+        y_param: str = 'Cbox',
+        z_cut: float | int = 50.0
+         ) -> tuple[np.ndarray,
+                    np.ndarray,
+                    np.ndarray,
+                    float,
+                    float]:
+    """
+    Process a single 2D likelihood scan and return the scan points and best-fit coordinates.
+    """
+    x, y, z = read_tree_data_2d(input_file, x_param, y_param, z_cut)
+
+    if len(x) <= 2:
+        raise ValueError(f"Not enough points in {input_file}: {len(x)}")
+
+    best_idx = z == 0
+    best_x, best_y = x[best_idx], y[best_idx]
+
+    return x, y, z, best_x, best_y
 
 
 def find_crossings(
@@ -432,14 +513,23 @@ def plot_1d_scans(
 
         # Plot all scans
         for scan in scans_data:
-            ax.scatter((scan['x']-1)*100, scan['y'], s=15, color=scan['color'], zorder=2)
-            ax.plot((scan['x_smooth']-1)*100, scan['y_smooth'], '-', linewidth=2.5,
-                    color=scan['color'], label=scan['label'], zorder=3)
+            if param == 'r':
+                ax.scatter((scan['x']-1)*100, scan['y'], s=15, color=scan['color'], zorder=2)
+                ax.plot((scan['x_smooth']-1)*100, scan['y_smooth'], '-', linewidth=2.5,
+                        color=scan['color'], label=scan['label'], zorder=3)
+            else:
+                ax.scatter(scan['x'], scan['y'], s=15, color=scan['color'], zorder=2)
+                ax.plot(scan['x_smooth'], scan['y_smooth'], '-', linewidth=2.5,
+                        color=scan['color'], label=scan['label'], zorder=3)
             for yv in [1.0, 4.0]:
                 crossings_yv = find_crossings(scan['x'], scan['spl'], yv)
                 for cr in crossings_yv:
-                    ax.plot([(cr['lo']-1)*100, (cr['lo']-1)*100], [0, yv], color=scan['color'], alpha=0.5, linestyle='dashed')
-                    ax.plot([(cr['hi']-1)*100, (cr['hi']-1)*100], [0, yv], color=scan['color'], alpha=0.5, linestyle='dashed')
+                    if param == 'r':
+                        ax.plot([(cr['lo']-1)*100, (cr['lo']-1)*100], [0, yv], color=scan['color'], alpha=0.5, linestyle='dashed')
+                        ax.plot([(cr['hi']-1)*100, (cr['hi']-1)*100], [0, yv], color=scan['color'], alpha=0.5, linestyle='dashed')
+                    else:
+                        ax.plot([cr['lo'], cr['lo']], [0, yv], color=scan['color'], alpha=0.5, linestyle='dashed')
+                        ax.plot([cr['hi'], cr['hi']], [0, yv], color=scan['color'], alpha=0.5, linestyle='dashed')
 
         # Draw horizontal reference lines for 1σ and 2σ
         ax.axhline(1.0,   color='gray', linestyle='dashed')
@@ -447,11 +537,11 @@ def plot_1d_scans(
         ax.axhline(y_cut, color='black')
 
         # Formatting
+        lab = coeffs_label.get(param, param)
         if param == 'r':
-            param = r'$\mu_{ZH}$'
             set_labels(ax, r'$\mu_{ZH}-1$ [\%]', r'$-2\Delta\ln\Lambda$', right=right)
         else:
-            set_labels(ax, param, r'$-2\Delta\ln\Lambda$', right=right)
+            set_labels(ax, lab, r'$-2\Delta\ln\Lambda$', right=right)
 
         # Calculate required y_max based on data and text
         max_y_smooth = max([np.max(scan['y_smooth']) for scan in scans_data] + [y_max, y_cut])
@@ -465,7 +555,11 @@ def plot_1d_scans(
         # Set x-axis limits based on all scans
         all_x = np.concatenate([s['x'] for s in scans_data])
         margin = 0.05 * (all_x.max() - all_x.min())
-        ax.set_xlim([(all_x.min() - margin - 1)*100, (all_x.max() + margin - 1)*100])
+
+        if param == 'r':
+            ax.set_xlim((all_x.min() - margin - 1)*100, (all_x.max() + margin - 1)*100)
+        else:
+            ax.set_xlim(all_x.min() - margin, all_x.max() + margin)
 
         ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
         ax.legend(loc='upper left', fontsize=22)
@@ -476,19 +570,34 @@ def plot_1d_scans(
             err_hi_1, err_lo_1 = scan['err_1sig']
             err_hi_2, err_lo_2 = scan['err_2sig']
 
-            if abs(err_hi_1 - err_lo_1) * 100 < 1e-2:
-                line_68 = rf"{scan['label']}: {param} = {scan['bestfit']:.5f}$\pm{err_hi_1*100:.2f}\%$ (68\%)"
-            else:
-                line_68 = f"{scan['label']}: {param} = {scan['bestfit']:.5f}$_{{-{err_lo_1*100:.2f}\\%}}^{{+{err_hi_1*100:.2f}\\%}}$ (68\\%)"
-            text_lines.append(line_68)
-
-            if sig2:
-                prefix = ' ' * len(scan['label'])
-                if abs(err_hi_2 - err_lo_2) * 100 < 1e-2:
-                    line_95 = rf"{prefix}: {param} = {scan['bestfit']:.5f}$\pm{err_hi_2*100:.2f}\%$ (95\%)"
+            if param == 'r':
+                if abs(err_hi_1 - err_lo_1) * 100 < 1e-2:
+                    line_68 = rf"{scan['label']}: {lab} = {scan['bestfit']:.5f}$\pm{err_hi_1*100:.2f}\%$ (68\%)"
                 else:
-                    line_95 = f"{prefix}: {param} = {scan['bestfit']:.5f}$_{{-{err_lo_2*100:.2f}\\%}}^{{+{err_hi_2*100:.2f}\\%}}$ (95\\%)"
-                text_lines.append(line_95)
+                    line_68 = f"{scan['label']}: {lab} = {scan['bestfit']:.5f}$_{{-{err_lo_1*100:.2f}\\%}}^{{+{err_hi_1*100:.2f}\\%}}$ (68\\%)"
+                text_lines.append(line_68)
+
+                if sig2:
+                    prefix = ' ' * len(scan['label'])
+                    if abs(err_hi_2 - err_lo_2) * 100 < 1e-2:
+                        line_95 = rf"{prefix}: {lab} = {scan['bestfit']:.5f}$\pm{err_hi_2*100:.2f}\%$ (95\%)"
+                    else:
+                        line_95 = f"{prefix}: {lab} = {scan['bestfit']:.5f}$_{{-{err_lo_2*100:.2f}\\%}}^{{+{err_hi_2*100:.2f}\\%}}$ (95\\%)"
+                    text_lines.append(line_95)
+            else:
+                if abs(err_hi_1 - err_lo_1) < 1e-2:
+                    line_68 = rf"{scan['label']}: {lab} = {scan['bestfit']:.2f}$\pm{err_hi_1:.2f}$ (68\%)"
+                else:
+                    line_68 = f"{scan['label']}: {lab} = {scan['bestfit']:.2f}$_{{-{err_lo_1:.2f}}}^{{+{err_hi_1:.2f}}}$ (68\\%)"
+                text_lines.append(line_68)
+
+                if sig2:
+                    prefix = ' ' * len(scan['label'])
+                    if abs(err_hi_2 - err_lo_2) < 1e-2:
+                        line_95 = rf"{prefix}: {lab} = {scan['bestfit']:.2f}$\pm{err_hi_2:.2f}$ (95\%)"
+                    else:
+                        line_95 = f"{prefix}: {lab} = {scan['bestfit']:.2f}$_{{-{err_lo_2:.2f}}}^{{+{err_hi_2:.2f}}}$ (95\\%)"
+                    text_lines.append(line_95)
 
         textstr = "\n".join(text_lines)
 
@@ -502,3 +611,105 @@ def plot_1d_scans(
 
     finally:
         plt.close(fig)
+
+
+
+def plot_2d_scans(
+        input_specs: list[tuple[str, ...]],
+        output: Path,
+        x_param: str = 'Cphi',
+        y_param: str = 'Cbox',
+        z_cut: int | float = 50.0,
+        suffix: str = '',
+        right: str = '',
+        sig2: bool = False,
+        cmap: str = 'plasma'
+         ) -> None:
+    """
+    Plot one or more 2D likelihood scans on the same figure.
+
+    The default axis labels follow the ROOT example used in this analysis:
+    Cphi on the x-axis and Cbox on the y-axis.
+    """
+    LOGGER.info(f'Processing {len(input_specs)} 2D scan(s): {output}')
+
+    default_colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
+    scans_data = []
+
+    for i, spec in enumerate(input_specs):
+        if isinstance(spec, tuple):
+            if len(spec) == 3:
+                filepath, label, color = spec
+            elif len(spec) == 2:
+                filepath, label = spec
+                color = default_colors[i % len(default_colors)]
+            else:
+                filepath = spec[0]
+                label = f'Scan {i + 1}'
+                color = default_colors[i % len(default_colors)]
+        else:
+            filepath, label = spec, f'Scan {i + 1}'
+            color = default_colors[i % len(default_colors)]
+
+        x, y, z, best_x, best_y = process_scan_2d(filepath, x_param, y_param, z_cut)
+
+        scans_data.append({
+            'filepath': filepath,
+            'label': params_label.get(label, label),
+            'color': color,
+            'x': x,
+            'y': y,
+            'z': z,
+            'best_x': best_x,
+            'best_y': best_y,
+        })
+
+    fig, ax = plt.subplots(dpi=300)
+
+    try:
+        contour_levels = [2.30, 6.18] if sig2 else [2.30]
+        contour_handle = None
+
+        for scan in scans_data:
+            try:
+                tri = Triangulation(scan['x'], scan['y'])
+                contourf = ax.tricontourf(tri, scan['z'], levels=100, cmap=cmap, alpha=0.7,
+                                          zorder=1)
+                if contour_handle is None:
+                    contour_handle = contourf
+                ax.tricontour(tri, scan['z'], levels=contour_levels,
+                              colors=[scan['color']] * len(contour_levels),
+                              linewidths=3, zorder=3)
+            except Exception as exc:
+                LOGGER.warning(f'Could not build triangulation for {scan["filepath"]}: {exc}')
+                ax.scatter(scan['x'], scan['y'], c=scan['z'], cmap=cmap,
+                           s=18, alpha=0.7, zorder=1)
+
+            ax.scatter(scan['best_x'], scan['best_y'], s=180, marker='*',
+                       color=scan['color'], edgecolor='black', linewidths=0.8,
+                       zorder=4, label=scan['label'])
+
+        if contour_handle is not None and len(scans_data) == 1:
+            cbar = fig.colorbar(contour_handle, ax=ax, pad=0.02)
+            cbar.set_label(r'$-2\Delta\ln\Lambda$', loc='top')
+
+        xlabel = coeffs_label.get(x_param, x_param)
+        ylabel = coeffs_label.get(y_param, y_param)
+
+        set_labels(ax, xlabel, ylabel, right=right)
+
+        all_x = np.concatenate([scan['x'] for scan in scans_data])
+        all_y = np.concatenate([scan['y'] for scan in scans_data])
+        ax.set_xlim(all_x.min(), all_x.max())
+        ax.set_ylim(all_y.min(), all_y.max())
+
+        ax.grid(True, linestyle=':')
+        ax.legend(loc='best', fontsize=18)
+
+        suffix = f'{x_param}_{y_param}_{suffix}'
+        savefigs(fig, output, 'Scan2D', suffix, plot_file)
+
+    finally:
+        plt.close(fig)
+
+    return None
