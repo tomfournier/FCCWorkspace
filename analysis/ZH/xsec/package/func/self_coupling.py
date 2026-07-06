@@ -7,6 +7,10 @@ from HiggsAnalysis.CombinedLimit.PhysicsModel import (  # type:ignore
     PhysicsModelBase as CombinedPhysicsModelBase,
 )
 
+from ..logger import get_logger
+
+LOGGER = get_logger(__name__)
+
 
 
 #############################
@@ -15,7 +19,7 @@ from HiggsAnalysis.CombinedLimit.PhysicsModel import (  # type:ignore
 
 mH  = 125.1
 Gmu = 1.16638e-5
-vev = 1 / (2**0.5 * Gmu)
+vev = (1 / (2**0.5 * Gmu))**0.5
 
 table: dict[str, dict[int, dict[str, float]]] = {
     'Cphi': {
@@ -35,8 +39,6 @@ table: dict[str, dict[int, dict[str, float]]] = {
 sigma_LO   = {240: 239.2, 365: 116.9}
 sigma_NLO  = {240: 194.4, 365: 121.1}
 sigma_weak = {240: 232.1, 365: 113.2}
-Ds_weak = {240: -7.1,  365: -3.7}
-Ds_QED  = {240: -37.7, 365: +7.9}
 
 
 
@@ -102,19 +104,22 @@ def get_bin_energy(bin_name: str) -> int:
     return energy
 
 
-def kappa_from_SMEFT(Cphi, CphiD, Cbox, lbda=1):
+def kappa_from_SMEFT(Cphi, CphiD, Cbox, lbda=1e3):
     Ckin = (CphiD/4 - Cbox)
     kappa = 1 + (vev/lbda)**2 * (3 * Ckin - 2 * (vev/mH)**2 * Cphi)
     return kappa
 
 
-def kappa_precision(Cphi, CphiD, Cbox, lbda=1):
-    dCphi  = 2 * (vev**2/(lbda*mH))**2
-    dCphiD = 3/4 * (vev/lbda)**2
-    dCbox  = 3 * (vev/lbda)**2
+def kappa_precision(Cphi, CphiD, Cbox, lbda=1e3):
+    dCphi  = kappa_from_SMEFT(1, 0, 0) - 1
+    dCphiD = kappa_from_SMEFT(0, 1, 0) - 1
+    dCbox  = kappa_from_SMEFT(0, 0, 1) - 1
+
+    LOGGER.debug(f'Using {dCphi = :.4f}, {dCphiD = :.4f}, {dCbox = :.4f}')
 
     dkappa = ((dCphi*Cphi)**2 + (dCphiD*CphiD)**2 + (dCbox*Cbox)**2)**0.5
     return dkappa
+
 
 
 ###############################
