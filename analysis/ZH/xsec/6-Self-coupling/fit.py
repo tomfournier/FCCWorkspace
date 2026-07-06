@@ -141,14 +141,14 @@ def fitting(
 
         # Do the fit and a grid scan for likelyhood scan
         expected = ','.join(f'{p}=0' for p in params)
+        ranges   = ':'.join(f'{p}=-1,1' if arg.combine else f'{p}=-3,3' for p in params)
         with open(result_fit, 'w') as log_out:
             LOGGER.info('Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '2', '-t', str(arg.toy), '-n', 'Xsec', '--setParameters', expected,
-                            '--autoRange', '5', '--autoBoundsPOIs', '*', '--autoMaxPOIs', '*',
-                            '--alignEdges', '1', '--squareDistPoiStep', '--robustHesse=1',
-                            '--algo', 'grid', '--points', '400' if len(params) > 1 else '100',
-                            '--cminInitialHesse', '1'],
+                            '--alignEdges', '1', '--robustHesse=1',
+                            '--setParameterRanges', ranges,
+                            '--algo', 'grid', '--points', '400' if len(params) > 1 else '100'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
 

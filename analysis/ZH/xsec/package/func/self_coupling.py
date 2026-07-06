@@ -9,77 +9,6 @@ from HiggsAnalysis.CombinedLimit.PhysicsModel import (  # type:ignore
 
 
 
-###############################
-### HELPER CLASS DEFINITION ###
-###############################
-
-### Class that takes care of building a physics model by combining individual channels and processes together
-### Things that it can do:
-###   - define the parameters of interest (in the default implementation , "r")
-###   - define other constant model parameters (e.g., "MH")
-###   - yields a scaling factor for each pair of bin and process (by default, constant for background and linear in "r" for signal)
-###   - possibly modifies the systematical uncertainties (does nothing by default)
-
-class PhysicsModelBase(CombinedPhysicsModelBase, metaclass=ABCMeta):
-    def setModelBuilder(self, modelBuilder):
-        "Connect to the ModelBuilder to get workspace, datacard and options. Should not be overloaded."
-        self.modelBuilder = modelBuilder
-        self.DC = modelBuilder.DC
-        self.options = modelBuilder.options
-
-    def setPhysicsOptions(self, physOptions):
-        "Receive a list of strings with the physics options from command line"
-        return None
-
-    @abstractmethod
-    def doParametersOfInterest(self):
-        """Create POI and other parameters, and define the POI set."""
-
-    def preProcessNuisances(self, nuisances):
-        "receive the usual list of (name,nofloat,pdf,args,errline) to be edited"
-        return None
-
-    def getYieldScale(self, bin_name, process):
-        "Return the name of a RooAbsReal to scale this yield by or the two special values 1 and 0 (don't scale, and set to zero)"
-        return "r" if self.DC.isSignal[process] else 1
-
-    def getChannelMask(self, bin_name):
-        "Return the name of a RooAbsReal to mask the given bin (args != 0 => masked)"
-        name = "mask_%s" % bin_name
-        # Check that the mask expression doesn't exist already, it might do
-        # if it was already defined in the datacard
-        if not self.modelBuilder.out.arg(name):
-            self.modelBuilder.doVar("%s[0]" % name)
-        return name
-
-    def done(self):
-        "Called after creating the model, except for the ModelConfigs"
-        return None
-
-
-
-############################
-### CLASS BASE DEFINTION ###
-############################
-
-class PhysicsModel(CombinedPhysicsModel):
-    """Example class with signal strength as only POI"""
-
-    def doParametersOfInterest(self):
-        """Create POI and other parameters, and define the POI set."""
-        self.modelBuilder.doVar("r[1,0,20]")
-        self.modelBuilder.doSet("POI", "r")
-        # --- Higgs Mass as other parameter ----
-        if self.options.mass != 0:
-            if self.modelBuilder.out.var("MH"):
-                var = self.modelBuilder.out.var("MH")
-                var.removeMin()
-                var.removeMax()
-                var.setVal(self.options.mass)
-            else:
-                self.modelBuilder.doVar("MH[%g]" % self.options.mass)
-
-
 #############################
 ### QUANTITIES DEFINITION ###
 #############################
@@ -173,6 +102,92 @@ def get_bin_energy(bin_name: str) -> int:
     return energy
 
 
+def kappa_from_SMEFT(Cphi, CphiD, Cbox, lbda=1):
+    Ckin = (CphiD/4 - Cbox)
+    kappa = 1 + (vev/lbda)**2 * (3 * Ckin - 2 * (vev/mH)**2 * Cphi)
+    return kappa
+
+
+def kappa_precision(Cphi, CphiD, Cbox, lbda=1):
+    dCphi  = 2 * (vev**2/(lbda*mH))**2
+    dCphiD = 3/4 * (vev/lbda)**2
+    dCbox  = 3 * (vev/lbda)**2
+
+    dkappa = ((dCphi*Cphi)**2 + (dCphiD*CphiD)**2 + (dCbox*Cbox)**2)**0.5
+    return dkappa
+
+
+###############################
+### HELPER CLASS DEFINITION ###
+###############################
+
+### Class that takes care of building a physics model by combining individual channels and processes together
+### Things that it can do:
+###   - define the parameters of interest (in the default implementation , "r")
+###   - define other constant model parameters (e.g., "MH")
+###   - yields a scaling factor for each pair of bin and process (by default, constant for background and linear in "r" for signal)
+###   - possibly modifies the systematical uncertainties (does nothing by default)
+
+class PhysicsModelBase(CombinedPhysicsModelBase, metaclass=ABCMeta):
+    def setModelBuilder(self, modelBuilder):
+        "Connect to the ModelBuilder to get workspace, datacard and options. Should not be overloaded."
+        self.modelBuilder = modelBuilder
+        self.DC = modelBuilder.DC
+        self.options = modelBuilder.options
+
+    def setPhysicsOptions(self, physOptions):
+        "Receive a list of strings with the physics options from command line"
+        return None
+
+    @abstractmethod
+    def doParametersOfInterest(self):
+        """Create POI and other parameters, and define the POI set."""
+
+    def preProcessNuisances(self, nuisances):
+        "receive the usual list of (name,nofloat,pdf,args,errline) to be edited"
+        return None
+
+    def getYieldScale(self, bin_name, process):
+        "Return the name of a RooAbsReal to scale this yield by or the two special values 1 and 0 (don't scale, and set to zero)"
+        return "r" if self.DC.isSignal[process] else 1
+
+    def getChannelMask(self, bin_name):
+        "Return the name of a RooAbsReal to mask the given bin (args != 0 => masked)"
+        name = "mask_%s" % bin_name
+        # Check that the mask expression doesn't exist already, it might do
+        # if it was already defined in the datacard
+        if not self.modelBuilder.out.arg(name):
+            self.modelBuilder.doVar("%s[0]" % name)
+        return name
+
+    def done(self):
+        "Called after creating the model, except for the ModelConfigs"
+        return None
+
+
+
+############################
+### CLASS BASE DEFINTION ###
+############################
+
+class PhysicsModel(CombinedPhysicsModel):
+    """Example class with signal strength as only POI"""
+
+    def doParametersOfInterest(self):
+        """Create POI and other parameters, and define the POI set."""
+        self.modelBuilder.doVar("r[1,0,20]")
+        self.modelBuilder.doSet("POI", "r")
+        # --- Higgs Mass as other parameter ----
+        if self.options.mass != 0:
+            if self.modelBuilder.out.var("MH"):
+                var = self.modelBuilder.out.var("MH")
+                var.removeMin()
+                var.removeMax()
+                var.setVal(self.options.mass)
+            else:
+                self.modelBuilder.doVar("MH[%g]" % self.options.mass)
+
+
 
 #####################
 ### PHYSICS MODEL ###
@@ -199,15 +214,15 @@ class SMEFT_NLO(PhysicsModel):
 
         for i, wilson in enumerate(self.wilson):
             # Define the contribution for the corresponding wilson coefficient
-            self.modelBuilder.doVar(f'A{i}[{get_contribution(wilson, 240)}]')
-            self.modelBuilder.doVar(f'B{i}[{get_contribution(wilson, 365)}]')
+            self.modelBuilder.doVar(f'A{i}[{get_contribution(wilson, 240, 1, True)}]')
+            self.modelBuilder.doVar(f'B{i}[{get_contribution(wilson, 365, 1, True)}]')
 
             # Set the contributions as constant
             self.modelBuilder.out.var(f'A{i}').setConstant(True)
             self.modelBuilder.out.var(f'B{i}').setConstant(True)
 
             # Define the wilson coefficient
-            self.modelBuilder.doVar(f'{wilson}[0,-1,1]')
+            self.modelBuilder.doVar(f'{wilson}[0,-2,2]')
 
         self.modelBuilder.factory_(build_expression('SMEFT', self.wilson, 240))
         self.modelBuilder.factory_(build_expression('SMEFT', self.wilson, 365))

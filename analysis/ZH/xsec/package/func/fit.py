@@ -54,6 +54,7 @@ params_label = {
     'combined': r'$ZH$',
     '240':      '240 GeV',
     '365':      '365 GeV',
+    '':         '240-365 GeV'
 }
 
 coeffs_label = {
@@ -460,7 +461,6 @@ def plot_1d_scans(
         suffix: str = '',
         right: str = '',
         sig2: bool = False,
-        bias: bool = False
          ) -> None:
     """
     Plot multiple 1D likelihood scans on the same figure.
