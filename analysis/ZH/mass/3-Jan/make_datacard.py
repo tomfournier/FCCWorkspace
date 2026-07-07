@@ -3,8 +3,8 @@ import os, sys, array, argparse, subprocess, ROOT
 
 import numpy as np
 
-sys.path.insert(0, f'{os.path.dirname(os.path.realpath(__file__))}/../../../python')
 import package.plots.root.plotter as plotter
+from package.tools.process import getHist
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
@@ -12,54 +12,42 @@ ROOT.gStyle.SetOptTitle(0)
 
 
 
-def getHist(
-        hName: str,
-        procs: list[str]):
-    hist = None
-    for proc in procs:
-        fInName = f'{inputDir}/{proc}.root'
-        if os.path.exists(fInName):
-            fIn = ROOT.TFile(fInName)
-        else:
-            print(f'ERROR: input file {fInName} not found')
-            quit()
-        h = fIn.Get(hName)
-        h.SetDirectory(0)
-        if hist is None:
-            hist = h
-        else:
-            hist.Add(h)
-        fIn.Close()
-    return hist
+# def getHist(
+#         hName: str,
+#         procs: list[str]):
+#     hist = None
+#     for proc in procs:
+#         fInName = f'{inputDir}/{proc}.root'
+#         if os.path.exists(fInName):
+#             fIn = ROOT.TFile(fInName)
+#         else:
+#             print(f'ERROR: input file {fInName} not found')
+#             quit()
+#         h = fIn.Get(hName)
+#         h.SetDirectory(0)
+#         if hist is None:
+#             hist = h
+#         else:
+#             hist.Add(h)
+#         fIn.Close()
+#     return hist
 
 
 def doSignal(normYields: bool = True):
 
     global h_obs, yield_nom, yMax
 
-    mHs = [124.9, 124.95, 125.0, 125.05, 125.1]
     mHs = [124.95, 125.0, 125.05]
     if flavor == 'mumu':
-        procs = ['p_wzp6_ee_mumuH_ecm240',
-                 'p_wzp6_ee_mumuH_mH-lower-50MeV_ecm240', 'p_wzp6_ee_mumuH_mH-lower-100MeV_ecm240',
-                 'p_wzp6_ee_mumuH_mH-higher-50MeV_ecm240', 'p_wzp6_ee_mumuH_mH-higher-100MeV_ecm240']
         if args.ecm == '240':
             procs = ['wzp6_ee_mumuH_ecm240', 'wzp6_ee_mumuH_mH-lower-50MeV_ecm240', 'wzp6_ee_mumuH_mH-higher-50MeV_ecm240']
         else:
             procs = ['wz3p6_ee_mumuH_ecm365', 'wz3p6_ee_mumuH_mH-lower-50MeV_ecm365', 'wz3p6_ee_mumuH_mH-higher-50MeV_ecm365']
     if flavor == 'ee':
-        procs = ['wzp6_ee_eeH_ecm240',
-                 'wzp6_ee_eeH_mH-lower-50MeV_ecm240', 'wzp6_ee_eeH_mH-lower-100MeV_ecm240',
-                 'wzp6_ee_eeH_mH-higher-50MeV_ecm240', 'wzp6_ee_eeH_mH-higher-100MeV_ecm240']
-        procs = ['wzp6_ee_eeH_mH-lower-50MeV_ecm240', 'wzp6_ee_eeH_ecm240', 'wzp6_ee_eeH_mH-higher-50MeV_ecm240']
         if args.ecm == '240':
             procs = ['wzp6_ee_eeH_mH-lower-50MeV_ecm240', 'wzp6_ee_eeH_ecm240', 'wzp6_ee_eeH_mH-higher-50MeV_ecm240']
         else:
             procs = ['wz3p6_ee_eeH_mH-lower-50MeV_ecm365', 'wz3p6_ee_eeH_ecm365', 'wz3p6_ee_eeH_mH-higher-50MeV_ecm365']
-
-        if args.mode == 'CLD_FullSim':
-            mHs = [125.0, 125.05]
-            procs = ['wzp6_ee_eeH_ecm240', 'wzp6_ee_eeH_mH-higher-50MeV_ecm240']
 
     recoilmass = w_tmp.var('zll_recoil_m')
     MH = w_tmp.var('MH')
@@ -2019,6 +2007,9 @@ def doLEPSCALE():
     print(mean__nominal, delta, sig_mean_LEPSCALE_)
 
 
+######################
+### CODE EXECUTION ###
+######################
 
 if __name__ == '__main__':
 
@@ -2040,8 +2031,6 @@ if __name__ == '__main__':
         os.system(cmd_tot)
         quit()
 
-
-    ROOT.gSystem.Load('libHiggsAnalysisCombinedLimit.so')
     sumw2err = ROOT.kTRUE
 
     ROOT.Math.MinimizerOptions.SetDefaultMinimizer('Fumili2')
@@ -2118,78 +2107,50 @@ if __name__ == '__main__':
         doSQRTS()
         doLEPSCALE()
 
-        # systematic strenghts
-        BES      = ROOT.RooRealVar('BES_ecm%s' %ecm, 'BES', 0, -5, 5)  # BES uncertainty parameter
-        ISR      = ROOT.RooRealVar('ISR_ecm%s' %ecm, 'ISR', 0)  # BES uncertainty parameter
-        SQRTS    = ROOT.RooRealVar('SQRTS_ecm%s' %ecm, 'SQRTS', 0, -5, 5)  # SQRTS uncertainty parameter
-        LEPSCALE = ROOT.RooRealVar('LEPSCALE_%s_ecm%s' %('MU' if flavor=='mumu' else 'EL', ecm), 'LEPSCALE', 0, -5, 5)  # LEPSCALE uncertainty parameter
+        # Systematic strenghts
+        flav = 'MU' if flavor=='mumu' else ('EL' if flavor=='ee' else flavor)
+        ISR      = ROOT.RooRealVar(f'ISR_ecm{ecm}',             'ISR',      0)         # ISR      uncertainty parameter
+        BES      = ROOT.RooRealVar(f'BES_ecm{ecm}',             'BES',      0, -5, 5)  # BES      uncertainty parameter
+        SQRTS    = ROOT.RooRealVar(f'SQRTS_ecm{ecm}',           'SQRTS',    0, -5, 5)  # SQRTS    uncertainty parameter
+        LEPSCALE = ROOT.RooRealVar(f'LEPSCALE_{flav}_ecm{ecm}', 'LEPSCALE', 0, -5, 5)  # LEPSCALE uncertainty parameter
 
-        '''
-        was before
-        sig_mean_ISR = ROOT.RooRealVar('sig_mean_ISR_%s_cat%d'%(flavor,cat), 'sig_mean_ISR', 0)
-        sig_sigma_ISR = ROOT.RooRealVar('sig_sigma_ISR_%s_cat%d'%(flavor,cat), 'sig_sigma_ISR', 0)
-        sig_norm_ISR = ROOT.RooRealVar('sig_norm_ISR_%s_cat%d'%(flavor,cat), 'sig_norm_ISR', 0)
-        sig_n_1_ISR = ROOT.RooRealVar('sig_n_1_ISR_%s_cat%d'%(flavor,cat), 'sig_n_1_ISR', 0)
-        sig_n_2_ISR = ROOT.RooRealVar('sig_n_2_ISR_%s_cat%d'%(flavor,cat), 'sig_n_2_ISR', 0)
-        sig_mean_gt_ISR = ROOT.RooRealVar('sig_mean_gt_ISR_%s_cat%d'%(flavor,cat), 'sig_mean_gt_ISR', 0)
-
-        sig_mean_ISR = ROOT.RooRealVar('sig_mean_ISR', 'sig_mean_ISR', 0)
-        sig_sigma_ISR = ROOT.RooRealVar('sig_sigma_ISR', 'sig_sigma_ISR', 0)
-        sig_norm_ISR = ROOT.RooRealVar('sig_norm_ISR', 'sig_norm_ISR', 0)
-        sig_n_1_ISR = ROOT.RooRealVar('sig_n_1_ISR'), 'sig_n_1_ISR', 0)
-        sig_n_2_ISR = ROOT.RooRealVar('sig_n_2_ISR', 'sig_n_2_ISR', 0)
-        sig_mean_gt_ISR = ROOT.RooRealVar('sig_mean_gt_ISR', 'sig_mean_gt_ISR', 0)
-        '''
         # BES
-        # sig_norm_BES = w_tmp.obj('sig_norm_BES')
-        # sig_norm_BES.SetName('sig_norm_BES_%s_cat%d'%(flavor,cat))
-        # sig_mean_BES = w_tmp.obj('sig_mean_BES')
-        # sig_mean_BES.SetName('sig_mean_BES_%s_cat%d'%(flavor,cat))
-        sig_sigma_BES = w_tmp.obj('sig_sigma_BES')
-        # sig_sigma_BES.SetName('sig_sigma_BES_%s_cat%d'%(flavor,cat))
+        sig_sigma_BES    = w_tmp.obj('sig_sigma_BES')
         sig_sigma_gt_BES = w_tmp.obj('sig_sigma_gt_BES')
-        # sig_sigma_gt_BES.SetName('sig_sigma_gt_BES_%s_cat%d'%(flavor,cat))
 
         # SQRTS
-        # sig_norm_SQRTS = w_tmp.obj('sig_norm_SQRTS')
-        sig_mean_SQRTS = w_tmp.obj('sig_mean_SQRTS')
-        # sig_mean_SQRTS.SetName('sig_mean_SQRTS_%s_cat%d'%(flavor,cat))
+        sig_mean_SQRTS    = w_tmp.obj('sig_mean_SQRTS')
         sig_mean_gt_SQRTS = w_tmp.obj('sig_mean_gt_SQRTS')
-        # sig_mean_gt_SQRTS.SetName('sig_mean_gt_SQRTS_%s_cat%d'%(flavor,cat))
 
         # LEPSCALE
-        # sig_norm_LEPSCALE = w_tmp.obj('sig_norm_LEPSCALE')
         sig_mean_LEPSCALE = w_tmp.obj('sig_mean_LEPSCALE')
-        # sig_mean_LEPSCALE.SetName('sig_mean_LEPSCALE_%s_cat%d'%(flavor,cat))
-        # sig_sigma_LEPSCALE = w_tmp.obj('sig_sigma_LEPSCALE')
-        # sig_sigma_LEPSCALE.SetName('sig_sigma_LEPSCALE_%s_cat%d'%(flavor,cat))
 
 
-        # build signal model, taking into account all uncertainties
-        spline_mean    = w_tmp.obj('spline_mean')
-        spline_sigma   = w_tmp.obj('spline_sigma')
-        spline_yield   = w_tmp.obj('spline_yield')
-        spline_alpha_1 = w_tmp.obj('spline_alpha_1')
-        spline_alpha_2 = w_tmp.obj('spline_alpha_2')
-        spline_n_1  = w_tmp.obj('spline_n_1')
-        spline_n_2  = w_tmp.obj('spline_n_2')
-        spline_cb_1 = w_tmp.obj('spline_cb_1')
-        spline_cb_2 = w_tmp.obj('spline_cb_2')
+        # Build signal model, taking into account all uncertainties
+        spline_mean     = w_tmp.obj('spline_mean')
+        spline_sigma    = w_tmp.obj('spline_sigma')
+        spline_yield    = w_tmp.obj('spline_yield')
+        spline_alpha_1  = w_tmp.obj('spline_alpha_1')
+        spline_alpha_2  = w_tmp.obj('spline_alpha_2')
+        spline_n_1      = w_tmp.obj('spline_n_1')
+        spline_n_2      = w_tmp.obj('spline_n_2')
+        spline_cb_1     = w_tmp.obj('spline_cb_1')
+        spline_cb_2     = w_tmp.obj('spline_cb_2')
         spline_mean_gt  = w_tmp.obj('spline_mean_gt')
         spline_sigma_gt = w_tmp.obj('spline_sigma_gt')
 
 
         # sig_mean = ROOT.RooFormulaVar('sig_mean', '@0*(1+@1*@2)*(1+@3*@4)*(1+@5*@6)*(1+@7*@8)', ROOT.RooArgList(spline_mean, BES, sig_mean_BES, ISR, sig_mean_ISR, SQRTS, sig_mean_SQRTS, LEPSCALE, sig_mean_LEPSCALE))
-        sig_mean    = ROOT.RooFormulaVar('sig_mean',    '@0*(1+@1*@2)*(1+@3*@4)', ROOT.RooArgList(spline_mean, LEPSCALE, sig_mean_LEPSCALE, SQRTS, sig_mean_SQRTS))
-        sig_sigma   = ROOT.RooFormulaVar('sig_sigma',   '@0*(1+@1*@2)',           ROOT.RooArgList(spline_sigma, BES, sig_sigma_BES))
-        sig_alpha_1 = ROOT.RooFormulaVar('sig_alpha_1', '@0', ROOT.RooArgList(spline_alpha_1))
-        sig_alpha_2 = ROOT.RooFormulaVar('sig_alpha_2', '@0', ROOT.RooArgList(spline_alpha_2))
-        sig_n_1  = ROOT.RooFormulaVar('sig_n_1',  '@0', ROOT.RooArgList(spline_n_1))
-        sig_n_2  = ROOT.RooFormulaVar('sig_n_2',  '@0', ROOT.RooArgList(spline_n_2))
-        sig_cb_1 = ROOT.RooFormulaVar('sig_cb_1', '@0', ROOT.RooArgList(spline_cb_1))
-        sig_cb_2 = ROOT.RooFormulaVar('sig_cb_2', '@0', ROOT.RooArgList(spline_cb_2))
-        sig_mean_gt  = ROOT.RooFormulaVar('sig_mean_gt',  '@0*(1+@1*@2)',           ROOT.RooArgList(spline_mean_gt, SQRTS, sig_mean_SQRTS))
-        sig_sigma_gt = ROOT.RooFormulaVar('sig_sigma_gt', '@0*(1+@1*@2)*(1+@3*@4)', ROOT.RooArgList(spline_sigma_gt, BES, sig_sigma_gt_BES, SQRTS, sig_mean_gt_SQRTS))
+        sig_mean     = ROOT.RooFormulaVar('sig_mean',     '@0*(1+@1*@2)*(1+@3*@4)', ROOT.RooArgList(spline_mean,  LEPSCALE, sig_mean_LEPSCALE, SQRTS, sig_mean_SQRTS))
+        sig_sigma    = ROOT.RooFormulaVar('sig_sigma',    '@0*(1+@1*@2)',           ROOT.RooArgList(spline_sigma, BES,      sig_sigma_BES))
+        sig_alpha_1  = ROOT.RooFormulaVar('sig_alpha_1',  '@0', ROOT.RooArgList(spline_alpha_1))
+        sig_alpha_2  = ROOT.RooFormulaVar('sig_alpha_2',  '@0', ROOT.RooArgList(spline_alpha_2))
+        sig_n_1      = ROOT.RooFormulaVar('sig_n_1',      '@0', ROOT.RooArgList(spline_n_1))
+        sig_n_2      = ROOT.RooFormulaVar('sig_n_2',      '@0', ROOT.RooArgList(spline_n_2))
+        sig_cb_1     = ROOT.RooFormulaVar('sig_cb_1',     '@0', ROOT.RooArgList(spline_cb_1))
+        sig_cb_2     = ROOT.RooFormulaVar('sig_cb_2',     '@0', ROOT.RooArgList(spline_cb_2))
+        sig_mean_gt  = ROOT.RooFormulaVar('sig_mean_gt',  '@0*(1+@1*@2)',           ROOT.RooArgList(spline_mean_gt,  SQRTS, sig_mean_SQRTS))
+        sig_sigma_gt = ROOT.RooFormulaVar('sig_sigma_gt', '@0*(1+@1*@2)*(1+@3*@4)', ROOT.RooArgList(spline_sigma_gt, BES,   sig_sigma_gt_BES, SQRTS, sig_mean_gt_SQRTS))
         sig_norm     = ROOT.RooFormulaVar('sig_norm',     '@0', ROOT.RooArgList(spline_yield))
 
     else:
@@ -2228,41 +2189,28 @@ if __name__ == '__main__':
 
     # construct background model 66672.5686008
     bkg_yield = w_tmp.obj('bkg_norm_tmp').getVal()
-    # bkg_norm = ROOT.RooRealVar('bkg_%s_ecm%s_norm'%(flavor, ecm), 'bkg_norm', bkg_yield) #, 0, 1e6) # nominal background yield, floating bkg_ee_ecm365_norm
-    bkg_norm = ROOT.RooRealVar('bkg_norm', 'bkg_norm', bkg_yield)  # , 0, 1e6) # nominal background yield (automatically done by Combine with pdfName_norm, floating)
+    bkg_norm  = ROOT.RooRealVar('bkg_norm', 'bkg_norm', bkg_yield)  # nominal background yield (automatically done by Combine with pdfName_norm, floating)
     bkg_norm.setVal(bkg_yield)  # not constant!
     bkg = w_tmp.obj('bkg')
     getattr(w, 'import')(bkg, ROOT.RooFit.RenameAllVariablesExcept(parId, 'zll_recoil_m'))
-    # getattr(w, 'import')(bkg_norm)
 
-    # bkg_norm.Print()
     data_obs = ROOT.RooDataHist('data_obs', 'data_obs', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(h_obs))
     getattr(w, 'import')(data_obs)
 
     w.writeToFile(f'{runDir}/datacard.root')
-
-    '''
-    fOut = ROOT.TFile('%s/datacard.root' % runDir, 'UPDATE')
-    hist_sig.SetName('hist_sig')
-    hist_bkg.SetName('hist_bkg')
-    hist_sig.Write()
-    hist_bkg.Write()
-    fOut.Close()
-    '''
     w.Print()
 
     poi = ROOT.RooArgSet(MH)
     w.defineSet('POI', poi)
 
-    del w
-    del w_tmp
+    del w, w_tmp
 
-    if   ecm == '240' and flavor == 'mumu': bkg_id=1
-    elif ecm == '240' and flavor == 'ee':   bkg_id=2
-    elif ecm == '365' and flavor == 'mumu': bkg_id=3
-    elif ecm == '365' and flavor == 'ee':   bkg_id=4
+    if   ecm == 240 and flavor == 'mumu': bkg_id = 1
+    elif ecm == 240 and flavor == 'ee':   bkg_id = 2
+    elif ecm == 365 and flavor == 'mumu': bkg_id = 3
+    elif ecm == 365 and flavor == 'ee':   bkg_id = 4
 
-    # make datacard
+    # Make datacard
     with open(f'{os.path.dirname(os.path.realpath(__file__))}/datacard_template.txt', 'r') as file:
         dc = file.read()
         dc = dc.replace('$rate_sig', f'{yield_nom}')
