@@ -28,19 +28,6 @@ args = parser.parse_args()
 
 config = {}
 
-def signal_processes(flavor: str, ecm: str) -> list[str]:
-    if flavor == 'mumu':
-        if ecm == '240':
-            return ['wzp6_ee_mumuH_mH-lower-50MeV_ecm240', 'wzp6_ee_mumuH_ecm240', 'wzp6_ee_mumuH_mH-higher-50MeV_ecm240']
-        return ['wz3p6_ee_mumuH_mH-lower-50MeV_ecm365', 'wz3p6_ee_mumuH_ecm365', 'wz3p6_ee_mumuH_mH-higher-50MeV_ecm365']
-
-    if flavor == 'ee':
-        if ecm == '240':
-            return ['wzp6_ee_eeH_mH-lower-50MeV_ecm240', 'wzp6_ee_eeH_ecm240', 'wzp6_ee_eeH_mH-higher-50MeV_ecm240']
-        return ['wz3p6_ee_eeH_mH-lower-50MeV_ecm365', 'wz3p6_ee_eeH_ecm365', 'wz3p6_ee_eeH_mH-higher-50MeV_ecm365']
-
-    raise ValueError(f'Unsupported flavor: {flavor}')
-
 
 def apply_mode_suffix(proc: str, mode: str, flavor: str) -> str:
     if mode == 'IDEA_3T':
@@ -437,43 +424,26 @@ def make_params(flavor: str, ecm: int, cat: str, mH: float | int, config: dict[i
 
     return params
 
-# def getHist(hName, procs):
-#     hist = None
-#     for proc in procs:
-#         fInName = f'{inputDir}/{proc}.root'
-#         if os.path.exists(fInName):
-#             fIn = ROOT.TFile(fInName)
-#         else:
-#             print(f'ERROR: input file {fInName} not found')
-#             quit()
-#         fIn.ls()
-#         h = fIn.Get(hName)
-#         h.SetDirectory(0)
-#         if hist is None:
-#             hist = h
-#         else:
-#             hist.Add(h)
-#         fIn.Close()
-#     return hist
+
 
 def doSignal(normYields = True):
 
     global h_obs
 
     mHs = [124.95, 125.0, 125.05]
-    procs = signal_processes(flavor, args.ecm)
+    procs = [f'wzp6_ee_{flavor}H_ecm{ecm}', f'wzp6_ee_{flavor}H_mH-lower-50MeV_ecm{ecm}', f'wzp6_ee_{flavor}H_mH-higher-50MeV_ecm{ecm}']
     recoilmass = w_tmp.var('zll_recoil_m')
     val_mh = []
     val_yield, val_mean_cb0, val_mean_cb1, val_mean_gt, val_mean_gt1, val_sigma_cb, val_sigma_gt, val_alpha_1, val_alpha_2, val_n_1, val_n_2, val_cb_1, val_cb_2 = [], [], [], [], [], [], [], [], [], [], [], [], []
     err_yield, err_mean_cb0, err_mean_cb1, err_mean_gt, err_mean_gt1, err_sigma_cb, err_sigma_gt, err_alpha_1, err_alpha_2, err_n_1, err_n_2, err_cb_1, err_cb_2 = [], [], [], [], [], [], [], [], [], [], [], [], []
 
-    hist_norm = getHist(f'{flavor}_{hName}', [procs[1]])
-    hist_norm = hist_norm.ProjectionX('hist_zh_norm', cat_idx_min, cat_idx_max)
+    hist_norm  = getHist(f'{flavor}_{hName}', [procs[0]])
+    hist_norm  = hist_norm.ProjectionX('hist_zh_norm', cat_idx_min, cat_idx_max)
     yield_norm = hist_norm.Integral()
 
     tmp = hist_norm.Clone()
     print(hist_norm.GetNbinsX() / nBins)
-    tmp = tmp.Rebin(int(hist_norm.GetNbinsX() / nBins))
+    tmp  = tmp.Rebin(int(hist_norm.GetNbinsX() / nBins))
     yMax = tmp.GetMaximum()
 
 
@@ -595,8 +565,8 @@ if __name__ == '__main__':
     flavorLabel = '#mu^{#plus}#mu^{#minus}' if flavor == 'mumu' else 'e^{#plus}e^{#minus}'
 
     topRight = f'#sqrt{{s}} = {ecm} GeV, 1 ab^{{#minus1}}'
-    topLeft = '#bf{FCC-ee} #scale[0.7]{#it{Internal}}'
-    label = f'{flavorLabel}, category {cat}'
+    topLeft  = '#bf{FCC-ee} #scale[0.7]{#it{Internal}}'
+    label  = f'{flavorLabel}, category {cat}'
     inDir  = loc.get('HIST_PROCESSED', flavor, ecm, sel)
     outDir = loc.get('PARAMETRIC', flavor, ecm, sel)
 
@@ -615,14 +585,11 @@ if __name__ == '__main__':
     MH = ROOT.RooRealVar('MH', 'Higgs mass (GeV)', 125, 124.95, 125.05)  # name Higgs mass as MH to be compatible with combine
 
     # define temporary output workspace
+    w     = ROOT.RooWorkspace('w',     'workspace')  # final workspace for combine
     w_tmp = ROOT.RooWorkspace('w_tmp', 'workspace')
-    w     = ROOT.RooWorkspace('w', 'workspace')  # final workspace for combine
 
     getattr(w_tmp, 'import')(recoilmass)
     getattr(w_tmp, 'import')(MH)
-
-    yield_norm = -1
-    yMax = -1
 
     doSignal()
 

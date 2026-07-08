@@ -1,10 +1,12 @@
 
-import os, sys, array, argparse, subprocess, ROOT
+import os, array, argparse, subprocess, ROOT
 
 import numpy as np
 
 import package.plots.root.plotter as plotter
 from package.tools.process import getHist
+from package.userConfig import loc
+loc.set_default_type('Path')
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
@@ -12,43 +14,87 @@ ROOT.gStyle.SetOptTitle(0)
 
 
 
-# def getHist(
-#         hName: str,
-#         procs: list[str]):
-#     hist = None
-#     for proc in procs:
-#         fInName = f'{inputDir}/{proc}.root'
-#         if os.path.exists(fInName):
-#             fIn = ROOT.TFile(fInName)
-#         else:
-#             print(f'ERROR: input file {fInName} not found')
-#             quit()
-#         h = fIn.Get(hName)
-#         h.SetDirectory(0)
-#         if hist is None:
-#             hist = h
-#         else:
-#             hist.Add(h)
-#         fIn.Close()
-#     return hist
+
+
+# do plotting
+def plot_fit(
+    rdh_zh,
+    pdf,
+    mH_label
+):
+
+    canvas, padT, padB = plotter.canvasRatio()
+    dummyT, dummyB, _  = plotter.dummyRatio(1, 0)
+
+    ## TOP PAD ##
+    canvas.cd()
+    padT.Draw()
+    padT.SetGrid()
+    padT.cd()
+    dummyT.Draw('HIST')
+
+    plt = recoilmass.frame()
+    plt.SetTitle('ZH signal')
+    rdh_zh.plotOn(plt, ROOT.RooFit.Binning(nBins))  # ROOT.RooFit.Normalization(yield_zh, ROOT.RooAbsReal.NumEvent)
+
+    pdf.plotOn(plt, ROOT.RooFit.LineColor(ROOT.kRed))
+    chisq = plt.chiSquare()
+    pdf.paramOn(plt, ROOT.RooFit.Format('NELU', ROOT.RooFit.AutoPrecision(2)), ROOT.RooFit.Layout(0.45, 0.9, 0.9))
+
+    histpull = plt.pullHist()
+    plt.Draw('SAME')
+
+    latex = ROOT.TLatex()
+    latex.SetNDC()
+    latex.SetTextSize(0.045)
+    latex.SetTextColor(1)
+    latex.SetTextFont(42)
+    latex.SetTextAlign(13)
+    latex.DrawLatex(0.2, 0.88, label)
+    latex.DrawLatex(0.2, 0.82, f'#chi^{{2}} = {chisq:.3f}')
+
+    plotter.auxRatio()
+    ROOT.gPad.SetTickx()
+    ROOT.gPad.SetTicky()
+    ROOT.gPad.RedrawAxis()
+
+    ## BOTTOM PAD ##
+    canvas.cd()
+    padB.Draw()
+    padB.cd()
+    dummyB.GetXaxis().SetTitleOffset(4.0*dummyB.GetXaxis().GetTitleOffset())
+    dummyB.Draw('HIST')
+
+    plt = recoilmass.frame()
+    plt.addPlotable(histpull, 'P')
+    plt.Draw('SAME')
+
+    line = ROOT.TLine(120, 0, 140, 0)
+    line.SetLineColor(ROOT.kBlue+2)
+    line.SetLineWidth(2)
+    line.Draw('SAME')
+
+    ROOT.gPad.SetTickx()
+    ROOT.gPad.SetTicky()
+    ROOT.gPad.RedrawAxis()
+    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}.png')
+
+    del dummyB, dummyT
+    del padT, padB
+    del canvas
+
+
+
+
+
 
 
 def doSignal(normYields: bool = True):
 
     global h_obs, yield_nom, yMax
 
-    mHs = [124.95, 125.0, 125.05]
-    if flavor == 'mumu':
-        if args.ecm == '240':
-            procs = ['wzp6_ee_mumuH_ecm240', 'wzp6_ee_mumuH_mH-lower-50MeV_ecm240', 'wzp6_ee_mumuH_mH-higher-50MeV_ecm240']
-        else:
-            procs = ['wz3p6_ee_mumuH_ecm365', 'wz3p6_ee_mumuH_mH-lower-50MeV_ecm365', 'wz3p6_ee_mumuH_mH-higher-50MeV_ecm365']
-    if flavor == 'ee':
-        if args.ecm == '240':
-            procs = ['wzp6_ee_eeH_mH-lower-50MeV_ecm240', 'wzp6_ee_eeH_ecm240', 'wzp6_ee_eeH_mH-higher-50MeV_ecm240']
-        else:
-            procs = ['wz3p6_ee_eeH_mH-lower-50MeV_ecm365', 'wz3p6_ee_eeH_ecm365', 'wz3p6_ee_eeH_mH-higher-50MeV_ecm365']
-
+    mHs = [125.0, 124.95, 125.05]
+    procs = [f'wzp6_ee_{flavor}H_ecm{ecm}', f'wzp6_ee_{flavor}H_mH-lower-50MeV_ecm{ecm}', f'wzp6_ee_{flavor}H_mH-higher-50MeV_ecm{ecm}']
     recoilmass = w_tmp.var('zll_recoil_m')
     MH = w_tmp.var('MH')
 
@@ -84,13 +130,13 @@ def doSignal(normYields: bool = True):
         'topRight'          : topRight,
         'topLeft'           : topLeft,
 
-        'ratiofraction'     : 0.3,
+        'ratiofraction'     :  0.3,
         'ytitleR'           : 'Pull',
         'yminR'             : -3.5,
-        'ymaxR'             : 3.5,
+        'ymaxR'             :  3.5,
     }
 
-    garbage = []  # need to store the variables for memory issues
+    garbage = []  # Need to store the variables for memory issues
 
     ## Build model
     ## linear functions for mean and mean_gt
@@ -154,9 +200,9 @@ def doSignal(normYields: bool = True):
     cb20.setConstant(ROOT.kTRUE)
     cb2_argl.add(cb20)
 
-    cats    = ROOT.RooCategory('category', '')           # for each mass bin, define category
-    hists   = ROOT.std.map('string, RooDataHist*')()     # container holding all RooDataHists
-    pdf_tot = ROOT.RooSimultaneous('pdf_tot', '', cats)  # total pdf, containing all the categories
+    cats    = ROOT.RooCategory('category', '')           # For each mass bin, define category
+    hists   = ROOT.std.map('string, RooDataHist*')()     # Container holding all RooDataHists
+    pdf_tot = ROOT.RooSimultaneous('pdf_tot', '', cats)  # Total pdf, containing all the categories
 
     garbage = []
     list_alpha1, list_alpha2 = [], []
@@ -164,74 +210,63 @@ def doSignal(normYields: bool = True):
     list_cb1, list_cb2 = [], []
     list_sigma, list_sigma_gt, list_mean = [], []
     list_mean_offset, list_mean_gt, list_mean_gt_offset, list_norm = [], [], [], []
+
     for i, proc in enumerate(procs):
-        if mode == 'IDEA_3T':
-            proc += '_3T'
-        if mode == 'CLD':
-            proc += '_CLD'
-        if mode == 'CLD_FullSim':
-            proc += '_CLD_FullSim'
-            proc = proc.replace('-50MeV', '').replace('mumuH_mH', 'mumuH-mH').replace('eeH_mH', 'eeH-mH')
-        if mode == 'IDEA_noBES':
-            proc = proc.replace('_ecm240', '_noBES_ecm240')
-        if mode == 'IDEA_2E' and flavor == 'ee':
-            proc += '_E2'
 
         mH = mHs[i]
-        mH_ = (f'{mH:.3f}').replace('.', 'p')
+        mH_label = f'{mH:.3f}'.replace('.', 'p')
         print(f'Do {mH = :.3f}')
 
         print(f'{proc}/{hName}')
         hist_zh = getHist(f'{flavor}_{hName}', [proc])
         hist_zh.Scale(lumiScale)
-        hist_zh = hist_zh.ProjectionX(f'hist_zh_{mH_}', cat_idx_min, cat_idx_max)
+        hist_zh = hist_zh.ProjectionX(f'hist_zh_{mH_label}', cat_idx_min, cat_idx_max)
         if normYields: hist_zh.Scale(yield_nom/hist_zh.Integral())
 
-        rdh_zh = ROOT.RooDataHist(f'rdh_zh_{mH_}', '', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
-        rdh_zh.SetName(f'rdh_zh_{mH_}')
+        rdh_zh = ROOT.RooDataHist(f'rdh_zh_{mH_label}', '', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
+        rdh_zh.SetName(f'rdh_zh_{mH_label}')
         yield_zh = rdh_zh.sum(False)
 
-        catIDx = mH_
-        hists.insert(ROOT.std.pair('string, RooDataHist*')(catIDx, rdh_zh))  # does not work with recent ROOT versions?
+        catIDx = mH_label
+        hists.insert(ROOT.std.pair('string, RooDataHist*')(catIDx, rdh_zh))  # Does not work with recent ROOT versions?
         cats.defineType(catIDx, i)
 
-        mean = ROOT.RooFormulaVar(f'mean_{mH_}', f'x[1] + x[0]*{mH}', mean_argl)
+        mean = ROOT.RooFormulaVar(f'mean_{mH_label}', f'x[1] + x[0]*{mH}', mean_argl)
         garbage.append(mean)
-        sigma = ROOT.RooFormulaVar(f'sigma_{mH_}', 'x[0]', sigma_argl)
+        sigma = ROOT.RooFormulaVar(f'sigma_{mH_label}', 'x[0]', sigma_argl)
 
         mean_gt_argl = ROOT.RooArgList('mean_gt_argl')
         mean_gt_argl.add(mean)
         mean_gt_argl.add(mean_gt_offset)
-        mean_gt  = ROOT.RooFormulaVar(f'mean_gt_{mH_}',  'x[0] + x[1]', mean_gt_argl)  # mean gt is as an offset w.r.t. the mean
-        sigma_gt = ROOT.RooFormulaVar(f'sigma_gt_{mH_}', 'x[0]', sigma_gt_argl)
+        mean_gt  = ROOT.RooFormulaVar(f'mean_gt_{mH_label}',  'x[0] + x[1]', mean_gt_argl)  # mean gt is as an offset w.r.t. the mean
+        sigma_gt = ROOT.RooFormulaVar(f'sigma_gt_{mH_label}', 'x[0]', sigma_gt_argl)
 
-        alpha1 = ROOT.RooFormulaVar(f'alpha1_{mH_}', 'x[0]', alpha1_argl)
-        n1     = ROOT.RooFormulaVar(f'n1_{mH_}',     'x[0]', n1_argl)
-        cb1    = ROOT.RooFormulaVar(f'cb1_{mH_}',    'x[0]', cb1_argl)
+        alpha1 = ROOT.RooFormulaVar(f'alpha1_{mH_label}', 'x[0]', alpha1_argl)
+        n1     = ROOT.RooFormulaVar(f'n1_{mH_label}',     'x[0]', n1_argl)
+        cb1    = ROOT.RooFormulaVar(f'cb1_{mH_label}',    'x[0]', cb1_argl)
 
-        alpha2 = ROOT.RooFormulaVar(f'alpha2_{mH_}', 'x[0]', alpha2_argl)
-        n2     = ROOT.RooFormulaVar(f'n2_{mH_}',     'x[0]', n2_argl)
-        cb2    = ROOT.RooFormulaVar(f'cb2_{mH_}',    'x[0]', cb2_argl)
+        alpha2 = ROOT.RooFormulaVar(f'alpha2_{mH_label}', 'x[0]', alpha2_argl)
+        n2     = ROOT.RooFormulaVar(f'n2_{mH_label}',     'x[0]', n2_argl)
+        cb2    = ROOT.RooFormulaVar(f'cb2_{mH_label}',    'x[0]', cb2_argl)
 
 
         # construct the 2CBG pdf = cb_1*cbs_1 + cb_2*cbs_2 + gauss (cb_1 and cb_2 are the fractions, floating)
-        cbs1  = ROOT.RooCBShape(f'cbs1_{mH_}', 'CrystallBall_1', recoilmass, mean, sigma, alpha1, n1)  # first CrystallBall
-        cbs2  = ROOT.RooCBShape(f'cbs2_{mH_}', 'CrystallBall_2', recoilmass, mean, sigma, alpha2, n2)  # second CrystallBall
-        gauss = ROOT.RooGaussian(f'gauss_{mH_}', 'gauss',        recoilmass, mean_gt, sigma_gt)        # the Gaussian
+        cbs1  = ROOT.RooCBShape(f'cbs1_{mH_label}', 'CrystallBall_1', recoilmass, mean, sigma, alpha1, n1)  # first CrystallBall
+        cbs2  = ROOT.RooCBShape(f'cbs2_{mH_label}', 'CrystallBall_2', recoilmass, mean, sigma, alpha2, n2)  # second CrystallBall
+        gauss = ROOT.RooGaussian(f'gauss_{mH_label}', 'gauss',        recoilmass, mean_gt, sigma_gt)        # the Gaussian
 
         argl = ROOT.RooArgList(cbs1, cbs2, gauss)
-        argl.setName(f'argl_{mH_}')
+        argl.setName(f'argl_{mH_label}')
         norms_argl = ROOT.RooArgList(cb1, cb2)
-        norms_argl.setName(f'norms_argl_{mH_}')
-        sig      = ROOT.RooAddPdf(f'sig_{mH_}',       '', argl, norms_argl)  # half of both CB functions
-        sig_norm = ROOT.RooRealVar(f'sig_norm_{mH_}', '', yield_zh, 0, 1e8)  # fix normalization
-        # sig_norm.setConstant(ROOT.kTRUE)
+        norms_argl.setName(f'norms_argl_{mH_label}')
+        sig      = ROOT.RooAddPdf(f'sig_{mH_label}',       '', argl, norms_argl)  # half of both CB functions
+        sig_norm = ROOT.RooRealVar(f'sig_norm_{mH_label}', '', yield_zh, 0, 1e8)  # fix normalization
 
         sig_argl = ROOT.RooArgList(sig)
-        sig_argl.setName(f'sig_argl_{mH_}')
+        sig_argl.setName(f'sig_argl_{mH_label}')
         sig_norm_argl = ROOT.RooArgList(sig_norm)
-        sig_norm_argl.setName(f'sig_norm_argl_{mH_}')
-        pdf_sig = ROOT.RooAddPdf(f'zh_model_{mH_}', '', sig_argl, sig_norm_argl)
+        sig_norm_argl.setName(f'sig_norm_argl_{mH_label}')
+        pdf_sig = ROOT.RooAddPdf(f'zh_model_{mH_label}', '', sig_argl, sig_norm_argl)
         pdf_sigs.append(pdf_sig)
 
         # must store the individual vars for later , to extract the values
@@ -264,12 +299,11 @@ def doSignal(normYields: bool = True):
         pdf_sig.Print()
         pdf_tot.addPdf(pdf_sig, catIDx)
 
-        if mH == 125.0 and h_obs is None: h_obs = hist_zh.Clone('h_obs')  # take 125.0 GeV to add to observed (need to add background later as well)
+        if mH == 125.0 and h_obs is None: h_obs = hist_zh.Clone('h_obs')  # Take 125.0 GeV to add to observed (need to add background later as well)
 
     rdh_tot = ROOT.RooDataHist('rdh_tot', '', ROOT.RooArgList(recoilmass), cats, hists)
 
-    fitRes = pdf_tot.fitTo(rdh_tot, ROOT.RooFit.Save(ROOT.kTRUE), ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.Minimizer('Minimizer', 'simplex'))  # , ROOT.RooFit.SumW2Error(ROOT.kTRUE)
-    # fitValid = (fitRes.covQual() == 3 and fitRes.status() == 0)
+    fitRes = pdf_tot.fitTo(rdh_tot, ROOT.RooFit.Save(ROOT.kTRUE), ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.Minimizer('Minimizer', 'simplex'))
     print('****************************')
     print('FIT STATUS')
     print(f'Covariance Quality = {fitRes.covQual()}')
@@ -283,80 +317,20 @@ def doSignal(normYields: bool = True):
 
     # Plot
     plotter.cfg = cfg
-    cfg['ytitle'] = f'Events / {20000/nBins:.0f} MeV'
+    cfg['ytitle'] = f'Events / {20_000/nBins:.0f} MeV'
     for i, proc in enumerate(procs):
 
         mH = mHs[i]
-        mH_ = (f'{mH:.3f}').replace('.', 'p')
+        mH_label = f'{mH:.3f}'.replace('.', 'p')
         cfg['ymax'] = yMax
 
         pdf = pdf_sigs[i]
-        rdh_zh = hists[mH_]
+        rdh_zh = hists[mH_label]
 
-        # do plotting
-        canvas, padT, padB = plotter.canvasRatio()
-        dummyT, dummyB, _  = plotter.dummyRatio(1, 0)
+        plot_fit(rdh_zh, pdf, mH_label)
 
-        ## TOP PAD ##
-        canvas.cd()
-        padT.Draw()
-        padT.SetGrid()
-        padT.cd()
-        dummyT.Draw('HIST')
-
-        plt = recoilmass.frame()
-        plt.SetTitle('ZH signal')
-        rdh_zh.plotOn(plt, ROOT.RooFit.Binning(nBins))  # ROOT.RooFit.Normalization(yield_zh, ROOT.RooAbsReal.NumEvent)
-
-        pdf.plotOn(plt, ROOT.RooFit.LineColor(ROOT.kRed))
-        chisq = plt.chiSquare()
-        pdf.paramOn(plt, ROOT.RooFit.Format('NELU', ROOT.RooFit.AutoPrecision(2)), ROOT.RooFit.Layout(0.45, 0.9, 0.9))
-
-        histpull = plt.pullHist()
-        plt.Draw('SAME')
-
-        latex = ROOT.TLatex()
-        latex.SetNDC()
-        latex.SetTextSize(0.045)
-        latex.SetTextColor(1)
-        latex.SetTextFont(42)
-        latex.SetTextAlign(13)
-        latex.DrawLatex(0.2, 0.88, label)
-        latex.DrawLatex(0.2, 0.82, f'#chi^{{2}} = {chisq:.3f}')
-
-        plotter.auxRatio()
-        ROOT.gPad.SetTickx()
-        ROOT.gPad.SetTicky()
-        ROOT.gPad.RedrawAxis()
-
-        ## BOTTOM PAD ##
-        canvas.cd()
-        padB.Draw()
-        padB.cd()
-        dummyB.GetXaxis().SetTitleOffset(4.0*dummyB.GetXaxis().GetTitleOffset())
-        dummyB.Draw('HIST')
-
-        plt = recoilmass.frame()
-        plt.addPlotable(histpull, 'P')
-        plt.Draw('SAME')
-
-        line = ROOT.TLine(120, 0, 140, 0)
-        line.SetLineColor(ROOT.kBlue+2)
-        line.SetLineWidth(2)
-        line.Draw('SAME')
-
-        ROOT.gPad.SetTickx()
-        ROOT.gPad.SetTicky()
-        ROOT.gPad.RedrawAxis()
-        canvas.SaveAs(f'{outDir}/fit_mH{mH_}.png')
-        canvas.SaveAs(f'{outDir}/fit_mH{mH_}.pdf')
-
-        del dummyB, dummyT
-        del padT, padB
-        del canvas
-
-        cb1__ = w_tmp.obj(f'cb1_{mH_}').getVal()
-        cb2__ = w_tmp.obj(f'cb2_{mH_}').getVal()
+        cb1_val = w_tmp.obj(f'cb1_{mH_label}').getVal()
+        cb2_val = w_tmp.obj(f'cb2_{mH_label}').getVal()
 
         cfg['ymax'] = 2.5*yMax
 
@@ -374,14 +348,14 @@ def doSignal(normYields: bool = True):
         leg.SetTextSize(0.04)
         leg.SetMargin(0.15)
 
-        cbs_1 = w_tmp.obj(f'cbs1_{mH_}')
-        cbs_2 = w_tmp.obj(f'cbs2_{mH_}')
-        gauss = w_tmp.obj(f'gauss_{mH_}')
-        sig_fit = w_tmp.obj(f'zh_model_{mH_}')
+        cbs_1   = w_tmp.obj(f'cbs1_{mH_label}')
+        cbs_2   = w_tmp.obj(f'cbs2_{mH_label}')
+        gauss   = w_tmp.obj(f'gauss_{mH_label}')
+        sig_fit = w_tmp.obj(f'zh_model_{mH_label}')
 
-        cbs_1.plotOn(plt,   ROOT.RooFit.LineColor(ROOT.kRed),   ROOT.RooFit.Normalization(cb1__*yield_nom, ROOT.RooAbsReal.NumEvent))
-        cbs_2.plotOn(plt,   ROOT.RooFit.LineColor(ROOT.kBlue),  ROOT.RooFit.Normalization(cb2__*yield_nom, ROOT.RooAbsReal.NumEvent))
-        gauss.plotOn(plt,   ROOT.RooFit.LineColor(ROOT.kCyan),  ROOT.RooFit.Normalization((1.-cb1__-cb2__)*yield_nom, ROOT.RooAbsReal.NumEvent))
+        cbs_1.plotOn(plt,   ROOT.RooFit.LineColor(ROOT.kRed),   ROOT.RooFit.Normalization(cb1_val * yield_nom, ROOT.RooAbsReal.NumEvent))
+        cbs_2.plotOn(plt,   ROOT.RooFit.LineColor(ROOT.kBlue),  ROOT.RooFit.Normalization(cb2_val * yield_nom, ROOT.RooAbsReal.NumEvent))
+        gauss.plotOn(plt,   ROOT.RooFit.LineColor(ROOT.kCyan),  ROOT.RooFit.Normalization((1 - cb1_val - cb2_val) * yield_nom, ROOT.RooAbsReal.NumEvent))
         sig_fit.plotOn(plt, ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
         # define TGraphs for legend
@@ -428,8 +402,7 @@ def doSignal(normYields: bool = True):
         ROOT.gPad.SetTickx()
         ROOT.gPad.SetTicky()
         ROOT.gPad.RedrawAxis()
-        canvas.SaveAs(f'{outDir}/fit_mH{mH_}_decomposition.png')
-        canvas.SaveAs(f'{outDir}/fit_mH{mH_}_decomposition.pdf')
+        canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_decomposition.png')
 
         # import
         getattr(w_tmp, 'import')(rdh_zh)
@@ -470,9 +443,9 @@ def doSignal(normYields: bool = True):
     colors = [ROOT.kRed, ROOT.kBlue, ROOT.kBlack, ROOT.kGreen, ROOT.kCyan]
     for i, mH in enumerate(mHs):
 
-        mH_ = (f'{mH:.3f}').replace('.', 'p')
+        mH_label = f'{mH:.3f}'.replace('.', 'p')
         sig_fit = pdf_sigs[i]
-        # need to re-normalize the pdf, as the pdf is normalized to 1
+        # Need to re-normalize the pdf, as the pdf is normalized to 1
         sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[i]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
     plt.Draw('SAME')
@@ -495,22 +468,23 @@ def doSignal(normYields: bool = True):
     canvas.SaveAs(f'{outDir}/fit_all.png' )
     canvas.SaveAs(f'{outDir}/fit_all.pdf')
 
-
-    # make splines, to connect the fit parameters a function of the Higgs mass
-    # plot them afterwards
-    spline_mean        = ROOT.RooSpline1D('spline_mean', 'spline_mean',               MH, len(param_mh), array.array('d', param_mh), array.array('d', param_mean))
-    spline_mean_offset = ROOT.RooSpline1D('spline_mean_offset', 'spline_mean_offset', MH, len(param_mh), array.array('d', param_mh), array.array('d', param_mean_offset))
-    spline_sigma       = ROOT.RooSpline1D('spline_sigma', 'spline_sigma',             MH, len(param_mh), array.array('d', param_mh), array.array('d', param_sigma))
-    spline_mean_gt     = ROOT.RooSpline1D('spline_mean_gt', 'spline_mean_gt',         MH, len(param_mh), array.array('d', param_mh), array.array('d', param_mean_gt))
-    spline_mean_gt_offset = ROOT.RooSpline1D('spline_mean_gt_offset', 'spline_mean_gt_offset', MH, len(param_mh), array.array('d', param_mh), array.array('d', param_mean_gt_offset))
-    spline_sigma_gt       = ROOT.RooSpline1D('spline_sigma_gt', 'spline_sigma_gt',             MH, len(param_mh), array.array('d', param_mh), array.array('d', param_sigma_gt))
-    spline_yield          = ROOT.RooSpline1D('spline_yield', 'spline_yield',                   MH, len(param_mh), array.array('d', param_mh), array.array('d', param_yield))
-    spline_alpha_1        = ROOT.RooSpline1D('spline_alpha_1', 'spline_alpha_1',               MH, len(param_mh), array.array('d', param_mh), array.array('d', param_alpha_1))
-    spline_alpha_2        = ROOT.RooSpline1D('spline_alpha_2', 'spline_alpha_2',               MH, len(param_mh), array.array('d', param_mh), array.array('d', param_alpha_2))
-    spline_n_1  = ROOT.RooSpline1D('spline_n_1',  'spline_n_1',  MH, len(param_mh), array.array('d', param_mh), array.array('d', param_n_1))
-    spline_n_2  = ROOT.RooSpline1D('spline_n_2',  'spline_n_2',  MH, len(param_mh), array.array('d', param_mh), array.array('d', param_n_2))
-    spline_cb_1 = ROOT.RooSpline1D('spline_cb_1', 'spline_cb_1', MH, len(param_mh), array.array('d', param_mh), array.array('d', param_cb_1))
-    spline_cb_2 = ROOT.RooSpline1D('spline_cb_2', 'spline_cb_2', MH, len(param_mh), array.array('d', param_mh), array.array('d', param_cb_2))
+    n_param = len(param_mh)
+    table = array.array('d', param_mh)
+    # Make splines, to connect the fit parameters a function of the Higgs mass
+    # Plot them afterwards
+    spline_mean           = ROOT.RooSpline1D('spline_mean',           'spline_mean',           MH, n_param, table, array.array('d', param_mean))
+    spline_mean_offset    = ROOT.RooSpline1D('spline_mean_offset',    'spline_mean_offset',    MH, n_param, table, array.array('d', param_mean_offset))
+    spline_sigma          = ROOT.RooSpline1D('spline_sigma',          'spline_sigma',          MH, n_param, table, array.array('d', param_sigma))
+    spline_mean_gt        = ROOT.RooSpline1D('spline_mean_gt',        'spline_mean_gt',        MH, n_param, table, array.array('d', param_mean_gt))
+    spline_mean_gt_offset = ROOT.RooSpline1D('spline_mean_gt_offset', 'spline_mean_gt_offset', MH, n_param, table, array.array('d', param_mean_gt_offset))
+    spline_sigma_gt       = ROOT.RooSpline1D('spline_sigma_gt',       'spline_sigma_gt',       MH, n_param, table, array.array('d', param_sigma_gt))
+    spline_yield          = ROOT.RooSpline1D('spline_yield',          'spline_yield',          MH, n_param, table, array.array('d', param_yield))
+    spline_alpha_1        = ROOT.RooSpline1D('spline_alpha_1',        'spline_alpha_1',        MH, n_param, table, array.array('d', param_alpha_1))
+    spline_alpha_2        = ROOT.RooSpline1D('spline_alpha_2',        'spline_alpha_2',        MH, n_param, table, array.array('d', param_alpha_2))
+    spline_n_1            = ROOT.RooSpline1D('spline_n_1',            'spline_n_1',            MH, n_param, table, array.array('d', param_n_1))
+    spline_n_2            = ROOT.RooSpline1D('spline_n_2',            'spline_n_2',            MH, n_param, table, array.array('d', param_n_2))
+    spline_cb_1           = ROOT.RooSpline1D('spline_cb_1',           'spline_cb_1',           MH, n_param, table, array.array('d', param_cb_1))
+    spline_cb_2           = ROOT.RooSpline1D('spline_cb_2',           'spline_cb_2',           MH, n_param, table, array.array('d', param_cb_2))
 
     form_mean = ROOT.RooFormulaVar('form_mean', '@0*@1 + @2', ROOT.RooArgList(mean0, MH, mean1))
     form_mean.Print()
@@ -518,7 +492,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # mean
     ##################################
-    graph_mean = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_mean), array.array('d', [0]*len(param_mean)), array.array('d', [0]*len(param_mean)))
+    graph_mean = ROOT.TGraphErrors(n_param, table, array.array('d', param_mean), array.array('d', [0]*len(param_mean)), array.array('d', [0]*len(param_mean)))
 
     cfg = {
 
@@ -566,7 +540,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # mean_gt
     ##################################
-    graph_mean_gt = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_mean_gt), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_mean_gt = ROOT.TGraphErrors(n_param, table, array.array('d', param_mean_gt), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -617,7 +591,7 @@ def doSignal(normYields: bool = True):
     print(param_mh)
     print(param_mean_offset)
     print(param_mean_offset_err)
-    graph_mean_offset = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_mean_offset), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_mean_offset = ROOT.TGraphErrors(n_param, table, array.array('d', param_mean_offset), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -665,7 +639,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # mean_gt_offset
     ##################################
-    graph_mean_gt = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_mean_gt_offset), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_mean_gt = ROOT.TGraphErrors(n_param, table, array.array('d', param_mean_gt_offset), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -713,7 +687,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # signal yield
     ##################################
-    graph_yield = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_yield), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_yield = ROOT.TGraphErrors(n_param, table, array.array('d', param_yield), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -762,7 +736,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # sigma
     ##################################
-    graph_sigma = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_sigma), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_sigma = ROOT.TGraphErrors(n_param, table, array.array('d', param_sigma), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -810,7 +784,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # sigma_gt
     ##################################
-    graph_sigma_gt = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_sigma_gt), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_sigma_gt = ROOT.TGraphErrors(n_param, table, array.array('d', param_sigma_gt), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -858,7 +832,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # alpha_1
     ##################################
-    graph_alpha_1 = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_alpha_1), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_alpha_1 = ROOT.TGraphErrors(n_param, table, array.array('d', param_alpha_1), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -906,7 +880,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # alpha_2
     ##################################
-    graph_alpha_2 = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_alpha_2), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_alpha_2 = ROOT.TGraphErrors(n_param, table, array.array('d', param_alpha_2), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -955,7 +929,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # n_1
     ##################################
-    graph_n_1 = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_n_1), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_n_1 = ROOT.TGraphErrors(n_param, table, array.array('d', param_n_1), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -1003,7 +977,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # n_2
     ##################################
-    graph_n_2 = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_n_2), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_n_2 = ROOT.TGraphErrors(n_param, table, array.array('d', param_n_2), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -1051,7 +1025,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # cb_1
     ##################################
-    graph_cb_1 = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_cb_1), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_cb_1 = ROOT.TGraphErrors(n_param, table, array.array('d', param_cb_1), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -1099,7 +1073,7 @@ def doSignal(normYields: bool = True):
     ##################################
     # cb_2
     ##################################
-    graph_cb_2 = ROOT.TGraphErrors(len(param_mh), array.array('d', param_mh), array.array('d', param_cb_2), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
+    graph_cb_2 = ROOT.TGraphErrors(n_param, table, array.array('d', param_cb_2), array.array('d', [0]*len(mHs)), array.array('d', [0]*len(mHs)))
 
     cfg = {
 
@@ -1168,33 +1142,26 @@ def doBackgrounds():
     hist_bkg = None
 
 
-    if flavor == 'mumu':
-        if args.ecm == '240':
-            procs = ['p8_ee_WW_ecm240', 'p8_ee_ZZ_ecm240', 'wz3p6_ee_mumu_ecm240', 'wz3p6_ee_tautau_ecm240', 'wzp6_egamma_eZ_Zmumu_ecm240', 'wzp6_gammae_eZ_Zmumu_ecm240', 'wzp6_gaga_mumu_60_ecm240', 'wzp6_gaga_tautau_60_ecm240', 'wzp6_ee_nuenueZ_ecm240']
-        else:
-            procs = ['p8_ee_WW_ecm365', 'p8_ee_ZZ_ecm365', 'wzp6_ee_mumu_ecm365', 'wz3p6_ee_tautau_ecm365', 'wzp6_gammae_eZ_Zmumu_ecm365', 'wzp6_gaga_mumu_60_ecm365', 'wzp6_gaga_tautau_60_ecm365', 'wzp6_ee_nuenueZ_ecm365']
-
-    if flavor == 'ee':
-        if args.ecm == '240':
-            procs = ['p8_ee_WW_ecm240', 'p8_ee_ZZ_ecm240',  'wz3p6_ee_ee_Mee_30_150_ecm240', 'wz3p6_ee_tautau_ecm240', 'wzp6_egamma_eZ_Zee_ecm240', 'wzp6_gammae_eZ_Zee_ecm240', 'wzp6_gaga_ee_60_ecm240', 'wzp6_gaga_tautau_60_ecm240', 'wzp6_ee_nuenueZ_ecm240']
-        else:
-            procs = ['p8_ee_WW_ecm365', 'p8_ee_ZZ_ecm365', 'wz3p6_ee_ee_Mee_30_150_ecm365', 'wz3p6_ee_tautau_ecm365', 'wzp6_gaga_ee_60_ecm365', 'wzp6_gaga_tautau_60_ecm365', 'wzp6_ee_nuenueZ_ecm365']
+    procs = [
+        f'p8_ee_WW_ecm{ecm}', f'p8_ee_ZZ_ecm{ecm}',
+        f'wz3p6_ee_mumu_ecm{ecm}' if flavor=='mumu' else f'wzp6_ee_ee_Mee_30_150_ecm{ecm}', 'wz3p6_ee_tautau_ecm240',
+        f'wzp6_egamma_eZ_Z{flavor}_ecm{ecm}', f'wzp6_gammae_eZ_Z{flavor}_ecm{ecm}',
+        f'wzp6_gaga_{flavor}_60_ecm{ecm}', f'wzp6_gaga_tautau_60_ecm{ecm}',
+        f'wzp6_ee_nuenueZ_ecm{ecm}'
+    ]
 
     for proc in procs:
-
         hist = getHist(f'{flavor}_{hName}', [proc])
         hist.Scale(lumiScale)
         hist = hist.ProjectionX(f'hist_{proc}', cat_idx_min, cat_idx_max)
-        # rdh = ROOT.RooDataHist(f'rdh_{proc}', 'rdh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist))
 
-        # add to total background
+        # Add to total background
         if hist_bkg is None: hist_bkg = hist
         else: hist_bkg.Add(hist)
 
-        # add to observed
+        # Add to observed
         if h_obs is None: h_obs = hist.Clone('h_obs')
         else: h_obs.Add(hist)
-
 
     hist_bkg.SetName('total_bkg')
     rdh_bkg    = ROOT.RooDataHist('rdh_bkg', 'rdh_bkg', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_bkg))
@@ -1204,9 +1171,8 @@ def doBackgrounds():
     tmp = tmp.Rebin(int(hist_bkg.GetNbinsX() / nBins))
     yMax_bkg = 1.5*tmp.GetMaximum()
 
-
     # construct background as 4th order Bernstein polynomial
-    b0  = ROOT.RooRealVar('bern0', 'bern_coeff', 1, -2, 2)
+    b0  = ROOT.RooRealVar('bern0', 'bern_coeff', 1, -2,  2)
     b1  = ROOT.RooRealVar('bern1', 'bern_coeff', 1, -10, 10)
     b2  = ROOT.RooRealVar('bern2', 'bern_coeff', 1, -10, 10)
     b3  = ROOT.RooRealVar('bern3', 'bern_coeff', 1, -10, 10)
@@ -1260,7 +1226,6 @@ def doBackgrounds():
     bkg_fit.paramOn(plt, ROOT.RooFit.Format('NELU', ROOT.RooFit.AutoPrecision(2)), ROOT.RooFit.Layout(0.5, 0.9, 0.9))
 
     histpull = plt.pullHist()
-    chisq    = plt.chiSquare()
     plt.Draw('SAME')
 
     latex = ROOT.TLatex()
@@ -1270,7 +1235,7 @@ def doBackgrounds():
     latex.SetTextFont(42)
     latex.SetTextAlign(13)
     latex.DrawLatex(0.2, 0.88, label)
-    latex.DrawLatex(0.2, 0.82, f'#chi^{{2}} = {chisq:.3f}')
+    latex.DrawLatex(0.2, 0.82, f'#chi^2 = {plt.chiSquare():.3f}')
 
     plotter.auxRatio()
     ROOT.gPad.SetTickx()
@@ -1296,11 +1261,11 @@ def doBackgrounds():
     canvas.SaveAs(f'{outDir}/fit_bkg.pdf')
 
     # import background parameterization to the workspace
-    bkg_norm.setVal(yield_bkg_)  # not constant, as
-    b0.setConstant(True)  # set as constant
-    b1.setConstant(True)  # set as constant
-    b2.setConstant(True)  # set as constant
-    b3.setConstant(True)  # set as constant
+    bkg_norm.setVal(yield_bkg_)  # not constant
+    b0.setConstant(True)         # set as constant
+    b1.setConstant(True)         # set as constant
+    b2.setConstant(True)         # set as constant
+    b3.setConstant(True)         # set as constant
     getattr(w_tmp, 'import')(bkg)
     getattr(w_tmp, 'import')(bkg_norm)
 
@@ -1309,19 +1274,12 @@ def doBackgrounds():
 
 def doBES():
 
-    pct = 1
-    if mode == 'IDEA_BES6pct':
-        pct = 6
+    pct = 1 if ecm==240 else (10 if ecm==365 else 0)
 
-    if ecm == '365':
-        pct = 10
-
-    # scale_BES = ROOT.RooRealVar('scale_BES', 'BES scale parameter', 0, -1, 1)
-
-    ## only consider variation for 125 GeV
-    ## assume variations to be indentical for other mass points
+    ## Only consider variation for 125 GeV
+    ## Assume variations to be indentical for other mass points
     mH = 125.0
-    mH_ = (f'{mH:.3f}').replace('.', 'p')
+    mH_label = f'{mH:.3f}'.replace('.', 'p')
 
     recoilmass = w_tmp.var('zll_recoil_m')
     MH = w_tmp.var('MH')
@@ -1350,81 +1308,62 @@ def doBES():
         'ymaxR'             : 3.5,
     }
 
-    ## for BES, consider only variations in norm, mean and sigma
-    ## assume others to be identical to nominal sample
+    ## For BES, consider only variations in norm, mean and sigma
+    ## Assume others to be identical to nominal sample
     MH.setVal(125.0)  # evaluate all at 125 GeV
-    spline_alpha_1 = w_tmp.obj('spline_alpha_1')
-    spline_alpha_2 = w_tmp.obj('spline_alpha_2')
-    spline_n_1  = w_tmp.obj('spline_n_1')
-    spline_n_2  = w_tmp.obj('spline_n_2')
-    spline_cb_1 = w_tmp.obj('spline_cb_1')
-    spline_cb_2 = w_tmp.obj('spline_cb_2')
+    spline_alpha_1  = w_tmp.obj('spline_alpha_1')
+    spline_alpha_2  = w_tmp.obj('spline_alpha_2')
+    spline_n_1      = w_tmp.obj('spline_n_1')
+    spline_n_2      = w_tmp.obj('spline_n_2')
+    spline_cb_1     = w_tmp.obj('spline_cb_1')
+    spline_cb_2     = w_tmp.obj('spline_cb_2')
     spline_mean_gt  = w_tmp.obj('spline_mean_gt')
     spline_mean     = w_tmp.obj('spline_mean')
     spline_sigma_gt = w_tmp.obj('spline_sigma_gt')
     spline_sigma    = w_tmp.obj('spline_sigma')
 
-    sigma__, sigma_gt__ = [], []
+    sigma_ud, sigma_gt_ud = [], []
 
     for s in ['Up', 'Down']:
 
         if s == 'Up':   proc = f'wzp6_ee_{flavor}H_BES-higher-{pct}pc_ecm{ecm}'
         if s == 'Down': proc = f'wzp6_ee_{flavor}H_BES-lower-{pct}pc_ecm{ecm}'
-        if ecm == '365' and flavor == 'ee':
-            proc = 'wz3p6_ee_eeH_ecm365'  # no BES for electrons at 365
-
-        if mode == 'IDEA_3T':
-            if flavor == 'mumu':
-                proc += '_3T'
-            else:
-                proc = 'wzp6_ee_eeH_ecm240_3T'  # MISSING
-        if mode == 'CLD':
-            if flavor == 'mumu':
-                proc += '_CLD'
-            else:
-                proc = 'wzp6_ee_eeH_ecm240_CLD'  # MISSING
-        if mode == 'IDEA_2E':
-            if flavor == 'ee':
-                proc = 'wzp6_ee_eeH_ecm240_E2'
-
-        if mode == 'IDEA_noBES':
-            if flavor == 'mumu':
-                proc = 'wzp6_ee_mumuH_noBES_ecm240'
-            else:
-                proc = 'wzp6_ee_eeH_noBES_ecm240'
+        if ecm == 365 and flavor == 'ee':
+            proc = 'wzp6_ee_eeH_ecm365'  # no BES for electrons at 365
+        suffix = f'{mH_label}_BES{s}'
 
         hist_zh = getHist(f'{flavor}_{hName}', [proc])
         hist_zh.Scale(lumiScale)
-        hist_zh = hist_zh.ProjectionX('hist_zh_%s_BES%s' % (mH_, s), cat_idx_min, cat_idx_max)
+        hist_zh = hist_zh.ProjectionX(f'hist_zh_{mH_label}_BES{s}', cat_idx_min, cat_idx_max)
         print(hist_zh.Integral(), proc)
-        hist_zh.SetName('hist_zh_%s_BES%s' % (mH_, s))
+        hist_zh.SetName(f'hist_zh_{mH_label}_BES{s}')
         hist_zh.Scale(yield_nom/hist_zh.Integral())
-        rdh_zh   = ROOT.RooDataHist('rdh_zh_%s_BES%s' % (mH_, s), 'rdh_zh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
+        rdh_zh   = ROOT.RooDataHist(f'rdh_zh_{mH_label}_BES{s}', 'rdh_zh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
         yield_zh = rdh_zh.sum(False)
 
 
-        mean    = ROOT.RooRealVar(f'mean_{mH_}_BES{s}',    '', spline_mean.getVal())
-        sigma   = ROOT.RooRealVar(f'sigma_{mH_}_BES{s}',   '', spline_sigma.getVal(), 0, 5)  # float
-        alpha_1 = ROOT.RooRealVar(f'alpha_1_{mH_}_BES{s}', '', spline_alpha_1.getVal())
-        alpha_2 = ROOT.RooRealVar(f'alpha_2_{mH_}_BES{s}', '', spline_alpha_2.getVal())
-        n_1 = ROOT.RooRealVar(f'n_1_{mH_}_BES{s}', '', spline_n_1.getVal())
-        n_2 = ROOT.RooRealVar(f'n_2_{mH_}_BES{s}', '', spline_n_2.getVal())
-        mean_gt  = ROOT.RooRealVar(f'mean_gt_{mH_}_BES{s}',  '', spline_mean_gt.getVal())
-        sigma_gt = ROOT.RooRealVar(f'sigma_gt_{mH_}_BES{s}', '', spline_sigma_gt.getVal(), 0, 5)  # float
-        cb_1 = ROOT.RooRealVar(f'cb_1_{mH_}_BES{s}', '', spline_cb_1.getVal())
-        cb_2 = ROOT.RooRealVar(f'cb_2_{mH_}_BES{s}', '', spline_cb_2.getVal())
+        mean     = ROOT.RooRealVar(f'mean_{suffix}',     '', spline_mean.getVal())
+        sigma    = ROOT.RooRealVar(f'sigma_{suffix}',    '', spline_sigma.getVal(), 0, 5)  # float
+        alpha_1  = ROOT.RooRealVar(f'alpha_1_{suffix}',  '', spline_alpha_1.getVal())
+        alpha_2  = ROOT.RooRealVar(f'alpha_2_{suffix}',  '', spline_alpha_2.getVal())
+        n_1      = ROOT.RooRealVar(f'n_1_{suffix}',      '', spline_n_1.getVal())
+        n_2      = ROOT.RooRealVar(f'n_2_{suffix}',      '', spline_n_2.getVal())
+        mean_gt  = ROOT.RooRealVar(f'mean_gt_{suffix}',  '', spline_mean_gt.getVal())
+        sigma_gt = ROOT.RooRealVar(f'sigma_gt_{suffix}', '', spline_sigma_gt.getVal(), 0, 5)  # float
+        cb_1     = ROOT.RooRealVar(f'cb_1_{suffix}',     '', spline_cb_1.getVal())
+        cb_2     = ROOT.RooRealVar(f'cb_2_{suffix}',     '', spline_cb_2.getVal())
 
-        cbs_1 = ROOT.RooCBShape(f'CrystallBall_1_{mH_}_BES{s}', 'CrystallBall_1', recoilmass, mean, sigma, alpha_1, n_1)
-        cbs_2 = ROOT.RooCBShape(f'CrystallBall_2_{mH_}_BES{s}', 'CrystallBall_2', recoilmass, mean, sigma, alpha_2, n_2)
-        gauss = ROOT.RooGaussian(f'gauss_{mH_}_BES{s}', 'gauss', recoilmass, mean_gt, sigma_gt)
+        cbs_1 = ROOT.RooCBShape(f'CrystallBall_1_{suffix}', 'CrystallBall_1', recoilmass, mean,    sigma, alpha_1, n_1)
+        cbs_2 = ROOT.RooCBShape(f'CrystallBall_2_{suffix}', 'CrystallBall_2', recoilmass, mean,    sigma, alpha_2, n_2)
+        gauss = ROOT.RooGaussian(f'gauss_{suffix}',                  'gauss', recoilmass, mean_gt, sigma_gt)
 
-        sig      = ROOT.RooAddPdf(f'sig_{mH_}_BES{s}', '', ROOT.RooArgList(cbs_1, cbs_2, gauss), ROOT.RooArgList(cb_1, cb_2))  # half of both CB functions
-        sig_norm = ROOT.RooRealVar(f'sig_{mH_}_BES{s}_norm', '', yield_zh, 0, 1e6)  # fix normalization
-        sig_fit  = ROOT.RooAddPdf(f'zh_model_{mH_}_BES{s}', '', ROOT.RooArgList(sig), ROOT.RooArgList(sig_norm))
+        sig      = ROOT.RooAddPdf(f'sig_{suffix}',       '', ROOT.RooArgList(cbs_1, cbs_2, gauss), ROOT.RooArgList(cb_1, cb_2))  # Half of both CB functions
+        sig_norm = ROOT.RooRealVar(f'sig_{suffix}_norm', '', yield_zh, 0, 1e6)  # fix normalization
+        sig_fit  = ROOT.RooAddPdf(f'zh_model_{suffix}',  '', ROOT.RooArgList(sig), ROOT.RooArgList(sig_norm))
         sig_fit.fitTo(rdh_zh, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(sumw2err))
 
-        sigma__.append(sigma.getVal())
-        sigma_gt__.append(sigma_gt.getVal())
+        sigma_ud.append(sigma.getVal())
+        sigma_gt_ud.append(sigma_gt.getVal())
 
         # do plotting
         cfg['ymax']= yMax
@@ -1481,8 +1420,7 @@ def doBES():
         ROOT.gPad.SetTickx()
         ROOT.gPad.SetTicky()
         ROOT.gPad.RedrawAxis()
-        canvas.SaveAs(f'{outDir}/fit_mH{mH_}_BES{s}.png')
-        canvas.SaveAs(f'{outDir}/fit_mH{mH_}_BES{s}.pdf')
+        canvas.SaveAs(f'{outDir}/fit_mH{suffix}.png')
 
         del dummyB, dummyT
         del padT, padB
@@ -1491,8 +1429,6 @@ def doBES():
         # import
         getattr(w_tmp, 'import')(rdh_zh)
         getattr(w_tmp, 'import')(sig_fit)
-
-
 
     # plot all fitted signals
     cfg['ymax'] = yMax*2.5
@@ -1507,11 +1443,11 @@ def doBES():
     plt    = w_tmp.var('zll_recoil_m').frame()
     colors = [ROOT.kRed, ROOT.kBlack, ROOT.kBlue]
 
-    sig_fit = w_tmp.pdf(f'zh_model_{mH_}_BESUp')
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}_BESUp')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[0]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
-    sig_fit = w_tmp.pdf(f'zh_model_{mH_}')
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[1]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
-    sig_fit = w_tmp.pdf(f'zh_model_{mH_}_BESDown')
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}_BESDown')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[2]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
     plt.Draw('SAME')
@@ -1523,33 +1459,31 @@ def doBES():
     ROOT.gPad.SetTicky()
     ROOT.gPad.RedrawAxis()
     canvas.Draw()
-    canvas.SaveAs(f'{outDir}/fit_mH{mH_}_BES.png')
-    canvas.SaveAs(f'{outDir}/fit_mH{mH_}_BES.pdf')
+    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_BES.png')
+    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_BES.pdf')
 
-    # construct BES uncertainty
-    # nominals, w/o the BES uncertainty
+    # Construct BES uncertainty
+    # Nominals, w/o the BES uncertainty
     spline_mean  = w_tmp.obj('spline_mean')
     spline_sigma = w_tmp.obj('spline_sigma')
-    # spline_yield = w_tmp.obj('spline_yield')
     MH.setVal(125.0)  # evaluate all at 125 GeV
-    sigma__nominal = spline_sigma.getVal()
-    sigma_gt__nominal = spline_sigma_gt.getVal()
+    sigma_nominal    = spline_sigma.getVal()
+    sigma_gt_nominal = spline_sigma_gt.getVal()
 
-    # sigma param
-    # delta = 0.5*(abs(sigma__nominal-sigma__[0]) + abs(sigma__nominal-sigma__[1]))
-    delta = 0.5*abs(sigma__[0] - sigma__[1])
-    sig_sigma_BES_ = (delta)/sigma__nominal  # 1 sigma value  such that (1+bkg_norm_BES)*sigma__nominal = sigma__nominal+delta
-    sig_sigma_BES = ROOT.RooRealVar('sig_sigma_BES', 'sig_sigma_BES', sig_sigma_BES_)  # constant
+    # Sigma param
+    delta = 0.5 * abs(sigma_ud[0] - sigma_ud[1])
+    sig_sigma_BES_ = delta / sigma_nominal  # 1 sigma value  such that (1 + bkg_norm_BES) * sigma_nominal = sigma_nominal + delta
+    sig_sigma_BES  = ROOT.RooRealVar('sig_sigma_BES', 'sig_sigma_BES', sig_sigma_BES_)  # Constant
     getattr(w_tmp, 'import')(sig_sigma_BES)
-    print(sigma__nominal, delta, sig_sigma_BES_)
+    print(sigma_nominal, delta, sig_sigma_BES_)
 
-    # sigma_gt param
-    # delta = 0.5*(abs(sigma_gt__nominal-sigma_gt__[0]) + abs(sigma_gt__nominal-sigma_gt__[1]))
-    delta = 0.5*abs(sigma_gt__[0] - sigma_gt__[1])
-    sig_sigma_gt_BES_ = (delta)/sigma_gt__nominal  # 1 sigma value  such that (1+bkg_norm_BES)*sigma__nominal = sigma__nominal+delta
-    sig_sigma_gt_BES  = ROOT.RooRealVar('sig_sigma_gt_BES', 'sig_sigma_gt_BES', sig_sigma_gt_BES_)  # constant
+    # Sigma_gt param
+    delta = 0.5 * abs(sigma_gt_ud[0] - sigma_gt_ud[1])
+    sig_sigma_gt_BES_ = delta / sigma_gt_nominal  # 1 sigma value  such that (1 + bkg_norm_BES) * sigma_nominal = sigma_nominal + delta
+    sig_sigma_gt_BES  = ROOT.RooRealVar('sig_sigma_gt_BES', 'sig_sigma_gt_BES', sig_sigma_gt_BES_)  # Constant
     getattr(w_tmp, 'import')(sig_sigma_gt_BES)
-    print(sigma_gt__nominal, delta, sig_sigma_BES_)
+    print(sigma_gt_nominal, delta, sig_sigma_BES_)
+
 
 
 def doSQRTS():
@@ -1558,22 +1492,10 @@ def doSQRTS():
 
     ## only consider variation for 125 GeV
     ## assume variations to be indentical for other mass points
-    if ecm == '240':
-        proc = 'wzp6_ee_%sH_ecm240' % (flavor)
-    else:
-        proc = 'wz3p6_ee_%sH_ecm365' % (flavor)
 
-    if mode == 'IDEA_3T':
-        proc += '_3T'
-    if mode == 'CLD':
-        proc += '_CLD'
-    if mode == 'IDEA_noBES':
-        proc = proc.replace('_ecm240', '_noBES_ecm240')
-    if mode == 'IDEA_2E' and flavor == 'ee':
-        proc += '_E2'
-
+    proc = f'wzp6_ee_{flavor}H_ecm{ecm}'
     mH = 125.0
-    mH_ = ('%.3f' % mH).replace('.', 'p')
+    mH_label = f'{mH:.3f}'.replace('.', 'p')
 
     recoilmass = w_tmp.var('zll_recoil_m')
     MH = w_tmp.var('MH')
@@ -1589,7 +1511,7 @@ def doSQRTS():
         'ymin'              : 0,
         'ymax'              : yMax,
 
-        'xtitle'            : 'm_{rec} (GeV)',
+        'xtitle'            : 'm_{recoil} [GeV]',
         'ytitle'            : 'Events',
 
         'topRight'          : topRight,
@@ -1605,62 +1527,63 @@ def doSQRTS():
     ## for SQRTS, consider only variations in norm, CB mean and CB sigma
     ## assume others to be identical to nominal sample
     MH.setVal(125.0)  # evaluate all at 125 GeV
-    spline_alpha_1 = w_tmp.obj('spline_alpha_1')
-    spline_alpha_2 = w_tmp.obj('spline_alpha_2')
-    spline_n_1  = w_tmp.obj('spline_n_1')
-    spline_n_2  = w_tmp.obj('spline_n_2')
-    spline_cb_1 = w_tmp.obj('spline_cb_1')
-    spline_cb_2 = w_tmp.obj('spline_cb_2')
+    spline_alpha_1  = w_tmp.obj('spline_alpha_1')
+    spline_alpha_2  = w_tmp.obj('spline_alpha_2')
+    spline_n_1      = w_tmp.obj('spline_n_1')
+    spline_n_2      = w_tmp.obj('spline_n_2')
+    spline_cb_1     = w_tmp.obj('spline_cb_1')
+    spline_cb_2     = w_tmp.obj('spline_cb_2')
     spline_mean_gt  = w_tmp.obj('spline_mean_gt')
     spline_mean     = w_tmp.obj('spline_mean')
     spline_sigma_gt = w_tmp.obj('spline_sigma_gt')
     spline_sigma    = w_tmp.obj('spline_sigma')
 
-    mean__, mean_gt__ = [], []
+    mean_ud, mean_gt_ud = [], []
 
     for s in ['Up', 'Down']:
 
         if s == 'Up':   s_ = 'up'
         if s == 'Down': s_ = 'dw'
+        suffix = f'{mH_label}_SQRTS{s}'
 
         hist_zh = getHist(f'{flavor}_{hName}_sqrts{s_}', [proc])
         hist_zh.Scale(lumiScale)
-        hist_zh = hist_zh.ProjectionX('hist_zh_%s_SQRTS%s' % (mH_, s), cat_idx_min, cat_idx_max)
-        hist_zh.SetName('hist_zh_%s_BES%s' % (mH_, s))
+        hist_zh = hist_zh.ProjectionX(f'hist_zh_{suffix}', cat_idx_min, cat_idx_max)
+        hist_zh.SetName(f'hist_zh_{suffix}')  # Was named BES, should confirm with Jan
         hist_zh.Scale(yield_nom/hist_zh.Integral())
-        rdh_zh   = ROOT.RooDataHist('rdh_zh_%s_SQRTS%s' % (mH_, s), 'rdh_zh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
+        rdh_zh   = ROOT.RooDataHist(f'rdh_zh_{suffix}', 'rdh_zh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
         yield_zh = rdh_zh.sum(False)
 
-        mean    = ROOT.RooRealVar('mean_%s_SQRTS%s'    % (mH_, s), '', spline_mean.getVal(), mH-5., mH+5.)  # float
-        sigma   = ROOT.RooRealVar('sigma_%s_SQRTS%s'   % (mH_, s), '', spline_sigma.getVal())
-        alpha_1 = ROOT.RooRealVar('alpha_1_%s_SQRTS%s' % (mH_, s), '', spline_alpha_1.getVal())
-        alpha_2 = ROOT.RooRealVar('alpha_2_%s_SQRTS%s' % (mH_, s), '', spline_alpha_2.getVal())
-        n_1 = ROOT.RooRealVar('n_1_%s_SQRTS%s' % (mH_, s), '', spline_n_1.getVal())
-        n_2 = ROOT.RooRealVar('n_2_%s_SQRTS%s' % (mH_, s), '', spline_n_2.getVal())
-        mean_gt  = ROOT.RooRealVar('mean_gt_%s_SQRTS%s'  % (mH_, s), '', spline_mean_gt.getVal(), mH-5., mH+5.)  # float
-        sigma_gt = ROOT.RooRealVar('sigma_gt_%s_SQRTS%s' % (mH_, s), '', spline_sigma_gt.getVal())
+        mean     = ROOT.RooRealVar(f'mean_{suffix}',     '', spline_mean.getVal(), mH - 5, mH + 5)
+        sigma    = ROOT.RooRealVar(f'sigma_{suffix}',    '', spline_sigma.getVal())
+        alpha_1  = ROOT.RooRealVar(f'alpha_1_{suffix}',  '', spline_alpha_1.getVal())
+        alpha_2  = ROOT.RooRealVar(f'alpha_2_{suffix}',  '', spline_alpha_2.getVal())
+        n_1      = ROOT.RooRealVar(f'n_1_{suffix}',      '', spline_n_1.getVal())
+        n_2      = ROOT.RooRealVar(f'n_2_{suffix}',      '', spline_n_2.getVal())
+        mean_gt  = ROOT.RooRealVar(f'mean_gt_{suffix}',  '', spline_mean_gt.getVal(), mH - 5, mH + 5)
+        sigma_gt = ROOT.RooRealVar(f'sigma_gt_{suffix}', '', spline_sigma_gt.getVal())
 
-        cbs_1 = ROOT.RooCBShape('CrystallBall_1_%s_SQRTS%s' % (mH_, s), 'CrystallBall_1', recoilmass, mean, sigma, alpha_1, n_1)
-        cbs_2 = ROOT.RooCBShape('CrystallBall_2_%s_SQRTS%s' % (mH_, s), 'CrystallBall_2', recoilmass, mean, sigma, alpha_2, n_2)
-        gauss = ROOT.RooGaussian('gauss_%s_SQRTS%s' % (mH_, s), 'gauss', recoilmass, mean_gt, sigma_gt)
-        cb_1 = ROOT.RooRealVar('cb_1_%s_SQRTS%s' % (mH_, s), '', spline_cb_1.getVal())
-        cb_2 = ROOT.RooRealVar('cb_2_%s_SQRTS%s' % (mH_, s), '', spline_cb_2.getVal())
+        cbs_1 = ROOT.RooCBShape(f'CrystallBall_1_{suffix}', 'CrystallBall_1', recoilmass, mean,    sigma, alpha_1, n_1)
+        cbs_2 = ROOT.RooCBShape(f'CrystallBall_2_{suffix}', 'CrystallBall_2', recoilmass, mean,    sigma, alpha_2, n_2)
+        gauss = ROOT.RooGaussian(f'gauss_{suffix}',                  'gauss', recoilmass, mean_gt, sigma_gt)
+        cb_1  = ROOT.RooRealVar(f'cb_1_{suffix}', '', spline_cb_1.getVal())
+        cb_2  = ROOT.RooRealVar(f'cb_2_{suffix}', '', spline_cb_2.getVal())
 
-        sig      = ROOT.RooAddPdf('sig_%s_SQRTS%s'       % (mH_, s), '', ROOT.RooArgList(cbs_1, cbs_2, gauss), ROOT.RooArgList(cb_1, cb_2))  # half of both CB functions
-        sig_norm = ROOT.RooRealVar('sig_%s_SQRTS%s_norm' % (mH_, s), '', yield_zh, 0, 1e6)  # fix normalization
-        sig_fit  = ROOT.RooAddPdf('zh_model_%s_SQRTS%s'  % (mH_, s), '', ROOT.RooArgList(sig), ROOT.RooArgList(sig_norm))
+        sig      = ROOT.RooAddPdf(f'sig_{suffix}',       '', ROOT.RooArgList(cbs_1, cbs_2, gauss), ROOT.RooArgList(cb_1, cb_2))
+        sig_norm = ROOT.RooRealVar(f'sig_{suffix}_norm', '', yield_zh, 0, 1e6)  # fix normalization
+        sig_fit  = ROOT.RooAddPdf(f'zh_model_{suffix}',  '', ROOT.RooArgList(sig), ROOT.RooArgList(sig_norm))
         sig_fit.fitTo(rdh_zh, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(sumw2err))
 
-        mean__.append(mean.getVal())
-        mean_gt__.append(mean_gt.getVal())
+        mean_ud.append(mean.getVal())
+        mean_gt_ud.append(mean_gt.getVal())
 
         print('----->', mean.getVal())
 
         # do plotting
-        cfg['ymax']= yMax
+        cfg['ymax'] = yMax
         plotter.cfg = cfg
 
-        canvas, padT, padB = plotter.canvasRatio()
+        canvas, padT, padB     = plotter.canvasRatio()
         dummyT, dummyB, dummyL = plotter.dummyRatio(rline=0)
         dummyB.GetXaxis().SetTitleOffset(4.0*dummyB.GetXaxis().GetTitleOffset())
 
@@ -1711,8 +1634,7 @@ def doSQRTS():
         ROOT.gPad.SetTickx()
         ROOT.gPad.SetTicky()
         ROOT.gPad.RedrawAxis()
-        canvas.SaveAs('%s/fit_mH%s_SQRTS%s.png' % (outDir, mH_, s))
-        canvas.SaveAs('%s/fit_mH%s_SQRTS%s.pdf' % (outDir, mH_, s))
+        canvas.SaveAs(f'{outDir}/fit_mH{suffix}.png')
 
         del dummyB, dummyT
         del padT, padB
@@ -1738,13 +1660,13 @@ def doSQRTS():
     plt = w_tmp.var('zll_recoil_m').frame()
     colors = [ROOT.kRed, ROOT.kBlack, ROOT.kBlue]
 
-    sig_fit = w_tmp.pdf('zh_model_%s_SQRTSUp' % mH_)  # 'sig_%s_BES%s_norm' % (mH_, s)
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}_SQRTSUp')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[0]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
-    sig_fit = w_tmp.pdf('zh_model_%s' % mH_)
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[1]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
-    sig_fit = w_tmp.pdf('zh_model_%s_SQRTSDown' % mH_)
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}_SQRTSDown')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[2]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
     plt.Draw('SAME')
@@ -1756,32 +1678,30 @@ def doSQRTS():
     ROOT.gPad.SetTicky()
     ROOT.gPad.RedrawAxis()
     canvas.Draw()
-    canvas.SaveAs('%s/fit_mH%s_SQRTS.png' % (outDir, mH_))
-    canvas.SaveAs('%s/fit_mH%s_SQRTS.pdf' % (outDir, mH_))
+    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_SQRTS.png')
 
-    # construct SQRTS uncertainty
+    # Construct SQRTS uncertainty
 
-    # nominals, w/o the BES uncertainty
+    # Nominals, w/o the BES uncertainty
     MH.setVal(125.0)  # evaluate all at 125 GeV
-    mean__nominal    = spline_mean.getVal()
+    mean_nominal     = spline_mean.getVal()
     mean_gt__nominal = spline_mean_gt.getVal()
 
-    # mean param
-    # delta = 0.5*(abs(mean__nominal-mean__[0]) + abs(mean__nominal-mean__[1]))
-    delta = 0.5*abs(mean__[0] - mean__[1])
-    sig_mean_SQRTS_ = (delta)/mean__nominal  # 1 sigma value  such that (1+bkg_norm_BES)*mean__nominal = mean__nominal+delta
-    sig_mean_SQRTS  = ROOT.RooRealVar('sig_mean_SQRTS', 'sig_mean_SQRTS', sig_mean_SQRTS_)  # constant
+    # Mean param
+    delta = 0.5 * abs(mean_ud[0] - mean_ud[1])
+    sig_mean_SQRTS_ = delta / mean_nominal  # 1 sigma value  such that (1 + bkg_norm_BES) * mean_nominal = mean_nominal + delta
+    sig_mean_SQRTS  = ROOT.RooRealVar('sig_mean_SQRTS', 'sig_mean_SQRTS', sig_mean_SQRTS_)  # Constant
     getattr(w_tmp, 'import')(sig_mean_SQRTS)
-    print(mean__nominal, delta, sig_mean_SQRTS_)
+    print(mean_nominal, delta, sig_mean_SQRTS_)
 
 
     # mean_gt param
-    # delta = 0.5*(abs(mean_gt__nominal-mean_gt__[0]) + abs(mean_gt__nominal-mean_gt__[1]))
-    delta = 0.5*abs(mean_gt__[0] - mean_gt__[1])
+    delta = 0.5 * abs(mean_gt_ud[0] - mean_gt_ud[1])
     sig_mean_gt_SQRTS_ = (delta)/mean_gt__nominal  # 1 sigma value  such that (1+bkg_norm_BES)*mean__nominal = mean__nominal+delta
     sig_mean_gt_SQRTS  = ROOT.RooRealVar('sig_mean_gt_SQRTS', 'sig_mean_gt_SQRTS', sig_mean_gt_SQRTS_)  # constant
     getattr(w_tmp, 'import')(sig_mean_gt_SQRTS)
     print(mean_gt__nominal, delta, sig_mean_gt_SQRTS_)
+
 
 
 def doLEPSCALE():
@@ -1790,23 +1710,10 @@ def doLEPSCALE():
 
     ## only consider variation for 125 GeV
     ## assume variations to be indentical for other mass points
-    if ecm == '240':
-        proc = f'wzp6_ee_{flavor}H_ecm240'
-    else:
-        proc = f'wz3p6_ee_{flavor}H_ecm365'
 
-    if mode == 'IDEA_3T':
-        proc += '_3T'
-    if mode == 'CLD':
-        proc += '_CLD'
-    if mode == 'IDEA_noBES':
-        proc = proc.replace('_ecm240', '_noBES_ecm240')
-    if mode == 'IDEA_2E' and flavor == 'ee':
-        proc += '_E2'
-
-
+    proc = f'wzp6_ee_{flavor}H_ecm{ecm}'
     mH = 125.0
-    mH_ = (f'{mH:.3f}').replace('.', 'p')
+    mH_label = f'{mH:.3f}'.replace('.', 'p')
 
     recoilmass = w_tmp.var('zll_recoil_m')
     MH = w_tmp.var('MH')
@@ -1822,7 +1729,7 @@ def doLEPSCALE():
         'ymin'              : 0,
         'ymax'              : yMax,
 
-        'xtitle'            : 'm_{rec} (GeV)',
+        'xtitle'            : 'm_{recoil} [GeV]',
         'ytitle'            : 'Events',
 
         'topRight'          : topRight,
@@ -1835,56 +1742,57 @@ def doLEPSCALE():
     }
 
 
-    ## for LEPSCALE, consider only variations in norm, CB mean and CB sigma
-    ## assume others to be identical to nominal sample
+    ## For LEPSCALE, consider only variations in norm, CB mean and CB sigma
+    ## Assume others to be identical to nominal sample
     MH.setVal(125.0)  # evaluate all at 125 GeV
-    spline_alpha_1 = w_tmp.obj('spline_alpha_1')
-    spline_alpha_2 = w_tmp.obj('spline_alpha_2')
-    spline_n_1  = w_tmp.obj('spline_n_1')
-    spline_n_2  = w_tmp.obj('spline_n_2')
-    spline_cb_1 = w_tmp.obj('spline_cb_1')
-    spline_cb_2 = w_tmp.obj('spline_cb_2')
+    spline_alpha_1  = w_tmp.obj('spline_alpha_1')
+    spline_alpha_2  = w_tmp.obj('spline_alpha_2')
+    spline_n_1      = w_tmp.obj('spline_n_1')
+    spline_n_2      = w_tmp.obj('spline_n_2')
+    spline_cb_1     = w_tmp.obj('spline_cb_1')
+    spline_cb_2     = w_tmp.obj('spline_cb_2')
     spline_mean_gt  = w_tmp.obj('spline_mean_gt')
     spline_mean     = w_tmp.obj('spline_mean')
     spline_sigma_gt = w_tmp.obj('spline_sigma_gt')
     spline_sigma    = w_tmp.obj('spline_sigma')
 
-    mean__ = []
+    mean_ud = []
 
     for s in ['Up', 'Down']:
 
         if s == 'Up':   s_ = 'up'
         if s == 'Down': s_ = 'dw'
+        suffix = f'{mH_label}_LEPSCALE{s}'
 
         hist_zh = getHist(f'{flavor}_{hName}_scale{s_}', [proc])
         hist_zh.Scale(lumiScale)
-        hist_zh = hist_zh.ProjectionX('hist_zh_%s_LEPSCALE%s' % (mH_, s), cat_idx_min, cat_idx_max)
-        hist_zh.SetName('hist_zh_%s_LEPSCALE%s' % (mH_, s))
+        hist_zh = hist_zh.ProjectionX(f'hist_zh_{suffix}', cat_idx_min, cat_idx_max)
+        hist_zh.SetName(f'hist_zh_{suffix}')
         hist_zh.Scale(yield_nom/hist_zh.Integral())
-        rdh_zh = ROOT.RooDataHist('rdh_zh_%s_LEPSCALE%s' % (mH_, s), 'rdh_zh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
+        rdh_zh = ROOT.RooDataHist(f'rdh_zh_{suffix}', 'rdh_zh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
         yield_zh = rdh_zh.sum(False)
 
-        mean    = ROOT.RooRealVar('mean_%s_LEPSCALE%s'    % (mH_, s), '', spline_mean_gt.getVal(), mH-5., mH+5.)
-        sigma   = ROOT.RooRealVar('sigma_%s_LEPSCALE%s'   % (mH_, s), '', spline_sigma.getVal())
-        alpha_1 = ROOT.RooRealVar('alpha_1_%s_LEPSCALE%s' % (mH_, s), '', spline_alpha_1.getVal())
-        alpha_2 = ROOT.RooRealVar('alpha_2_%s_LEPSCALE%s' % (mH_, s), '', spline_alpha_2.getVal())
-        n_1 = ROOT.RooRealVar('n_1_%s_LEPSCALE%s' % (mH_, s), '', spline_n_1.getVal())
-        n_2 = ROOT.RooRealVar('n_2_%s_LEPSCALE%s' % (mH_, s), '', spline_n_2.getVal())
-        mean_gt  = ROOT.RooRealVar('mean_gt_%s_LEPSCALE%s'  % (mH_, s), '', spline_mean_gt.getVal())
-        sigma_gt = ROOT.RooRealVar('sigma_gt_%s_LEPSCALE%s' % (mH_, s), '', spline_sigma_gt.getVal())
+        mean     = ROOT.RooRealVar(f'mean_{suffix}',     '', spline_mean_gt.getVal(), mH - 5, mH + 5)
+        sigma    = ROOT.RooRealVar(f'sigma_{suffix}',    '', spline_sigma.getVal())
+        alpha_1  = ROOT.RooRealVar(f'alpha_1_{suffix}',  '', spline_alpha_1.getVal())
+        alpha_2  = ROOT.RooRealVar(f'alpha_2_{suffix}',  '', spline_alpha_2.getVal())
+        n_1      = ROOT.RooRealVar(f'n_1_{suffix}',      '', spline_n_1.getVal())
+        n_2      = ROOT.RooRealVar(f'n_2_{suffix}',      '', spline_n_2.getVal())
+        mean_gt  = ROOT.RooRealVar(f'mean_gt_{suffix}',  '', spline_mean_gt.getVal())
+        sigma_gt = ROOT.RooRealVar(f'sigma_gt_{suffix}', '', spline_sigma_gt.getVal())
 
-        cbs_1 = ROOT.RooCBShape('CrystallBall_1_%s_LEPSCALE%s' % (mH_, s), 'CrystallBall_1', recoilmass, mean, sigma, alpha_1, n_1)
-        cbs_2 = ROOT.RooCBShape('CrystallBall_2_%s_LEPSCALE%s' % (mH_, s), 'CrystallBall_2', recoilmass, mean, sigma, alpha_2, n_2)
-        gauss = ROOT.RooGaussian('gauss_%s_LEPSCALE%s' % (mH_, s), 'gauss', recoilmass, mean_gt, sigma_gt)
-        cb_1  = ROOT.RooRealVar('cb_1_%s_LEPSCALE%s'   % (mH_, s), '', spline_cb_1.getVal())
-        cb_2 =  ROOT.RooRealVar('cb_2_%s_LEPSCALE%s'   % (mH_, s), '', spline_cb_2.getVal())
+        cbs_1 = ROOT.RooCBShape(f'CrystallBall_1_{suffix}', 'CrystallBall_1', recoilmass, mean, sigma, alpha_1, n_1)
+        cbs_2 = ROOT.RooCBShape(f'CrystallBall_2_{suffix}', 'CrystallBall_2', recoilmass, mean, sigma, alpha_2, n_2)
+        gauss = ROOT.RooGaussian(f'gauss_{suffix}', 'gauss', recoilmass, mean_gt, sigma_gt)
+        cb_1  = ROOT.RooRealVar(f'cb_1_{suffix}', '', spline_cb_1.getVal())
+        cb_2 =  ROOT.RooRealVar(f'cb_2_{suffix}', '', spline_cb_2.getVal())
 
-        sig      = ROOT.RooAddPdf('sig_%s_LEPSCALE%s'       % (mH_, s), '', ROOT.RooArgList(cbs_1, cbs_2, gauss), ROOT.RooArgList(cb_1, cb_2))  # half of both CB functions
-        sig_norm = ROOT.RooRealVar('sig_%s_LEPSCALE%s_norm' % (mH_, s), '', yield_zh, 0, 1e6)  # fix normalization
-        sig_fit  = ROOT.RooAddPdf('zh_model_%s_LEPSCALE%s'  % (mH_, s), '', ROOT.RooArgList(sig), ROOT.RooArgList(sig_norm))
+        sig      = ROOT.RooAddPdf(f'sig_{suffix}',       '', ROOT.RooArgList(cbs_1, cbs_2, gauss), ROOT.RooArgList(cb_1, cb_2))  # Half of both CB functions
+        sig_norm = ROOT.RooRealVar(f'sig_{suffix}_norm', '', yield_zh, 0, 1e6)  # fix normalization
+        sig_fit  = ROOT.RooAddPdf(f'zh_model_{suffix}',  '', ROOT.RooArgList(sig), ROOT.RooArgList(sig_norm))
         sig_fit.fitTo(rdh_zh, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(sumw2err))
 
-        mean__.append(mean.getVal())
+        mean_ud.append(mean.getVal())
 
         # do plotting
         cfg['ymax']= yMax
@@ -1941,21 +1849,19 @@ def doLEPSCALE():
         ROOT.gPad.SetTickx()
         ROOT.gPad.SetTicky()
         ROOT.gPad.RedrawAxis()
-        canvas.SaveAs('%s/fit_mH%s_LEPSCALE%s.png' % (outDir, mH_, s))
-        canvas.SaveAs('%s/fit_mH%s_LEPSCALE%s.pdf' % (outDir, mH_, s))
+        canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_LEPSCALE{s}.png')
 
         del dummyB, dummyT
         del padT, padB
         del canvas
 
-        # import
+        # Import
         getattr(w_tmp, 'import')(rdh_zh)
         getattr(w_tmp, 'import')(sig_fit)
-        # getattr(w_tmp, 'import')(sig_norm) # already imported with sig_fit
 
 
     # plot all fitted signals
-    cfg['ymax'] = yMax*2.5
+    cfg['ymax'] = 2.5 * yMax
     cfg['xmin'] = 124
     cfg['xmax'] = 127
     plotter.cfg = cfg
@@ -1969,13 +1875,13 @@ def doLEPSCALE():
     plt    = w_tmp.var('zll_recoil_m').frame()
     colors = [ROOT.kRed, ROOT.kBlack, ROOT.kBlue]
 
-    sig_fit = w_tmp.pdf('zh_model_%s_LEPSCALEUp' % mH_)  # 'sig_%s_BES%s_norm' % (mH_, s)
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}_LEPSCALEUp')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[0]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
-    sig_fit = w_tmp.pdf('zh_model_%s' % mH_)
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[1]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
-    sig_fit = w_tmp.pdf('zh_model_%s_LEPSCALEDown' % mH_)
+    sig_fit = w_tmp.pdf(f'zh_model_{mH_label}_LEPSCALEDown')
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[2]), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
     plt.Draw('SAME')
@@ -1987,24 +1893,21 @@ def doLEPSCALE():
     ROOT.gPad.SetTicky()
     ROOT.gPad.RedrawAxis()
     canvas.Draw()
-    canvas.SaveAs('%s/fit_mH%s_LEPSCALE.png' % (outDir, mH_))
-    canvas.SaveAs('%s/fit_mH%s_LEPSCALE.pdf' % (outDir, mH_))
+    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_LEPSCALE.png')
 
-    # construct LEPSCALE uncertainty
-    # nominals, w/o the BES uncertainty
+    # Construct LEPSCALE uncertainty
+    # Nominals, w/o the BES uncertainty
     spline_mean  = w_tmp.obj('spline_mean')
     spline_sigma = w_tmp.obj('spline_sigma')
-    MH.setVal(125.0)  # evaluate all at 125 GeV
-    mean__nominal = spline_mean.getVal()
-    # sigma__nominal = spline_sigma.getVal()
+    MH.setVal(125.0)  # Evaluate all at 125 GeV
+    mean_nominal = spline_mean.getVal()
 
-    # mean param
-    # delta = 0.5*(abs(mean__nominal-mean__[0]) + abs(mean__nominal-mean__[1]))
-    delta = 0.5*abs(mean__[0] - mean__[1])
-    sig_mean_LEPSCALE_ = (delta)/mean__nominal  # 1 sigma value  such that (1+bkg_norm_BES)*mean__nominal = mean__nominal+delta
+    # Mean param
+    delta = 0.5 * abs(mean_ud[0] - mean_ud[1])
+    sig_mean_LEPSCALE_ = delta / mean_nominal  # 1 sigma value  such that (1 + bkg_norm_BES) * mean_nominal = mean_nominal + delta
     sig_mean_LEPSCALE  = ROOT.RooRealVar('sig_mean_LEPSCALE', 'sig_mean_LEPSCALE', sig_mean_LEPSCALE_)  # constant
     getattr(w_tmp, 'import')(sig_mean_LEPSCALE)
-    print(mean__nominal, delta, sig_mean_LEPSCALE_)
+    print(mean_nominal, delta, sig_mean_LEPSCALE_)
 
 
 ######################
@@ -2016,20 +1919,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--flavor', type=str, help='Flavor (mumu or ee)', default='mumu')
     parser.add_argument('--mode', type=str, help='Detector mode', choices=['IDEA', 'IDEA_MC', 'IDEA_3T', 'CLD', 'CLD_FullSim', 'IDEA_noBES', 'IDEA_2E', 'IDEA_BES6pct'], default='IDEA')
-    parser.add_argument('--cat', type=str, help='Category (0, 1, 2 or 3)', choices=['0', '1', '2', '3'], default='0')
+    parser.add_argument('--cat', type=int, help='Category (0, 1, 2 or 3)', choices=[0, 1, 2, 3], default=0)
     parser.add_argument('--lumi', type=float, help='Luminosity scale', default=1.0)
     parser.add_argument('--ecm', type=str, help='Center-of-mass', choices=['240', '365'], default='240')
     parser.add_argument('--tag', type=str, help='Analysis tag for versioning, optional', default='')
-    parser.add_argument('--singularity', action='store_true', help='Run in singularity mode')
+    parser.add_argument('--recoilMin', type=int, help='Lower mass value for the fit (default 120)', default=120)
+    parser.add_argument('--recoilMax', type=int, help='Upper mass value for the fit (default 140)', default=140)
+    parser.add_argument('--nBins', type=int, help='Number of bins for the plots (default 250)', default=250)
+    parser.add_argument('--doSyst', action=argparse.BooleanOptionalAction, default=True, help='Include systematic uncertainties in th fit (default True)')
     args = parser.parse_args()
 
-
-
-    if not args.singularity:
-        cmd = ' '.join(sys.argv)
-        cmd_tot = f"singularity exec --bind /work:/work /work/submit/jaeyserm/software/docker/combine-standalone_v9.2.1.sif bash -c 'python {cmd} --singularity'"
-        os.system(cmd_tot)
-        quit()
 
     sumw2err = ROOT.kTRUE
 
@@ -2041,18 +1940,15 @@ if __name__ == '__main__':
     # ROOT.Math.MinimizerOptions.PrintDefault()
 
 
-    mode   = args.mode  # detector mode
-    flavor = args.flavor
-    cat = int(args.cat)
-    ecm = args.ecm
-    tag = args.tag
+    flavor, ecm, sel = args.flavor, args.ecm, args.sel
+    cat, tag, mode = args.cat, args.tag, args.mode
     flavorLabel = '#mu^{#plus}#mu^{#minus}' if flavor == 'mumu' else 'e^{#plus}e^{#minus}'
     lumiScale = args.lumi
 
     # re-normalize lumis, by default histograms are scaled to 10.8 and 3.12 ab-1
-    if ecm == '240' or ecm == 240:
+    if ecm == 240:
         lumiScale /= 10.8
-    elif ecm == '365' or ecm == 365:
+    elif ecm == 365:
         lumiScale /= 3.12
     else:
         print(f'Center-of-masss {ecm} not supported')
@@ -2060,48 +1956,63 @@ if __name__ == '__main__':
     lumiStr   = str(int(args.lumi)) if args.lumi.is_integer() else str(args.lumi)
     lumiLabel = lumiStr.replace('.', 'p')
 
-    topRight = f'#sqrt{{s}} = {ecm} GeV, {lumiStr} ab^{{#minus1}}'
+    topRight = f'#sqrt{{s}} = {ecm} GeV, {lumiStr} ab^{{-1}}'
     topLeft  = '#bf{FCC-ee} #scale[0.7]{#it{Internal}}'
     label    = f'{flavorLabel}, category {cat}'
-    inputDir = f'output/h_mass/histmaker/ecm{ecm}/'
-    outDir   = f'/work/submit/jaeyserm/public_html/fccee/h_mass/{tag}/combine/{mode}/lumi{lumiLabel}/{flavor}_cat{cat}_ecm{ecm}/'
-    runDir   = f'output/h_mass/combine/{tag}/{mode}/lumi{lumiLabel}/{flavor}_cat{cat}_ecm{ecm}/'
-    if not os.path.exists(outDir): os.makedirs(outDir)
-    if not os.path.exists(runDir): os.makedirs(runDir)
-    os.system(f'cp /home/submit/jaeyserm/public_html/fccee/h_mass/index.php {outDir}')
+    inDir    = loc.get('HIST_PROCESSED', flavor, ecm, sel)
+    outDir   = loc.get('DATACARD',       flavor, ecm, sel)
+    runDir   = loc.get('RUNDIR',         flavor, ecm, sel)
+
+    outDir.mkdir(exist_ok=True, parents=True)
+    runDir.mkdir(exist_ok=True, parents=True)
+    subprocess.run(['cp', '/home/submit/jaeyserm/public_html/fccee/h_mass/index.php', f'{outDir}'])
 
     parId = f'{flavor}_cat{cat}_ecm{ecm}'
     hName = 'zll_recoil_m_cat'
-    if cat == 0: cat_idx_min, cat_idx_max = 0, 5
-    else: cat_idx_min, cat_idx_max = cat, cat
+    if cat == 0: cat_idx_min, cat_idx_max = 0,   5
+    else:        cat_idx_min, cat_idx_max = cat, cat
 
-    if not os.path.exists(runDir): os.makedirs(runDir)
-    if not os.path.exists(outDir): os.makedirs(outDir)
-
-    nBins = 250  # total number of bins, for plotting
-    recoilMin = 120
-    recoilMax = 140
+    nBins = args.nBins  # total number of bins, for plotting
+    recoilMin, recoilMax = args.recoilMin, args.recoilMax
     h_obs = None  # should hold the data_obs = sum of signal and backgrounds
 
-    recoilmass = ROOT.RooRealVar('zll_recoil_m', 'm_{rec} (GeV)', 125, recoilMin, recoilMax)
-    MH = ROOT.RooRealVar('MH', 'Higgs mass (GeV)', 125, 124.95, 125.05)
+    recoilmass = ROOT.RooRealVar('zll_recoil_m', 'm_{recoil} [GeV]', 125, recoilMin, recoilMax)
+    MH = ROOT.RooRealVar('MH', 'Higgs mass [GeV]', 125, 124.95, 125.05)
 
     pdf_sigs = []
 
     # define temporary output workspace
+    w     = ROOT.RooWorkspace('w',     'workspace')  # final workspace for combine
     w_tmp = ROOT.RooWorkspace('w_tmp', 'workspace')
-    w = ROOT.RooWorkspace('w', 'workspace')  # final workspace for combine
 
     getattr(w_tmp, 'import')(recoilmass)
     getattr(w_tmp, 'import')(MH)
 
-    yield_nom = -1
-    yMax = -1
-
     hist_sig = doSignal()
     hist_bkg = doBackgrounds()
-    doSyst = True
-    if doSyst:
+
+    # Build signal model
+    spline_mean     = w_tmp.obj('spline_mean')
+    spline_sigma    = w_tmp.obj('spline_sigma')
+    spline_yield    = w_tmp.obj('spline_yield')
+    spline_alpha_1  = w_tmp.obj('spline_alpha_1')
+    spline_alpha_2  = w_tmp.obj('spline_alpha_2')
+    spline_n_1      = w_tmp.obj('spline_n_1')
+    spline_n_2      = w_tmp.obj('spline_n_2')
+    spline_cb_1     = w_tmp.obj('spline_cb_1')
+    spline_cb_2     = w_tmp.obj('spline_cb_2')
+    spline_mean_gt  = w_tmp.obj('spline_mean_gt')
+    spline_sigma_gt = w_tmp.obj('spline_sigma_gt')
+
+    sig_alpha_1 = ROOT.RooFormulaVar('sig_alpha_1', '@0', ROOT.RooArgList(spline_alpha_1))
+    sig_alpha_2 = ROOT.RooFormulaVar('sig_alpha_2', '@0', ROOT.RooArgList(spline_alpha_2))
+    sig_n_1     = ROOT.RooFormulaVar('sig_n_1',     '@0', ROOT.RooArgList(spline_n_1))
+    sig_n_2     = ROOT.RooFormulaVar('sig_n_2',     '@0', ROOT.RooArgList(spline_n_2))
+    sig_cb_1    = ROOT.RooFormulaVar('sig_cb_1',    '@0', ROOT.RooArgList(spline_cb_1))
+    sig_cb_2    = ROOT.RooFormulaVar('sig_cb_2',    '@0', ROOT.RooArgList(spline_cb_2))
+    sig_norm    = ROOT.RooFormulaVar('sig_norm',    '@0', ROOT.RooArgList(spline_yield))
+
+    if args.doSyst:
 
         doBES()  # 1 or 6 pct BES variation
         doSQRTS()
@@ -2115,68 +2026,27 @@ if __name__ == '__main__':
         LEPSCALE = ROOT.RooRealVar(f'LEPSCALE_{flav}_ecm{ecm}', 'LEPSCALE', 0, -5, 5)  # LEPSCALE uncertainty parameter
 
         # BES
-        sig_sigma_BES    = w_tmp.obj('sig_sigma_BES')
-        sig_sigma_gt_BES = w_tmp.obj('sig_sigma_gt_BES')
+        sigma_BES    = w_tmp.obj('sig_sigma_BES')
+        sigma_gt_BES = w_tmp.obj('sig_sigma_gt_BES')
 
         # SQRTS
-        sig_mean_SQRTS    = w_tmp.obj('sig_mean_SQRTS')
-        sig_mean_gt_SQRTS = w_tmp.obj('sig_mean_gt_SQRTS')
+        mean_SQRTS    = w_tmp.obj('sig_mean_SQRTS')
+        mean_gt_SQRTS = w_tmp.obj('sig_mean_gt_SQRTS')
 
         # LEPSCALE
-        sig_mean_LEPSCALE = w_tmp.obj('sig_mean_LEPSCALE')
+        mean_LEPSCALE = w_tmp.obj('sig_mean_LEPSCALE')
 
 
-        # Build signal model, taking into account all uncertainties
-        spline_mean     = w_tmp.obj('spline_mean')
-        spline_sigma    = w_tmp.obj('spline_sigma')
-        spline_yield    = w_tmp.obj('spline_yield')
-        spline_alpha_1  = w_tmp.obj('spline_alpha_1')
-        spline_alpha_2  = w_tmp.obj('spline_alpha_2')
-        spline_n_1      = w_tmp.obj('spline_n_1')
-        spline_n_2      = w_tmp.obj('spline_n_2')
-        spline_cb_1     = w_tmp.obj('spline_cb_1')
-        spline_cb_2     = w_tmp.obj('spline_cb_2')
-        spline_mean_gt  = w_tmp.obj('spline_mean_gt')
-        spline_sigma_gt = w_tmp.obj('spline_sigma_gt')
-
-
-        # sig_mean = ROOT.RooFormulaVar('sig_mean', '@0*(1+@1*@2)*(1+@3*@4)*(1+@5*@6)*(1+@7*@8)', ROOT.RooArgList(spline_mean, BES, sig_mean_BES, ISR, sig_mean_ISR, SQRTS, sig_mean_SQRTS, LEPSCALE, sig_mean_LEPSCALE))
-        sig_mean     = ROOT.RooFormulaVar('sig_mean',     '@0*(1+@1*@2)*(1+@3*@4)', ROOT.RooArgList(spline_mean,  LEPSCALE, sig_mean_LEPSCALE, SQRTS, sig_mean_SQRTS))
-        sig_sigma    = ROOT.RooFormulaVar('sig_sigma',    '@0*(1+@1*@2)',           ROOT.RooArgList(spline_sigma, BES,      sig_sigma_BES))
-        sig_alpha_1  = ROOT.RooFormulaVar('sig_alpha_1',  '@0', ROOT.RooArgList(spline_alpha_1))
-        sig_alpha_2  = ROOT.RooFormulaVar('sig_alpha_2',  '@0', ROOT.RooArgList(spline_alpha_2))
-        sig_n_1      = ROOT.RooFormulaVar('sig_n_1',      '@0', ROOT.RooArgList(spline_n_1))
-        sig_n_2      = ROOT.RooFormulaVar('sig_n_2',      '@0', ROOT.RooArgList(spline_n_2))
-        sig_cb_1     = ROOT.RooFormulaVar('sig_cb_1',     '@0', ROOT.RooArgList(spline_cb_1))
-        sig_cb_2     = ROOT.RooFormulaVar('sig_cb_2',     '@0', ROOT.RooArgList(spline_cb_2))
-        sig_mean_gt  = ROOT.RooFormulaVar('sig_mean_gt',  '@0*(1+@1*@2)',           ROOT.RooArgList(spline_mean_gt,  SQRTS, sig_mean_SQRTS))
-        sig_sigma_gt = ROOT.RooFormulaVar('sig_sigma_gt', '@0*(1+@1*@2)*(1+@3*@4)', ROOT.RooArgList(spline_sigma_gt, BES,   sig_sigma_gt_BES, SQRTS, sig_mean_gt_SQRTS))
-        sig_norm     = ROOT.RooFormulaVar('sig_norm',     '@0', ROOT.RooArgList(spline_yield))
+        sig_mean     = ROOT.RooFormulaVar('sig_mean',     '@0*(1+@1*@2)*(1+@3*@4)', ROOT.RooArgList(spline_mean,     LEPSCALE, mean_LEPSCALE, SQRTS, mean_SQRTS))
+        sig_sigma    = ROOT.RooFormulaVar('sig_sigma',    '@0*(1+@1*@2)',           ROOT.RooArgList(spline_sigma,    BES,      sigma_BES))
+        sig_mean_gt  = ROOT.RooFormulaVar('sig_mean_gt',  '@0*(1+@1*@2)',           ROOT.RooArgList(spline_mean_gt,  SQRTS,    mean_SQRTS))
+        sig_sigma_gt = ROOT.RooFormulaVar('sig_sigma_gt', '@0*(1+@1*@2)*(1+@3*@4)', ROOT.RooArgList(spline_sigma_gt, BES,      sigma_gt_BES,  SQRTS, mean_gt_SQRTS))
 
     else:
-        spline_mean    = w_tmp.obj('spline_mean')
-        spline_sigma   = w_tmp.obj('spline_sigma')
-        spline_yield   = w_tmp.obj('spline_yield')
-        spline_alpha_1 = w_tmp.obj('spline_alpha_1')
-        spline_alpha_2 = w_tmp.obj('spline_alpha_2')
-        spline_n_1  = w_tmp.obj('spline_n_1')
-        spline_n_2  = w_tmp.obj('spline_n_2')
-        spline_cb_1 = w_tmp.obj('spline_cb_1')
-        spline_cb_2 = w_tmp.obj('spline_cb_2')
-        spline_mean_gt  = w_tmp.obj('spline_mean_gt')
-        spline_sigma_gt = w_tmp.obj('spline_sigma_gt')
-
-        sig_mean    = ROOT.RooFormulaVar('sig_mean',    '@0', ROOT.RooArgList(spline_mean))
-        sig_sigma   = ROOT.RooFormulaVar('sig_sigma',   '@0', ROOT.RooArgList(spline_sigma))
-        sig_alpha_1 = ROOT.RooFormulaVar('sig_alpha_1', '@0', ROOT.RooArgList(spline_alpha_1))
-        sig_alpha_2 = ROOT.RooFormulaVar('sig_alpha_2', '@0', ROOT.RooArgList(spline_alpha_2))
-        sig_n_1  = ROOT.RooFormulaVar('sig_n_1',  '@0', ROOT.RooArgList(spline_n_1))
-        sig_n_2  = ROOT.RooFormulaVar('sig_n_2',  '@0', ROOT.RooArgList(spline_n_2))
-        sig_cb_1 = ROOT.RooFormulaVar('sig_cb_1', '@0', ROOT.RooArgList(spline_cb_1))
-        sig_cb_2 = ROOT.RooFormulaVar('sig_cb_2', '@0', ROOT.RooArgList(spline_cb_2))
+        sig_mean     = ROOT.RooFormulaVar('sig_mean',     '@0', ROOT.RooArgList(spline_mean))
+        sig_sigma    = ROOT.RooFormulaVar('sig_sigma',    '@0', ROOT.RooArgList(spline_sigma))
         sig_mean_gt  = ROOT.RooFormulaVar('sig_mean_gt',  '@0', ROOT.RooArgList(spline_mean_gt))
         sig_sigma_gt = ROOT.RooFormulaVar('sig_sigma_gt', '@0', ROOT.RooArgList(spline_sigma_gt))
-        sig_norm     = ROOT.RooFormulaVar('sig_norm',     '@0', ROOT.RooArgList(spline_yield))
 
     # construct final signal pdf
     cbs_1 = ROOT.RooCBShape('CrystallBall_1', 'CrystallBall_1', recoilmass, sig_mean, sig_sigma, sig_alpha_1, sig_n_1)
@@ -2184,13 +2054,12 @@ if __name__ == '__main__':
     gauss = ROOT.RooGaussian('gauss', 'gauss', recoilmass, sig_mean_gt, sig_sigma_gt)
     sig   = ROOT.RooAddPdf('sig', 'sig', ROOT.RooArgList(cbs_1, cbs_2, gauss), ROOT.RooArgList(sig_cb_1, sig_cb_2))
 
-    # getattr(w, 'import')(sig_norm)
     getattr(w, 'import')(sig)
 
-    # construct background model 66672.5686008
+    # Construct background model
     bkg_yield = w_tmp.obj('bkg_norm_tmp').getVal()
-    bkg_norm  = ROOT.RooRealVar('bkg_norm', 'bkg_norm', bkg_yield)  # nominal background yield (automatically done by Combine with pdfName_norm, floating)
-    bkg_norm.setVal(bkg_yield)  # not constant!
+    bkg_norm  = ROOT.RooRealVar('bkg_norm', 'bkg_norm', bkg_yield)  # Nominal background yield (automatically done by Combine with pdfName_norm, floating)
+    bkg_norm.setVal(bkg_yield)  # Not constant!
     bkg = w_tmp.obj('bkg')
     getattr(w, 'import')(bkg, ROOT.RooFit.RenameAllVariablesExcept(parId, 'zll_recoil_m'))
 
@@ -2230,6 +2099,5 @@ if __name__ == '__main__':
         cmd = "sed -i '/LEPSCALE_MU/d' datacard.txt"
     subprocess.call(cmd, shell=True, cwd=runDir)
 
-    # build the Combine workspace based on the datacard, save it to ws.root
-    cmd = 'text2workspace.py datacard.txt -o ws.root -v 10  --X-allow-no-background'
-    subprocess.call(cmd, shell=True, cwd=runDir)
+    # Build the Combine workspace based on the datacard, save it to ws.root
+    subprocess.call(['text2workspace.py', 'datacard.txt' '-o', 'ws.root', '-v', '10', '--X-allow-no-background'], shell=True, cwd=runDir)
