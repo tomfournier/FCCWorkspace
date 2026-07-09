@@ -16,6 +16,8 @@ parser.add_argument('--lumi', type=float, help='Luminosity scale', default=-1.0)
 parser.add_argument('--statOnly', action='store_true', help='Stat-only fit')
 parser.add_argument('--ecm', type=int, help='Center-of-mass', choices=[-1, 240, 365], default=-1)
 parser.add_argument('--tag', type=str, help='Analysis tag', default='')
+parser.add_argument('--doSummary', action='store_true', help='Do summary plots', default=False)
+parser.add_argument('--doBreakDown', action='store_true', help='Do breakdow', default=False)
 parser.add_argument('--combination', action='store_true', help='Do full combination')
 args = parser.parse_args()
 
@@ -70,7 +72,7 @@ def analyzeMass(
         if t.quantileExpected < -1.5: continue
         if t.deltaNLL > 1000: continue
         if t.deltaNLL > 20: continue
-        xv.append(getattr(t, 'MH'))
+        xv.append(t.MH)
         yv.append(t.deltaNLL*2.)
 
     xv, yv = zip(*sorted(zip(xv, yv)))
@@ -97,7 +99,7 @@ def analyzeMass(
         'ymin'              : yMin,
         'ymax'              : yMax ,  # max(yv)
 
-        'xtitle'            : 'm_{h} (GeV)',
+        'xtitle'            : 'm_{H} [GeV]',
         'ytitle'            : '-2#DeltaNLL',
 
         'topRight'          : topRight,
@@ -138,7 +140,6 @@ def analyzeMass(
     canvas.Update()
     canvas.Draw()
     canvas.SaveAs(f'{outDir}/mass{suffix}.png')
-    canvas.SaveAs(f'{outDir}/mass{suffix}.pdf')
 
 
     # Write values to text file
@@ -157,23 +158,25 @@ def doFit_mass(
         mhMin: float | int = 124.99,
         mhMax: float | int = 125.01,
         npoints: int = 50,
-        combineOptions: str = ''):
+        combineOptions: list[str] = []):
 
-    cmd = f'combine -M MultiDimFit -t -1 --setParameterRanges MH={mhMin},{mhMax} --points={npoints} --algo=grid ws.root --expectSignal=1 -m 125' + \
-        f' --redefineSignalPOIs MH --X-rtd TMCSO_AdaptivePseudoAsimov -v 10 --X-rtd ADDNLL_CBNLL=0 -n mass {combineOptions}'
-    cmd_tot = f"singularity exec --bind /work:/work /work/submit/jaeyserm/software/docker/combine-standalone_v9.2.1.sif bash -c '{cmd}'"
-    subprocess.call(cmd_tot, shell=True, cwd=runDir)
+    cmd = ['combine', '-M', 'MultiDimFit', 'ws.root', '-t', '-1', '--setParameterRanges', f'MH={mhMin},{mhMax}', '--points', f'{npoints}',
+           '--algo', 'grid', '--expectSignal=1', '-m', '125', '--redefinesSignalPOIs', 'MH', '--X-rtd', 'TMCSO_AdaptivePseudoAsimov',
+           '-v', '10', '--X-rtd', 'ADDNLL_CBNLL=0', '-n', 'mass'] + combineOptions
+    subprocess.call(cmd, shell=True, cwd=runDir)
 
 
-def doFitDiagnostics_mass(runDir, mhMin=124.99, mhMax=125.01, combineOptions = ''):
+def doFitDiagnostics_mass(
+        runDir: str,
+        mhMin: float | int = 124.99,
+        mhMax: float | int = 125.01,
+        combineOptions: list[str] = []):
 
-    # cmd = f'combine -M FitDiagnostics -t -1 --setParameterRanges MH={mhMin},{mhMax} ws.root --expectSignal=1 -v 10  -m 125' + \
-    #     f' --redefineSignalPOIs MH --floatParameters MH --X-rtd TMCSO_AdaptivePseudoAsimov --X-rtd ADDNLL_CBNLL=0 -n mass {combineOptions}'
-    cmd = f'combine -M MultiDimFit --algo singles -t -1 --setParameterRanges MH={mhMin},{mhMax} ws.root --expectSignal=1 -v 10  -m 125' + \
-        f' --redefineSignalPOIs MH --floatParameters MH --X-rtd TMCSO_AdaptivePseudoAsimov --X-rtd ADDNLL_CBNLL=0 -n mass {combineOptions}'
+    cmd = ['combine', '-M', 'MultiDimFit', 'ws.root', '--algo', 'singles', '-t', '-1', '--setParameterRanges', f'MH={mhMin},{mhMax}',
+           '--expectSignal=1', '-v', '10', '-m', '125', '--redefineSignalPOIs', 'MH', '--floatParameters', 'MH',
+           '--X-rtd', 'TMCSO_AdaptivePseudoAsimov', '--X-rtd', 'ADD_CBNLL=0', '-n', 'mass'] + combineOptions
 
-    cmd_tot = f"singularity exec --bind /work:/work /work/submit/jaeyserm/software/docker/combine-standalone_v9.2.1.sif bash -c '{cmd}'"
-    subprocess.call(cmd_tot, shell=True, cwd=runDir)
+    subprocess.call(cmd, shell=True, cwd=runDir)
 
     # Get the uncertainty
     with ROOT.TFile(f'{runDir}/higgsCombinemass.MultiDimFit.mH125.root') as fIn:
@@ -237,7 +240,7 @@ def plotMultiple(
         'ymin'              : yMin,
         'ymax'              : yMax,
 
-        'xtitle'            : 'm_{h} (GeV)',
+        'xtitle'            : 'm_{H} [GeV]',
         'ytitle'            : '-2#DeltaNLL',
 
         'topRight'          : topRight,
@@ -410,8 +413,6 @@ def breakDown(outDir):
     for p in range(n_params):
         i -= 1
         _, unc = getUnc(params[p], 'mass')
-        # unc = math.sqrt(unc_ref**2 - unc**2)
-        print(unc_ref, unc)
         unc = math.sqrt(unc**2 - unc_ref**2)
         g_pulls.SetPoint(i, 0, float(i) + 0.5)
         g_pulls.SetPointError(i, unc, unc, 0., 0.)
@@ -553,10 +554,8 @@ def breakDown(outDir):
 
 
 def text2workspace(runDir):
-
-    cmd = 'text2workspace.py datacard.txt -o ws.root  -v 10 --X-allow-no-background'
-    cmd_tot = f"singularity exec --bind /work:/work /work/submit/jaeyserm/software/docker/combine-standalone_v9.2.1.sif bash -c '{cmd}'"
-    subprocess.call(cmd_tot, shell=True, cwd=runDir)
+    cmd = ['text2workspace.py', 'datacard.txt', '-o', 'ws.root', '-v', '10', '--X-allow-no-background']
+    subprocess.call(cmd, shell=True, cwd=runDir)
 
 
 def combineCards(runDir, input_=[]):
@@ -566,9 +565,9 @@ def combineCards(runDir, input_=[]):
     input_ = [f'{os.getcwd()}/{i}' for i in input_]
     cards = ' '.join(input_)
 
-    cmd = f'combineCards.py   --force-shape {cards} > datacard.txt'
-    cmd_tot = f"singularity exec --bind /work:/work /work/submit/jaeyserm/software/docker/combine-standalone_v9.2.1.sif bash -c '{cmd}'"
-    subprocess.call(cmd_tot, shell=True, cwd=runDir)
+    cmd = ['combineCards.py', '--force-shape', f'{cards}']
+    with open('datacard.txt', 'w') as out:
+        subprocess.call(cmd, shell=True, cwd=runDir, stdout=out)
     text2workspace(runDir)
 
 
@@ -593,7 +592,7 @@ if __name__ == '__main__':
             return 124.95, 125.05
         return 125 - 1.5 * mh_err, 125 + 1.5 * mh_err
 
-    combineOptions, suffix = '', ''
+    combineOptions, suffix = [], ''
     freezeParameters, setParameters = [], []
 
     doSyst = not args.statOnly
@@ -647,9 +646,7 @@ if __name__ == '__main__':
 
     freezeParameters.extend(systs)
 
-
-    doBreakDown = True
-    if doBreakDown:
+    if args.doBreakDown:
         breakDown(f'{outDir}/mumu_ee_combined_categorized_ecm240')
         quit()
         breakDown('mumu_ee_combined_inclusive')
@@ -665,8 +662,7 @@ if __name__ == '__main__':
         breakDown('ee_combined')
         quit()
 
-    doSummary = False
-    if doSummary:
+    if args.doSummary:
         outDir__ = f'/work/submit/jaeyserm/public_html/fccee/higgs_mass_xsec/{args.tag}/combine/'
         outDir   = f'/work/submit/jaeyserm/public_html/fccee/higgs_mass_xsec/{args.tag}/combine/summaryPlots/'
         plotMultiple([f'{outDir__}/IDEA/lumi10p8/mumu_combined_ecm240/',
@@ -697,12 +693,11 @@ if __name__ == '__main__':
 
     ##################################
     if len(freezeParameters) > 0:
-        combineOptions += ' --freezeParameters ' + ','.join(freezeParameters)
+        combineOptions.extend(' --freezeParameters ', ','.join(freezeParameters))
     if len(setParameters) > 0:
-        combineOptions += ' --setParameters ' + ','.join(setParameters)
+        combineOptions.extend(' --setParameters ',    ','.join(setParameters))
 
 
-    ############### MUON
     if True:
         for cat, tag_base in [('ee', 'e^{+}e^{-}, '), ('mumu', '#mu^{+}#mu^{-}, ')]:
             for tag, pos in [('cat0', 'inclusive'),
@@ -712,7 +707,7 @@ if __name__ == '__main__':
                              ('combined', 'combined')]:
                 tag_cat, label = f'{cat}_{tag}_ecm{ecm}', tag_base + pos
 
-        if tag=='combined':
+        if tag == 'combined':
             combineCards(f'{combineDir}/combined',
                          [f'{combineDir}/{cat}_cat1_ecm{ecm}/datacard.txt',
                           f'{combineDir}/{cat}_cat2_ecm{ecm}/datacard.txt',
@@ -725,8 +720,7 @@ if __name__ == '__main__':
 
     ############### MUON+ELECTRON
     if True:
-
-        # check if lumi and ecm are defined
+        # Check if lumi and ecm are defined
         tag, label = f'mumu_ee_combined_inclusive_ecm{ecm}', '#mu^{#plus}#mu^{#minus}+e^{#plus}e^{#minus}, inclusive'
         combineCards(f'{combineDir}/{tag}',
                      [f'{combineDir}/mumu_cat0_ecm{ecm}/datacard.txt', f'{combineDir}/ee_cat0_ecm{ecm}/datacard.txt'])
@@ -752,7 +746,7 @@ if __name__ == '__main__':
                      f'{outDir}/mumu_ee_combined_categorized_ecm{ecm}', 124.99, 125.01)
 
 
-    # 240+365
+    # 240 + 365
     if args.combination:
 
         lumi_240, lumi_365 = '10p8', '3p12'
@@ -777,8 +771,8 @@ if __name__ == '__main__':
             quit()
 
         combineCards(combineDir, [combineDir_240+'/datacard.txt', combineDir_365+'/datacard.txt'])
-        mh_err = doFitDiagnostics_mass(combineDir, mhMin=124.95, mhMax=125.05, combineOptions=combineOptions)
+        mh_err = doFitDiagnostics_mass(combineDir, 124.95, 125.05, combineOptions)
         mhMin, mhMax = mHrange(mh_err)
-        doFit_mass(combineDir, mhMin=mhMin, mhMax=mhMax, npoints=50, combineOptions=combineOptions)
-        analyzeMass(combineDir, outDir_, label=label, xMin=mhMin, xMax=mhMax)
+        doFit_mass(combineDir, mhMin, mhMax, 50, combineOptions)
+        analyzeMass(combineDir, outDir_, mhMin, mhMax, label=label)
         plotMultiple([outDir_240, outDir_365, outDir_], ['#sqrt{s} = 240 GeV', '#sqrt{s} = 365 GeV', 'Combination'], outDir_, 124.98, 125.02)
