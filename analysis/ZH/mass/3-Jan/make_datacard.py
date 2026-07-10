@@ -789,6 +789,18 @@ def get_hist():
 
 
 
+def make_unc_import(spline_vals, val_names, syst, val_up, val_dw):
+
+    for spline_val, val_name in spline_vals, val_names:
+        nominal_val = spline_val.getVal()
+        delta = 0.5 * abs(val_up - val_dw)
+
+        # 1 sigma value taken such that (1 + bkg_norm) * sigma_nominal = sigma_nominal + delta
+        nominal = ROOT.RooRealVar(f'sig_{val_name}_{syst}', f'sig_{val_name}_{syst}', delta / nominal_val)
+        w_tmp.Import(nominal)
+
+
+
 
 
 
@@ -927,7 +939,11 @@ def setup_syst(proc, syst, mH=125.0):
     canvas.Draw()
     canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_{syst}.png')
 
-    # Should continue later
+    # Have to continue
+    if 'BES' in syst:
+        spline_vals = [spline_sigma, spline_sigma_gt]
+        val_names = ['sigma', 'sigma_gt']
+        make_unc_import(spline_vals, val_names, syst)
 
 
 
@@ -1084,8 +1100,6 @@ def doBES():
 
     # Construct BES uncertainty
     # Nominals, w/o the BES uncertainty
-    spline_mean  = w_tmp.obj('spline_mean')
-    spline_sigma = w_tmp.obj('spline_sigma')
     MH.setVal(125.0)  # Evaluate all at 125 GeV
     sigma_nominal    = spline_sigma.getVal()
     sigma_gt_nominal = spline_sigma_gt.getVal()
