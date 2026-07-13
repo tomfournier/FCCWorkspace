@@ -52,15 +52,14 @@ sig_procs = {'sig': samples_sig}  # Combine all signal samples under 'sig' label
 
 # Define background processes with their respective samples
 bkg_procs = {
-    'ZZ':     event_combine([f'p8_ee_ZZ_ecm{ecm}'], inputDir),   # Diboson ZZ
+    # 'ZZ':     event_combine([f'p8_ee_ZZ_ecm{ecm}'], inputDir),   # Diboson ZZ
     'WW':     event_combine([f'p8_ee_WW_ecm{ecm}',                    # Diboson WW
                              f'p8_ee_WW_ee_ecm{ecm}',
                              f'p8_ee_WW_mumu_ecm{ecm}'], inputDir),
     'Zgamma': event_combine([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',       # ee -> ff processes
                              f'wzp6_ee_mumu_ecm{ecm}',
                              f'wzp6_ee_tautau_ecm{ecm}',
-                             f'p8_ee_Zqq_ecm{ecm}' if ecm==240
-                             else f'wzp6_ee_qq_ecm{ecm}'
+                             f'p8_ee_qq_ecm{ecm}'
                              ], inputDir),
     'Rare':   event_combine([f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Rare backgrounds
                              f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
