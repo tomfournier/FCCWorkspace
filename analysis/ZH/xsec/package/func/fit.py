@@ -255,7 +255,8 @@ def res_saving(
 def read_tree_data(
         file_path: Path,
         param: str = "r",
-        y_cut: float | int = 7.0
+        y_cut: float | int = 7.0,
+        other_params: list[str] = []
          ) -> tuple[np.ndarray,
                     np.ndarray]:
     """
@@ -263,10 +264,13 @@ def read_tree_data(
     Returns sorted parameter and 2*deltaNLL arrays.
     """
     with uproot.open(file_path) as f:
-        tree = f["limit"]
+        tree: pd.DataFrame = f["limit"].arrays(library='pd')
+        if other_params:
+            best_fit = tree.eval(' & '.join(f'{p}==0' for p in other_params))
+            tree = tree[best_fit]
         # Read data directly as numpy arrays
-        x_data = tree[param].array(library="np")
-        y_data = 2 * tree["deltaNLL"].array(library="np")
+        x_data = tree[param].to_numpy()
+        y_data = 2 * tree["deltaNLL"].to_numpy()
 
     LOGGER.debug(f'Found {len(x_data)} point in {file_path}')
 
@@ -404,7 +408,8 @@ def process_scan(
         input_file: Path,
         param: str = "r",
         y_cut: float | int = 7.0,
-        only_res: bool = False
+        only_res: bool = False,
+        other_params: list[str] = []
          ) -> tuple[np.ndarray,
                     np.ndarray,
                     int | float,
@@ -416,7 +421,7 @@ def process_scan(
     Returns: (x, y, bestfit, spline, errors_1sig, errors_2sig)
     """
     # Read data
-    x, y = read_tree_data(input_file, param, y_cut)
+    x, y = read_tree_data(input_file, param, y_cut, other_params)
 
     if len(x) <= 1:
         raise ValueError(f"Not enough points in {input_file}: {len(x)}")
@@ -461,6 +466,7 @@ def plot_1d_scans(
         suffix: str = '',
         right: str = '',
         sig2: bool = False,
+        other_params: list[str] = []
          ) -> None:
     """
     Plot multiple 1D likelihood scans on the same figure.
@@ -488,7 +494,7 @@ def plot_1d_scans(
             filepath, label = spec, f"Scan {i+1}"
             color = colors[i % len(colors)]
 
-        x, y, bestfit, spl, err_1sig, err_2sig = process_scan(filepath, param, y_cut)
+        x, y, bestfit, spl, err_1sig, err_2sig = process_scan(filepath, param, y_cut, other_params=other_params)
         x_smooth = np.linspace(x.min(), x.max(), 500)
         y_smooth = spl(x_smooth)
 
@@ -619,7 +625,7 @@ def plot_2d_scans(
         output: Path,
         x_param: str = 'Cphi',
         y_param: str = 'Cbox',
-        z_cut: int | float = 50.0,
+        z_cut: int | float = 20.0,
         suffix: str = '',
         right: str = '',
         sig2: bool = False,
@@ -668,6 +674,7 @@ def plot_2d_scans(
 
     try:
         contour_levels = [2.30, 6.18] if sig2 else [2.30]
+        contour_levels = [1.0, 4.0] if sig2 else [1.0]
         contour_handle = None
 
         for scan in scans_data:

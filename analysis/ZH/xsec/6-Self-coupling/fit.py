@@ -52,6 +52,23 @@ from package.func.fit import (
 
 
 ###############################
+### VARIABLES CONFIGURATION ###
+###############################
+
+ranges = {
+    'tight': {'Cphi': '-1,1', 'CphiD': '-0.5,0.5', 'Cbox': '-1,1'},
+    'loose': {'Cphi': '-4,4', 'CphiD': '-0.8,0.8', 'Cbox': '-4,4'}
+}
+
+gridpoint = {
+    'Cphi':  {'low': '10', 'med': '20', 'high': '30'},
+    'CphiD': {'low': '30', 'med': '50', 'high': '70'},
+    'Cbox':  {'low': '10', 'med': '20', 'high': '30'},
+}
+
+
+
+###############################
 ### DIRECTORY CONFIGURATION ###
 ###############################
 
@@ -141,14 +158,19 @@ def fitting(
 
         # Do the fit and a grid scan for likelyhood scan
         expected = ','.join(f'{p}=0' for p in params)
-        ranges   = ':'.join(f'{p}=-1,1' if arg.combine else f'{p}=-3,3' for p in params)
+        if arg.cat == 'qq' or arg.combine:
+            param_ranges = ':'.join(f'{p}={ranges["tight"][p]}' for p in params)
+            gridpoints = ','.join(gridpoint[p]['high'] for p in params)
+        else:
+            param_ranges = ':'.join(f'{p}={ranges["loose"][p]}' for p in params)
+            gridpoints = ','.join(gridpoint[p]['med'] for p in params)
         with open(result_fit, 'w') as log_out:
             LOGGER.info('Doing the fit')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '2', '-t', str(arg.toy), '-n', 'Xsec', '--setParameters', expected,
-                            '--alignEdges', '1', '--robustHesse=1',
-                            '--setParameterRanges', ranges,
-                            '--algo', 'grid', '--points', '400' if len(params) > 1 else '100'],
+                            '--alignEdges', '1', '--robustHesse=1', '--autoRange', '4',
+                            '--setParameterRanges', param_ranges, '--squareDistPoiStep',
+                            '--algo', 'grid', '--gridPoints', gridpoints],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
 
@@ -178,7 +200,7 @@ def fitting(
 if __name__=='__main__':
     try:
         # Get the fitted parameters
-        params = arg.model.replace('SMEFT_', '').split('_')
+        params: list[str] = arg.model.replace('SMEFT_', '').split('_')
 
         # Execute the fitting pipeline
         ret = fitting(dr, dc, ws, env, params)
@@ -192,8 +214,9 @@ if __name__=='__main__':
             else 'higgsCombineXsec.MultiDimFit.mH125.root'
 
         for param in params:
+            other_params = [p for p in params if p!=param] if len(params)>1 else []
             mu, err_h, err_l = process_scan(ws / out_file,
-                                            param, 10, True)
+                                            param, 7, True, other_params)
 
             # Save results to output file
             res_saving(mu, [err_h, err_l],  res, arg.print, param, param)

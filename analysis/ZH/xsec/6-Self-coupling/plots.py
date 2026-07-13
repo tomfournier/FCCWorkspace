@@ -55,13 +55,13 @@ from package.func.fit import plot_1d_scans, plot_2d_scans, params_label
 ####################
 
 # Parse main inputs
-sels = arg.sels.split('-')
-cats = [cat for cat in arg.cat.split('-') if cat]
+sels: list[str] = arg.sels.split('-')
+cats: list[str] = [cat for cat in arg.cat.split('-') if cat]
 if arg.lep:
     cats = cats + ['leptonic'] if cats else ['leptonic']
 if arg.combine:
     cats = cats + ['combined'] if cats else ['combined']
-params = arg.param.split('-')
+params: list[str] = arg.param.split('-')
 
 
 
@@ -82,9 +82,10 @@ def main():
                 else 'higgsCombineXsec.MultiDimFit.mH125.root'
             scan = (inDir / fIn, "Observed", colors[0])
             for param in params:
+                other_params = [p for p in params if p!=param] if len(params)>1 else []
                 plot_1d_scans([scan], outDir, param,
                               arg.y_cut, arg.y_max,
-                              sig2=arg.sig2, suffix='_'+param)
+                              sig2=arg.sig2, suffix='_'+param, other_params=other_params)
             if len(params) > 1:
                 scan = (inDir / fIn, 'Best fit', 'black')
                 plot_2d_scans([scan], outDir, params[0], params[1])
@@ -119,11 +120,12 @@ def main():
             out: Path = loc.get('PLOTS_FIT_SCAN') / arg.which
             out.mkdir(exist_ok=True, parents=True)
             for param in params:
+                other_params = [p for p in params if p!=param] if len(params)>1 else []
                 plot_1d_scans(
                     all_scans, out, param,
                     arg.y_cut, arg.y_max,
                     fixed_str+'_'+param, param_label,
-                    arg.sig2
+                    arg.sig2, other_params=other_params
                 )
             if len(params) > 1:
                 plot_2d_scans(all_scans, outDir, params[0], params[1])
