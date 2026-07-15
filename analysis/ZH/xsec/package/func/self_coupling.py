@@ -260,6 +260,8 @@ class _SMEFT_Cphi_CphiD(SMEFT_NLO):
 class _SMEFT_Cphi_Cbox(SMEFT_NLO):
     wilson = ['Cphi', 'Cbox']
 
+class _SMEFT_Cbox_Cphi(SMEFT_NLO):
+    wilson = ['Cbox', 'Cphi']
 
 class _SMEFT_CphiD_Cbox(SMEFT_NLO):
     wilson = ['CphiD', 'Cbox']
@@ -269,10 +271,11 @@ class _SMEFT_all(SMEFT_NLO):
     wilson = ['Cphi', 'CphiD', 'Cbox']
 
 
-SMEFT_Cphi = _SMEFT_Cphi()
+SMEFT_Cphi  = _SMEFT_Cphi()
 SMEFT_CphiD = _SMEFT_CphiD()
-SMEFT_Cbox = _SMEFT_Cbox()
+SMEFT_Cbox  = _SMEFT_Cbox()
 SMEFT_Cphi_CphiD = _SMEFT_Cphi_CphiD()
-SMEFT_Cphi_Cbox = _SMEFT_Cphi_Cbox()
+SMEFT_Cphi_Cbox  = _SMEFT_Cphi_Cbox()
+SMEFT_Cbox_Cphi  = _SMEFT_Cbox_Cphi()
 SMEFT_CphiD_Cbox = _SMEFT_CphiD_Cbox()
 SMEFT_Cphi_CphiD_Cbox = _SMEFT_all()

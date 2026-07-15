@@ -88,7 +88,10 @@ def main():
                               sig2=arg.sig2, suffix='_'+param, other_params=other_params)
             if len(params) > 1:
                 scan = (inDir / fIn, 'Best fit', 'black')
-                plot_2d_scans([scan], outDir, params[0], params[1])
+                from itertools import combinations
+                for x, y in list(combinations(params, 2)):
+                    plot_2d_scans([scan], outDir, x, y, arg.y_cut,
+                                  sig2=arg.sig2)
     else:
         # Comparison plot: configure varying parameter and fixed values
         from itertools import product
@@ -127,8 +130,13 @@ def main():
                     fixed_str+'_'+param, param_label,
                     arg.sig2, other_params=other_params
                 )
+            LOGGER.info(param)
             if len(params) > 1:
-                plot_2d_scans(all_scans, outDir, params[0], params[1])
+                from itertools import combinations
+                for x, y in list(combinations(params, 2)):
+                    for scan in all_scans:
+                        plot_2d_scans([scan], outDir, x, y, arg.y_cut,
+                                      arg.y_max, sig2=arg.sig2)
 
 
 ##########################

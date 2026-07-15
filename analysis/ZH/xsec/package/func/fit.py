@@ -693,7 +693,7 @@ def plot_2d_scans(
                            s=18, alpha=0.7, zorder=1)
 
             ax.scatter(scan['best_x'], scan['best_y'], s=180, marker='*',
-                       color=scan['color'], edgecolor='black', linewidths=0.8,
+                       color='black', linewidths=0.8,
                        zorder=4, label=scan['label'])
 
         if contour_handle is not None and len(scans_data) == 1:
@@ -713,7 +713,7 @@ def plot_2d_scans(
         ax.grid(True, linestyle=':')
         ax.legend(loc='best', fontsize=18)
 
-        suffix = f'{x_param}_{y_param}_{suffix}'
+        suffix = f'{x_param}_{y_param}{suffix}'
         savefigs(fig, output, 'Scan2D', suffix, plot_file)
 
     finally:

@@ -57,13 +57,13 @@ from package.func.fit import (
 
 ranges = {
     'tight': {'Cphi': '-1,1', 'CphiD': '-0.5,0.5', 'Cbox': '-1,1'},
-    'loose': {'Cphi': '-4,4', 'CphiD': '-0.8,0.8', 'Cbox': '-4,4'}
+    'loose': {'Cphi': '-5,5', 'CphiD': '-2,2', 'Cbox': '-5,5'}
 }
 
 gridpoint = {
-    'Cphi':  {'low': '10', 'med': '20', 'high': '30'},
-    'CphiD': {'low': '30', 'med': '50', 'high': '70'},
-    'Cbox':  {'low': '10', 'med': '20', 'high': '30'},
+    'Cphi':  {'low': '11', 'med': '21', 'high': '31'},
+    'CphiD': {'low': '11', 'med': '21', 'high': '31'},
+    'Cbox':  {'low': '11', 'med': '21', 'high': '31'},
 }
 
 
@@ -94,9 +94,11 @@ comb    = '_combined' if arg.combine else ''                     # Combined chan
 
 # Define full file paths for workspace, logs, and results
 ws_file     = ws  / 'ws.root'                   # Workspace file
+sn_file     = ws  / 'higgsCombineDiag.MultiDimFit.mH125.root'                   # Snapshot file
 log_text    = log / 'log_text2workspace.txt'    # Text2workspace log
 result_scan = log / 'log_fastscan.txt'          # Scan results log (scan results)
-result_fit  = log / 'log_results_fit.txt'       # Fit  results log (fit results)
+diagnostic_fit = log / 'log_diagnostic.txt'        # Diagnostic results log (for fit results)
+result_fit  = log / 'log_results_fit.txt'       # Fit results log (fit results)
 
 # Set up environment for subprocess calls
 env = os.environ.copy()
@@ -148,13 +150,6 @@ def fitting(
                            cwd=dr, env=env, check=True)
         text_status = 'ok'
 
-        if arg.fastscan:
-            with open(result_scan, 'w') as log_scan:
-                LOGGER.info('Doing a likelyhood scan to check the fit')
-                subprocess.run(['combineTool.py', '-M', 'FastScan', '-w', str(ws_file)+':w'],
-                               stdout=log_scan, stderr=subprocess.STDOUT,
-                               cwd=scan, env=env, check=True)
-            scan_status = 'ok'
 
         # Do the fit and a grid scan for likelyhood scan
         expected = ','.join(f'{p}=0' for p in params)
@@ -164,12 +159,33 @@ def fitting(
         else:
             param_ranges = ':'.join(f'{p}={ranges["loose"][p]}' for p in params)
             gridpoints = ','.join(gridpoint[p]['med'] for p in params)
+        with open(diagnostic_fit, 'w') as diag_out:
+            LOGGER.info('Doing diagnostic fit to find the parameters range')
+            subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
+                            '-v', '2', '-t', str(arg.toy), '-n', 'Diag',
+                            '--algo', 'singles', '--cl=0.68', '--robustFit=1',
+                            '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
+                            '--setParameters', expected, '--setParameterRanges', param_ranges],
+                           stdout=diag_out, stderr=subprocess.STDOUT,
+                           cwd=ws, env=env, check=True)
+
+        if arg.fastscan:
+            with open(result_scan, 'w') as log_scan:
+                LOGGER.info('Doing a likelyhood scan to check the fit')
+                subprocess.run(['combineTool.py', '-M', 'FastScan', '-w', str(ws_file)+':w'],
+                               stdout=log_scan, stderr=subprocess.STDOUT,
+                               cwd=scan, env=env, check=True)
+            scan_status = 'ok'
+
         with open(result_fit, 'w') as log_out:
             LOGGER.info('Doing the fit')
-            subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
+            subprocess.run(['combine', sn_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '2', '-t', str(arg.toy), '-n', 'Xsec', '--setParameters', expected,
                             '--alignEdges', '1', '--robustHesse=1', '--autoRange', '4',
-                            '--setParameterRanges', param_ranges, '--squareDistPoiStep',
+                            '--setParameterRanges', param_ranges,
+                            '--fastScan',
+                            '-w', 'w', '--snapshotName', 'MultiDimFit',
+                            '--squareDistPoiStep', '--skipInitialFit',
                             '--algo', 'grid', '--gridPoints', gridpoints],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
