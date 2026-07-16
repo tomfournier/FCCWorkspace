@@ -136,7 +136,7 @@ def main():
                 for x, y in list(combinations(params, 2)):
                     for scan in all_scans:
                         plot_2d_scans([scan], outDir, x, y, arg.y_cut,
-                                      arg.y_max, sig2=arg.sig2)
+                                      z_cut=arg.y_max, sig2=arg.sig2)
 
 
 ##########################

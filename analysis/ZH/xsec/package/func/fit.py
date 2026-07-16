@@ -87,6 +87,51 @@ def add_stamp(
         log_file.write(stamp)
     LOGGER.debug(f'Added STAMP: {ts} | id={uniq} | status={status} | file={label}')
 
+def mk_csv(
+    params: list[str],
+    limits: dict[float | int],
+    ngrids: dict[str, int],
+    eps: float = 1e-4,
+) -> pd.DataFrame:
+
+    from itertools import product
+
+    def _log_segment(lo: float, hi: float, n: int) -> np.ndarray:
+        lo = max(lo, eps)
+        hi = max(hi, eps)
+        if n <= 0:
+            return np.empty(0)
+        if n == 1:
+            return np.array([hi])
+        return np.logspace(np.log10(lo), np.log10(hi), n)
+
+    grids: dict[str, np.ndarray] = {}
+
+    for param in params:
+        limit, ngrid = limits[param], ngrids[param]
+        Dw, Up = float(limit[0]), float(limit[1])
+        nside = ngrid // 2 if ngrid % 2 == 0 else (ngrid - 1) // 2
+
+        if Dw < 0 < Up:
+            left = -_log_segment(eps, abs(Dw), nside)[::-1]
+            right = _log_segment(eps, abs(Up), nside)
+            tab = np.concatenate([left, np.array([0.0]), right])
+
+        else:
+            center = 0.5 * (Dw + Up)
+            dlow = abs(Dw - center)
+            dhigh = abs(Up - center)
+
+            left = center - _log_segment(eps, dlow, nside)[::-1]
+            right = center + _log_segment(eps, dhigh, nside)
+            tab = np.concatenate([left, np.array([center]), right])
+
+        grids[param] = tab
+
+    df = pd.DataFrame(list(product(*(grids[param] for param in params))), columns=params)
+
+    return df
+
 
 
 ##########################

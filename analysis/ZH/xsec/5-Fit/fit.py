@@ -103,8 +103,10 @@ dc_comb = loc.get('COMBINE', '', arg.ecm, arg.sel)  # Combined datacard location
 
 # Define full file paths for workspace, logs, and results
 ws_file     = ws  / f'ws{tar}.root'                   # Workspace file (workspace.root or workspace_bb.root)
+sn_file     = ws  / f'higgsCombineDiag{tar}.MultiDimFit.mH125.root'                   # Snapshot file
 log_text    = log / f'log_text2workspace{tar}.txt'    # Text2workspace log
 result_scan = log / f'log_fastscan{tar}.txt'          # Scan results log (scan results)
+diagnostic_fit  = log / f'log_diagnostic{tar}.txt'       # Diagnostic results log (for fit results)
 result_fit  = log / f'log_results{tar}_fit.txt'       # Fit  results log (fit results)
 
 # Set up environment for subprocess calls
@@ -167,6 +169,18 @@ def fitting(
                            cwd=dr, env=env, check=True)
         text_status = 'ok'
 
+        LOGGER.info('Doing a diagnostic fit to find the parameter range')
+        with open(diagnostic_fit, 'w') as diag_out:
+            subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
+                            '-v', '2', '-t', str(arg.toy), '-n', f'Diag{tar}',
+                            '--algo', 'singles', '--cl=0.68', '--robustFit=1',
+                            '--expectSignal=1',
+                            '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
+                            '--rMin', '0.9', '--rMax', '1.1'],
+                           stdout=diag_out, stderr=subprocess.STDOUT,
+                           cwd=ws, env=env, check=True)
+
+
         if arg.fastscan:
             with open(result_scan, 'w') as log_scan:
                 LOGGER.info('Doing a likelyhood scan to check the fit')
@@ -178,12 +192,11 @@ def fitting(
         # Do the fit and a grid scan for likelyhood scan
         with open(result_fit, 'w') as log_out:
             LOGGER.info('Doing the fit')
-            subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
+            subprocess.run(['combine', sn_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '2', '-t', str(arg.toy), '--expectSignal=1', '-n', f'Xsec{tar}',
-                            '--rMin', '0.95', '--rMax', '1.05' if not arg.bias else '1.1',
-                            '--autoRange', '5',
+                            '--autoRange', '5', '--snapshotName', 'MultiDimFit', '-w', 'w',
                             '--alignEdges', '1', '--squareDistPoiStep', '--robustHesse=1',
-                            '--algo', 'grid', '--points', '100', '--cminInitialHesse', '1'],
+                            '--algo', 'grid', '--points', '250'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
 

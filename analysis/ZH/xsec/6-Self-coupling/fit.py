@@ -46,7 +46,8 @@ from package.func.fit import (
     process_scan,
     add_stamp,
     check_log,
-    res_saving
+    res_saving,
+    mk_csv
 )
 
 
@@ -56,9 +57,11 @@ from package.func.fit import (
 ###############################
 
 ranges = {
-    'tight': {'Cphi': '-1,1', 'CphiD': '-0.5,0.5', 'Cbox': '-1,1'},
+    'tight': {'Cphi': '-2,2', 'CphiD': '-0.8,0.8', 'Cbox': '-2,2'},
     'loose': {'Cphi': '-5,5', 'CphiD': '-2,2', 'Cbox': '-5,5'}
 }
+Ranges = {'Cphi': [-2, 2], 'CphiD': [-1, 1], 'Cbox': [-2, 2]}
+ngrids = {'Cphi': 10,      'CphiD': 10,      'Cbox': 10}
 
 gridpoint = {
     'Cphi':  {'low': '11', 'med': '21', 'high': '31'},
@@ -151,16 +154,19 @@ def fitting(
         text_status = 'ok'
 
 
+        df = mk_csv(params, Ranges, ngrids, 1e-2)
+        df.to_csv(ws / 'gridpoints.csv')
+
         # Do the fit and a grid scan for likelyhood scan
         expected = ','.join(f'{p}=0' for p in params)
         if arg.cat == 'qq' or arg.combine:
             param_ranges = ':'.join(f'{p}={ranges["tight"][p]}' for p in params)
-            gridpoints = ','.join(gridpoint[p]['high'] for p in params)
+            # gridpoints = ','.join(gridpoint[p]['high'] for p in params)
         else:
             param_ranges = ':'.join(f'{p}={ranges["loose"][p]}' for p in params)
-            gridpoints = ','.join(gridpoint[p]['med'] for p in params)
+            # gridpoints = ','.join(gridpoint[p]['med'] for p in params)
+        LOGGER.info('Doing diagnostic fit to find the parameters range')
         with open(diagnostic_fit, 'w') as diag_out:
-            LOGGER.info('Doing diagnostic fit to find the parameters range')
             subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
                             '-v', '2', '-t', str(arg.toy), '-n', 'Diag',
                             '--algo', 'singles', '--cl=0.68', '--robustFit=1',
@@ -179,16 +185,27 @@ def fitting(
 
         with open(result_fit, 'w') as log_out:
             LOGGER.info('Doing the fit')
-            subprocess.run(['combine', sn_file, '-M', 'MultiDimFit', '-m', '125',
-                            '-v', '2', '-t', str(arg.toy), '-n', 'Xsec', '--setParameters', expected,
-                            '--alignEdges', '1', '--robustHesse=1', '--autoRange', '4',
-                            '--setParameterRanges', param_ranges,
-                            '--fastScan',
+            subprocess.run(['combineTool.py', sn_file, '-M', 'MultiDimFit', '-m', '125',
+                            '-v', '2',
+                            # '--setParameterRanges', param_ranges,
+                            # '--fastScan',
                             '-w', 'w', '--snapshotName', 'MultiDimFit',
-                            '--squareDistPoiStep', '--skipInitialFit',
-                            '--algo', 'grid', '--gridPoints', gridpoints],
+                            # '--skipInitialFit',
+                            '--fromfile', 'gridpoints.csv',
+                            '--algo', 'fixed'],
                            stdout=log_out, stderr=subprocess.STDOUT,
                            cwd=ws, env=env, check=True)
+            # subprocess.run(['combine', sn_file, '-M', 'MultiDimFit', '-m', '125',
+            #                 '-v', '2', '-t', str(arg.toy), '-n', 'Xsec', '--setParameters', expected,
+            #                 '--alignEdges', '1', '--robustHesse=1',
+            #                 # '--autoRange', '6',
+            #                 '--setParameterRanges', param_ranges,
+            #                 '--fastScan',
+            #                 '-w', 'w', '--snapshotName', 'MultiDimFit',
+            #                 '--squareDistPoiStep', '--skipInitialFit',
+            #                 '--algo', 'grid', '--gridPoints', gridpoints],
+            #                stdout=log_out, stderr=subprocess.STDOUT,
+            #                cwd=ws, env=env, check=True)
 
         fit_status = 'ok'
         return 0
@@ -237,7 +254,9 @@ if __name__=='__main__':
             # Save results to output file
             res_saving(mu, [err_h, err_l],  res, arg.print, param, param)
 
-        cmd = ['python', 'plots.py', '--sels', str(arg.sel), '--no-timer', '--sig2', '--param', '-'.join(params)]
+        cmd = ['python', 'plots.py', '--sels', str(arg.sel),
+               '--no-timer', '--sig2', '--param', '-'.join(params),
+               '--y-cut', '40', '--y-max', '7']
         if arg.lep:       cmd.append('--lep')
         elif arg.combine: cmd.append('--comb')
         elif arg.cat:     cmd.extend(['--cat', arg.cat])
