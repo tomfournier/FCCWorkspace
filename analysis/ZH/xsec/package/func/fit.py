@@ -2,7 +2,7 @@
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import uproot
+import os, uproot, subprocess
 
 import numpy as np
 import pandas as pd
@@ -131,6 +131,32 @@ def mk_csv(
     df = pd.DataFrame(list(product(*(grids[param] for param in params))), columns=params)
 
     return df
+
+
+def run_cmd(cmd: list[str] | str,
+            log_file: Path | PathObj | str | None = None,
+            cwd: Path | PathObj | str | None = None,
+            env: os._Environ | None = None
+            ) -> int:
+    '''Run a command using subprocess'''
+    if isinstance(log_file, str): log_file = PathObj(log_file)
+    status = 'not-run'
+    try:
+        if log_file is not None:
+            with open(log_file, 'w') as out:
+                result = subprocess.run(cmd, stdout=out, stderr=subprocess.STDOUT, cwd=cwd, env=env, check=True)
+        else:
+            result = subprocess.run(cmd, text=True, capture_output=False, cwd=cwd, env=env, check=True)
+        status = 'ok'
+    except subprocess.CalledProcessError as exc:
+        if status == 'not-run': status = f'error exit = {exc.returncode}'
+        LOGGER.error(f'Command failed with exit code {exc.returncode}')
+        return exc.returncode
+    finally:
+        if log_file is not None and log_file.exists():
+            add_stamp(log_file, log_file.name, status)
+
+    return result.returncode
 
 
 
@@ -542,6 +568,17 @@ def plot_1d_scans(
         x, y, bestfit, spl, err_1sig, err_2sig = process_scan(filepath, param, y_cut, other_params=other_params)
         x_smooth = np.linspace(x.min(), x.max(), 500)
         y_smooth = spl(x_smooth)
+        if (y_max > 0) and (y_max < y_cut):
+            x_smooth = x_smooth[y_smooth<=y_max]
+            y_smooth = y_smooth[y_smooth<=y_max]
+            x = x[y<=y_max]
+            y = y[y<=y_max]
+        else:
+            x_smooth = x_smooth[y_smooth<=y_cut]
+            y_smooth = y_smooth[y_smooth<=y_cut]
+            x = x[y<=y_cut]
+            y = y[y<=y_cut]
+
 
         scans_data.append({
             'filepath': filepath,
@@ -585,7 +622,11 @@ def plot_1d_scans(
         # Draw horizontal reference lines for 1σ and 2σ
         ax.axhline(1.0,   color='gray', linestyle='dashed')
         ax.axhline(4.0,   color='gray', linestyle='dashed')
-        ax.axhline(y_cut, color='black')
+        if (y_max > 0) and (y_max < y_cut):
+            ax.axhline(y_max, color='black')
+        else:
+            ax.axhline(y_cut, color='black')
+
 
         # Formatting
         lab = coeffs_label.get(param, param)
@@ -595,7 +636,10 @@ def plot_1d_scans(
             set_labels(ax, lab, r'$-2\Delta\ln\Lambda$', right=right)
 
         # Calculate required y_max based on data and text
-        max_y_smooth = max([np.max(scan['y_smooth']) for scan in scans_data] + [y_max, y_cut])
+        if (y_max > 0):
+            max_y_smooth = max([np.max(scan['y_smooth']) for scan in scans_data] + [min([y_max, y_cut])])
+        else:
+            max_y_smooth = max([np.max(scan['y_smooth']) for scan in scans_data] + [y_max, y_cut])
         num_text_lines = sum(1 + (1 if sig2 else 0) for _ in scans_data)
         text_box_height = num_text_lines * 1.1
         y_max_required = max_y_smooth + text_box_height + 0.5   # +0.5 margin

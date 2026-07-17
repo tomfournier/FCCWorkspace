@@ -2,7 +2,7 @@
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-import os, sys, subprocess
+import os
 
 from time import time
 from pathlib import Path
@@ -44,11 +44,11 @@ loc.set_default_type(Path)
 from package.config import timer  # Timing utility
 from package.func.fit import (
     process_scan,
-    add_stamp,
     check_log,
     res_saving,
-    mk_csv
+    run_cmd
 )
+from package.func.self_coupling import get_parameters
 
 
 
@@ -68,6 +68,14 @@ gridpoint = {
     'CphiD': {'low': '11', 'med': '21', 'high': '31'},
     'Cbox':  {'low': '11', 'med': '21', 'high': '31'},
 }
+
+# Get the fitted parameters
+params: list[str] = get_parameters(arg.model)
+expected = ','.join(f'{p}=0' for p in params)
+if arg.cat == 'qq' or arg.combine:
+    param_ranges = ':'.join(f'{p}={ranges["tight"][p]}' for p in params)
+else:
+    param_ranges = ':'.join(f'{p}={ranges["loose"][p]}' for p in params)
 
 
 
@@ -93,7 +101,7 @@ res:  PathObj = loc.get('NLO_RESULT',   *args)   # Results output directory
 scan: PathObj = loc.get('NLO_FASTSCAN', *args)   # Fast scan directory
 
 # Define naming suffixes for file outputs
-comb    = '_combined' if arg.combine else ''                     # Combined channel suffix
+comb = '_combined' if arg.combine else ''  # Combined channel suffix
 
 # Define full file paths for workspace, logs, and results
 ws_file     = ws  / 'ws.root'                   # Workspace file
@@ -102,6 +110,11 @@ log_text    = log / 'log_text2workspace.txt'    # Text2workspace log
 result_scan = log / 'log_fastscan.txt'          # Scan results log (scan results)
 diagnostic_fit = log / 'log_diagnostic.txt'        # Diagnostic results log (for fit results)
 result_fit  = log / 'log_results_fit.txt'       # Fit results log (fit results)
+
+# Datacard file definition
+dc_combined = dc / f'datacard{comb}.txt'
+dc_240 = loc.get('NOMINAL_DATACARD', arg.cat, 240, arg.sel) / f'datacard{comb}.txt'
+dc_365 = loc.get('NOMINAL_DATACARD', arg.cat, 365, arg.sel) / f'datacard{comb}.txt'
 
 # Set up environment for subprocess calls
 env = os.environ.copy()
@@ -123,107 +136,54 @@ def fitting(
         env: os._Environ,
         params: list[str]
          ) -> int:
-    '''Execute the fitting workflow: combine datacards, create workspace, and run fit.
+    '''Execute the fitting workflow: combine datacards, create workspace, and run fit.'''
 
-    Two-stage fitting process:
-    Stage 1: Quick fit (--algo none) to find best fit point and save RooFitResult
-    Stage 2: Grid scan (--algo grid) using result from stage 1 for faster convergence
-    '''
+    ##########################
+    ### Command definition ###
+    ##########################
 
-    # Track status of each fitting step
-    text_status, scan_status, fit_status = 'not-run', 'not-run', 'not-run'
-    try:
-        dc_combined = dc / f'datacard{comb}.txt'
+    cmd_dc = ['combineCards.py', f'low={dc_240}', f'high={dc_365}']
 
-        dc_240 = loc.get('NOMINAL_DATACARD', arg.cat, 240, arg.sel) / f'datacard{comb}.txt'
-        dc_365 = loc.get('NOMINAL_DATACARD', arg.cat, 365, arg.sel) / f'datacard{comb}.txt'
+    cmd_t2w = ['text2workspace.py', dc_combined, '-v', '2', '-P',
+               f'package.func.self_coupling:{arg.model}',
+               '--X-allow-no-signal', '--X-allow-no-background',
+               '-m', '125', '-o', ws_file, '--for-fits', '--no-wrappers']
 
-        LOGGER.info('Combining datacards from 240 and 365 GeV channels')
-        with open(dc_combined, 'w') as out:
-            subprocess.run(['combineCards.py', f'low={dc_240}', f'high={dc_365}'],
-                           stdout=out, env=env, check=True)
+    cmd_fastscan = ['combineTool.py', '-M', 'FastScan', '-w', str(ws_file)+':w']
 
-        # Convert datacard to RooFit workspace
-        with open(log_text, 'w') as log_out:
-            LOGGER.info('Setting files for the fit')
-            subprocess.run(['text2workspace.py', dc_combined, '-v', '10',
-                            '-P', f'package.func.self_coupling:{arg.model}',
-                            '--X-allow-no-background', '-m', '125', '-o', ws_file],
-                           stdout=log_out, stderr=subprocess.STDOUT,
-                           cwd=dr, env=env, check=True)
-        text_status = 'ok'
+    cmd_diag = ['combine', ws_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1', '-n', 'Diag',
+                '--algo', 'singles', '--cl=0.68', '--cminDefaultMinimizerStrategy=2', '--saveWorkspace',
+                '--setParameters', expected, '--setParameterRanges', param_ranges]
+
+    cmd_fit = ['combine', sn_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1', '-n', 'Xsec',
+               '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w',
+               '--snapshotName', 'MultiDimFit', '--alignEdges', '1', '--squareDistPoiStep',
+               '--skipInitialFit', '--algo', 'grid', '--points', f'{11000+len(params)}',
+               '--robustHesse=1']
 
 
-        df = mk_csv(params, Ranges, ngrids, 1e-2)
-        df.to_csv(ws / 'gridpoints.csv')
 
-        # Do the fit and a grid scan for likelyhood scan
-        expected = ','.join(f'{p}=0' for p in params)
-        if arg.cat == 'qq' or arg.combine:
-            param_ranges = ':'.join(f'{p}={ranges["tight"][p]}' for p in params)
-            # gridpoints = ','.join(gridpoint[p]['high'] for p in params)
-        else:
-            param_ranges = ':'.join(f'{p}={ranges["loose"][p]}' for p in params)
-            # gridpoints = ','.join(gridpoint[p]['med'] for p in params)
-        LOGGER.info('Doing diagnostic fit to find the parameters range')
-        with open(diagnostic_fit, 'w') as diag_out:
-            subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
-                            '-v', '2', '-t', str(arg.toy), '-n', 'Diag',
-                            '--algo', 'singles', '--cl=0.68', '--robustFit=1',
-                            '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
-                            '--setParameters', expected, '--setParameterRanges', param_ranges],
-                           stdout=diag_out, stderr=subprocess.STDOUT,
-                           cwd=ws, env=env, check=True)
+    #########################
+    ### COMMAND EXECUTION ###
+    #########################
 
-        if arg.fastscan:
-            with open(result_scan, 'w') as log_scan:
-                LOGGER.info('Doing a likelyhood scan to check the fit')
-                subprocess.run(['combineTool.py', '-M', 'FastScan', '-w', str(ws_file)+':w'],
-                               stdout=log_scan, stderr=subprocess.STDOUT,
-                               cwd=scan, env=env, check=True)
-            scan_status = 'ok'
+    LOGGER.info('Combining datacards from 240 and 365 GeV channels')
+    run_cmd(cmd_dc, dc_combined, None, env)
 
-        with open(result_fit, 'w') as log_out:
-            LOGGER.info('Doing the fit')
-            subprocess.run(['combineTool.py', sn_file, '-M', 'MultiDimFit', '-m', '125',
-                            '-v', '2',
-                            # '--setParameterRanges', param_ranges,
-                            # '--fastScan',
-                            '-w', 'w', '--snapshotName', 'MultiDimFit',
-                            # '--skipInitialFit',
-                            '--fromfile', 'gridpoints.csv',
-                            '--algo', 'fixed'],
-                           stdout=log_out, stderr=subprocess.STDOUT,
-                           cwd=ws, env=env, check=True)
-            # subprocess.run(['combine', sn_file, '-M', 'MultiDimFit', '-m', '125',
-            #                 '-v', '2', '-t', str(arg.toy), '-n', 'Xsec', '--setParameters', expected,
-            #                 '--alignEdges', '1', '--robustHesse=1',
-            #                 # '--autoRange', '6',
-            #                 '--setParameterRanges', param_ranges,
-            #                 '--fastScan',
-            #                 '-w', 'w', '--snapshotName', 'MultiDimFit',
-            #                 '--squareDistPoiStep', '--skipInitialFit',
-            #                 '--algo', 'grid', '--gridPoints', gridpoints],
-            #                stdout=log_out, stderr=subprocess.STDOUT,
-            #                cwd=ws, env=env, check=True)
+    LOGGER.info('Converting the datacard to RooFit workspace')
+    run_cmd(cmd_t2w, log_text, dr, env)
 
-        fit_status = 'ok'
-        return 0
+    LOGGER.info('Doing diagnostic fit to find the parameters range')
+    run_cmd(cmd_diag, diagnostic_fit, ws, env)
 
-    except subprocess.CalledProcessError as exc:
-        # Mark which step failed
-        if   text_status =='not-run': text_status = f'error exit = {exc.returncode}'
-        elif fit_status  =='not-run': fit_status  = f'error exit = {exc.returncode}'
-        LOGGER.error(f'Fit command failed with exit code {exc.returncode}')
-        return exc.returncode
-    finally:
-        # Add execution stamps to log files for tracking
-        if log_text.exists():
-            add_stamp(log_text, 'log_text2workspace', text_status)
-        if result_scan.exists() and arg.fastscan:
-            add_stamp(result_scan, 'log_fastscan', scan_status)
-        if result_fit.exists():
-            add_stamp(result_fit, 'log_results_fit', fit_status)
+    if arg.fastscan:
+        LOGGER.info('Doing a likelyhood scan to check the fit')
+        run_cmd(cmd_fastscan, result_scan, scan, env)
+
+    LOGGER.info('Doing the fit')
+    run_cmd(cmd_fit, result_fit, ws, env)
+
+    return 0
 
 
 ######################
@@ -232,40 +192,35 @@ def fitting(
 
 if __name__=='__main__':
     try:
-        # Get the fitted parameters
-        params: list[str] = arg.model.replace('SMEFT_', '').split('_')
-
         # Execute the fitting pipeline
         ret = fitting(dr, dc, ws, env, params)
-        if ret != 0: sys.exit(ret)
+        if ret != 0: exit(ret)
 
         LOGGER.info('Fit done, extracting results')
 
         # Check if the fit went well
         fit_status  = check_log(result_fit)
-        out_file = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy>0 \
-            else 'higgsCombineXsec.MultiDimFit.mH125.root'
+        out_file = 'higgsCombineXsec.MultiDimFit.mH125.root'
 
         for param in params:
             other_params = [p for p in params if p!=param] if len(params)>1 else []
-            mu, err_h, err_l = process_scan(ws / out_file,
-                                            param, 7, True, other_params)
+            mu, err_h, err_l = process_scan(
+                ws / out_file, param,
+                100, True, other_params
+            )
 
             # Save results to output file
             res_saving(mu, [err_h, err_l],  res, arg.print, param, param)
 
         cmd = ['python', 'plots.py', '--sels', str(arg.sel),
                '--no-timer', '--sig2', '--param', '-'.join(params),
-               '--y-cut', '40', '--y-max', '7']
+               '--y-cut', '100', '--y-max', '7']
         if arg.lep:       cmd.append('--lep')
         elif arg.combine: cmd.append('--comb')
         elif arg.cat:     cmd.extend(['--cat', arg.cat])
         if arg.toy>0:     cmd.append('--toy')
 
-        status = subprocess.run(cmd, cwd=Path(__file__).parent,
-                                env=env, check=False,
-                                capture_output=False, text=True)
-        if status != 0: exit(status.returncode)
+        status = run_cmd(cmd, None, Path(__file__).parent, env)
 
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt

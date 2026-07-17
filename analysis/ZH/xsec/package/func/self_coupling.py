@@ -121,6 +121,22 @@ def kappa_precision(Cphi, CphiD, Cbox, lbda=1e3):
     return dkappa
 
 
+def get_parameters(model: str):
+    """Return the Wilson coefficients attached to a named exported model."""
+
+    try:
+        model_obj = globals()[model]
+    except KeyError as exc:
+        raise RuntimeError(f'Unknown model {model!r}') from exc
+
+    wilson = getattr(model_obj, 'wilson', None)
+    if wilson is None:
+        raise RuntimeError(f'Model {model!r} does not define a wilson list')
+
+    return wilson
+
+
+
 
 ###############################
 ### HELPER CLASS DEFINITION ###
@@ -268,7 +284,7 @@ class _SMEFT_CphiD_Cbox(SMEFT_NLO):
 
 
 class _SMEFT_all(SMEFT_NLO):
-    wilson = ['Cphi', 'CphiD', 'Cbox']
+    wilson = ['Cphi', 'Cbox', 'CphiD']
 
 
 SMEFT_Cphi  = _SMEFT_Cphi()
@@ -278,4 +294,4 @@ SMEFT_Cphi_CphiD = _SMEFT_Cphi_CphiD()
 SMEFT_Cphi_Cbox  = _SMEFT_Cphi_Cbox()
 SMEFT_Cbox_Cphi  = _SMEFT_Cbox_Cphi()
 SMEFT_CphiD_Cbox = _SMEFT_CphiD_Cbox()
-SMEFT_Cphi_CphiD_Cbox = _SMEFT_all()
+SMEFT_all = _SMEFT_all()
