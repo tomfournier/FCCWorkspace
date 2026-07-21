@@ -471,6 +471,12 @@ def add_fit_args(
             default='SMEFT_Cphi_Cbox',
             help='Model to use for the fit'
         )
+        args.add_argument(
+            '--points',
+            type=int,
+            default=50,
+            help='Number of points for the likelihood scan (default 50 per parameter)'
+        )
 
 def add_fit_plot_args(
         parser: ArgumentParser,

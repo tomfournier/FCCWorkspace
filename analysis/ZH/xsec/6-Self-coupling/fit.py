@@ -159,9 +159,9 @@ def do_fit(
                 '--cminPreFit', '1', '--cminInitialHesse', '1', '--robustFit=1']
 
     cmd_fit = ['combine', sn_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1', '-n', 'Xsec',
-               '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w', '--fastScan',
+               '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w',
                '--snapshotName', 'MultiDimFit', '--alignEdges', '1', '--squareDistPoiStep',
-               '--skipInitialFit', '--algo', 'grid', '--points', f'{get_grid_number(30, params)}']
+               '--skipInitialFit', '--algo', 'grid', '--points', f'{get_grid_number(arg.points, params)}']
 
 
 
