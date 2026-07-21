@@ -42,9 +42,9 @@ loc.set_default_type(Path)
 from package.config import timer  # Timing utility
 from package.func.fit import (
     process_scan,
-    add_stamp,
     check_log,
-    res_saving
+    res_saving,
+    run_cmd
 )
 
 
@@ -122,7 +122,7 @@ for dir_path in [dc, ws, log, res, scan]:
 ### FITTING PART ###
 ####################
 
-def fitting(
+def do_fit(
         dr: PathObj,
         dc: PathObj,
         ws: PathObj,
@@ -137,86 +137,53 @@ def fitting(
     Stage 2: Grid scan (--algo grid) using result from stage 1 for faster convergence
     '''
 
-    # Track status of each fitting step
-    text_status, scan_status, fit_status = 'not-run', 'not-run', 'not-run'
-    try:
-        dc_combined = dc / f'datacard{tar}{comb}.txt'
+    dc_combined = dc / f'datacard{tar}{comb}.txt'
+    dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
+    dc_ee = dc_comb /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
+    dc_qq = dc_comb /  'qq'  / tp / 'datacard' / f'datacard{tar}.txt'
 
-        if arg.lep:
-            dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
-            dc_ee = dc_comb /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
+    cmd_lep  = ['combineCards.py', f'ee={dc_ee}', f'mumu={dc_mu}']
+    cmd_comb = ['combineCards.py', f'ee={dc_ee}', f'mumu={dc_mu}', f'qq={dc_qq}']
 
-            LOGGER.info('Combining datacards from ee and mumu channel')
-            with open(dc_combined, 'w') as out:
-                subprocess.run(['combineCards.py', f'mumu={dc_mu}', f'ee={dc_ee}'],
-                               stdout=out, env=env, check=True)
-        if arg.combine:
-            dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
-            dc_ee = dc_comb /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
-            dc_qq = dc_comb /  'qq'  / tp / 'datacard' / f'datacard{tar}.txt'
+    cmd_t2w = ['text2workspace.py', dc_combined, '-v', '10',
+               '--X-allow-no-signal', '--X-allow-no-background',
+               '--for-fits', '--no-wrappers', '-m', '125', '-o', ws_file]
 
-            LOGGER.info('Combining datacards from all channels')
-            with open(dc_combined, 'w') as out:
-                subprocess.run(['combineCards.py', f'mumu={dc_mu}', f'ee={dc_ee}', f'qq={dc_qq}'],
-                               stdout=out, env=env, check=True)
+    cmd_diag = ['combine', ws_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1',
+                '--algo', 'singles', '--cl=0.68', '--robustFit=1', '--expectSignal=1',
+                '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
+                '--rMin', '0.9', '--rMax', '1.1', '-n', f'Diag{tar}']
 
-        # Convert datacard to RooFit workspace
-        with open(log_text, 'w') as log_out:
-            LOGGER.info('Setting files for the fit')
-            subprocess.run(['text2workspace.py', dc_combined, '-v', '10',
-                            '--X-allow-no-background', '-m', '125', '-o', ws_file],
-                           stdout=log_out, stderr=subprocess.STDOUT,
-                           cwd=dr, env=env, check=True)
-        text_status = 'ok'
+    cmd_fastscan = ['combineTools.py', '-M', 'FastScan', '-w', str(ws_file)+':w']
 
-        LOGGER.info('Doing a diagnostic fit to find the parameter range')
-        with open(diagnostic_fit, 'w') as diag_out:
-            subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
-                            '-v', '2', '-t', str(arg.toy), '-n', f'Diag{tar}',
-                            '--algo', 'singles', '--cl=0.68', '--robustFit=1',
-                            '--expectSignal=1',
-                            '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
-                            '--rMin', '0.9', '--rMax', '1.1'],
-                           stdout=diag_out, stderr=subprocess.STDOUT,
-                           cwd=ws, env=env, check=True)
+    cmd_fit = ['combine', sn_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1',
+               '--expectSignal=1', '-n', f'Xsec{tar}', '-w', 'w', '--snapshotName', 'MultiDimFit',
+               '--autoRange', '5', '--alignEdges', '1', '--squareDistPoiStep',
+               '--algo', 'grid', '--points', '200', '--skipInitialFit']
+
+    if arg.lep:
+        LOGGER.info('Combining datacards from ee and mumu channel')
+        run_cmd(cmd_lep, dc_combined, None, env)
+
+    if arg.combine:
+        LOGGER.info('Combining datacards from all channels')
+        run_cmd(cmd_comb, dc_combined, None, env)
+
+    LOGGER.info('Setting files for the fit')
+    run_cmd(cmd_t2w, log_text, dr, env)
+
+    if arg.fastscan:
+        LOGGER.info('Doing a fast likelyhood scan to check the fit')
+        run_cmd(cmd_fastscan, result_scan, scan, env)
+
+    LOGGER.info('Doing a diagnostic fit')
+    run_cmd(cmd_diag, diagnostic_fit, ws, env)
 
 
-        if arg.fastscan:
-            with open(result_scan, 'w') as log_scan:
-                LOGGER.info('Doing a likelyhood scan to check the fit')
-                subprocess.run(['combineTool.py', '-M', 'FastScan', '-w', str(ws_file)+':w'],
-                               stdout=log_scan, stderr=subprocess.STDOUT,
-                               cwd=scan, env=env, check=True)
-            scan_status = 'ok'
+    LOGGER.info('Doing the fit')
+    run_cmd(cmd_fit, result_fit, ws, env)
 
-        # Do the fit and a grid scan for likelyhood scan
-        with open(result_fit, 'w') as log_out:
-            LOGGER.info('Doing the fit')
-            subprocess.run(['combine', sn_file, '-M', 'MultiDimFit', '-m', '125',
-                            '-v', '2', '-t', str(arg.toy), '--expectSignal=1', '-n', f'Xsec{tar}',
-                            '--autoRange', '5', '--snapshotName', 'MultiDimFit', '-w', 'w',
-                            '--alignEdges', '1', '--squareDistPoiStep', '--robustHesse=1',
-                            '--algo', 'grid', '--points', '250'],
-                           stdout=log_out, stderr=subprocess.STDOUT,
-                           cwd=ws, env=env, check=True)
-
-        fit_status = 'ok'
-        return 0
-
-    except subprocess.CalledProcessError as exc:
-        # Mark which step failed
-        if   text_status =='not-run': text_status = f'error exit = {exc.returncode}'
-        elif fit_status  =='not-run': fit_status  = f'error exit = {exc.returncode}'
-        LOGGER.error(f'Fit command failed with exit code {exc.returncode}')
-        return exc.returncode
-    finally:
-        # Add execution stamps to log files for tracking
-        if log_text.exists():
-            add_stamp(log_text, f'log_text2workspace{tar}', text_status)
-        if result_scan.exists() and arg.fastscan:
-            add_stamp(result_scan, f'log_fastscan{tar}', scan_status)
-        if result_fit.exists():
-            add_stamp(result_fit, f'log_results{tar}_fit', fit_status)
+    return 0
 
 
 ######################
@@ -226,7 +193,7 @@ def fitting(
 if __name__=='__main__':
     try:
         # Execute the fitting pipeline
-        ret = fitting(dr, dc, ws, tp, dc_comb, env)
+        ret = do_fit(dr, dc, ws, tp, dc_comb, env)
         if ret != 0: sys.exit(ret)
 
         LOGGER.info('Fit done, extracting results')

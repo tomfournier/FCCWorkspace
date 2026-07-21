@@ -159,6 +159,14 @@ def run_cmd(cmd: list[str] | str,
     return result.returncode
 
 
+def get_grid_number(n: int, params: list[str] | int, pm: bool = True) -> int:
+    if n % 2 == 0:
+        n = n+1 if pm else n-1
+    if isinstance(params, int):
+        return n**params
+    return n**len(params)
+
+
 
 ##########################
 ### RESULTS EXTRACTION ###
@@ -296,11 +304,11 @@ def res_saving(
             p = 6 if param=='r' else 2
             if isinstance(err, float):
                 LOGGER.info('Results successfully extracted\n'
-                            f'mu = {mu:.{p}f} +/- {err:.{p}f}')
+                            f'{param} = {mu:.{p}f} +/- {err:.{p}f}')
                 LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
             elif isinstance(err, list):
                 LOGGER.info('Results successfully extracted\n'
-                            f'mu = {mu:.{p}f} +{err[0]:.{p}f}/-{err[1]:.{p}f}')
+                            f'{param} = {mu:.{p}f} +{err[0]:.{p}f}/-{err[1]:.{p}f}')
                 if param == 'r':
                     LOGGER.info(f'Uncertainty obtained on ZH cross-section: +{err[0]*100:.2f}/-{err[1]*100:.2f} %')
             else:
@@ -642,13 +650,13 @@ def plot_1d_scans(
             max_y_smooth = max([np.max(scan['y_smooth']) for scan in scans_data] + [y_max, y_cut])
         num_text_lines = sum(1 + (1 if sig2 else 0) for _ in scans_data)
         text_box_height = num_text_lines * 1.1
-        y_max_required = max_y_smooth + text_box_height + 0.5   # +0.5 margin
+        y_max_required = max_y_smooth + text_box_height + 0.5   # + 0.5 margin
         effective_y_max = max(y_max, y_max_required)
 
         ax.set_ylim(0, effective_y_max)
 
         # Set x-axis limits based on all scans
-        all_x = np.concatenate([s['x'] for s in scans_data])
+        all_x = np.concatenate([s['x_smooth'] for s in scans_data])
         margin = 0.05 * (all_x.max() - all_x.min())
 
         if param == 'r':
@@ -796,8 +804,10 @@ def plot_2d_scans(
 
         all_x = np.concatenate([scan['x'] for scan in scans_data])
         all_y = np.concatenate([scan['y'] for scan in scans_data])
-        ax.set_xlim(all_x.min(), all_x.max())
-        ax.set_ylim(all_y.min(), all_y.max())
+        if len(all_x) > 1:
+            ax.set_xlim(all_x.min(), all_x.max())
+        if len(all_y) > 1:
+            ax.set_ylim(all_y.min(), all_y.max())
 
         ax.grid(True, linestyle=':')
         ax.legend(loc='best', fontsize=18)
