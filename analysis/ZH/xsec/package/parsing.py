@@ -428,17 +428,30 @@ def add_fit_args(
         help='Combine all channels for fit'
     )
     args.add_argument(
-        '--toy',
-        type=int,
-        default=-1,
-        help='Number of Toy MC extractions'
-    )
-    args.add_argument(
         '--fastscan',
         action='store_true',
         default=False,
         help='Do a fast scan to check the fit'
     )
+    args.add_argument(
+        '--skip-setup',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Skip the datacard and workspace setup'
+    )
+    args.add_argument(
+        '--only-diag',
+        action='store_true',
+        default=False,
+        help='Only do the diagnostic fit and skip the likelihood scan (decrease the fit precision)'
+    )
+    args.add_argument(
+        '--fast-scan',
+        action='store_true',
+        default=False,
+        help='Do a fast likelihood scan for the second fit'
+    )
+
     if not bias:
         args.add_argument(
             '--target',
@@ -477,6 +490,7 @@ def add_fit_args(
             default=50,
             help='Number of points for the likelihood scan (default 50 per parameter)'
         )
+
 
 def add_fit_plot_args(
         parser: ArgumentParser,

@@ -104,16 +104,26 @@ def get_bin_energy(bin_name: str) -> int:
     return energy
 
 
-def kappa_from_SMEFT(Cphi, CphiD, Cbox, lbda=1e3):
+def kappa_from_SMEFT(
+        Cphi: float | int,
+        CphiD: float | int,
+        Cbox: float | int,
+        lbda: float | int = 1e3
+         ) -> float | int:
     Ckin = (CphiD/4 - Cbox)
     kappa = 1 + (vev/lbda)**2 * (3 * Ckin - 2 * (vev/mH)**2 * Cphi)
     return kappa
 
 
-def kappa_precision(Cphi, CphiD, Cbox, lbda=1e3):
-    dCphi  = kappa_from_SMEFT(1, 0, 0) - 1
-    dCphiD = kappa_from_SMEFT(0, 1, 0) - 1
-    dCbox  = kappa_from_SMEFT(0, 0, 1) - 1
+def kappa_precision(
+        Cphi: float | int,
+        CphiD: float | int,
+        Cbox: float | int,
+        lbda: float | int = 1e3
+         ) -> float | int:
+    dCphi  = kappa_from_SMEFT(1, 0, 0, lbda) - 1
+    dCphiD = kappa_from_SMEFT(0, 1, 0, lbda) - 1
+    dCbox  = kappa_from_SMEFT(0, 0, 1, lbda) - 1
 
     LOGGER.debug(f'Using {dCphi = :.4f}, {dCphiD = :.4f}, {dCbox = :.4f}')
 

@@ -2,7 +2,7 @@
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os, uproot, subprocess
+import os, json, uproot, subprocess
 
 import numpy as np
 import pandas as pd
@@ -30,6 +30,10 @@ from package.plots.python.plotter import (
     set_plt_style,
     set_labels,
     savefigs
+)
+from package.func.self_coupling import (
+    kappa_from_SMEFT,
+    kappa_precision
 )
 
 
@@ -203,81 +207,48 @@ def check_log(res_log: str) -> int | None:
     return status
 
 
-def root_extraction(
-        file: str
-         ) -> tuple[float,
-                    float]:
-    '''Extract signal strength (mu) and uncertainty from RooFitResult ROOT file.
+def get_results(file, params, algo) -> dict[str, float | int]:
 
-    This is the primary extraction method using the RooFitResult object from
-    the first fit stage (--algo none --saveFitResult). Uses ROOT for reliable deserialization.
-    Falls back to log file parsing if ROOT is unavailable.
-    '''
-    LOGGER.debug('Extracting results from RooFitResult')
-    try:
-        import ROOT
-        # Convert PathObj to string if necessary
-        file = ROOT.TFile.Open(str(file))
-        if not file or file.IsZombie():
-            LOGGER.warning(f'Could not open {file}')
-            return -100, -100
+    res = {}
+    if isinstance(params, str): params = [params]
+    tree: dict[str, np.ndarray] = uproot.open(file)['limit'].arrays(params, library='np')
 
-        fit_result = file.Get('fit_mdf')
-        if not fit_result:
-            LOGGER.warning(f'Could not find fit_mdf in {file}')
-            file.Close()
-            return -100, -100
+    if algo == 'singles':
+        for i, param in enumerate(params):
+            bestfit = float(tree[param][0])
+            if bestfit < 0 and bestfit > -1e-2: bestfit = abs(bestfit)
+            err_lo, err_hi = abs(float(tree[param][2 * i + 1])), abs(float(tree[param][2 * i + 2]))
+            res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
 
-        # Get the parameter of interest (r)
-        pars = fit_result.floatParsFinal()
-        r_param = pars.find('r')
+    elif algo == 'grid':
+        for param in params:
+            other_params = [p for p in params if p!=param] if len(params)>1 else []
+            bestfit, err_hi, err_lo = process_scan(file, param, 1e3, True, other_params)
+            res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
+    else:
+        raise ValueError(f'{algo = } is not supported, choose between [singles, grid]')
 
-        if not r_param:
-            LOGGER.warning('Could not find parameter r in fit result')
-            file.Close()
-            return -100, -100
+    return res
 
-        mu, err = r_param.getVal(), r_param.getError()
 
-        LOGGER.debug('Successfully extracted from RooFitResult')
-        file.Close()
-        return mu, err
+def convert_to_kappa(
+        res: dict[str, dict[str, float | int]],
+        lbda: float | int = 1e3,
+         ) -> tuple[float | int, float | int]:
+    cphi, cphid, cbox = res.get('Cphi', {}), res.get('CphiD', {}),  res.get('Cbox', {})
 
-    except ImportError:
-        LOGGER.warning('ROOT not available, falling back to log file extraction')
-        return -100, -100
-    except Exception as e:
-        LOGGER.warning(f'Failed to extract from ROOT file: {e}')
-        return -100, -100
+    cphi_val,  cphi_err  = cphi.get('best_fit',  0), cphi.get('err',  0)
+    cphid_val, cphid_err = cphid.get('best_fit', 0), cphid.get('err', 0)
+    cbox_val,  cbox_err  = cbox.get('best_fit',  0), cbox.get('err',  0)
 
-def res_extraction(res_log: str
-                   ) -> tuple[float,
-                              float]:
-    '''Extract signal strength (mu) and uncertainty from fit results log.
+    kappa_val = kappa_from_SMEFT(cphi_val, cphid_val, cbox_val, lbda)
+    kappa_err = kappa_precision(cphi_err,  cphid_err, cbox_err, lbda)
 
-    This is a fallback method that parses the log file for the fit result.
-    Used only if RooFitResult extraction fails.
-    '''
-    mu, err = -100, -100  # Initialize with error values
+    LOGGER.info('Converting to kappa framework:\n  '
+                f'kappa_lbda = {kappa_val:.2f} +/- {kappa_err*100:.2f}%')
 
-    # Parse log file for signal strength result
-    # (parse from end to find latest result)
-    with open(str(res_log)) as file:
-        lines = file.readlines()
-        for line in lines:
+    return kappa_val, kappa_err
 
-            # Match line format: r = value +/- error (limited)
-            if 'r = ' in line and '+/-' in line and '(limited)' in line:
-                result = line.replace('\t', ' ').replace('\n', '').split()
-                mu, err = float(result[-4]), float(result[-2])
-                break
-
-            # Match line format: r = value +/- error
-            if 'r = ' in line and '+/-' in line:
-                result = line.replace('\t', ' ').replace('\n', '').split()
-                mu, err = float(result[-3]), float(result[-1])
-                break
-    return mu, err
 
 
 
@@ -286,44 +257,38 @@ def res_extraction(res_log: str
 ######################
 
 def res_saving(
-        mu: float,
-        err: float | list[float],
-        res: str,
+        results: dict[str, float | int],
+        outDir: str,
         print_result: bool = True,
         target: str = '',
-        param: str = 'r'
+        eps: float = 1e-2
          ) -> None:
     '''Save fitting results (signal strength and uncertainty) to output file.'''
-
-    # Check if results were successfully extracted
-    if (mu==-100):
+    if not results:
         LOGGER.warning("Couldn't extract values of the fit, go to the log file to have more information")
-    else:
-        # Display results unless suppressed by flag
+        return
+
+    LOGGER.info('Results successfully extracted')
+    for param, res in results.items():
+        bestfit, err   = res['best_fit'], res['err']
+        err_hi, err_lo = res['err_hi'],   res['err_lo']
+        precision = 6 if param == 'r' else 2
+        symmetric = abs(err_hi - err_lo) < eps
+        result_text = (
+            f'  {param} = {bestfit:.{precision}f} +/- {err:.{precision}f}'
+            if symmetric else
+            f'  {param} = {bestfit:.{precision}f} +{err_hi:.{precision}f}/-{err_lo:.{precision}f}'
+        )
         if print_result:
-            p = 6 if param=='r' else 2
-            if isinstance(err, float):
-                LOGGER.info('Results successfully extracted\n'
-                            f'{param} = {mu:.{p}f} +/- {err:.{p}f}')
-                LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
-            elif isinstance(err, list):
-                LOGGER.info('Results successfully extracted\n'
-                            f'{param} = {mu:.{p}f} +{err[0]:.{p}f}/-{err[1]:.{p}f}')
-                if param == 'r':
-                    LOGGER.info(f'Uncertainty obtained on ZH cross-section: +{err[0]*100:.2f}/-{err[1]*100:.2f} %')
-            else:
-                raise ValueError('Wrong variable type for err. Only support float and list')
+            LOGGER.info(result_text)
+            if param == 'r':
+                unc_text = f'{err * 100:.2f} %' if symmetric else f'+{err_hi * 100:.2f}/-{err_lo * 100:.2f} %'
+                LOGGER.info(f'Uncertainty obtained on ZH cross-section: {unc_text}')
 
-        # Write results to output file
-        with open(str(res) + f'/results{target}.txt', 'w') as f:
-            if isinstance(err, float):
-                f.write(f'{mu}\n{err}\n')
-            elif isinstance(err, list):
-                f.write(f'{mu}\n{err[0]}\n{err[1]}')
-            else:
-                raise ValueError('Wrong variable type for err. Only support float and list')
+    out_file = Path(outDir) / f'results{target}.json'
+    out_file.write_text(json.dumps(results))
 
-        LOGGER.debug(f'Saved results in {res}/results{target}.txt')
+    LOGGER.debug(f'Saved results in {out_file}')
 
 
 
@@ -335,7 +300,8 @@ def read_tree_data(
         file_path: Path,
         param: str = "r",
         y_cut: float | int = 7.0,
-        other_params: list[str] = []
+        other_params: list[str] | None = None,
+        eps: float = 1e-5
          ) -> tuple[np.ndarray,
                     np.ndarray]:
     """
@@ -343,13 +309,23 @@ def read_tree_data(
     Returns sorted parameter and 2*deltaNLL arrays.
     """
     with uproot.open(file_path) as f:
-        tree: pd.DataFrame = f["limit"].arrays(library='pd')
+        branches = [param, "deltaNLL"]
         if other_params:
-            best_fit = tree.eval(' & '.join(f'{p}==0' for p in other_params))
-            tree = tree[best_fit]
+            branches.extend(other_params)
+
+        tree = f["limit"].arrays(branches, library='np')
+
+        if other_params:
+            # Keep all points where the auxiliary parameters are within the
+            # requested tolerance around zero.
+            mask = np.logical_and.reduce([
+                np.abs(tree[p]) <= eps for p in other_params
+            ])
+            tree = {key: values[mask] for key, values in tree.items()}
+
         # Read data directly as numpy arrays
-        x_data = tree[param].to_numpy()
-        y_data = 2 * tree["deltaNLL"].to_numpy()
+        x_data = tree[param]
+        y_data = 2 * tree["deltaNLL"]
 
     LOGGER.debug(f'Found {len(x_data)} point in {file_path}')
 
@@ -488,7 +464,8 @@ def process_scan(
         param: str = "r",
         y_cut: float | int = 7.0,
         only_res: bool = False,
-        other_params: list[str] = []
+        other_params: list[str] = [],
+        eps: float = 1e-5
          ) -> tuple[np.ndarray,
                     np.ndarray,
                     int | float,
@@ -500,7 +477,7 @@ def process_scan(
     Returns: (x, y, bestfit, spline, errors_1sig, errors_2sig)
     """
     # Read data
-    x, y = read_tree_data(input_file, param, y_cut, other_params)
+    x, y = read_tree_data(input_file, param, y_cut, other_params, eps)
 
     if len(x) <= 1:
         raise ValueError(f"Not enough points in {input_file}: {len(x)}")
@@ -532,7 +509,7 @@ def process_scan(
     err_hi2, err_lo2 = get_error_band(crossings[4.0], bestfit)
 
     if only_res:
-        return bestfit, err_hi1, err_lo1
+        return float(bestfit), float(err_hi1), float(err_lo1)
     return x, y, bestfit, spl, (err_hi1, err_lo1), (err_hi2, err_lo2)
 
 
@@ -771,7 +748,7 @@ def plot_2d_scans(
 
     try:
         contour_levels = [2.30, 6.18] if sig2 else [2.30]
-        contour_levels = [1.0, 4.0] if sig2 else [1.0]
+        # contour_levels = [1.0, 4.0] if sig2 else [1.0]
         contour_handle = None
 
         for scan in scans_data:
