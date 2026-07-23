@@ -217,7 +217,7 @@ def get_results(file, params, algo) -> dict[str, float | int]:
         for i, param in enumerate(params):
             bestfit = float(tree[param][0])
             if bestfit < 0 and bestfit > -1e-2: bestfit = abs(bestfit)
-            err_lo, err_hi = abs(float(tree[param][2 * i + 1])), abs(float(tree[param][2 * i + 2]))
+            err_lo, err_hi = abs(float(tree[param][2 * i + 1]) - bestfit), abs(float(tree[param][2 * i + 2]) - bestfit)
             res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
 
     elif algo == 'grid':
@@ -233,6 +233,7 @@ def get_results(file, params, algo) -> dict[str, float | int]:
 
 def convert_to_kappa(
         res: dict[str, dict[str, float | int]],
+        outDir: PathObj,
         lbda: float | int = 1e3,
          ) -> tuple[float | int, float | int]:
     cphi, cphid, cbox = res.get('Cphi', {}), res.get('CphiD', {}),  res.get('Cbox', {})
@@ -247,6 +248,9 @@ def convert_to_kappa(
     LOGGER.info('Converting to kappa framework:\n  '
                 f'kappa_lbda = {kappa_val:.2f} +/- {kappa_err*100:.2f}%')
 
+    out = outDir / 'result_kappa.json'
+    out.write_text(json.dumps({'kappa': kappa_val, 'err': kappa_err}))
+    LOGGER.info(f'Saving results at {out}')
     return kappa_val, kappa_err
 
 

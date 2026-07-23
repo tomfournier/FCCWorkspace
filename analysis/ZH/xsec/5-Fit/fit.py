@@ -2,7 +2,7 @@
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-import os, sys, subprocess
+import os
 
 from time import time
 from pathlib import Path
@@ -41,8 +41,7 @@ from package.userConfig import loc, PathObj
 loc.set_default_type(Path)
 from package.config import timer  # Timing utility
 from package.func.fit import (
-    process_scan,
-    check_log,
+    get_results,
     res_saving,
     run_cmd
 )
@@ -94,20 +93,28 @@ ws:   PathObj = loc.get(config['ws'],   *args)   # Workspace directory
 log:  PathObj = loc.get(config['log'],  *args)   # Log output directory
 res:  PathObj = loc.get(config['res'],  *args)   # Results output directory
 scan: PathObj = loc.get(config['scan'], *args)   # Fast scan directory
-tp           = config['tp']                           # Type identifier
+tp            = config['tp']                          # Type identifier
 
 # Define naming suffixes for file outputs
-comb    = '_combined' if arg.combine else ''                         # Combined channel suffix
-tar     = f'_{arg.target}' if arg.bias else ''                       # Bias test target suffix (e.g., _bb)
-dc_comb = loc.get('COMBINE', '', arg.ecm, arg.sel)  # Combined datacard location
+comb    = '_combined' if arg.combine else ''                     # Combined channel suffix
+tar     = f'_{arg.target}' if arg.bias else ''                   # Bias test target suffix (e.g., _bb)
+dcs = loc.get('COMBINE', '', arg.ecm, arg.sel)  # Combined datacard location
 
 # Define full file paths for workspace, logs, and results
-ws_file     = ws  / f'ws{tar}.root'                   # Workspace file (workspace.root or workspace_bb.root)
-sn_file     = ws  / f'higgsCombineDiag{tar}.MultiDimFit.mH125.root'                   # Snapshot file
-log_text    = log / f'log_text2workspace{tar}.txt'    # Text2workspace log
-result_scan = log / f'log_fastscan{tar}.txt'          # Scan results log (scan results)
-diagnostic_fit  = log / f'log_diagnostic{tar}.txt'       # Diagnostic results log (for fit results)
-result_fit  = log / f'log_results{tar}_fit.txt'       # Fit  results log (fit results)
+ws_file   = ws  / f'ws{tar}.root'                                   # Workspace file (workspace.root or workspace_bb.root)
+diag_file = ws  / f'higgsCombineDiag{tar}.MultiDimFit.mH125.root'   # Diagnostic fit file
+fit_file  = ws  / f'higgsCombineXsec{tar}.MultiDimFit.mH125.root'   # Likekihood scan file
+
+log_t2w   = log / f'log_text2workspace{tar}.txt'    # Text2workspace log
+log_fscan = log / f'log_fastscan{tar}.txt'          # Scan results log (scan results)
+log_diag  = log / f'log_diagnostic{tar}.txt'        # Diagnostic results log (for fit results)
+log_fit   = log / f'log_results{tar}_fit.txt'       # Fit  results log (fit results)
+
+# Datacard file definition
+dc_nom = dc / f'datacard{tar}{comb}.txt'
+dc_ee  = dcs /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
+dc_mu  = dcs / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
+dc_qq  = dcs /  'qq'  / tp / 'datacard' / f'datacard{tar}.txt'
 
 # Set up environment for subprocess calls
 env = os.environ.copy()
@@ -124,10 +131,7 @@ for dir_path in [dc, ws, log, res, scan]:
 
 def do_fit(
         dr: PathObj,
-        dc: PathObj,
         ws: PathObj,
-        tp: PathObj,
-        dc_comb: PathObj,
         env: os._Environ
          ) -> int:
     '''Execute the fitting workflow: combine datacards, create workspace, and run fit.
@@ -137,15 +141,14 @@ def do_fit(
     Stage 2: Grid scan (--algo grid) using result from stage 1 for faster convergence
     '''
 
-    dc_combined = dc / f'datacard{tar}{comb}.txt'
-    dc_mu = dc_comb / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
-    dc_ee = dc_comb /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
-    dc_qq = dc_comb /  'qq'  / tp / 'datacard' / f'datacard{tar}.txt'
+    ##########################
+    ### COMMANDS DEFINTION ###
+    ##########################
 
-    cmd_lep  = ['combineCards.py', f'ee={dc_ee}', f'mumu={dc_mu}']
-    cmd_comb = ['combineCards.py', f'ee={dc_ee}', f'mumu={dc_mu}', f'qq={dc_qq}']
+    cmd_comb  = ['combineCards.py', f'ee={dc_ee}', f'mumu={dc_mu}']
+    cmd_comb += [f'qq={dc_qq}'] if arg.combine else []
 
-    cmd_t2w = ['text2workspace.py', dc_combined, '-v', '10',
+    cmd_t2w = ['text2workspace.py', dc_nom, '-v', '10',
                '--X-allow-no-signal', '--X-allow-no-background',
                '--for-fits', '--no-wrappers', '-m', '125', '-o', ws_file]
 
@@ -156,32 +159,47 @@ def do_fit(
 
     cmd_fastscan = ['combineTools.py', '-M', 'FastScan', '-w', str(ws_file)+':w']
 
-    cmd_fit = ['combine', sn_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1',
+    cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1',
                '--expectSignal=1', '-n', f'Xsec{tar}', '-w', 'w', '--snapshotName', 'MultiDimFit',
                '--autoRange', '5', '--alignEdges', '1', '--squareDistPoiStep',
                '--algo', 'grid', '--points', '200', '--skipInitialFit']
+    cmd_fit += ['--fastScan'] if arg.fast_scan else []
 
-    if arg.lep:
-        LOGGER.info('Combining datacards from ee and mumu channel')
-        run_cmd(cmd_lep, dc_combined, None, env)
 
-    if arg.combine:
-        LOGGER.info('Combining datacards from all channels')
-        run_cmd(cmd_comb, dc_combined, None, env)
 
-    LOGGER.info('Setting files for the fit')
-    run_cmd(cmd_t2w, log_text, dr, env)
+    ##########################
+    ### COMMANDS EXECUTION ###
+    ##########################
+
+    if (arg.lep or arg.combine) and not (arg.skip_setup and dc_nom.exists()):
+        channels = 'ee and mumu' if arg.lep else ('ee, mumu and qq' if arg.comb else '')
+        LOGGER.info(f'Combining datacards for {channels} channels')
+        run_cmd(cmd_comb, dc_nom, None, env)
+    else:
+        LOGGER.debug('Skipping the datacards combination')
+
+    if not (arg.skip_setup and ws_file.exists()):
+        LOGGER.info('Converting the datacard to RooFit workspace')
+        run_cmd(cmd_t2w, log_t2w, dr, env)
+    else:
+        LOGGER.debug('Skipping the RooFit workspace setup')
 
     if arg.fastscan:
         LOGGER.info('Doing a fast likelyhood scan to check the fit')
-        run_cmd(cmd_fastscan, result_scan, scan, env)
-
-    LOGGER.info('Doing a diagnostic fit')
-    run_cmd(cmd_diag, diagnostic_fit, ws, env)
-
+        run_cmd(cmd_fastscan, log_fscan, scan, env)
 
     LOGGER.info('Doing the fit')
-    run_cmd(cmd_fit, result_fit, ws, env)
+    run_cmd(cmd_diag, log_diag, ws, env)
+    res_diag = get_results(diag_file, 'r', 'singles')
+    res_saving(res_diag, res, arg.print, '_diag')
+
+    if arg.only_diag:
+        LOGGER.debug('Skipping the likelihood scan')
+    else:
+        LOGGER.info('Doing a likelihood scan')
+        run_cmd(cmd_fit, log_fit, ws, env)
+        res_fit = get_results(fit_file, 'r', 'grid')
+        res_saving(res_fit, res, arg.print, '_fit')
 
     return 0
 
@@ -193,35 +211,15 @@ def do_fit(
 if __name__=='__main__':
     try:
         # Execute the fitting pipeline
-        ret = do_fit(dr, dc, ws, tp, dc_comb, env)
-        if ret != 0: sys.exit(ret)
+        ret = do_fit(dr, ws, env)
+        if ret != 0: exit(ret)
 
-        LOGGER.info('Fit done, extracting results')
+        cmd = ['python', 'plots.py', '--ecm', str(arg.ecm),
+               '--sels', str(arg.sel), '--no-timer', '--sig2']
+        cmd += ['--lep'] if arg.lep else (['--comb'] if arg.combine else ['--cat', arg.cat])
+        cmd += ['--bias', '--only1', '--target', arg.target] if arg.bias else []
 
-        # Check if the fit went well
-        fit_status  = check_log(result_fit)
-        out_file = f'higgsCombineXsec{tar}.MultiDimFit.mH125.123456.root' if arg.toy>0 \
-            else f'higgsCombineXsec{tar}.MultiDimFit.mH125.root'
-        mu, err_h, err_l = process_scan(ws / out_file,
-                                        'r', 10, True)
-
-        # Save results to output file
-        res_saving(mu, [err_h, err_l],  res, arg.print, tar)
-
-        cmd = ['python', 'plots.py', '--ecm', str(arg.ecm), '--sels', str(arg.sel), '--no-timer', '--sig2']
-        if arg.lep:       cmd.append('--lep')
-        elif arg.combine: cmd.append('--comb')
-        elif arg.cat:     cmd.extend(['--cat', arg.cat])
-        if arg.toy>0:     cmd.append('--toy')
-        if arg.bias:
-            cmd.append('--bias')
-            cmd.append('--only1')
-            cmd.extend(['--target', arg.target])
-
-        status = subprocess.run(cmd, cwd=Path(__file__).parent,
-                                env=env, check=False,
-                                capture_output=False, text=True)
-        if status != 0: exit(status.returncode)
+        run_cmd(cmd, None, Path(__file__).parent, env)
 
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt

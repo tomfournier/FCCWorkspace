@@ -133,7 +133,7 @@ def do_fit(
     '''Execute the fitting workflow: combine datacards, create workspace, and run fit.'''
 
     ##########################
-    ### Command definition ###
+    ### COMMAND DEFINITION ###
     ##########################
 
     cmd_dc = ['combineCards.py', f'low={dc_240}', f'high={dc_365}']
@@ -153,9 +153,9 @@ def do_fit(
 
     cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1', '-n', 'Xsec',
                '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w',
-               '--autoBoundsPOIs', '*', '--autoMaxPOIs', '*', '--snapshotName', 'MultiDimFit', '--alignEdges', '1',
+               '--autoBoundsPOIs', '*', '--autoMaxPOIs', '*', '--snapshotName', 'MultiDimFit',
                '--squareDistPoiStep', '--autoRange', '6', '--skipInitialFit', '--algo', 'grid',
-               '--points', f'{get_grid_number(arg.points, params)}']
+               '--alignEdges', '1', '--points', f'{get_grid_number(arg.points, params)}']
     cmd_fit += ['--fastScan'] if arg.fast_scan else []
 
 
@@ -168,7 +168,7 @@ def do_fit(
         LOGGER.info('Combining datacards from 240 and 365 GeV channels')
         run_cmd(cmd_dc, dc_nom, None, env)
     else:
-        LOGGER.debug('Skipping the datacard setup')
+        LOGGER.debug('Skipping the datacards combination')
 
     if not (arg.skip_setup and ws_file.exists()):
         LOGGER.info('Converting the datacard to RooFit workspace')
@@ -184,7 +184,7 @@ def do_fit(
     run_cmd(cmd_diag, log_diag, ws, env)
     res_diag = get_results(diag_file, params, 'singles')
     res_saving(res_diag, res, arg.print, '_diag')
-    convert_to_kappa(res_diag)
+    convert_to_kappa(res_diag, res)
 
     if arg.only_diag:
         LOGGER.debug('Skipping the likelihood scan')
@@ -193,7 +193,7 @@ def do_fit(
         run_cmd(cmd_fit, log_fit, ws, env)
         res_fit = get_results(fit_file, params, 'grid')
         res_saving(res_fit, res, arg.print, '_fit')
-        convert_to_kappa(res_fit)
+        convert_to_kappa(res_fit, res)
 
     return 0
 
