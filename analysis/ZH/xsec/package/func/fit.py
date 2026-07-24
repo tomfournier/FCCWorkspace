@@ -2,7 +2,7 @@
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os, json, uproot, subprocess
+import os, json, uproot, subprocess, ROOT
 
 import numpy as np
 import pandas as pd
@@ -231,9 +231,29 @@ def get_results(file, params, algo) -> dict[str, float | int]:
     return res
 
 
+def get_hesse(file, params):
+    res = {}
+    file = ROOT.TFile(file)
+
+    floatParams = file.Get('floatParsFinal')
+    corr = file.Get('h_correlation')
+    for param in params:
+        res[param] = {}
+        idx_p = corr.GetXaxis().FindBin(param)
+        for other in params:
+            pj = floatParams.find(other)
+            vj = pj.getVal()
+            ej = pj.getError()
+            idx = corr.GetXaxis().FindBin(other)
+            c = corr.GetBinContent(idx_p, idx)
+            res[param][other] = [vj - ej * c, vj, vj + ej * c]
+    return res
+
+
 def convert_to_kappa(
         res: dict[str, dict[str, float | int]],
         outDir: PathObj,
+        suffix: str = '',
         lbda: float | int = 1e3,
          ) -> tuple[float | int, float | int]:
     cphi, cphid, cbox = res.get('Cphi', {}), res.get('CphiD', {}),  res.get('Cbox', {})
@@ -248,7 +268,7 @@ def convert_to_kappa(
     LOGGER.info('Converting to kappa framework:\n  '
                 f'kappa_lbda = {kappa_val:.2f} +/- {kappa_err*100:.2f}%')
 
-    out = outDir / 'result_kappa.json'
+    out = outDir / f'result_kappa{suffix}.json'
     out.write_text(json.dumps({'kappa': kappa_val, 'err': kappa_err}))
     LOGGER.info(f'Saving results at {out}')
     return kappa_val, kappa_err

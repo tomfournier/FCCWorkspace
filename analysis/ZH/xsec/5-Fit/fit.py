@@ -196,7 +196,7 @@ def do_fit(
     if arg.only_diag:
         LOGGER.debug('Skipping the likelihood scan')
     else:
-        LOGGER.info('Doing a likelihood scan')
+        LOGGER.info('Doing the likelihood scan')
         run_cmd(cmd_fit, log_fit, ws, env)
         res_fit = get_results(fit_file, 'r', 'grid')
         res_saving(res_fit, res, arg.print, '_fit')

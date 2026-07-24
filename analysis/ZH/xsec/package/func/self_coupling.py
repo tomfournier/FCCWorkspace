@@ -294,7 +294,7 @@ class _SMEFT_CphiD_Cbox(SMEFT_NLO):
 
 
 class _SMEFT_all(SMEFT_NLO):
-    wilson = ['Cphi', 'Cbox', 'CphiD']
+    wilson = ['Cphi', 'CphiD', 'Cbox']
 
 
 SMEFT_Cphi  = _SMEFT_Cphi()

@@ -148,13 +148,13 @@ def do_fit(
 
     cmd_diag = ['combine', ws_file, '-M', 'MultiDimFit', '-m', '125', '-t', '-1', '-v', '2', '-n', 'Diag',
                 '--algo', 'singles', '--cl=0.68', '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
-                '--setParameters', expected, '--setParameterRanges', param_ranges,
+                '--setParameters', expected, '--setParameterRanges', param_ranges, '--robustHesse=1',
                 '--cminPreFit', '1', '--cminInitialHesse', '1', '--robustFit=1']
 
     cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1', '-n', 'Xsec',
-               '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w',
+               '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w', '--robustHesse=1',
                '--autoBoundsPOIs', '*', '--autoMaxPOIs', '*', '--snapshotName', 'MultiDimFit',
-               '--squareDistPoiStep', '--autoRange', '6', '--skipInitialFit', '--algo', 'grid',
+               '--squareDistPoiStep', '--autoRange', '10', '--skipInitialFit', '--algo', 'grid',
                '--alignEdges', '1', '--points', f'{get_grid_number(arg.points, params)}']
     cmd_fit += ['--fastScan'] if arg.fast_scan else []
 
@@ -184,16 +184,16 @@ def do_fit(
     run_cmd(cmd_diag, log_diag, ws, env)
     res_diag = get_results(diag_file, params, 'singles')
     res_saving(res_diag, res, arg.print, '_diag')
-    convert_to_kappa(res_diag, res)
+    convert_to_kappa(res_diag, res, '_diag')
 
     if arg.only_diag:
         LOGGER.debug('Skipping the likelihood scan')
     else:
-        LOGGER.info('Doing a likelihood scan')
+        LOGGER.info('Doing the likelihood scan')
         run_cmd(cmd_fit, log_fit, ws, env)
         res_fit = get_results(fit_file, params, 'grid')
         res_saving(res_fit, res, arg.print, '_fit')
-        convert_to_kappa(res_fit, res)
+        convert_to_kappa(res_fit, res, '_fit')
 
     return 0
 
