@@ -1,5 +1,5 @@
 
-import os, array, argparse, subprocess, ROOT
+import os, json, array, argparse, subprocess, ROOT
 
 import numpy as np
 
@@ -8,13 +8,15 @@ from package.tools.process import getHist
 from package.userConfig import loc
 loc.set_default_type('Path')
 from package.plots.fit import (
-    plot_fit,
+    fit_plot,
     plot_signal,
     plot_syst_dist,
     plot_params_vs_mh,
     plot_decomposition,
     plot_fit_with_pull
 )
+
+from package.func.fit import get_hist
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
@@ -28,10 +30,38 @@ def _with_suffix(base: str, suffix: str) -> str:
     return base if suffix == '' else f'{base}_{suffix}'
 
 
+def _const_real(
+        name: str,
+        coeffs: dict[str, list[float | int]],
+        lo: float | int | None = None,
+        hi: float | int | None = None,
+        idx: int = 1) -> ROOT.RooRealVar:
+    value = coeffs.get(name, 1)[idx]
+    if lo is None or hi is None:
+        var = ROOT.RooRealVar(name, '', value)
+    else:
+        var = ROOT.RooRealVar(name, '', value, lo, hi)
+    var.setConstant(ROOT.kTRUE)
+    return var
+
+
+def _arg_list(*items, name: str | None = None):
+    arg_list = ROOT.RooArgList()
+    if name is not None:
+        arg_list.setName(name)
+    for item in items:
+        arg_list.add(item)
+    return arg_list
+
+
+def _formula_var(name: str, expr: str, *items):
+    return ROOT.RooFormulaVar(name, '', expr, _arg_list(*items))
+
+
 def build_2cbg_pdf(
     recoilmass: ROOT.RooRealVar,
     Vars: dict[str, ROOT.RooRealVar],
-    yield_zh,
+    yield_zh: float | int,
     suffix: str,
      ):
 
@@ -71,7 +101,7 @@ def doSignal(
     recoilmass = w_tmp.var('zll_recoil_m')
     MH = w_tmp.var('MH')
 
-    hist_norm = getHist(f'{flavor}_{hName}', [procs[1]])
+    hist_norm = getHist(f'{flavor}_{hName}', [procs[0]])
     hist_norm.Scale(lumiScale)
     hist_norm = hist_norm.ProjectionX('hist_zh_norm', cat_idx_min, cat_idx_max)
     yield_nom = hist_norm.Integral()
@@ -80,7 +110,7 @@ def doSignal(
     tmp = tmp.Rebin(int(hist_norm.GetNbinsX() / nBins))
     yMax = 1.25 * tmp.GetMaximum()
 
-    # recoil mass plot settings
+    # Recoil mass plot settings
     cfg = {
 
         'logy'              : False,
@@ -109,76 +139,31 @@ def doSignal(
     ## linear functions for mean and mean_gt
     ## constants for all the rest
 
-    # import values
-    coeff = np.loadtxt(f'{outDir}/coeff.txt'.replace(f'lumi{lumiLabel}', 'base_parametric'))  # take the coefficients from the baseline (scaled to 1 ab-1)
-    param_mean0_           = float(coeff[0])
-    param_mean1_           = float(coeff[1])
-    param_mean_gt_offset0_ = float(coeff[4])
-    param_sigma_           = float(coeff[5])
-    param_sigma_gt_        = float(coeff[6])
-    param_alpha_1_         = float(coeff[7])
-    param_alpha_2_         = float(coeff[8])
-    param_n_1_             = float(coeff[9])
-    param_n_2_             = float(coeff[10])
-    param_cb_1_            = float(coeff[11])
-    param_cb_2_            = float(coeff[12])
+    # Import values
+    with open(f'{outDir}/coeff.json') as fIn: coeffs = json.load(fIn)
 
-    mean_argl, sigma_argl              = ROOT.RooArgList('mean_argl'),     ROOT.RooArgList('sigma_argl')
-    sigma_gt_argl, mean_gt_offset_argl = ROOT.RooArgList('sigma_gt_argl'), ROOT.RooArgList('mean_gt_offset_argl')
-    alpha1_argl, n1_argl, cb1_argl     = ROOT.RooArgList('alpha1_argl'),   ROOT.RooArgList('n1_argl'), ROOT.RooArgList('cb1_argl')
-    alpha2_argl, n2_argl, cb2_argl     = ROOT.RooArgList('alpha2_argl'),   ROOT.RooArgList('n2_argl'), ROOT.RooArgList('cb2_argl')
-
-    mean0 = ROOT.RooRealVar('mean0', '', param_mean0_, 0.5, 1.5)  # slope
-    mean0.setConstant(ROOT.kTRUE)
-    mean1 = ROOT.RooRealVar('mean1', '', param_mean1_, -1, 1)  # offset
-    mean1.setConstant(ROOT.kTRUE)
-    mean_argl.add(mean0)
-    mean_argl.add(mean1)
-
-    mean_gt_offset = ROOT.RooRealVar('mean_gt_offset', '', param_mean_gt_offset0_, -2, 2)
-    mean_gt_offset.setConstant(ROOT.kTRUE)
-    mean_gt_offset_argl.add(mean_gt_offset)
-
-    sigma0 = ROOT.RooRealVar('sigma0', '', param_sigma_, 0, 10)  # 0.4335
-    sigma0.setConstant(ROOT.kTRUE)
-    sigma_argl.add(sigma0)
-
-    sigma_gt0 = ROOT.RooRealVar('sigma_gt0', '', param_sigma_gt_, 0, 10)
-    sigma_gt0.setConstant(ROOT.kTRUE)
-    sigma_gt_argl.add(sigma_gt0)
-
-    alpha10 = ROOT.RooRealVar('alpha10', '', param_alpha_1_, -5, 5)
-    alpha10.setConstant(ROOT.kTRUE)
-    alpha1_argl.add(alpha10)
-    n10 = ROOT.RooRealVar('n10', '', param_n_1_, -50, 50)
-    n10.setConstant(ROOT.kTRUE)
-    n1_argl.add(n10)
-    cb10 = ROOT.RooRealVar('cb10', '', param_cb_1_, 0, 1)
-    cb10.setConstant(ROOT.kTRUE)
-    cb1_argl.add(cb10)
-
-    alpha20 = ROOT.RooRealVar('alpha20', '', param_alpha_2_, -5, 5)
-    alpha20.setConstant(ROOT.kTRUE)
-    alpha2_argl.add(alpha20)
-    n20 = ROOT.RooRealVar('n20', '', param_n_2_,  -50, 50)
-    n20.setConstant(ROOT.kTRUE)
-    n2_argl.add(n20)
-    cb20 = ROOT.RooRealVar('cb20', '', param_cb_2_, 0, 1)
-    cb20.setConstant(ROOT.kTRUE)
-    cb2_argl.add(cb20)
+    mean0     = _const_real('mean0',    coeffs, .5,  1.5)   # slope
+    mean1     = _const_real('mean_cb1', coeffs, -1,  1)     # offset
+    mean_gt1  = _const_real('mean_gt1', coeffs, -2,  2)
+    sigma0    = _const_real('sigma_cb', coeffs, +0,  10)    # 0.4335
+    sigma_gt0 = _const_real('sigma_gt', coeffs, +0,  10)
+    alpha10   = _const_real('alpha_1',  coeffs, -5,  5)
+    alpha20   = _const_real('alpha_2',  coeffs, -5,  5)
+    n10       = _const_real('n_1',      coeffs, -50, 50)
+    n20       = _const_real('n_2',      coeffs, -50, 50)
+    cb10      = _const_real('cb_1',     coeffs, +0,  1)
+    cb20      = _const_real('cb_2',     coeffs, +0,  1)
 
     cats    = ROOT.RooCategory('category', '')           # For each mass bin, define category
     hists   = ROOT.std.map('string, RooDataHist*')()     # Container holding all RooDataHists
     pdf_tot = ROOT.RooSimultaneous('pdf_tot', '', cats)  # Total pdf, containing all the categories
 
-    garbage = []
-    var_list = ['mean', 'mean_gt', 'sigma', 'sigma_gt', 'mean_offset', 'mean_gt_offset',
+    var_list = ['mean', 'mean_gt', 'sigma', 'sigma_gt', 'mean1', 'mean_gt1',
                 'alpha_1', 'alpha_2', 'n_1', 'n_2', 'cb_1', 'cb_2', 'norm', 'mH']
     var_dict = {k:[] for k in var_list}
 
-    for i, proc in enumerate(procs):
+    for i, mH, proc in enumerate(zip(mHs, procs)):
 
-        mH = mHs[i]
         mH_label = f'{mH:.3f}'.replace('.', 'p')
         print(f'Do {mH = :.3f}')
 
@@ -196,23 +181,20 @@ def doSignal(
         hists.insert(ROOT.std.pair('string, RooDataHist*')(catIDx, rdh_zh))  # Does not work with recent ROOT versions?
         cats.defineType(catIDx, i)
 
-        mean = ROOT.RooFormulaVar(f'mean_{mH_label}', f'x[1] + x[0]*{mH}', mean_argl)
-        garbage.append(mean)
-        sigma = ROOT.RooFormulaVar(f'sigma_{mH_label}', 'x[0]', sigma_argl)
+        mean  = _formula_var(f'mean_{mH_label}', f'@1 + @0*{mH}', mean0, mean1)
+        sigma = _formula_var(f'sigma_{mH_label}', '@0', sigma0)
 
-        mean_gt_argl = ROOT.RooArgList('mean_gt_argl')
-        mean_gt_argl.add(mean)
-        mean_gt_argl.add(mean_gt_offset)
-        mean_gt  = ROOT.RooFormulaVar(f'mean_gt_{mH_label}',  'x[0] + x[1]', mean_gt_argl)  # mean gt is as an offset w.r.t. the mean
-        sigma_gt = ROOT.RooFormulaVar(f'sigma_gt_{mH_label}', 'x[0]', sigma_gt_argl)
+        mean_gt  = _formula_var(f'mean_gt_{mH_label}',  '@0 + @1', mean, mean_gt1)  # mean gt is an offset w.r.t. the mean
+        sigma_gt = _formula_var(f'sigma_gt_{mH_label}', '@0', sigma_gt0)
 
-        alpha1 = ROOT.RooFormulaVar(f'alpha1_{mH_label}', 'x[0]', alpha1_argl)
-        n1     = ROOT.RooFormulaVar(f'n1_{mH_label}',     'x[0]', n1_argl)
-        cb1    = ROOT.RooFormulaVar(f'cb1_{mH_label}',    'x[0]', cb1_argl)
+        alpha1 = _formula_var(f'alpha1_{mH_label}', '@0', alpha10)
+        alpha2 = _formula_var(f'alpha2_{mH_label}', '@0', alpha20)
 
-        alpha2 = ROOT.RooFormulaVar(f'alpha2_{mH_label}', 'x[0]', alpha2_argl)
-        n2     = ROOT.RooFormulaVar(f'n2_{mH_label}',     'x[0]', n2_argl)
-        cb2    = ROOT.RooFormulaVar(f'cb2_{mH_label}',    'x[0]', cb2_argl)
+        n1     = _formula_var(f'n1_{mH_label}',     '@0', n10)
+        n2     = _formula_var(f'n2_{mH_label}',     '@0', n20)
+
+        cb1    = _formula_var(f'cb1_{mH_label}',    '@0', cb10)
+        cb2    = _formula_var(f'cb2_{mH_label}',    '@0', cb20)
 
 
         # construct the 2CBG pdf = cb_1*cbs_1 + cb_2*cbs_2 + gauss (cb_1 and cb_2 are the fractions, floating)
@@ -220,17 +202,13 @@ def doSignal(
         cbs2  = ROOT.RooCBShape(f'cbs2_{mH_label}', 'CrystallBall_2', recoilmass, mean, sigma, alpha2, n2)  # second CrystallBall
         gauss = ROOT.RooGaussian(f'gauss_{mH_label}', 'gauss',        recoilmass, mean_gt, sigma_gt)        # the Gaussian
 
-        argl = ROOT.RooArgList(cbs1, cbs2, gauss)
-        argl.setName(f'argl_{mH_label}')
-        norms_argl = ROOT.RooArgList(cb1, cb2)
-        norms_argl.setName(f'norms_argl_{mH_label}')
+        argl = _arg_list(cbs1, cbs2, gauss, name=f'argl_{mH_label}')
+        norms_argl = _arg_list(cb1, cb2, name=f'norms_argl_{mH_label}')
         sig      = ROOT.RooAddPdf(f'sig_{mH_label}',       '', argl, norms_argl)  # half of both CB functions
         sig_norm = ROOT.RooRealVar(f'sig_norm_{mH_label}', '', yield_zh, 0, 1e8)  # fix normalization
 
-        sig_argl = ROOT.RooArgList(sig)
-        sig_argl.setName(f'sig_argl_{mH_label}')
-        sig_norm_argl = ROOT.RooArgList(sig_norm)
-        sig_norm_argl.setName(f'sig_norm_argl_{mH_label}')
+        sig_argl = _arg_list(sig, name=f'sig_argl_{mH_label}')
+        sig_norm_argl = _arg_list(sig_norm, name=f'sig_norm_argl_{mH_label}')
         pdf_sig = ROOT.RooAddPdf(f'zh_model_{mH_label}', '', sig_argl, sig_norm_argl)
         pdf_sigs.append(pdf_sig)
 
@@ -243,15 +221,15 @@ def doSignal(
         var_dict['cb1'].append(cb1)
         var_dict['cb2'].append(cb2)
         var_dict['mean'].append(mean)
-        var_dict['mean_offset'].append(mean1)
+        var_dict['mean1'].append(mean1)
         var_dict['sigma'].append(sigma)
         var_dict['mean_gt'].append(mean_gt)
-        var_dict['mean_gt_offset'].append(mean_gt_offset)
+        var_dict['mean_gt1'].append(mean_gt1)
         var_dict['sigma_gt'].append(sigma_gt)
         var_dict['norm'].append(sig_norm)
         var_dict['mH'].append(mH)
 
-        garbage.extend([mean_gt_argl, cbs1, cbs2, gauss, argl, norms_argl, sig, sig_argl, sig_norm_argl, pdf_sig])
+        garbage.extend([mean, cbs1, cbs2, gauss, argl, norms_argl, sig, sig_argl, sig_norm_argl, pdf_sig])
 
         pdf_sig.Print()
         pdf_tot.addPdf(pdf_sig, catIDx)
@@ -275,16 +253,14 @@ def doSignal(
     # Plot
     plotter.cfg = cfg
     cfg['ytitle'] = f'Events / {20_000/nBins:.0f} MeV'
-    for i, proc in enumerate(procs):
-
-        mH = mHs[i]
+    for i, mH, proc in enumerate(zip(mHs, procs)):
         mH_label = f'{mH:.3f}'.replace('.', 'p')
 
         pdf = pdf_sigs[i]
         rdh_zh = hists[mH_label]
 
         cfg['ymax'] = yMax
-        plot_fit(rdh_zh, pdf, mH_label, recoilmass, nBins, label, outDir)
+        fit_plot(rdh_zh, pdf, mH_label, recoilmass, nBins, label, outDir)
 
         cfg['ymax'] = 2.5 * yMax
         plotter.cfg = cfg
@@ -311,39 +287,18 @@ def doSignal(
     # Plot them afterwards
     splines = {k:ROOT.RooSpline1D(f'spline_{k}', f'spline_{k}', MH, len(vals['mH']),
                                   array.array('d', vals['mH']),
-                                  array.array('d', vals[k])) for k in vals.keys()}
-    spline_mean           = ROOT.RooSpline1D('spline_mean',           'spline_mean',           MH, n_param, table, array.array('d', param_mean))
-    spline_mean_offset    = ROOT.RooSpline1D('spline_mean_offset',    'spline_mean_offset',    MH, n_param, table, array.array('d', param_mean_offset))
-    spline_sigma          = ROOT.RooSpline1D('spline_sigma',          'spline_sigma',          MH, n_param, table, array.array('d', param_sigma))
-    spline_mean_gt        = ROOT.RooSpline1D('spline_mean_gt',        'spline_mean_gt',        MH, n_param, table, array.array('d', param_mean_gt))
-    spline_mean_gt_offset = ROOT.RooSpline1D('spline_mean_gt_offset', 'spline_mean_gt_offset', MH, n_param, table, array.array('d', param_mean_gt_offset))
-    spline_sigma_gt       = ROOT.RooSpline1D('spline_sigma_gt',       'spline_sigma_gt',       MH, n_param, table, array.array('d', param_sigma_gt))
-    spline_yield          = ROOT.RooSpline1D('spline_yield',          'spline_yield',          MH, n_param, table, array.array('d', param_yield))
-    spline_alpha_1        = ROOT.RooSpline1D('spline_alpha_1',        'spline_alpha_1',        MH, n_param, table, array.array('d', param_alpha_1))
-    spline_alpha_2        = ROOT.RooSpline1D('spline_alpha_2',        'spline_alpha_2',        MH, n_param, table, array.array('d', param_alpha_2))
-    spline_n_1            = ROOT.RooSpline1D('spline_n_1',            'spline_n_1',            MH, n_param, table, array.array('d', param_n_1))
-    spline_n_2            = ROOT.RooSpline1D('spline_n_2',            'spline_n_2',            MH, n_param, table, array.array('d', param_n_2))
-    spline_cb_1           = ROOT.RooSpline1D('spline_cb_1',           'spline_cb_1',           MH, n_param, table, array.array('d', param_cb_1))
-    spline_cb_2           = ROOT.RooSpline1D('spline_cb_2',           'spline_cb_2',           MH, n_param, table, array.array('d', param_cb_2))
+                                  array.array('d', vals[k]))
+               for k in vals.keys() if k!='mH'}
 
     form_mean = ROOT.RooFormulaVar('form_mean', '@0*@1 + @2', ROOT.RooArgList(mean0, MH, mean1))
     form_mean.Print()
 
+    # TO DO for other parameters
     plot_params_vs_mh(MH, outDir, 'mean', vals, splines, '#mu [GeV]')
 
     # Was getattr(w_tmp, 'import')(spline_<variable>)
     # Should test if it works
-    w_tmp.Import(spline_mean)
-    w_tmp.Import(spline_sigma)
-    w_tmp.Import(spline_yield)
-    w_tmp.Import(spline_alpha_1)
-    w_tmp.Import(spline_alpha_2)
-    w_tmp.Import(spline_n_1)
-    w_tmp.Import(spline_n_2)
-    w_tmp.Import(spline_cb_1)
-    w_tmp.Import(spline_cb_2)
-    w_tmp.Import(spline_mean_gt)
-    w_tmp.Import(spline_sigma_gt)
+    for spl in splines.values(): w_tmp.Import(spl)
 
     return hist_norm, w_tmp
 
@@ -462,21 +417,6 @@ def doBackgrounds(
 
 
 
-
-def get_hist(hName, procs, suffix, cat_idx_min, cat_idx_max, lumiScale):
-    if isinstance(procs, str): procs = [procs]
-
-    hist = getHist(hName, procs)
-    hist.Scale(lumiScale)
-
-    hist = hist.ProjectionX(f'hist_zh_{suffix}', cat_idx_min, cat_idx_max)
-    hist.SetName(f'hist_zh_{suffix}')
-    hist.Scale(yield_nom / hist.Integral())
-
-    return hist
-
-
-
 def make_unc_import(w_tmp, spline_vals, val_names, syst, val_up, val_dw):
 
     for spline_val, val_name in spline_vals, val_names:
@@ -502,6 +442,9 @@ def setup_syst(
         w_tmp: ROOT.RooWorkspace,
         syst: str,
         nBins: int,
+        lumiScale: float | int,
+        cat_idx_min: int,
+        cat_idx_max: int,
         mH: float | int = 125.0,
         topLeft: str = '',
         topRight: str = ''
@@ -566,7 +509,8 @@ def setup_syst(
         else:
             raise ValueError(f'{syst = } not supported, choose between [BES, SQRTS, LEPSCALE]')
 
-        hist_zh  = get_hist(f'{flavor}_{hName}{s_}', [proc])
+        hist_zh  = get_hist(f'{flavor}_{hName}{s_}', [proc], suffix,
+                            cat_idx_min, cat_idx_max, lumiScale, f'hist_zh_{suffix}')
         rdh_zh   = ROOT.RooDataHist(f'rdh_zh_{suffix}', 'rdh_zh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
         yield_zh = rdh_zh.sum(False)
 
@@ -723,11 +667,11 @@ def main():
 
     if args.doSyst:
         setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'BES',
-                   nBins, 125.0, topLeft, topRight)
+                   nBins, lumiScale, cat_idx_min, cat_idx_max, 125.0, topLeft, topRight)
         setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'SQRTS',
-                   nBins, 125.0, topLeft, topRight)
+                   nBins, lumiScale, cat_idx_min, cat_idx_max, 125.0, topLeft, topRight)
         setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'LEPSCALE',
-                   nBins, 125.0, topLeft, topRight)
+                   nBins, lumiScale, cat_idx_min, cat_idx_max, 125.0, topLeft, topRight)
 
         # Systematic strenghts
         flav = 'MU' if flavor=='mumu' else ('EL' if flavor=='ee' else flavor)

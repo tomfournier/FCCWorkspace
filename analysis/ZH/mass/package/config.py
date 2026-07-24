@@ -538,3 +538,109 @@ def get_process_list(
     if onlybkg:
         return process_bkg
     return {**process_sig, **process_bkg}
+
+
+
+
+PARAMETER_RANGES = {
+    'mean_cb1': (-2, 2), 'sigma_cb': (0, 1), 'mean_gt1': (-2, 2), 'sigma_gt': (0, 2),
+    'alpha_1': (-10, 0), 'n_1': (-10, 10), 'cb_1': (0, 1),
+    'alpha_2': (0, +10), 'n_2': (-10, 10), 'cb_2': (0, 1),
+}
+
+def with_ranges(values: dict[str, float | int], overrides: dict[str, tuple[float | int, float | int]] | None = None) -> dict[str, list]:
+    ranges = dict(PARAMETER_RANGES)
+    if overrides:
+        ranges.update(overrides)
+    return {name: [value, *ranges[name]] for name, value in values.items()}
+
+
+param_config = {
+    240: {
+        'ee': {
+            0: with_ranges({
+                'mean_cb1': 0.13, 'sigma_cb': 0.46, 'mean_gt1': 0.55, 'sigma_gt': 0.83,
+                'alpha_1': -0.17, 'n_1': 3.38, 'cb_1': 0.56,
+                'alpha_2': +3.90, 'n_2': 0.10, 'cb_2': 0.37,
+            }),
+            1: with_ranges({
+                'mean_cb1': 0.11, 'sigma_cb': 0.43, 'mean_gt1': 0.59, 'sigma_gt': 0.69,
+                'alpha_1': -1.79, 'n_1': 2.90, 'cb_1': 0.57,
+                'alpha_2': +3.74, 'n_2': 0.33, 'cb_2': 0.37,
+            }),
+            2: with_ranges({
+                'mean_cb1': 0.09, 'sigma_cb': 0.39, 'mean_gt1': 0.50, 'sigma_gt': 0.74,
+                'alpha_1': -0.14, 'n_1': 4.66, 'cb_1': 0.54,
+                'alpha_2': +4.07, 'n_2': 0.003, 'cb_2': 0.38,
+            }),
+            3: with_ranges({
+                'mean_cb1': 0.15, 'sigma_cb': 0.52, 'mean_gt1': 0.71, 'sigma_gt': 1.01,
+                'alpha_1': -0.19, 'n_1': 2.48, 'cb_1': 0.57,
+                'alpha_2': +4.13, 'n_2': 0.0001, 'cb_2': 0.37,
+            }),
+        },
+        'mumu': {
+            0: with_ranges({
+                'mean_cb1': 0.09, 'sigma_cb': 0.43, 'mean_gt1': 0.09, 'sigma_gt': 0.82,
+                'alpha_1': -0.20, 'n_1': 2.55, 'cb_1': 0.49,
+                'alpha_2': +3.13, 'n_2': 1.39, 'cb_2': 0.41,
+            }),
+            1: with_ranges({
+                'mean_cb1': 0.09, 'sigma_cb': 0.45, 'mean_gt1': 0.37, 'sigma_gt': 0.86,
+                'alpha_1': -1.73, 'n_1': 4.02, 'cb_1': 0.45,
+                'alpha_2': +3.37, 'n_2': 1.10, 'cb_2': 0.43,
+            }),
+            2: with_ranges({
+                'mean_cb1': 0.09, 'sigma_cb': 0.42, 'mean_gt1': 0.66, 'sigma_gt': 0.67,
+                'alpha_1': -0.22, 'n_1': 2.24, 'cb_1': 0.50,
+                'alpha_2': +3.96, 'n_2': 0.26, 'cb_2': 0.26,
+            }),
+            3: with_ranges({
+                'mean_cb1': 0.09, 'sigma_cb': 0.42, 'mean_gt1': 0.66, 'sigma_gt': 0.67,
+                'alpha_1': -0.22, 'n_1': 2.24, 'cb_1': 0.60,
+                'alpha_2': +3.96, 'n_2': 0.26, 'cb_2': 0.26,
+            }),
+        },
+    },
+    365: {
+        'ee': {
+            0: with_ranges({
+                'mean_cb1': 0.30, 'sigma_cb': 1.50, 'mean_gt1': 0.47, 'sigma_gt': 1.60,
+                'alpha_1': -0.60, 'n_1': 1.32, 'cb_1': 0.64,
+                'alpha_2': +1.24, 'n_2': 10.0, 'cb_2': 0.24,
+            }),
+            1: with_ranges({
+                'mean_cb1': 0.30, 'sigma_cb': 0.70, 'mean_gt1': 1.55, 'sigma_gt': 1.40,
+                'alpha_1': -0.70, 'n_1': 1.30, 'cb_1': 0.70,
+                'alpha_2': +1.50, 'n_2': 45.0, 'cb_2': 0.28,
+            }),
+            2: with_ranges({
+                'mean_cb1': 0.40, 'sigma_cb': 1.60, 'mean_gt1': 0.70, 'sigma_gt': 2.80,
+                'alpha_1': -0.40, 'n_1': 1.40, 'cb_1': 0.70,
+                'alpha_2': +1.32, 'n_2': 30.0, 'cb_2': 0.28,
+            }),
+            3: with_ranges({
+                'mean_cb1': 0.40, 'sigma_cb': 1.60, 'mean_gt1': 0.70, 'sigma_gt': 2.80,
+                'alpha_1': -0.40, 'n_1': 1.40, 'cb_1': 0.52,
+                'alpha_2': +1.32, 'n_2': 30.0, 'cb_2': 0.36,
+            }),
+        },
+        'mumu': {
+            0: with_ranges({
+                'mean_cb1': 0.30, 'sigma_cb': 1.50, 'mean_gt1': 0.47, 'sigma_gt': 1.60,
+                'alpha_1': -0.60, 'n_1': 1.32, 'cb_1': 0.50,
+                'alpha_2': +1.24, 'n_2': 10.0, 'cb_2': 0.25,
+            }),
+            1: with_ranges({
+                'mean_cb1': 0.40, 'sigma_cb': 1.40, 'mean_gt1': 0.70, 'sigma_gt': 2.00,
+                'alpha_1': -0.70, 'n_1': 1.20, 'cb_1': 0.70,
+                'alpha_2': +3.80, 'n_2': 15.0, 'cb_2': 0.28,
+            }),
+            3: with_ranges({
+                'mean_cb1': 0.40, 'sigma_cb': 1.60, 'mean_gt1': 0.70, 'sigma_gt': 2.80,
+                'alpha_1': -0.40, 'n_1': 1.40, 'cb_1': 0.70,
+                'alpha_2': +1.32, 'n_2': 30.0, 'cb_2': 0.28,
+            }),
+        }
+    }
+}
