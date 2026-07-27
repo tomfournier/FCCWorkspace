@@ -5,6 +5,23 @@ from .root import plotter
 
 
 
+param_label = {
+    'mean':     '#mu [GeV]',
+    'mean_gt':  '#mu_{gt} [GeV]',
+    'mean1':    '#mu offset [GeV]',
+    'mean_gt1': '#mu_{gt} offset [GeV]',
+    'yield':    'Events',
+    'sigma':    '#sigma [GeV]',
+    'sigma_gt': '#sigma_{gt} [GeV]',
+    'alpha_1':  '#alpha_1',
+    'alpha_2':  '#alpha_2',
+    'n_1':      'n_1',
+    'n_2':      'n_2',
+    'cb_1':     'cb_1',
+    'cb_2':     'cb_2'
+}
+
+
 def plot_spline_scan(
         outDir,
         MH,
@@ -106,7 +123,7 @@ def plot_fit(
         'ymin'              : 0,
         'ymax'              : yMax,
 
-        'xtitle'            : 'm_{recoil} (GeV)',
+        'xtitle'            : 'm_{recoil} [GeV]',
         'ytitle'            : 'Events',
 
         'topRight'          : topRight,
@@ -313,8 +330,7 @@ def plot_fit_all(
     plt = w_tmp.var('zll_recoil_m').frame()
     colors = [ROOT.kRed, ROOT.kBlue, ROOT.kBlack, ROOT.kGreen, ROOT.kCyan]
     for i, mH in enumerate(mHs):
-        mH_ = f'{mH:.3f}'.replace('.', 'p')
-        sig_fit = w_tmp.pdf('zh_model_%s' % mH_)
+        sig_fit = w_tmp.pdf('zh_model_'+f'{mH:.3f}'.replace('.', 'p'))
         # Need to re-normalize the pdf, as the pdf is normalized to 1
         sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[i]), ROOT.RooFit.Normalization(yield_zh, ROOT.RooAbsReal.NumEvent))
 
@@ -342,12 +358,11 @@ def plot_params_vs_mh(
         MH: 'ROOT.RooRealVar',
         outDir: PathObj,
         param: str,
-        param_label: str,
         vals: dict[str, float | int],
-        splines: dict[str,'ROOT.RooSpline1D'],
-        topLeft: str,
-        topRight: str,
-        label: str):
+        spline: 'ROOT.RooSpline1D',
+        topLeft: str = '',
+        topRight: str = '',
+        label: str = ''):
 
     mHs = vals['mH']
 
@@ -370,7 +385,7 @@ def plot_params_vs_mh(
         'ymax'              : 1.001 * max(vals[param]),
 
         'xtitle'            : 'm_{H} [GeV]',
-        'ytitle'            : param_label,
+        'ytitle'            : param_label[param],
 
         'topRight'          : topRight,
         'topLeft'           : topLeft,
@@ -392,7 +407,7 @@ def plot_params_vs_mh(
     dummy.GetXaxis().SetNdivisions(305)
 
     plt = MH.frame()
-    splines[param].plotOn(plt)
+    spline.plotOn(plt)
     graph.SetMarkerStyle(8)
     graph.SetMarkerColor(ROOT.kBlack)
     graph.SetMarkerSize(1.5)
@@ -530,7 +545,7 @@ def plot_fit_with_pull(
     param_layout: tuple[float | int] = (0.25, 0.9, 0.9),
      ):
 
-    canvas, padT, padB = plotter.canvasRatio()
+    canvas, padT, padB     = plotter.canvasRatio()
     dummyT, dummyB, dummyL = plotter.dummyRatio(rline=0)
     dummyB.GetXaxis().SetTitleOffset(4.0 * dummyB.GetXaxis().GetTitleOffset())
 
