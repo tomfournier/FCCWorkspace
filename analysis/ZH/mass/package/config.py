@@ -310,9 +310,9 @@ def timer(t: float
         time_parts.append('0 ms')
 
     elapsed = f"Elapsed time: {' '.join(time_parts)}"
-    lenght = len(elapsed) + 4
+    length = len(elapsed) + 4
 
-    LOGGER.info(f'\n{" CODE ENDED ":=^{lenght}}\n{elapsed:^{lenght}}\n{"="*lenght}\n')
+    LOGGER.info(f'\n{" CODE ENDED ":=^{length}}\n{elapsed:^{length}}\n{"="*length}\n')
 
 
 

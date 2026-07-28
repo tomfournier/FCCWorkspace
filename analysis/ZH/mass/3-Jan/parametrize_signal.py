@@ -1,34 +1,43 @@
+#################################
+### IMPORT STANDARD LIBRARIES ###
+#################################
 
-import json, argparse, subprocess,  ROOT
+import time, json, ROOT
 
-from package.config import param_config
+t = time.time()
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, parse_args, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_single=True,
+    include_sel=True,
+    mass_fit=True,
+    description='Fit mass script'
+)
+arg = parse_args(parser)
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
+#########################################################
+## IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+#########################################################
+
+from package.config import param_config, timer
 from package.userConfig import loc
 loc.set_default_type('Path')
 
-import definitions as defs
+from definitions import SIGNAL_MODELS, make_var_dict
 
-from package.func.fit import build_pdf_from_spec, get_hist, make_params
-from package.plots.fit import plot_fit, plot_fit_all, decomposition_plot
-
-ROOT.gROOT.SetBatch(True)
-ROOT.gStyle.SetOptStat(0)
-ROOT.gStyle.SetOptTitle(0)
-
-
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--flavor', type=str, help='Flavor (mumu or ee)', default='mumu')
-parser.add_argument('--mode', type=str, help='Detector mode', choices=['IDEA', 'IDEA_MC', 'IDEA_3T', 'CLD', 'CLD_FullSim',
-                                                                       'IDEA_noBES', 'IDEA_2E', 'IDEA_BES6pct'], default='IDEA')
-parser.add_argument('--cat', type=int, help='Category (0, 1, 2 or 3) (default 0)', choices=[0, 1, 2, 3], default=0)
-parser.add_argument('--ecm', type=int, help='Center-of-mass', choices=[240, 365], default=240)
-parser.add_argument('--sel', type=str, help='Selection', default='Baseline')
-parser.add_argument('--tag', type=str, help='Analysis tag for versioning, optional', default='')
-parser.add_argument('--recoilMin', type=int, help='Lower mass limit for fit (default 120)',    default=120)
-parser.add_argument('--recoilMax', type=int, help='Upper mass limit for fit (default 140)',    default=140)
-parser.add_argument('--nBins',     type=int, help='Number of bins for plotting (default 250)', default=250)
-parser.add_argument('--normYield', type=bool, help='Normalize the histograms (default True)', action='store_true', default=True)
-args = parser.parse_args()
+from package.func.fit import build_params_from_spec, build_pdf_from_spec, get_hist
+from package.plots.fit import plot_decomposition, plot_fit, plot_fit_all
 
 
 
@@ -36,26 +45,25 @@ args = parser.parse_args()
 ### PARAMETERS CONFIGURATION ###
 ################################
 
-flavor, ecm, sel, cat, _ = args.flavor, args.ecm, args.sel, args.cat, args.tag
-flavorLabel = '#mu^{#plus}#mu^{#minus}' if flavor == 'mumu' else 'e^{#plus}e^{#minus}'
+flavor, ecm, sel, cat, _ = arg.cat, arg.ecm, arg.sel, arg.category, arg.tag
+hName = 'zll_recoil_m_cat'
 
-topRight = f'#sqrt{{s}} = {ecm} GeV, 1 ab^{{#minus1}}'
+label = f'#el^+#el^-, category {cat}'.replace('#el', '#mu' if flavor=='mumu' else 'e')
 topLeft  = '#bf{FCC-ee} #scale[0.7]{#it{Internal}}'
-label  = f'{flavorLabel}, category {cat}'
-normYields = args.normYield
+topRight = '#sqrt{s} = ECM GeV, 1 ab^{-1}'.replace('ECM', ecm)
+
 inDir  = loc.get('HIST_PROCESSED', flavor, ecm, sel)
 outDir = loc.get('PARAMETRIC',     flavor, ecm, sel)  # Should define the output file
-
 outDir.mkdir(exist_ok=True, parents=True)
-subprocess.run(['cp', '/home/submit/jaeyserm/public_html/fccee/h_mass/index.php', f'{outDir}'])
+# subprocess.run(['cp', '/home/submit/jaeyserm/public_html/fccee/h_mass/index.php', f'{outDir}'])
 
-hName = 'zll_recoil_m_cat'
-signal_spec = defs.get_signal_model('parametrize_signal')
+signal_spec = SIGNAL_MODELS['parametrize_signal']
+procs = signal_spec['processes'](flavor, ecm)
+mHs = signal_spec['masses']
 
-if cat == 0: cat_idx_min, cat_idx_max = 0, 5
-else: cat_idx_min, cat_idx_max = cat, cat
-
-nBins = args.nBins  # total number of bins, for plotting
+if cat == 0: cat_idx = (0, 5)
+else:        cat_idx = (cat, cat)
+nBins = arg.nBins  # Total number of bins, for plotting
 
 
 
@@ -65,58 +73,49 @@ nBins = args.nBins  # total number of bins, for plotting
 
 def main():
 
-    recoilmass = ROOT.RooRealVar('zll_recoil_m', 'Recoil mass [GeV]', 125, args.recoilMin, args.recoilMax)
-    MH = ROOT.RooRealVar('MH', 'Higgs mass (GeV)', 125, 124.95, 125.05)  # name Higgs mass as MH to be compatible with combine
+    mrec = ROOT.RooRealVar('zll_recoil_m', 'Recoil mass [GeV]', 125, arg.recoilMin, arg.recoilMax)
+    MH   = ROOT.RooRealVar('MH', 'Higgs mass (GeV)', 125, 124.95, 125.05)  # name Higgs mass as MH to be compatible with combine
 
-    # Define temporary output workspace
+    # Define output workspace, then import MH and mrec
     workspace = ROOT.RooWorkspace('w', 'workspace')
+    workspace.Import(MH); workspace.Import(mrec)
 
-    workspace.Import(recoilmass)
-    workspace.Import(MH)
+    # Get the histogram from the nominal mass (125 GeV)
+    hist_nom = get_hist(f'{flavor}_{hName}', inDir, [procs[0]], 'norm', cat_idx,
+                        1, 1, '', False)
+    yMax  = hist_nom.Rebin(int(hist_nom.GetNbinsX() / nBins)).GetMaximum()
+    yield_nom = hist_nom.Integral()
 
-    mHs = signal_spec['masses']
-    procs = defs.get_signal_processes('parametrize_signal', flavor, ecm)
-    recoilmass = workspace.var('zll_recoil_m')
-    var_list = ['mean_cb0', 'mean_cb1', 'sigma_cb', 'mean_gt', 'mean_gt1', 'sigma_gt',
-                'alpha_1', 'alpha_2', 'n_1', 'n_2', 'cb_1', 'cb_2', 'yield', 'mH']
-    var_dict = {k:[] for k in  var_list}
+    # Define a dictionary to store the values of the parameters
+    var_dict = make_var_dict(signal_spec, extra=('yield', 'mH'))
 
-    hist_norm = get_hist(f'{flavor}_{hName}', inDir, [procs[0]], 'norm', cat_idx_min,
-                         cat_idx_max, 1, 1, '', False)
-    yield_norm = hist_norm.Integral()
-
-    tmp = hist_norm.Clone()
-    print(hist_norm.GetNbinsX() / nBins)
-    yMax  = tmp.Rebin(int(hist_norm.GetNbinsX() / nBins)).GetMaximum()
-
-
+    # Loop over mH = 124.95, 125, 125.05 GeV
     for mH, proc in zip(mHs, procs):
 
+        # Replace the '.' by 'p' to name the mass categories
         mH_label = f'{mH:.3f}'.replace('.', 'p')
-        print(f'Do {mH = :.3f}')
+        LOGGER.info(f'Doing {mH_label} mass category')
 
-        hist_zh = get_hist(f'{flavor}_{hName}', inDir, [proc], mH_label, cat_idx_min,
-                           cat_idx_max, 1, yield_norm, '', normYields)
-        rdh_zh = ROOT.RooDataHist(f'rdh_zh_{mH_label}', 'rdh_zh', ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist_zh))
+        hist_zh = get_hist(f'{flavor}_{hName}', inDir, proc, mH_label, cat_idx,
+                           1, yield_nom, '', arg.normYields)
+        rdh_zh = ROOT.RooDataHist(f'rdh_zh_{mH_label}', 'rdh_zh',
+                                  ROOT.RooArgList(mrec), ROOT.RooFit.Import(hist_zh))
         yield_zh = rdh_zh.sum(False)
 
-        params = make_params(flavor, ecm, cat, mH_label, param_config)
+        params = build_params_from_spec(param_config[ecm][flavor][cat],
+                                        signal_spec, mH, mH_label)
 
-        sig_fit, components, sig_norm = build_pdf_from_spec(recoilmass, params, yield_zh, mH_label, signal_spec)
-        cbs_1, cbs_2, gauss = components['CB_1'], components['CB_2'], components['gauss']
-        sig_fit.fitTo(rdh_zh, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(sumw2err))
+        sig_fit, _, sig_norm = build_pdf_from_spec(mrec, params, yield_zh, mH_label, signal_spec)
+        sig_fit.fitTo(rdh_zh, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
 
-        cb1_val = params['cb_1'].getVal()
-        cb2_val = params['cb_2'].getVal()
-
-        plot_fit(outDir, recoilmass, rdh_zh, sig_fit, mH_label, yMax, label, nBins, topLeft, topRight)
-        decomposition_plot(outDir, workspace, cbs_1, cbs_2, gauss, sig_fit,
-                           cb1_val, cb2_val, yield_zh, mH_label, yMax, label, topLeft, topRight)
+        plot_fit(outDir, mrec, rdh_zh, sig_fit, mH_label, yMax, label, nBins, topLeft, topRight)
+        plot_decomposition(outDir, workspace, label, mH_label, yield_zh, signal_spec)
 
         # Import
         workspace.Import(rdh_zh)
         workspace.Import(sig_fit)
 
+        # Store the values of the parameters to write them in a json file later
         for k in var_dict.keys():
             if k == 'mH': var_dict[k].append(mH)
             else: var_dict[k].append(params[k].getVal())
@@ -138,7 +137,9 @@ def main():
 
 if __name__ == '__main__':
 
-    sumw2err = ROOT.kTRUE
+    ROOT.gROOT.SetBatch(True)
+    ROOT.gStyle.SetOptStat(0)
+    ROOT.gStyle.SetOptTitle(0)
 
     ROOT.Math.MinimizerOptions.SetDefaultMinimizer('Fumili2')
     ROOT.Math.MinimizerOptions.PrintDefault('Minuit2')
@@ -150,9 +151,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:
-        # LOGGER.error('Error occured during execution', exc_info=True)
-        pass  # Will uncomment it later
+        LOGGER.error('Error occured during execution', exc_info=True)
     finally:
         # Print execution time
-        # timer(t)
-        pass
+        timer(t)

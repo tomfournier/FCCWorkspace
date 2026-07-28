@@ -39,7 +39,6 @@ def add_cat_argument(
         multi: bool = False,
         allow_empty: bool = False,
         default: str = '',
-        allow_qq: bool = True,
         group=None
          ) -> None:
     '''Add --cat/--cats argument for final state selection.'''
@@ -264,28 +263,70 @@ def add_fit_args(
 
 def add_mass_fit_args(
         parser: ArgumentParser,
+        datacard: bool = False,
          ) -> None:
     '''Add mass fit arguments (pert, target, combine, bias, t, print).'''
     args = parser.add_argument_group('Fit arguments')
     args.add_argument(
-        '--low',
+        '--recoilMin',
         type=float,
         default=120,
-        help='Lower limit of the fit (default: 120)'
+        help='Lower mass limit of the fit (default: 120)'
     )
     args.add_argument(
-        '--high',
+        '--recoilMax',
         type=float,
         default=140,
-        help='Higher limit of the fit (default: 140)'
+        help='Higher mass limit of the fit (default: 140)'
     )
     args.add_argument(
-        '--hname',
+        '--hName',
         type=float,
         default='zll_recoil_m',
         help='Name of the histogram to fit (default: zll_recoil_m)'
     )
-
+    parser.add_argument(
+        '--mode',
+        type=str,
+        help='Detector mode',
+        choices=['IDEA', 'IDEA_MC', 'IDEA_3T', 'CLD', 'CLD_FullSim',
+                 'IDEA_noBES', 'IDEA_2E', 'IDEA_BES6pct'],
+        default='IDEA'
+    )
+    parser.add_argument(
+        '--category',
+        type=int,
+        help='Category (0, 1, 2 or 3) (default 0)',
+        choices=[0, 1, 2, 3],
+        default=0
+    )
+    parser.add_argument(
+        '--tag',
+        type=str,
+        help='Analysis tag for versioning, optional',
+        default=''
+    )
+    parser.add_argument(
+        '--nBins',
+        type=int,
+        help='Number of bins for plotting (default 250)',
+        default=250
+    )
+    parser.add_argument(
+        '--normYield',
+        type=bool,
+        help='Normalize the histograms (default True)',
+        action=BooleanOptionalAction,
+        default=True
+    )
+    if datacard:
+        parser.add_argument(
+            '--syst',
+            type=bool,
+            action=BooleanOptionalAction,
+            default=True,
+            help='Include the systematic uncertainties in the fit (default True)'
+        )
 
 
 # ============================================================================
@@ -296,7 +337,6 @@ def create_parser(
         cat_single: bool = False,
         cat_multi: bool = False,
         cat_default: str = '',
-        allow_qq: bool = True,
         ecm_multi: bool = False,
         ecm_default: int | str | None = None,
         allow_empty: bool = False,
@@ -309,6 +349,7 @@ def create_parser(
         cutflow: bool = False,
         fit: bool = False,
         mass_fit: bool = False,
+        datacard: bool = False,
         description: str = 'Analysis script'
          ) -> ArgumentParser:
     '''
@@ -343,22 +384,22 @@ def create_parser(
 
     # Core arguments (share the same groups)
     if cat_single or cat_multi:
-        add_cat_argument(parser, multi=cat_multi, allow_empty=allow_empty, default=cat_default, allow_qq=allow_qq, group=general)
+        add_cat_argument(parser, cat_multi, allow_empty, cat_default, general)
     if ecm_multi or (cat_single or cat_multi):
-        add_ecm_argument(parser, multi=ecm_multi, default=ecm_default, group=general)
-    add_verbose_argument(parser, group=general)
+        add_ecm_argument(parser, ecm_multi, ecm_default, general)
+    add_verbose_argument(parser, general)
 
     # Selection arguments (share the same group)
     if include_sel:
-        add_sel_argument(parser, default='Baseline' if fit else '', group=general)
+        add_sel_argument(parser, 'Baseline' if fit else '', general)
     if include_sels:
-        add_sels_argument(parser, default='', group=general)
+        add_sels_argument(parser, '', general)
 
     # Execution arguments (share the same group)
     if run_stages > 0:
-        add_run_argument(parser, n_stages=run_stages, default=run_default, group=exec)
+        add_run_argument(parser, run_stages, run_default, exec)
     if batch:
-        add_batch_argument(parser, group=exec)
+        add_batch_argument(parser, exec)
 
     # Feature groups
     if plots:
@@ -368,7 +409,7 @@ def create_parser(
     if fit:
         add_fit_args(parser)
     if mass_fit:
-        add_mass_fit_args(parser)
+        add_mass_fit_args(parser, datacard)
 
     return parser
 

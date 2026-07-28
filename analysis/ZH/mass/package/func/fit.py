@@ -3,6 +3,13 @@ import json, ROOT
 from ..tools.process import getHist
 
 
+def _source_value(source: dict, key: str, idx: int | None = None):
+    value = source[key]
+    if idx is None:
+        return value
+    return value[idx]
+
+
 def _component_pdf(kind: str, name: str, title: str, recoilmass, params: dict, spec: dict):
     if kind == 'cbshape':
         return ROOT.RooCBShape(
@@ -25,12 +32,53 @@ def _component_pdf(kind: str, name: str, title: str, recoilmass, params: dict, s
     raise ValueError(f'{kind = } not supported')
 
 
+def build_params_from_spec(
+    source: dict,
+    model_spec: dict,
+    mH: float | int,
+    mH_label: str,
+) -> dict[str, ROOT.RooAbsArg]:
+    params: dict[str, ROOT.RooAbsArg] = {}
+
+    for entry in model_spec['params']:
+        # name = f"{entry.get('name', '')}_{mH_label}" if entry.get('suffix', True) else entry['name']
+        if entry['kind'] == 'mH':
+            params[entry['name']] = ROOT.RooRealVar(entry['name'], '', mH)
+            continue
+
+        if entry['kind'] == 'source':
+            raw = _source_value(source, entry['key'], entry.get('idx'))
+            if isinstance(raw, (list, tuple)) and len(raw) == 3:
+                params[entry['name']] = ROOT.RooRealVar(entry['name'], '', *raw)
+            elif 'lo' in entry and 'hi' in entry:
+                params[entry['name']] = ROOT.RooRealVar(entry['name'], '', raw, entry['lo'], entry['hi'])
+            else:
+                params[entry['name']] = ROOT.RooRealVar(entry['name'], '', raw)
+            params[entry['name']].setConstant(ROOT.kTRUE)
+            continue
+
+        if entry['kind'] == 'formula':
+            expr = entry['expr'].format(mH=mH)
+            params[entry['name']] = ROOT.RooFormulaVar(
+                entry['name'],
+                '',
+                expr,
+                _arg_list(*(params[arg] for arg in entry['args'])),
+            )
+            continue
+
+        raise ValueError(f"Unsupported parameter kind: {entry['kind']}")
+
+    return params
+
+
 def build_pdf_from_spec(
     recoilmass: ROOT.RooRealVar,
     params: dict[str, ROOT.RooRealVar],
     yield_zh: float | int,
     suffix: str,
     model_spec: dict,
+    extended: bool = True,
      ):
 
     components = {}
@@ -49,22 +97,23 @@ def build_pdf_from_spec(
         _arg_list(*(params[name] for name in model_spec['fractions'])),
     )
     sig_norm = ROOT.RooRealVar(_with_suffix(model_spec.get('yield_name', 'sig_norm'), suffix), '', yield_zh, 0, 1e8)
-    sig_fit = ROOT.RooAddPdf(
-        _with_suffix(model_spec.get('model_name', 'zh_model'), suffix),
-        '',
-        _arg_list(sig),
-        _arg_list(sig_norm),
-    )
+    if extended:
+        sig_fit = ROOT.RooAddPdf(
+            _with_suffix(model_spec.get('model_name', 'zh_model'), suffix),
+            '',
+            _arg_list(sig),
+            _arg_list(sig_norm),
+        )
+        return sig_fit, components, sig_norm
 
-    return sig_fit, components, sig_norm
+    return sig, components, sig_norm
 
 def get_hist(
         hName: str,
         inDir: str,
         procs: str | list[str],
         suffix: str,
-        cat_idx_min: int,
-        cat_idx_max: int,
+        cat_idx: tuple[int, int],
         lumiScale: float | int,
         yield_nom: float | int,
         outName: str = '',
@@ -74,7 +123,7 @@ def get_hist(
     hist = getHist(hName, procs, inDir)
     hist.Scale(lumiScale)
 
-    hist = hist.ProjectionX(f'hist_zh_{suffix}', cat_idx_min, cat_idx_max)
+    hist = hist.ProjectionX(f'hist_zh_{suffix}', *cat_idx)
     if outName:    hist.SetName(outName)
     if normYields: hist.Scale(yield_nom / hist.Integral())
 
