@@ -2,9 +2,11 @@
 ### IMPORT STANDARD LIBRARIES ###
 #################################
 
-import array, subprocess, json, ROOT
+import time, array, subprocess, json, ROOT
 
 import numpy as np
+
+t = time.time()
 
 
 
@@ -34,6 +36,7 @@ LOGGER = get_logger(__name__)
 
 import package.plots.root.plotter as plotter
 from package.tools.process import getHist
+from package.config import timer
 from package.userConfig import loc
 loc.set_default_type('Path')
 
@@ -41,9 +44,9 @@ from definitions import (
     SIGNAL_MODELS,
     BACKGROUND_MODEL,
     SYSTEMATIC_MODELS,
+    build_datacard_signal_params,
     make_var_dict,
     make_systematic_fit_vars,
-    build_datacard_signal_pdf,
     systematic_hist_suffix
 )
 from package.plots.fit import (
@@ -412,8 +415,8 @@ def setup_syst(
 def main():
     h_obs = None  # should hold the data_obs = sum of signal and backgrounds
 
+    MH   = ROOT.RooRealVar('MH', 'Higgs mass [GeV]', 125, 124.95, 125.05)
     mrec = ROOT.RooRealVar('zll_recoil_m', 'm_{recoil} [GeV]', 125, recoilMin, recoilMax)
-    MH = ROOT.RooRealVar('MH', 'Higgs mass [GeV]', 125, 124.95, 125.05)
 
     # Define temporary output workspace
     w     = ROOT.RooWorkspace('w',     'workspace')  # final workspace for combine
@@ -433,7 +436,8 @@ def main():
         w_tmp = setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'LEPSCALE',
                            nBins, 1, cat_idx, 125.0)
 
-    sig = build_datacard_signal_pdf(w_tmp, 'make_datacard', mrec, flavor, ecm, arg.syst)
+    params = build_datacard_signal_params(w_tmp, 'make_datacard', flavor, ecm, arg.syst)
+    sig    = build_pdf_from_spec(mrec, params, 1.0, '', sig_spec, False)[0]
     w.Import(sig)
 
     # Construct background model
@@ -454,10 +458,9 @@ def main():
 
     del w, w_tmp
 
-    if   ecm == 240 and flavor == 'mumu': bkg_id = 1
-    elif ecm == 240 and flavor == 'ee':   bkg_id = 2
-    elif ecm == 365 and flavor == 'mumu': bkg_id = 3
-    elif ecm == 365 and flavor == 'ee':   bkg_id = 4
+    if ecm == 240:   bkg_id = 1 if flavor=='mumu' else (2 if flavor=='ee' else None)
+    elif ecm == 365: bkg_id = 3 if flavor=='mumu' else (4 if flavor=='ee' else None)
+    else: raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
 
     # Make datacard
     with open(runDir / 'datacard_template.txt', 'r') as file:
@@ -503,9 +506,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:
-        # LOGGER.error('Error occured during execution', exc_info=True)
-        pass  # Will uncomment later
+        LOGGER.error('Error occured during execution', exc_info=True)
     finally:
         # Print execution time
-        # timer(t)
-        pass
+        timer(t)

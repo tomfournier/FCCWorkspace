@@ -22,6 +22,343 @@ param_label = {
 }
 
 
+def _mass_plot_cfg(
+        x_min: float,
+        x_max: float,
+        y_min: float,
+        y_max: float,
+        top_left: str,
+        top_right: str,
+        x_title: str,
+        y_title: str) -> dict:
+    return {
+        'logy': False,
+        'logx': False,
+        'xmin': x_min,
+        'xmax': x_max,
+        'ymin': y_min,
+        'ymax': y_max,
+        'xtitle': x_title,
+        'ytitle': y_title,
+        'topRight': top_right,
+        'topLeft': top_left,
+    }
+
+
+def _style_graph(graph, color, width: int = 4, marker: int = 20):
+    graph.SetMarkerStyle(marker)
+    graph.SetMarkerColor(color)
+    graph.SetMarkerSize(1)
+    graph.SetLineColor(color)
+    graph.SetLineWidth(width)
+
+
+def _draw_reference_line(x_min: float, x_max: float, y: float = 1.0):
+    line = ROOT.TLine(float(x_min), y, float(x_max), y)
+    line.SetLineColor(ROOT.kBlack)
+    line.SetLineWidth(2)
+    line.Draw('SAME')
+    return line
+
+
+def _load_nll_curve(file_path):
+    xv, yv = [], []
+    with open(file_path, 'r') as fIn:
+        for i, line in enumerate(fIn.readlines()):
+            line = line.rstrip()
+            if i == 0:
+                best_mass = float(line.split(' ')[3])
+                unc_mass = float(line.split(' ')[2])
+            else:
+                xv.append(float(line.split(' ')[0]))
+                yv.append(float(line.split(' ')[1]))
+
+    graph = ROOT.TGraph(len(xv), array.array('d', xv), array.array('d', yv))
+    return best_mass, unc_mass, xv, yv, graph
+
+
+def plot_mass_scan(
+        outDir,
+        graph,
+        label: str,
+        uncertainty_mev: float,
+        x_min: float,
+        x_max: float,
+        y_min: float,
+        y_max: float,
+        topLeft: str,
+        topRight: str,
+        output_name: str = 'mass',
+        graph_color=ROOT.kRed,
+        graph_width: int = 2,
+        graph_marker: int = 20,
+        x_title: str = 'm_{H} [GeV]',
+        y_title: str = '-2#DeltaNLL'):
+
+    cfg = _mass_plot_cfg(x_min, x_max, y_min, y_max, topLeft, topRight, x_title, y_title)
+    plotter.cfg = cfg
+
+    canvas = plotter.canvas()
+    canvas.SetGrid()
+    dummy = plotter.dummy()
+
+    dummy.GetXaxis().SetNdivisions(507)
+    dummy.Draw('HIST')
+
+    _style_graph(graph, graph_color, width=graph_width, marker=graph_marker)
+    graph.Draw('SAME LP')
+    _draw_reference_line(cfg['xmin'], cfg['xmax'])
+
+    leg = ROOT.TLegend(.20, 0.825, 0.90, .9)
+    leg.SetBorderSize(0)
+    leg.SetTextSize(0.035)
+    leg.SetMargin(0.15)
+    leg.SetBorderSize(1)
+    leg.AddEntry(graph, f'{label}, #Delta(m_{{H}}) = {uncertainty_mev:.2f} MeV', 'LP')
+    leg.Draw()
+
+    plotter.aux()
+    canvas.Modify()
+    canvas.Update()
+    canvas.Draw()
+    canvas.SaveAs(f'{outDir}/{output_name}.png')
+
+
+def plot_mass_breakdown_impacts(
+        outDir,
+        uncertainties_mev: list[float],
+        labels: list[str],
+        topRight: str,
+        topLeft: str,
+        x_title: str = '#sigma_{syst.}(m_{H}) (MeV)',
+        x_min: float = -3,
+        x_max: float = 3,
+        output_name: str = 'mass_breakdown_impacts'):
+
+    canvas = ROOT.TCanvas('c', 'c', 1000, 1000)
+    canvas.SetTopMargin(0.08)
+    canvas.SetBottomMargin(0.1)
+    canvas.SetLeftMargin(0.25)
+    canvas.SetRightMargin(0.05)
+    canvas.SetFillStyle(4000)
+    canvas.SetGrid(1, 0)
+    canvas.SetTickx(1)
+
+    n_params = len(uncertainties_mev)
+    h_pulls = ROOT.TH2F('pulls', 'pulls', 6, x_min, x_max, n_params, 0, n_params)
+    g_pulls = ROOT.TGraphAsymmErrors(n_params)
+
+    for index, (unc, label) in enumerate(zip(uncertainties_mev, labels)):
+        point_index = n_params - 1 - index
+        g_pulls.SetPoint(point_index, 0, float(point_index) + 0.5)
+        g_pulls.SetPointError(point_index, unc, unc, 0., 0.)
+        h_pulls.GetYaxis().SetBinLabel(point_index + 1, f'#splitline{label}{{({unc:.2g} MeV)}}')
+
+    h_pulls.GetXaxis().SetTitleSize(0.04)
+    h_pulls.GetXaxis().SetLabelSize(0.03)
+    h_pulls.GetXaxis().SetTitle(x_title)
+    h_pulls.GetXaxis().SetTitleOffset(1)
+    h_pulls.GetYaxis().SetLabelSize(0.045)
+    h_pulls.GetYaxis().SetTickLength(0)
+    h_pulls.GetYaxis().LabelsOption('v')
+    h_pulls.SetNdivisions(506, 'XYZ')
+    h_pulls.Draw('HIST')
+
+    g_pulls.SetMarkerSize(0.8)
+    g_pulls.SetMarkerStyle(20)
+    g_pulls.SetLineWidth(2)
+    g_pulls.Draw('P SAME')
+
+    latex = ROOT.TLatex()
+    latex.SetNDC()
+    latex.SetTextSize(0.035)
+    latex.SetTextColor(1)
+    latex.SetTextFont(42)
+    latex.SetTextAlign(30)
+    latex.DrawLatex(0.95, 0.925, topRight)
+
+    latex.SetTextAlign(13)
+    latex.SetTextFont(42)
+    latex.SetTextSize(0.04)
+    latex.DrawLatex(0.25, 0.96, topLeft)
+
+    canvas.SaveAs(f'{outDir}/{output_name}.png')
+
+
+def plot_mass_breakdown_curves(
+        outDir,
+        curves: list[tuple[list[float], list[float], float, str, int, int]],
+        labels: list[str],
+        topRight: str,
+        topLeft: str,
+        x_min: float = 124.995,
+        x_max: float = 125.005,
+        y_min: float = 0,
+        y_max: float = 2,
+        output_name: str = 'mass_breakdown'):
+
+    cfg = _mass_plot_cfg(x_min, x_max, y_min, y_max, topLeft, topRight, 'm_{h} (GeV)', '-2#DeltaNLL')
+    plotter.cfg = cfg
+
+    canvas = plotter.canvas()
+    canvas.SetGrid()
+    dummy = plotter.dummy()
+    dummy.GetXaxis().SetNdivisions(507)
+    dummy.Draw('HIST')
+
+    leg = ROOT.TLegend(.20, 0.9 - len(curves) * 0.05, 0.90, .9)
+    leg.SetBorderSize(0)
+    leg.SetTextSize(0.03)
+    leg.SetMargin(0.1)
+    leg.SetBorderSize(1)
+
+    for (x_values, y_values, uncertainty_mev, color, width, marker), label in zip(curves, labels):
+        graph = ROOT.TGraph(len(x_values), array.array('d', x_values), array.array('d', y_values))
+        _style_graph(graph, color, width=width, marker=marker)
+        graph.Draw('SAME L')
+        leg.AddEntry(graph, f'{label} #delta(m_{{H}}) = {uncertainty_mev:.2f} MeV', 'L')
+
+    leg.Draw()
+    _draw_reference_line(cfg['xmin'], cfg['xmax'])
+
+    plotter.aux()
+    canvas.Modify()
+    canvas.Update()
+    canvas.Draw()
+    canvas.SaveAs(f'{outDir}/{output_name}.png')
+
+
+def plot_mass_multiple(
+        in_dirs,
+        labels: list[str],
+        out_dir,
+        suffix: str,
+        top_right: str,
+        x_min: float,
+        x_max: float,
+        y_min: float = 0,
+        y_max: float = 2,
+        leg_label: str = '',
+        force_stat: list[bool] | None = None,
+        leg_margin: float = 0.15):
+
+    if force_stat is None:
+        force_stat = [False] * len(in_dirs)
+
+    graphs = []
+    uncertainties = []
+    for i, in_dir in enumerate(in_dirs):
+        file_name = f'mass{suffix + "_stat" if force_stat[i] else suffix}.txt'
+        _, unc_mass, _, _, graph = _load_nll_curve(in_dir / file_name)
+        uncertainties.append(unc_mass)
+        graphs.append(graph)
+
+    cfg = {
+        'logy': False,
+        'logx': False,
+        'xmin': x_min,
+        'xmax': x_max,
+        'ymin': y_min,
+        'ymax': y_max,
+        'xtitle': 'm_{H} [GeV]',
+        'ytitle': '-2#DeltaNLL',
+        'topRight': top_right,
+        'topLeft': '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
+    }
+    plotter.cfg = cfg
+
+    canvas = plotter.canvas()
+    canvas.SetGrid()
+    dummy = plotter.dummy()
+    dummy.GetXaxis().SetNdivisions(507)
+    dummy.Draw('HIST')
+
+    n = len(graphs) + (0 if leg_label == '' else 1)
+    leg = ROOT.TLegend(.20, 0.9 - n * 0.05, 0.90, .9)
+    leg.SetBorderSize(0)
+    leg.SetTextSize(0.03)
+    leg.SetMargin(leg_margin)
+    leg.SetBorderSize(1)
+    if leg_label != '':
+        leg.SetHeader(leg_label)
+
+    colors = [ROOT.kBlack, ROOT.kRed, ROOT.kBlue, ROOT.kGreen + 1]
+    for index, graph in enumerate(graphs):
+        _style_graph(graph, colors[index])
+        graph.Draw('SAME L')
+        leg.AddEntry(graph, f'{labels[index]} #delta(m_{{H}}) = {uncertainties[index]*1000:.2f} MeV', 'L')
+
+    leg.Draw()
+    _draw_reference_line(cfg['xmin'], cfg['xmax'])
+
+    plotter.aux()
+    canvas.Modify()
+    canvas.Update()
+    canvas.Draw()
+    canvas.SaveAs(f'{out_dir}{suffix}.png')
+
+
+def plot_xsec_multiple(
+        tags: list[str],
+        labels: list[str],
+        out_dir,
+        top_right: str,
+        x_min: float,
+        x_max: float,
+        y_min: float = 0,
+        y_max: float = 2,
+        output_name: str = ''):
+
+    graphs = []
+    uncertainties = []
+    for tag in tags:
+        _, unc_xsec, _, _, graph = _load_nll_curve(f'{tag}/xsec.txt')
+        uncertainties.append(unc_xsec)
+        graphs.append(graph)
+
+    cfg = {
+        'logy': False,
+        'logx': False,
+        'xmin': x_min,
+        'xmax': x_max,
+        'ymin': y_min,
+        'ymax': y_max,
+        'xtitle': '#sigma(ZH#rightarrowl^{#plus}l^{#minus})/#sigma_{ref}',
+        'ytitle': '-2#DeltaNLL',
+        'topRight': top_right,
+        'topLeft': '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
+    }
+    plotter.cfg = cfg
+
+    canvas = plotter.canvas()
+    canvas.SetGrid()
+    dummy = plotter.dummy()
+    dummy.GetXaxis().SetNdivisions(507)
+    dummy.Draw('HIST')
+
+    leg = ROOT.TLegend(.20, 0.9 - len(graphs) * 0.05, 0.90, .9)
+    leg.SetBorderSize(0)
+    leg.SetTextSize(0.03)
+    leg.SetMargin(0.15)
+    leg.SetBorderSize(1)
+
+    colors = [ROOT.kBlack, ROOT.kRed, ROOT.kBlue, ROOT.kGreen + 1]
+    for index, graph in enumerate(graphs):
+        _style_graph(graph, colors[index])
+        graph.Draw('SAME L')
+        leg.AddEntry(graph, f'{labels[index]} #delta(#sigma) = {uncertainties[index]*100:.2f}', 'L')
+
+    leg.Draw()
+    _draw_reference_line(cfg['xmin'], cfg['xmax'])
+
+    plotter.aux()
+    canvas.Modify()
+    canvas.Update()
+    canvas.Draw()
+    name = output_name or out_dir
+    canvas.SaveAs(f'{name}.png')
+
+
 def plot_spline_scan(
         outDir,
         MH,
@@ -621,7 +958,7 @@ def plot_signal(
 
     plt = w_tmp.var('zll_recoil_m').frame()
     colors = [ROOT.kRed, ROOT.kBlue, ROOT.kBlack, ROOT.kGreen, ROOT.kCyan]
-    for i, mH in enumerate(mHs):
+    for i, _ in enumerate(mHs):
 
         sig_fit = pdf_sigs[i]
         # Need to re-normalize the pdf, as the pdf is normalized to 1

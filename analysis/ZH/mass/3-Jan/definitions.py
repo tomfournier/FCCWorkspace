@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import ROOT
 
-from package.config import param_config
-
 def _signal_processes(flavor: str, ecm: int) -> list[str]:
     return [
         f'wzp6_ee_{flavor}H_ecm{ecm}',
@@ -156,38 +154,8 @@ SYSTEMATIC_MODELS = {
 }
 
 
-def get_signal_model(name: str = 'make_datacard') -> dict:
-    return SIGNAL_MODELS[name]
-
-
-def get_signal_processes(name: str, flavor: str, ecm: int) -> list[str]:
-    return SIGNAL_MODELS[name]['processes'](flavor, ecm)
-
-
-def get_signal_param_names(name: str) -> tuple[str, ...]:
-    return SIGNAL_MODELS[name]['param_names']
-
-
-def get_signal_param_spec(name: str) -> tuple[dict, ...]:
-    return SIGNAL_MODELS[name]['params']
-
-
-def get_signal_fit_source(name: str, flavor: str, ecm: int, cat: int):
-    if name == 'parametrize_signal':
-        return param_config[ecm][flavor][cat]
-    raise ValueError(f'{name = } does not have an external fit source')
-
-
 def make_var_dict(model_specs: dict, extra: tuple[str, ...] = ()) -> dict[str, list]:
     return {key: [] for key in (*model_specs['param_names'], *extra)}
-
-
-def get_background_processes(flavor: str, ecm: int) -> list[str]:
-    return _background_processes(flavor, ecm)
-
-
-def get_systematic_process(syst: str, flavor: str, ecm: int, direction: str) -> str:
-    return _systematic_process(syst, flavor, ecm, direction)
 
 
 def get_systematic_parameters(syst: str) -> tuple[str, ...]:
@@ -307,35 +275,5 @@ def build_datacard_signal_pdf(
 
     from package.func.fit import build_pdf_from_spec
 
-    params = build_datacard_signal_params(workspace, signal_name, flavor, ecm, use_syst=use_syst)
+    params = build_datacard_signal_params(workspace, signal_name, flavor, ecm, use_syst)
     return build_pdf_from_spec(recoilmass, params, 1.0, '', SIGNAL_MODELS[signal_name], extended=False)[0]
-
-
-def import_datacard_background_model(
-        workspace: ROOT.RooWorkspace,
-        background_name: str,
-        par_id: str,
-         ) -> float:
-
-    spec = BACKGROUND_MODEL
-    yield_bkg = workspace.obj(spec['yield_name']).getVal()
-    bkg = workspace.obj(spec['name'])
-    workspace.Import(bkg, ROOT.RooFit.RenameAllVariablesExcept(par_id, 'zll_recoil_m'))
-    return yield_bkg
-
-
-def get_decomposition_spec(name: str) -> dict:
-    spec = SIGNAL_MODELS[name]
-    return {
-        'model_name': spec['model_name'],
-        'components': spec['components'],
-        'fractions': spec['fractions'],
-    }
-
-
-def load_decomposition_objects(name: str, workspace: ROOT.RooWorkspace, mH_label: str) -> tuple[ROOT.RooAbsPdf, dict[str, object], dict[str, object]]:
-    spec = SIGNAL_MODELS[name]
-    sig_fit = workspace.pdf(f"{spec['model_name']}_{mH_label}")
-    components = {component['name']: workspace.obj(f"{component['name']}_{mH_label}") for component in spec['components']}
-    fractions = {fraction: workspace.obj(f"{fraction}_{mH_label}") for fraction in spec['fractions']}
-    return sig_fit, components, fractions

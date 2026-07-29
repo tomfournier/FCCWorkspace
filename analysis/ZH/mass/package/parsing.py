@@ -264,6 +264,7 @@ def add_fit_args(
 def add_mass_fit_args(
         parser: ArgumentParser,
         datacard: bool = False,
+        fit: bool = False
          ) -> None:
     '''Add mass fit arguments (pert, target, combine, bias, t, print).'''
     args = parser.add_argument_group('Fit arguments')
@@ -327,6 +328,43 @@ def add_mass_fit_args(
             default=True,
             help='Include the systematic uncertainties in the fit (default True)'
         )
+    if fit:
+        parser.add_argument(
+            '--statOnly',
+            action='store_true',
+            default=False,
+            help='Do stat-only fit'
+        )
+        parser.add_argument(
+            '--doSummary',
+            action='store_true',
+            default=False,
+            help='Do summary plots'
+        )
+        parser.add_argument(
+            '--freezeBkg',
+            action='store_true',
+            default=False,
+            help='Freeze the background for the fit'
+        )
+        parser.add_argument(
+            '--noBkg',
+            action='store_true',
+            default=False,
+            help='Remove the background for the fit'
+        )
+        parser.add_argument(
+            '--doBreakdown',
+            action='store_true',
+            default=False,
+            help='Do breakdown of the nuisance parameters'
+        )
+        parser.add_argument(
+            '--combine',
+            action='store_true',
+            default=False,
+            help='Do the full combination fit'
+        )
 
 
 # ============================================================================
@@ -350,6 +388,7 @@ def create_parser(
         fit: bool = False,
         mass_fit: bool = False,
         datacard: bool = False,
+        do_fit: bool = False,
         description: str = 'Analysis script'
          ) -> ArgumentParser:
     '''
@@ -409,7 +448,7 @@ def create_parser(
     if fit:
         add_fit_args(parser)
     if mass_fit:
-        add_mass_fit_args(parser, datacard)
+        add_mass_fit_args(parser, datacard, do_fit)
 
     return parser
 

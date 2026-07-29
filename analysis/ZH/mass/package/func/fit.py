@@ -1,6 +1,12 @@
-import json, ROOT
+import json, math, array, subprocess, ROOT
 
+from ..userConfig import PathObj
 from ..tools.process import getHist
+from ..plots.fit import (
+    plot_mass_scan,
+    plot_mass_breakdown_curves,
+    plot_mass_breakdown_impacts
+)
 
 
 def _source_value(source: dict, key: str, idx: int | None = None):
@@ -36,8 +42,8 @@ def build_params_from_spec(
     source: dict,
     model_spec: dict,
     mH: float | int,
-    mH_label: str,
-) -> dict[str, ROOT.RooAbsArg]:
+     ) -> dict[str, ROOT.RooAbsArg]:
+
     params: dict[str, ROOT.RooAbsArg] = {}
 
     for entry in model_spec['params']:
@@ -297,3 +303,278 @@ def make_unc_import(w_tmp, spline_vals, val_names, syst, val_up=None, val_dw=Non
         nominal = ROOT.RooRealVar(f'sig_{val_name}_{syst}', f'sig_{val_name}_{syst}', value)
         nominal.setConstant(ROOT.kTRUE)
         w_tmp.Import(nominal)
+
+
+def findCrossing(
+        xv: list[float | int],
+        yv: list[float | int],
+        left: bool = True,
+        flip: float | int = 125,
+        cross: float | int = 1.):
+
+    closest, idx = 1e9, -1
+    for i in range(0, len(xv)):
+        if     left and xv[i] > flip: continue
+        if not left and xv[i] < flip: continue
+        dy = abs(yv[i] - cross)
+        if dy < closest:
+            closest = dy
+            idx = i
+
+    # Find correct indices around crossing
+    if left:
+        if yv[idx] > cross: idx_ = idx + 1
+        else: idx_ = idx - 1
+    else:
+        if yv[idx] > cross: idx_ = idx -1
+        else: idx_ = idx + 1
+
+    # Do interpolation
+    omega = (yv[idx] - yv[idx_]) / (xv[idx] - xv[idx_])
+    return (cross - yv[idx]) / omega + xv[idx]
+
+
+def _graph_from_points(
+        xv: list[float | int],
+        yv: list[float | int]) -> ROOT.TGraph:
+    return ROOT.TGraph(len(xv), array.array('d', xv), array.array('d', yv))
+
+
+def _load_nll_curve(
+        file_path: PathObj) -> tuple[float, float, list[float], list[float], ROOT.TGraph]:
+    xv, yv = [], []
+    with open(file_path, 'r') as fIn:
+        for i, line in enumerate(fIn.readlines()):
+            line = line.rstrip()
+            if i == 0:
+                best_mass = float(line.split(' ')[3])
+                unc_mass = float(line.split(' ')[2])
+            else:
+                xv.append(float(line.split(' ')[0]))
+                yv.append(float(line.split(' ')[1]))
+
+    return best_mass, unc_mass, xv, yv, _graph_from_points(xv, yv)
+
+
+def _load_fit_summary(
+        file_path: PathObj,
+        scale: float = 1.0) -> tuple[float, float]:
+    with open(file_path, 'r') as fIn:
+        first_line = fIn.readline().rstrip()
+    best = float(first_line.split(' ')[3])
+    unc = float(first_line.split(' ')[2]) * scale
+    return best, unc
+
+
+def _write_fit_curve(
+        out_path: PathObj,
+        unc_m: float,
+        unc_p: float,
+        unc: float,
+        mass: float,
+        xv: list[float],
+        yv: list[float]) -> None:
+    lines = [f'{unc_m} {unc_p} {unc} {mass}\n']
+    lines.extend(f'{x} {y}\n' for x, y in zip(xv, yv))
+    with open(out_path, 'w') as fOut:
+        fOut.writelines(lines)
+
+
+def _run_combine(
+        cmd: list[str],
+        runDir: str) -> None:
+    subprocess.call(cmd, cwd=runDir)
+
+
+def analyzeMass(
+        runDir: PathObj,
+        outDir: PathObj,
+        xMin: float | int = -1,
+        xMax: float | int = -1,
+        yMin: float | int = 0,
+        yMax: float | int = 2,
+        label: str = 'label',
+        top_right: str = '',
+        suffix: str = ''):
+
+    outDir.mkdir(exist_ok=True, parents=True)
+
+    fIn = ROOT.TFile(runDir / 'higgsCombinemass.MultiDimFit.mH125.root', 'READ')
+    t = fIn.Get('limit')
+
+    xv, yv = [], []
+    for i in range(0, t.GetEntries()):
+
+        t.GetEntry(i)
+
+        if t.quantileExpected < -1.5: continue
+        if t.deltaNLL > 20: continue
+        xv.append(t.MH)
+        yv.append(t.deltaNLL*2.)
+
+    xv, yv = zip(*sorted(zip(xv, yv)))
+    g = _graph_from_points(list(xv), list(yv))
+
+    # bestfit = minimum
+    mass = 1e9
+    for i in range(g.GetN()):
+        if g.GetY()[i] == 0: mass = g.GetX()[i]
+
+    # extract uncertainties at crossing = 1
+    unc_m = findCrossing(xv, yv, True,  mass)
+    unc_p = findCrossing(xv, yv, False, mass)
+    unc = (abs(mass - unc_m) + abs(unc_p - mass)) / 2
+
+    plot_mass_scan(
+        outDir,
+        g,
+        label,
+        unc * 1000.0,
+        min(xv) if xMin < 0 else xMin,
+        max(xv) if xMax < 0 else xMax,
+        yMin,
+        yMax,
+        '#bf{FCC-ee} #scale[0.7]{#it{Internal}}',
+        top_right,
+        output_name=f'mass{suffix}',
+        graph_color=ROOT.kRed,
+        graph_width=2,
+    )
+
+    # Write values to text file
+    _write_fit_curve(outDir / f'mass{suffix}.txt', unc_m, unc_p, unc, mass, list(xv), list(yv))
+    _write_fit_curve(runDir / f'mass{suffix}.txt', unc_m, unc_p, unc, mass, list(xv), list(yv))
+
+
+def doFit_mass(
+        runDir: str,
+        mhMin: float | int = 124.99,
+        mhMax: float | int = 125.01,
+        npoints: int = 50,
+        combineOptions: list[str] = []):
+
+    cmd = ['combine', '-M', 'MultiDimFit', 'ws.root', '-t', '-1', '-v', '2', '-n', 'mass',
+           '--setParameterRanges', f'MH={mhMin},{mhMax}', '--algo', 'grid', '--points', f'{npoints}',
+           '--expectSignal=1', '-m', '125', '--redefinesSignalPOIs', 'MH',
+           '--X-rtd', 'TMCSO_AdaptivePseudoAsimov', '--X-rtd', 'ADDNLL_CBNLL=0'] + combineOptions
+    _run_combine(cmd, runDir)
+
+
+def doFitDiagnostics_mass(
+        runDir: str,
+        mhMin: float | int = 124.99,
+        mhMax: float | int = 125.01,
+        combineOptions: list[str] = []):
+
+    cmd = ['combine', '-M', 'MultiDimFit', 'ws.root', '-t', '-1', '-v', '2', '-m', '125', '-n', 'mass',
+           '--setParameterRanges', f'MH={mhMin},{mhMax}', '--expectSignal=1',
+           '--algo', 'singles', '--redefineSignalPOIs', 'MH', '--floatParameters', 'MH',
+           '--X-rtd', 'TMCSO_AdaptivePseudoAsimov', '--X-rtd', 'ADD_CBNLL=0'] + combineOptions
+
+    _run_combine(cmd, runDir)
+
+    # Get the uncertainty
+    ### Will optimize it later (use code from xsec extraction)
+    with ROOT.TFile(f'{runDir}/higgsCombinemass.MultiDimFit.mH125.root') as fIn:
+        tt = fIn.Get('limit')
+        vals = []
+        for i in range(tt.GetEntries()):
+            tt.GetEntry(i)
+            vals.append(float(tt.MH))
+
+        vals = sorted(vals)
+        lo, best, hi = vals[0], vals[1], vals[2]
+
+        err_down, err_up = best - lo, hi - best
+        err_avg = (err_up + err_down) / 2
+    return err_avg
+
+def breakDown(
+        outDir: PathObj,
+        top_right: str = '',
+        mass_systematics: list[str] | None = None):
+    if mass_systematics is None:
+        mass_systematics = ['BES', 'SQRTS', 'LEPSCALE_MU', 'LEPSCALE_EL']
+
+    def getUnc(tag, type):
+        scale = 1000 if type == 'mass' else 100 if type == 'xsec' else 1
+        best, unc = _load_fit_summary(outDir / f'{type}{tag}.txt', scale)
+        return best, unc
+
+    _, unc_ref = getUnc('_stat', 'mass')
+    params = [f'_{name}' for name in mass_systematics] + ['']
+    labels = ['BES', '#sqrt{s} #pm 2 MeV', 'Muon scale (~10^{-5})', 'El. scale (~10^{-5})', 'Syst. combined']
+
+    impacts_mev = []
+    for p in params:
+        _, unc = getUnc(p, 'mass')
+        impacts_mev.append(math.sqrt(unc**2 - unc_ref**2))
+
+    plot_mass_breakdown_impacts(
+        outDir,
+        impacts_mev,
+        labels,
+        top_right,
+        '#bf{FCCee} #scale[0.7]{#it{Simulation}}',
+    )
+
+    params = ['_stat', '_BES', '_LEPSCALE', '_SQRTS', '']
+    labels = ['Stat. only', 'Beam energy spread', 'Lepton scale', 'Center-of-mass energy', 'Stat. + syst. combined']
+
+    tags = [f'{outDir}/mass{p}.txt' for p in params]
+    curves = []
+    style_spec = [
+        (ROOT.kRed + 1,    4, 1),
+        (ROOT.kBlue - 4,   2, 2),
+        (ROOT.kOrange - 3, 2, 2),
+        (ROOT.kGreen + 3,  2, 2),
+        (ROOT.kBlack,      4, 1),
+    ]
+    for index, tag in enumerate(tags):
+        _, unc, x_values, y_values, _ = _load_nll_curve(tag)
+        curves.append((x_values, y_values, unc * 1000.0, *style_spec[index]))
+
+    plot_mass_breakdown_curves(
+        outDir,
+        curves,
+        labels,
+        top_right,
+        '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
+    )
+
+
+def text2workspace(runDir):
+    cmd = ['text2workspace.py', 'datacard.txt', '-o', 'ws.root', '-v', '10', '--X-allow-no-background']
+    _run_combine(cmd, runDir)
+
+
+def combineCards(
+        runDir: PathObj,
+        cards: list[str] = []):
+
+    runDir.mkdir(exist_ok=True, parents=True)
+    cmd = ['combineCards.py', '--force-shape'] + cards
+
+    with open(runDir / 'datacard.txt', 'w') as out:
+        subprocess.call(cmd, cwd=runDir, stdout=out)
+
+
+def run_mass_pipeline(
+        runDir: PathObj,
+        outDir: PathObj,
+        label: str,
+        combineOptions: list[str],
+        fitRange: tuple[float, float] = (124.95, 125.05),
+        top_right: str = '',
+        suffix: str = '') -> None:
+    mh_err = doFitDiagnostics_mass(runDir, fitRange[0], fitRange[1], combineOptions)
+    mhMin, mhMax = mHrange(mh_err)
+    doFit_mass(runDir, mhMin, mhMax, 50, combineOptions)
+    analyzeMass(runDir, outDir, mhMin, mhMax, label=label, top_right=top_right, suffix=suffix)
+
+
+
+def mHrange(mh_err: float | int) -> tuple[float | int, float | int]:
+    if 1.5 * mh_err > 0.05:  # bound to 50 MeV
+        return 124.95, 125.05
+    return 125 - 1.5 * mh_err, 125 + 1.5 * mh_err
