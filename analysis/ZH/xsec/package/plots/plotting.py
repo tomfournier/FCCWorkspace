@@ -1295,7 +1295,7 @@ def PseudoRatio(
 
     import numpy as np
     import matplotlib.pyplot as plt
-    import mplhep as hep
+    import mplhep as hep  # type:ignore
 
     from .python.plotter import set_plt_style, set_labels, savefigs
     from ..func.bias import hist_from_datacard
