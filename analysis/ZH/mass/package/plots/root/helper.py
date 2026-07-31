@@ -54,8 +54,7 @@ from functools import lru_cache
 from typing import Union
 
 from ...config import warning
-from ...tools.utils import mkdir
-from ...tools.process import getHist, get_range
+from ...tools.process import get_range_decay, getHist, get_range
 
 
 
@@ -121,11 +120,9 @@ def build_cfg(
     xtitle: str = '',
     ytitle: str = 'Events',
     ecm: int = 240,
-    lumi: float = 10.8,
     strict: bool = True,
     stack: bool = False,
     hists: Union[list, None] = None,
-    range_func: callable = get_range,
     cutflow: bool = False,
     decay: bool = False
      ) -> dict:
@@ -142,7 +139,6 @@ def build_cfg(
         xtitle (str, optional): X-axis label (uses histogram title if empty). Defaults to ''.
         ytitle (str, optional): Y-axis label. Defaults to 'Events'.
         ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
-        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
         strict (bool, optional): Use strict range calculation. Defaults to True.
         stack (bool, optional): Whether histograms are stacked. Defaults to False.
         hists (list | None, optional): Additional histograms for range calculation. Defaults to None.
@@ -157,13 +153,13 @@ def build_cfg(
     scale_min, scale_max = 5e-1 if logY else 1, 1e4 if logY else 1.5
     if not cutflow:
         if not decay:
-            xMin, xMax, yMin, yMax = range_func(
+            xMin, xMax, yMin, yMax = get_range(
                 [hist], hists, logY=logY, stack=stack, strict=strict,
                 xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
                 scale_min=scale_min, scale_max=scale_max
             )
         else:
-            xMin, xMax, yMin, yMax = range_func(
+            xMin, xMax, yMin, yMax = get_range_decay(
                 hists, logY=logY,  strict=strict,
                 xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
                 scale_min=scale_min, scale_max=scale_max
@@ -195,6 +191,7 @@ def build_cfg(
         else:
             ytitle += f' / {bwidth:.2f} GeV^{{2}}'
 
+    lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
     return make_cfg({
         'xmin': xMin, 'xmax': xMax,
         'ymin': yMin, 'ymax': yMax,
@@ -578,29 +575,3 @@ def savecanvas(
     fpath = os.path.join(outDir, plotname+suffix)
     for f in format:
         c.SaveAs(f'{fpath}.{f}')
-
-# ________________________
-def save_plot(
-    canvas: ROOT.TCanvas,
-    outDir: str,
-    outName: str,
-    suffix: str,
-    format: list[str],
-     ) -> None:
-    '''Save canvas with automatic directory creation.
-
-    Args:
-        canvas (ROOT.TCanvas): ROOT canvas to save.
-        outDir (str): Output directory path (created if missing).
-        outName (str): Base filename without extension.
-        suffix (str): Optional filename suffix.
-        format (list[str]): List of file formats (e.g., ['png', 'pdf']).
-
-    Returns:
-        None
-    '''
-    mkdir(outDir)
-    savecanvas(
-        canvas, outDir, outName,
-        suffix=suffix, format=format
-    )

@@ -50,7 +50,6 @@ from .helper import (
     setup_latex,
     savecanvas
 )
-from ...tools.utils import mkdir
 
 
 
@@ -86,7 +85,8 @@ def canvas(
     left:   float = 0.15,
     right:  float = 0.05,
     batch: bool = False,
-    yields: bool = False
+    yields: bool = False,
+    grid: bool = True
      ) -> ROOT.TCanvas:
     '''
     Create a configured ROOT canvas with standard margins and axis settings.
@@ -118,6 +118,7 @@ def canvas(
         if cfg['logy']: c.SetLogy()
     c.SetFillStyle(4000)
     if batch: c.SetTicks(1, 1)
+    if grid: c.SetGrid()
 
     c.Modify()
     c.Update()
@@ -129,7 +130,8 @@ def canvasRatio(
     width:  int = 1000,
     height: int = 1000,
     left: float = 0.15,
-    eps:  float = 0.025
+    eps:  float = 0.025,
+    grid: bool = True
      ) -> tuple[ROOT.TCanvas,
                 ROOT.TPad,
                 ROOT.TPad]:
@@ -146,6 +148,7 @@ def canvasRatio(
         tuple: (canvas, upper_pad, lower_pad) configured for ratio plots.
     '''
     c = ROOT.TCanvas('c', 'c', width, height)
+    if grid: c.SetGrid()
     canvas_margins(
         c, top=0., bottom=0.,
         left=0., right=0.
@@ -235,9 +238,7 @@ def dummy(
     ymin, ymax = axis_limits(cfg, 'y')
 
     # Create empty histogram with specified bin count and range
-    dummy = ROOT.TH1D('h', 'h',
-                      nbins,
-                      xmin, xmax)
+    dummy = ROOT.TH1D('h', 'h', nbins, xmin, xmax)
 
     # Configure x-axis
     configure_axis(
@@ -388,11 +389,36 @@ def finalize_canvas(
     Returns:
         None
     '''
+    if grid: canvas.SetGrid()
+    canvas.Modify()
+    canvas.Update()
+    aux()
+    ROOT.gPad.SetTicks()
+    ROOT.gPad.RedrawAxis()
+
+
+# ________________________
+def finalize_canvasRatio(
+    canvas: ROOT.TCanvas,
+    grid: bool = True
+     ) -> None:
+    '''
+    Finalize canvas appearance and redraw elements.
+
+    Applies grid, ticks, auxiliary labels, and refreshes the canvas display.
+
+    Args:
+        canvas (ROOT.TCanvas): ROOT.TCanvas to finalize.
+        grid (bool, optional): If True, enable grid lines on the canvas. Defaults to True.
+
+    Returns:
+        None
+    '''
     if grid:
         canvas.SetGrid()
     canvas.Modify()
     canvas.Update()
-    aux()
+    auxRatio()
     ROOT.gPad.SetTicks()
     ROOT.gPad.RedrawAxis()
 
@@ -420,7 +446,6 @@ def save_canvas(
     Returns:
         None
     '''
-    mkdir(outDir)
 
     # Apply final formatting before saving
     aux()

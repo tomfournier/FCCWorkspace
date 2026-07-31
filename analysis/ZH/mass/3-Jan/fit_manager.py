@@ -117,7 +117,7 @@ if arg.combine:
 
     base_dir = loc.get('COMBINE_BASE', '', '', sel)
 
-    combineDir = loc.get('COMBINEDIR', '', '', sel)
+    combineDir     = loc.get('COMBINEDIR', '', '',  sel)
     combineDir_240 = loc.get('COMBINEDIR', '', 240, sel)
     combineDir_365 = loc.get('COMBINEDIR', '', 365, sel)
 
@@ -147,7 +147,7 @@ def _combine_options_from_flags() -> list[str]:
 def main():
 
     if arg.doBreakdown:
-        breakDown(outDir, top_right=topRight)
+        breakDown(outDir, topRight)
 
     if arg.doSummary:
         modes = ['IDEA', 'IDEA_MC', 'IDEA_3T', 'CLD']

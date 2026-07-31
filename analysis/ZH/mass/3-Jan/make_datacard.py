@@ -259,8 +259,6 @@ def doSignal(
     return workspace
 
 
-
-
 def doBackgrounds(
         flavor: str,
         ecm: int,

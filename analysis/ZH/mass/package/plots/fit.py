@@ -1,7 +1,9 @@
 import array, ROOT
 
-from ..userConfig import PathObj
+from ..userConfig import PathObj, plot_file
 from .root import plotter
+from .root.helper import mk_legend, setup_latex, draw_latex, savecanvas, build_cfg
+from .root.plotter import finalize_canvas, finalize_canvasRatio
 
 
 
@@ -45,16 +47,16 @@ def _mass_plot_cfg(
     }
 
 
-def _style_graph(graph, color, width: int = 4, marker: int = 20):
-    graph.SetMarkerStyle(marker)
+def _style_graph(graph, color, width: int = 4, style: int = 20, size: float | int = 1):
+    graph.SetMarkerStyle(style)
     graph.SetMarkerColor(color)
-    graph.SetMarkerSize(1)
+    graph.SetMarkerSize(size)
     graph.SetLineColor(color)
     graph.SetLineWidth(width)
 
 
 def _draw_reference_line(x_min: float, x_max: float, y: float = 1.0):
-    line = ROOT.TLine(float(x_min), y, float(x_max), y)
+    line = ROOT.TLine(x_min, y, x_max, y)
     line.SetLineColor(ROOT.kBlack)
     line.SetLineWidth(2)
     line.Draw('SAME')
@@ -82,65 +84,48 @@ def plot_mass_scan(
         graph,
         label: str,
         uncertainty_mev: float,
-        x_min: float,
-        x_max: float,
-        y_min: float,
-        y_max: float,
-        topLeft: str,
-        topRight: str,
         output_name: str = 'mass',
+        ecm: int = 240,
         graph_color=ROOT.kRed,
         graph_width: int = 2,
-        graph_marker: int = 20,
-        x_title: str = 'm_{H} [GeV]',
-        y_title: str = '-2#DeltaNLL'):
+        graph_marker: int = 20):
 
-    cfg = _mass_plot_cfg(x_min, x_max, y_min, y_max, topLeft, topRight, x_title, y_title)
+    cfg = build_cfg(graph.GetHistogram(), False, False,
+                    xtitle='m_{H} [GeV]', ytitle='-2#DeltaNLL', ecm=ecm)
     plotter.cfg = cfg
 
     canvas = plotter.canvas()
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    dummy  = plotter.dummy()
 
     dummy.GetXaxis().SetNdivisions(507)
     dummy.Draw('HIST')
 
-    _style_graph(graph, graph_color, width=graph_width, marker=graph_marker)
+    _style_graph(graph, graph_color, graph_width, graph_marker)
     graph.Draw('SAME LP')
     _draw_reference_line(cfg['xmin'], cfg['xmax'])
 
-    leg = ROOT.TLegend(.20, 0.825, 0.90, .9)
-    leg.SetBorderSize(0)
-    leg.SetTextSize(0.035)
-    leg.SetMargin(0.15)
-    leg.SetBorderSize(1)
+    leg = mk_legend(0, 1, 0.2, 0.825, 0.9, 0.9,
+                    1, 0, 0.035, 0.15)
     leg.AddEntry(graph, f'{label}, #Delta(m_{{H}}) = {uncertainty_mev:.2f} MeV', 'LP')
     leg.Draw()
 
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    canvas.Draw()
-    canvas.SaveAs(f'{outDir}/{output_name}.png')
+    finalize_canvas(canvas)
+    savecanvas(canvas, outDir, output_name, '', plot_file)
+    canvas.Close()
 
 
 def plot_mass_breakdown_impacts(
         outDir,
         uncertainties_mev: list[float],
         labels: list[str],
-        topRight: str,
-        topLeft: str,
         x_title: str = '#sigma_{syst.}(m_{H}) (MeV)',
         x_min: float = -3,
         x_max: float = 3,
         output_name: str = 'mass_breakdown_impacts'):
 
-    canvas = ROOT.TCanvas('c', 'c', 1000, 1000)
-    canvas.SetTopMargin(0.08)
-    canvas.SetBottomMargin(0.1)
-    canvas.SetLeftMargin(0.25)
-    canvas.SetRightMargin(0.05)
-    canvas.SetFillStyle(4000)
+    canvas = plotter.canvas(
+        1e3, 1e3, 0.08, 0.1, 0.25, 0.05, grid=False
+    )
     canvas.SetGrid(1, 0)
     canvas.SetTickx(1)
 
@@ -164,25 +149,11 @@ def plot_mass_breakdown_impacts(
     h_pulls.SetNdivisions(506, 'XYZ')
     h_pulls.Draw('HIST')
 
-    g_pulls.SetMarkerSize(0.8)
-    g_pulls.SetMarkerStyle(20)
-    g_pulls.SetLineWidth(2)
+    _style_graph(g_pulls, ROOT.kBlack, 2, 20, 0.8)
     g_pulls.Draw('P SAME')
 
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.035)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(30)
-    latex.DrawLatex(0.95, 0.925, topRight)
-
-    latex.SetTextAlign(13)
-    latex.SetTextFont(42)
-    latex.SetTextSize(0.04)
-    latex.DrawLatex(0.25, 0.96, topLeft)
-
-    canvas.SaveAs(f'{outDir}/{output_name}.png')
+    finalize_canvas(canvas, False)
+    savecanvas(canvas, outDir, output_name, '', plot_file)
 
 
 def plot_mass_breakdown_curves(
@@ -201,16 +172,12 @@ def plot_mass_breakdown_curves(
     plotter.cfg = cfg
 
     canvas = plotter.canvas()
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    dummy  = plotter.dummy()
     dummy.GetXaxis().SetNdivisions(507)
     dummy.Draw('HIST')
 
-    leg = ROOT.TLegend(.20, 0.9 - len(curves) * 0.05, 0.90, .9)
-    leg.SetBorderSize(0)
-    leg.SetTextSize(0.03)
-    leg.SetMargin(0.1)
-    leg.SetBorderSize(1)
+    leg = mk_legend(len(curves), 1, 0.2, 0.9, 0.9, 0.9,
+                    1, 0, 0.03, 0.1)
 
     for (x_values, y_values, uncertainty_mev, color, width, marker), label in zip(curves, labels):
         graph = ROOT.TGraph(len(x_values), array.array('d', x_values), array.array('d', y_values))
@@ -221,11 +188,8 @@ def plot_mass_breakdown_curves(
     leg.Draw()
     _draw_reference_line(cfg['xmin'], cfg['xmax'])
 
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    canvas.Draw()
-    canvas.SaveAs(f'{outDir}/{output_name}.png')
+    finalize_canvas(canvas)
+    savecanvas(canvas, outDir, output_name, '', plot_file)
 
 
 def plot_mass_multiple(
@@ -236,51 +200,34 @@ def plot_mass_multiple(
         top_right: str,
         x_min: float,
         x_max: float,
-        y_min: float = 0,
-        y_max: float = 2,
         leg_label: str = '',
-        force_stat: list[bool] | None = None,
-        leg_margin: float = 0.15):
+        force_stat: list[bool] | None = None):
 
     if force_stat is None:
         force_stat = [False] * len(in_dirs)
 
-    graphs = []
-    uncertainties = []
+    graphs, uncertainties = [], []
     for i, in_dir in enumerate(in_dirs):
         file_name = f'mass{suffix + "_stat" if force_stat[i] else suffix}.txt'
         _, unc_mass, _, _, graph = _load_nll_curve(in_dir / file_name)
         uncertainties.append(unc_mass)
         graphs.append(graph)
 
-    cfg = {
-        'logy': False,
-        'logx': False,
-        'xmin': x_min,
-        'xmax': x_max,
-        'ymin': y_min,
-        'ymax': y_max,
-        'xtitle': 'm_{H} [GeV]',
-        'ytitle': '-2#DeltaNLL',
-        'topRight': top_right,
-        'topLeft': '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
-    }
+    cfg = build_cfg(graphs[0].createHistogram(), xmin=x_min, xmax=x_max,
+                    xtitle='m_{H} [GeV]', ytitle='-2#DeltaNLL', decay=True,
+                    hists=[g.createHistogram() for g in graphs])
+    cfg = {'topRight': top_right}
     plotter.cfg = cfg
 
     canvas = plotter.canvas()
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    dummy  = plotter.dummy()
     dummy.GetXaxis().SetNdivisions(507)
     dummy.Draw('HIST')
 
     n = len(graphs) + (0 if leg_label == '' else 1)
-    leg = ROOT.TLegend(.20, 0.9 - n * 0.05, 0.90, .9)
-    leg.SetBorderSize(0)
-    leg.SetTextSize(0.03)
-    leg.SetMargin(leg_margin)
-    leg.SetBorderSize(1)
-    if leg_label != '':
-        leg.SetHeader(leg_label)
+    leg = mk_legend(n, 1, 0.2, 0.9, 0.9, 0.9,
+                    0, 0, 0.03, 0.15)
+    if leg_label != '': leg.SetHeader(leg_label)
 
     colors = [ROOT.kBlack, ROOT.kRed, ROOT.kBlue, ROOT.kGreen + 1]
     for index, graph in enumerate(graphs):
@@ -291,11 +238,8 @@ def plot_mass_multiple(
     leg.Draw()
     _draw_reference_line(cfg['xmin'], cfg['xmax'])
 
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    canvas.Draw()
-    canvas.SaveAs(f'{out_dir}{suffix}.png')
+    finalize_canvas(canvas)
+    savecanvas(canvas, out_dir, '', suffix, plot_file)
 
 
 def plot_xsec_multiple(
@@ -305,8 +249,6 @@ def plot_xsec_multiple(
         top_right: str,
         x_min: float,
         x_max: float,
-        y_min: float = 0,
-        y_max: float = 2,
         output_name: str = ''):
 
     graphs = []
@@ -316,31 +258,19 @@ def plot_xsec_multiple(
         uncertainties.append(unc_xsec)
         graphs.append(graph)
 
-    cfg = {
-        'logy': False,
-        'logx': False,
-        'xmin': x_min,
-        'xmax': x_max,
-        'ymin': y_min,
-        'ymax': y_max,
-        'xtitle': '#sigma(ZH#rightarrowl^{#plus}l^{#minus})/#sigma_{ref}',
-        'ytitle': '-2#DeltaNLL',
-        'topRight': top_right,
-        'topLeft': '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
-    }
+    cfg = build_cfg(graphs[0].createHistogram(), xmin=x_min, xmax=x_max, decay=True,
+                    xtitle='#sigma(ZH#rightarrowl^{#plus}l^{#minus})/#sigma_{ref}',
+                    ytitle='-2#DeltaNLL', hists=[g.createHistogram() for g in graphs])
+    cfg = {'topRight': top_right}
     plotter.cfg = cfg
 
     canvas = plotter.canvas()
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    dummy  = plotter.dummy()
     dummy.GetXaxis().SetNdivisions(507)
     dummy.Draw('HIST')
 
-    leg = ROOT.TLegend(.20, 0.9 - len(graphs) * 0.05, 0.90, .9)
-    leg.SetBorderSize(0)
-    leg.SetTextSize(0.03)
-    leg.SetMargin(0.15)
-    leg.SetBorderSize(1)
+    leg = mk_legend(len(graphs), 1, 0.2, 0.9, 0.9, 0.9,
+                    1, 0, 0.03, 0.15)
 
     colors = [ROOT.kBlack, ROOT.kRed, ROOT.kBlue, ROOT.kGreen + 1]
     for index, graph in enumerate(graphs):
@@ -351,12 +281,8 @@ def plot_xsec_multiple(
     leg.Draw()
     _draw_reference_line(cfg['xmin'], cfg['xmax'])
 
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    canvas.Draw()
-    name = output_name or out_dir
-    canvas.SaveAs(f'{name}.png')
+    finalize_canvas(canvas)
+    savecanvas(canvas, out_dir, output_name, '', plot_file)
 
 
 def plot_spline_scan(
@@ -367,15 +293,8 @@ def plot_spline_scan(
         spline,
         output_name: str,
         y_title: str,
-        y_min: float,
-        y_max: float,
-        x_min: float = 124.9,
-        x_max: float = 125.1,
-        x_title: str = 'm_{H} (GeV)',
         label: str = '',
-        marker_color=ROOT.kBlack,
-        topLeft: str = '',
-        topRight: str = ''):
+        marker_color=ROOT.kBlack):
 
     graph = ROOT.TGraphErrors(
         len(x_values),
@@ -384,55 +303,25 @@ def plot_spline_scan(
         array.array('d', [0] * len(x_values)),
         array.array('d', [0] * len(x_values)),
     )
-
-    cfg = {
-
-        'logy'              : False,
-        'logx'              : False,
-
-        'xmin'              : x_min,
-        'xmax'              : x_max,
-        'ymin'              : y_min,
-        'ymax'              : y_max,
-
-        'xtitle'            : x_title,
-        'ytitle'            : y_title,
-
-        'topRight'          : topRight,
-        'topLeft'           : topLeft,
-    }
-
+    cfg = build_cfg(graph.GetHistogram(), xmin=124.9, xmax=125.1,
+                    xtitle='m_{H} [GeV]', ytitle=y_title)
     plotter.cfg = cfg
-    canvas = plotter.canvas(leftMargin=0.2)
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    canvas = plotter.canvas(left=0.2)
+    dummy  = plotter.dummy()
     dummy.Draw('HIST')
     dummy.GetXaxis().SetNdivisions(305)
 
     frame = MH.frame()
     spline.plotOn(frame)
-    graph.SetMarkerStyle(8)
-    graph.SetMarkerColor(marker_color)
-    graph.SetMarkerSize(1.5)
+    _style_graph(graph, marker_color, 2, 8, 1.5)
     graph.Draw('SAME P')
+    frame.Draw('SAME')
 
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.04)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(13)
+    latex = setup_latex(0.04, 13, 1, 42)
     latex.DrawLatex(0.25, 0.92, label)
 
-    frame.Draw('SAME')
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    ROOT.gPad.SetTickx()
-    ROOT.gPad.SetTicky()
-    ROOT.gPad.RedrawAxis()
-    canvas.Draw()
-    canvas.SaveAs(f'{outDir}/{output_name}.png')
+    finalize_canvas(canvas)
+    savecanvas(canvas, outDir, output_name, '', plot_file)
 
 
 def plot_decomposition(
@@ -442,42 +331,20 @@ def plot_decomposition(
         mH_label: str,
         yield_nom: float | int,
         model_spec: dict,
-        topLeft: str = '',
-        topRight: str = '',
         yMax: float | int | None = None,
          ):
 
-    cfg = {
-
-        'logy'              : False,
-        'logx'              : False,
-
-        'xmin'              : 120,
-        'xmax'              : 140,
-        'ymin'              : 0,
-        'ymax'              : 3 * yMax if yMax is not None else 1,
-
-        'xtitle'            : 'm_{recoil} [GeV]',
-        'ytitle'            : 'Events',
-
-        'topRight'          : topRight,
-        'topLeft'           : topLeft,
-
-        'ratiofraction'     : 0.3,
-        'ytitleR'           : 'Pull',
-        'yminR'             : -3.5,
-        'ymaxR'             :  3.5,
-    }
-
+    mrec = w_tmp.var('zll_recoil_m')
+    cfg = build_cfg(mrec.createHistogram('mrec', ''), xmin=120, xmax=140,
+                    xtitle='m_{recoil} [GeV]', ytitle='Events')
     plotter.cfg = cfg
     canvas = plotter.canvas()
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    dummy  = plotter.dummy()
     dummy.Draw('HIST')
-    plt = w_tmp.var('zll_recoil_m').frame()
 
-    sig_fit = w_tmp.pdf(f"{model_spec['model_name']}_{mH_label}")
-    fractions = [w_tmp.obj(f"{fraction}_{mH_label}").getVal() for fraction in model_spec['fractions']]
+    plt = mrec.frame()
+    sig_fit    =  w_tmp.pdf(f"{model_spec['model_name']}_{mH_label}")
+    fractions  = [w_tmp.obj(f"{fraction}_{mH_label}").getVal() for fraction  in model_spec['fractions']]
     components = [w_tmp.obj(f"{component['name']}_{mH_label}") for component in model_spec['components']]
 
     component_data = [('Total PDF', ROOT.kBlack, sig_fit, yield_nom)]
@@ -493,11 +360,8 @@ def plot_decomposition(
         component.plotOn(plt, ROOT.RooFit.LineColor(color), ROOT.RooFit.Normalization(component_yield, ROOT.RooAbsReal.NumEvent))
     sig_fit.plotOn(plt, ROOT.RooFit.LineColor(ROOT.kBlack), ROOT.RooFit.Normalization(yield_nom, ROOT.RooAbsReal.NumEvent))
 
-    leg = ROOT.TLegend(.50, 0.7, .95, .90)
-    leg.SetBorderSize(0)
-    leg.SetFillStyle(0)
-    leg.SetTextSize(0.04)
-    leg.SetMargin(0.15)
+    leg = mk_legend(0, 1, 0.5, 0.7, 0.95, 0.9,
+                    0, 0, 0.04, 0.15)
 
     for name, color, _, _ in component_data:
         tmp = ROOT.TGraph()
@@ -507,118 +371,75 @@ def plot_decomposition(
         tmp.Draw('SAME')
         leg.AddEntry(tmp, name, 'L')
 
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.04)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(13)
+    latex = setup_latex(0.04, 13, 1, 42)
     latex.DrawLatex(0.2, 0.92, label)
 
     plt.Draw('SAME')
     leg.Draw()
-    plotter.aux()
 
-    ROOT.gPad.SetTickx()
-    ROOT.gPad.SetTicky()
-    ROOT.gPad.RedrawAxis()
-    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_decomposition.png')
+    finalize_canvas(canvas)
+    savecanvas(canvas, outDir, 'fit_mH', f'{mH_label}_decomposition', plot_file)
 
     return sig_fit
 
 
 def plot_fit(
         outDir,
-        recoilmass,
+        mrec,
         rdh_zh,
         sig_fit,
         mH_label: str,
-        yMax: float | int,
         label: str,
         nBins: int = 250,
-        topLeft: str = '',
-        topRight: str = ''
+        ecm: int = 240,
          ):
 
-    cfg = {
-
-        'logy'              : False,
-        'logx'              : False,
-
-        'xmin'              : 120,
-        'xmax'              : 140,
-        'ymin'              : 0,
-        'ymax'              : yMax,
-
-        'xtitle'            : 'm_{recoil} [GeV]',
-        'ytitle'            : 'Events',
-
-        'topRight'          : topRight,
-        'topLeft'           : topLeft,
-
-        'ratiofraction'     :  0.3,
-        'ytitleR'           : 'Pull',
-        'yminR'             : -3.5,
-        'ymaxR'             :  3.5,
-    }
-
-    cfg['ymax'] = 1.2 * yMax
+    cfg = build_cfg(sig_fit.createHistogram('dummy', mrec),
+                    False, False, ecm=ecm,
+                    xtitle='m_{recoil} [GeV]', ytitle='Events')
+    cfg = {'yminR' : -3.5, 'ymaxR' : 3.5, 'ytitleR' : 'Pull'}
     plotter.cfg = cfg
 
-    canvas, padT, padB     = plotter.canvasRatio()
-    dummyT, dummyB, dummyL = plotter.dummyRatio(rline=0)
-    dummyB.GetXaxis().SetTitleOffset(4.*dummyB.GetXaxis().GetTitleOffset())   # hack label
-    dummyT.GetYaxis().SetTitleOffset(1.2*dummyT.GetYaxis().GetTitleOffset())  # hack label
+    canvas, padT, padB    = plotter.canvasRatio()
+    dummyT, dummyB, lines = plotter.dummyRatio(1, [0])
 
-    ## TOP PAD ##
     canvas.cd()
     padT.Draw()
     padT.cd()
     padT.SetGrid()
     dummyT.Draw('HIST')
 
-    plt = recoilmass.frame()
-    plt.SetTitle('ZH signal')
+    plt = mrec.frame(ROOT.RooFit.Title('ZH signal'))
     rdh_zh.plotOn(plt,   ROOT.RooFit.Binning(nBins))
     sig_fit.plotOn(plt,  ROOT.RooFit.LineColor(ROOT.kRed))
     sig_fit.paramOn(plt, ROOT.RooFit.Format('NELU', ROOT.RooFit.AutoPrecision(2)), ROOT.RooFit.Layout(0.45, 0.9, 0.9))
     histpull = plt.pullHist()
     plt.Draw('SAME')
 
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.045)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(13)
-    latex.DrawLatex(0.2, 0.88, label)
-    latex.DrawLatex(0.2, 0.82, f'#chi^2 = {plt.chiSquare():.3f}')
+    latex = setup_latex(0.045, 13, 1, 42)
+    draw_latex(latex, [(label, 0.2, 0.88, 0.045),
+                       f'#chi^2 = {plt.chiSquare():.3f}', 0.2, 0.82, 0.045])
 
-    plotter.auxRatio()
-    ROOT.gPad.SetTickx()
-    ROOT.gPad.SetTicky()
-    ROOT.gPad.RedrawAxis()
+    finalize_canvasRatio(canvas)
 
-    ## BOTTOM PAD ##
     canvas.cd()
     padB.Draw()
     padB.SetFillStyle(0)
     padB.cd()
-    dummyB.Draw('HIST')
-    dummyL.Draw('SAME')
 
-    plt = recoilmass.frame()
+    dummyB.Draw('HIST')
+    for line in lines: line.Draw('SAME')
     plt.addPlotable(histpull, 'P')
     plt.Draw('SAME')
 
     ROOT.gPad.SetTickx()
     ROOT.gPad.SetTicky()
     ROOT.gPad.RedrawAxis()
-    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}.png')
+    savecanvas(canvas, outDir, 'fit_mH', mH_label, plot_file)
 
-    del dummyB, dummyT
-    del padT, padB
-    del canvas
+    # Explicitly delete objects to free memory faster
+    canvas.Close()
+    del canvas, dummyB, dummyT, padT, padB
 
 
 
@@ -633,62 +454,30 @@ def plot_fit_all(
         topRight: str = ''
          ):
 
-    cfg = {
-
-        'logy'              : False,
-        'logx'              : False,
-
-        'xmin'              : 120,
-        'xmax'              : 140,
-        'ymin'              : 0,
-        'ymax'              : yMax,
-
-        'xtitle'            : 'm_{recoil} [GeV]',
-        'ytitle'            : 'Events',
-
-        'topRight'          : topRight,
-        'topLeft'           : topLeft,
-
-        'ratiofraction'     : 0.3,
-        'ytitleR'           : 'Pull',
-        'yminR'             : -3.5,
-        'ymaxR'             : 3.5,
-    }
-
-    cfg['xmin'] = 124
-    cfg['xmax'] = 130
-    cfg['ymax'] = 2.5 * yMax
+    mrec = w_tmp.var('zll_recoil_m')
+    cfg = build_cfg(mrec.createHistogram('mrec', ''), xmin=124, xmax=130,
+                    xtitle='m_{recoil} [GeV]', ytitle='Events')
+    cfg = {'yminR': -3.5, 'ymaxR': 3.5, 'ytitleR': 'Pull'}
     plotter.cfg = cfg
 
     canvas = plotter.canvas()
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    dummy  = plotter.dummy()
     dummy.Draw('HIST')
 
-    plt = w_tmp.var('zll_recoil_m').frame()
+    plt = mrec.frame()
     colors = [ROOT.kRed, ROOT.kBlue, ROOT.kBlack, ROOT.kGreen, ROOT.kCyan]
     for i, mH in enumerate(mHs):
         sig_fit = w_tmp.pdf('zh_model_'+f'{mH:.3f}'.replace('.', 'p'))
         # Need to re-normalize the pdf, as the pdf is normalized to 1
         sig_fit.plotOn(plt, ROOT.RooFit.LineColor(colors[i]), ROOT.RooFit.Normalization(yield_zh, ROOT.RooAbsReal.NumEvent))
 
-
     plt.Draw('SAME')
 
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.04)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(13)
+    latex = setup_latex(0.04, 13, 1, 42)
     latex.DrawLatex(0.2, 0.92, label)
 
-
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    canvas.Draw()
-    canvas.SaveAs(f'{outDir}/fit_all.png')
+    finalize_canvas(canvas)
+    savecanvas(canvas, outDir, 'fit_all', '', plot_file)
 
 
 
@@ -698,8 +487,6 @@ def plot_params_vs_mh(
         param: str,
         vals: dict[str, float | int],
         spline: 'ROOT.RooSpline1D',
-        topLeft: str = '',
-        topRight: str = '',
         label: str = ''):
 
     mHs = vals['mH']
@@ -712,55 +499,26 @@ def plot_params_vs_mh(
         array.array('d', [0]*len(mHs))
     )
 
-    cfg = {
+    cfg = build_cfg(graph.GetHistogram(), xmin=124.9, xmax=125.1,
+                    xtitle='m_{H} [GeV]', ytitle=param_label[param])
 
-        'logy'              : False,
-        'logx'              : False,
-
-        'xmin'              : 124.9,
-        'xmax'              : 125.1,
-        'ymin'              : 0.999 * min(vals[param]),
-        'ymax'              : 1.001 * max(vals[param]),
-
-        'xtitle'            : 'm_{H} [GeV]',
-        'ytitle'            : param_label[param],
-
-        'topRight'          : topRight,
-        'topLeft'           : topLeft,
-    }
-
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.04)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(13)
+    latex = setup_latex(0.04, 13, 1, 42)
     latex.DrawLatex(0.2, 0.92, label)
 
     plotter.cfg = cfg
-    canvas = plotter.canvas(leftMargin=0.2)
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    canvas = plotter.canvas(left=0.2)
+    dummy  = plotter.dummy()
     dummy.Draw('HIST')
     dummy.GetXaxis().SetNdivisions(305)
 
     plt = MH.frame()
     spline.plotOn(plt)
-    graph.SetMarkerStyle(8)
-    graph.SetMarkerColor(ROOT.kBlack)
-    graph.SetMarkerSize(1.5)
+    _style_graph(graph, ROOT.kBlack, 2, 8, 1.5)
     graph.Draw('SAME P')
-
-    latex.DrawLatex(0.25, 0.92, label)
     plt.Draw('SAME')
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    ROOT.gPad.SetTickx()
-    ROOT.gPad.SetTicky()
-    ROOT.gPad.RedrawAxis()
-    canvas.Draw()
-    canvas.SaveAs(f'{outDir}/fit_{param}.png')
+
+    finalize_canvas(canvas)
+    savecanvas(canvas, outDir, f'fit_{param}', '', plot_file)
 
 
 def fit_plot(
@@ -774,9 +532,8 @@ def fit_plot(
      ):
 
     canvas, padT, padB = plotter.canvasRatio()
-    dummyT, dummyB, _  = plotter.dummyRatio(1, 0)
+    dummyT, dummyB, lines  = plotter.dummyRatio(1, [0], [ROOT.kBlue+2])
 
-    ## TOP PAD ##
     canvas.cd()
     padT.Draw()
     padT.SetGrid()
@@ -788,27 +545,17 @@ def fit_plot(
     rdh_zh.plotOn(plt, ROOT.RooFit.Binning(nBins))  # ROOT.RooFit.Normalization(yield_zh, ROOT.RooAbsReal.NumEvent)
 
     pdf.plotOn(plt, ROOT.RooFit.LineColor(ROOT.kRed))
-    chisq = plt.chiSquare()
     pdf.paramOn(plt, ROOT.RooFit.Format('NELU', ROOT.RooFit.AutoPrecision(2)), ROOT.RooFit.Layout(0.45, 0.9, 0.9))
 
     histpull = plt.pullHist()
     plt.Draw('SAME')
 
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.045)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(13)
-    latex.DrawLatex(0.2, 0.88, label)
-    latex.DrawLatex(0.2, 0.82, f'#chi^{{2}} = {chisq:.3f}')
+    latex = setup_latex(0.045, 13, 1, 42)
+    draw_latex(latex, [(label, 0.2, 0.88, 0.045),
+                       (f'#chi^2 = {plt.chiSquare():.3f}', 0.2, 0.82, 0.045)])
 
-    plotter.auxRatio()
-    ROOT.gPad.SetTickx()
-    ROOT.gPad.SetTicky()
-    ROOT.gPad.RedrawAxis()
+    finalize_canvasRatio(canvas)
 
-    ## BOTTOM PAD ##
     canvas.cd()
     padB.Draw()
     padB.cd()
@@ -818,20 +565,14 @@ def fit_plot(
     plt = recoilmass.frame()
     plt.addPlotable(histpull, 'P')
     plt.Draw('SAME')
-
-    line = ROOT.TLine(120, 0, 140, 0)
-    line.SetLineColor(ROOT.kBlue+2)
-    line.SetLineWidth(2)
-    line.Draw('SAME')
+    for line in lines: line.Draw('SAME')
 
     ROOT.gPad.SetTickx()
     ROOT.gPad.SetTicky()
     ROOT.gPad.RedrawAxis()
-    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}.png')
+    savecanvas(canvas, outDir, 'fit_mH', mH_label, plot_file)
 
-    del dummyB, dummyT
-    del padT, padB
-    del canvas
+    del canvas, dummyT, dummyB, padT, padB
 
 
 def plot_syst_dist(
@@ -858,15 +599,8 @@ def plot_syst_dist(
                                                  ROOT.RooAbsReal.NumEvent))
 
     plt.Draw('SAME')
-
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    ROOT.gPad.SetTickx()
-    ROOT.gPad.SetTicky()
-    ROOT.gPad.RedrawAxis()
-    canvas.Draw()
-    canvas.SaveAs(f'{outDir}/fit_mH{mH_label}_{syst}.png')
+    finalize_canvas(canvas)
+    savecanvas(canvas, outDir, 'fit_mH', f'{mH_label}_{syst}', plot_file)
 
 
 
@@ -879,17 +613,15 @@ def plot_fit_with_pull(
     label_text: str,
     title: bool = None,
     fit_color: ROOT.TColor = ROOT.kRed,
-    save_pdf: bool = False,
     param_layout: tuple[float | int] = (0.25, 0.9, 0.9),
      ):
 
-    canvas, padT, padB     = plotter.canvasRatio()
-    dummyT, dummyB, dummyL = plotter.dummyRatio(rline=0)
+    canvas, padT, padB    = plotter.canvasRatio()
+    dummyT, dummyB, lines = plotter.dummyRatio(1, [0])
     dummyB.GetXaxis().SetTitleOffset(4.0 * dummyB.GetXaxis().GetTitleOffset())
 
     canvas.cd()
     padT.Draw()
-    padT.SetGrid()
     padT.cd()
     dummyT.Draw('HIST')
 
@@ -898,33 +630,25 @@ def plot_fit_with_pull(
         plt.SetTitle(title)
     rdh.plotOn(plt, ROOT.RooFit.Binning(n_bins))
     pdf.plotOn(plt, ROOT.RooFit.LineColor(fit_color))
-    chisq = plt.chiSquare()
+
     if param_layout is not None:
         pdf.paramOn(plt, ROOT.RooFit.Format('NELU', ROOT.RooFit.AutoPrecision(2)), ROOT.RooFit.Layout(*param_layout))
 
     histpull = plt.pullHist()
     plt.Draw('SAME')
 
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.045)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(13)
-    latex.DrawLatex(0.2, 0.88, label_text)
-    latex.DrawLatex(0.2, 0.82, f'#chi^{{2}} = {chisq:.3f}')
+    latex = setup_latex(0.045, 13, 1, 42)
+    draw_latex(latex, [(label_text, 0.2, 0.88, 0.045),
+                       f'#chi^2 = {plt.chiSquare():.3f}', 0.2, 0.82, 0.045])
 
-    plotter.auxRatio()
-    ROOT.gPad.SetTickx()
-    ROOT.gPad.SetTicky()
-    ROOT.gPad.RedrawAxis()
+    finalize_canvasRatio(canvas)
 
     canvas.cd()
     padB.Draw()
     padB.SetFillStyle(0)
     padB.cd()
     dummyB.Draw('HIST')
-    dummyL.Draw('SAME')
+    for line in lines: line.Draw('SAME')
 
     plt = recoilmass.frame()
     plt.addPlotable(histpull, 'P')
@@ -934,16 +658,12 @@ def plot_fit_with_pull(
     ROOT.gPad.SetTicky()
     ROOT.gPad.RedrawAxis()
     canvas.SaveAs(f'{output_base}.png')
-    if save_pdf:
-        canvas.SaveAs(f'{output_base}.pdf')
 
-    del dummyB, dummyT, dummyL
-    del padT, padB
-    del canvas
+    del canvas, dummyB, dummyT, padT, padB
 
 
 def plot_signal(
-        w_tmp: ROOT.RooWorkspace,
+        workspace: ROOT.RooWorkspace,
         mHs: list[float | int],
         outDir: str,
         label: str,
@@ -952,11 +672,10 @@ def plot_signal(
          ):
 
     canvas = plotter.canvas(leftMargin=0.2)
-    canvas.SetGrid()
-    dummy = plotter.dummy()
+    dummy  = plotter.dummy()
     dummy.Draw('HIST')
 
-    plt = w_tmp.var('zll_recoil_m').frame()
+    plt = workspace.var('zll_recoil_m').frame()
     colors = [ROOT.kRed, ROOT.kBlue, ROOT.kBlack, ROOT.kGreen, ROOT.kCyan]
     for i, _ in enumerate(mHs):
 
@@ -966,19 +685,8 @@ def plot_signal(
 
     plt.Draw('SAME')
 
-    latex = ROOT.TLatex()
-    latex.SetNDC()
-    latex.SetTextSize(0.04)
-    latex.SetTextColor(1)
-    latex.SetTextFont(42)
-    latex.SetTextAlign(13)
+    latex = setup_latex(0.04, 13, 1, 42)
     latex.DrawLatex(0.2, 0.92, label)
 
-    plotter.aux()
-    canvas.Modify()
-    canvas.Update()
-    ROOT.gPad.SetTickx()
-    ROOT.gPad.SetTicky()
-    ROOT.gPad.RedrawAxis()
-    canvas.Draw()
-    canvas.SaveAs(f'{outDir}/fit_all.png' )
+    finalize_canvas(canvas)
+    savecanvas(canvas, outDir, 'fit_all', '', plot_file)

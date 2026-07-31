@@ -493,6 +493,7 @@ def breakDown(
         outDir: PathObj,
         top_right: str = '',
         mass_systematics: list[str] | None = None):
+
     if mass_systematics is None:
         mass_systematics = ['BES', 'SQRTS', 'LEPSCALE_MU', 'LEPSCALE_EL']
 
@@ -515,7 +516,7 @@ def breakDown(
         impacts_mev,
         labels,
         top_right,
-        '#bf{FCCee} #scale[0.7]{#it{Simulation}}',
+        '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
     )
 
     params = ['_stat', '_BES', '_LEPSCALE', '_SQRTS', '']
