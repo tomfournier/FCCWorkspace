@@ -39,7 +39,6 @@ LOGGER = get_logger(__name__)
 
 from package.userConfig import loc
 from package.config import timer
-from package.tools.utils import mkdir
 
 
 
