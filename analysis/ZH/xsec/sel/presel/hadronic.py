@@ -478,7 +478,7 @@ branch_list_qq =[
     'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_costheta',   # Subleading jet kinematics
     'zqq_m', 'zqq_p', 'zqq_pT', 'zqq_theta', 'zqq_costheta',                      # Z boson kinematics
     'zqq_recoil_m',                                                               # Recoil mass (Higgs candidate)
-    'W1_m', 'W1_p', 'W1_theta', 'W1_costheta', 'delta_mWW'                        # W1 boson kinematics (4 jets clustering)
+    'W1_m', 'W1_p', 'W1_theta', 'W1_costheta', 'delta_mWW',                       # W1 boson kinematics (4 jets clustering)
     'W2_m', 'W2_p', 'W2_theta', 'W2_costheta',                                    # W2 boson kinematics (4 jets clustering)
     # 'Z1_m', 'Z1_p', 'Z1_theta', 'Z1_costheta', 'delta_mZZ'                        # Z1 boson kinematics (4 jets clustering)
     # 'Z2_m', 'Z2_p', 'Z2_theta', 'Z2_costheta',                                    # Z2 boson kinematics (4 jets clustering)
