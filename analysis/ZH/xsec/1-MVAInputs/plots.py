@@ -5,6 +5,7 @@
 import os, ROOT
 
 # Load plot configuration, directory paths, and output settings
+from package.config import quarks
 from package.userConfig import (
     loc, get_params,
     plot_file
@@ -69,7 +70,7 @@ variables = sorted([var for var in vars if (var!='zqq_m_recoil_m' and var!='zqq_
 # Keys: analysis identifier | Values: list of selection cut names to plot
 # Selection names must match those defined in final-selection.py
 selections: dict[str, list[str]] = {}
-selections['ZH'] = ['sel0', 'Baseline']
+selections['ZH'] = ['Baseline']
 if test: selections['ZH'].append('test')
 
 # Additional descriptive labels for each selection cut
@@ -85,7 +86,8 @@ extralabel['test']     = 'test'           # Test selection
 plots = {}
 plots['ZH'] = {
     'signal': {
-        f'{cat}H': [f'wzp6_ee_{cat}H_ecm{ecm}']
+        f'{cat}H': [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else
+        [f'wzp6_ee_{x}H_ecm{ecm}' for x in quarks]
     },
 
     'backgrounds': {
@@ -102,8 +104,6 @@ plots['ZH'] = {
 }
 if cat in ['ee', 'mumu']:
     plots['ZH']['backgrounds'][f'gaga{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']
-if (cat == 'qq') and (ecm == 365):
-    plots['ZH']['signal'][f'{cat}H'].extend(['wzp6_ee_bbH_ecm365', 'wzp6_ee_ccH_ecm365', 'wzp6_ee_ssH_ecm365'])
 
 
 # ROOT color assignments for each process (used in legend and stacked histograms)
