@@ -173,47 +173,47 @@ histos_qq = {
                             'bin':1000,'xmin':-1,'xmax':1},
 
     # ZZ pair variables (4 jets clustering): 1st Z boson
-    'Z1_m':                {'name':'Z1_m',
-                            'title':'m_{Z1} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
+    # 'Z1_m':                {'name':'Z1_m',
+    #                         'title':'m_{Z1} [GeV]',
+    #                         'bin':2000,'xmin':0,'xmax':200},
 
-    'Z1_p':                {'name':'Z1_p',
-                            'title':'p_{Z1} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
+    # 'Z1_p':                {'name':'Z1_p',
+    #                         'title':'p_{Z1} [GeV]',
+    #                         'bin':2000,'xmin':0,'xmax':200},
 
-    'Z1_theta':            {'name':'Z1_theta',
-                            'title':'#theta_{Z1}',
-                            'bin':128,'xmin':0,'xmax':3.2},
+    # 'Z1_theta':            {'name':'Z1_theta',
+    #                         'title':'#theta_{Z1}',
+    #                         'bin':128,'xmin':0,'xmax':3.2},
 
-    'Z1_costheta':         {'name':'Z1_costheta',
-                            'title':'cos#theta_{Z1}',
-                            'bin':1000,'xmin':-1,'xmax':1},
+    # 'Z1_costheta':         {'name':'Z1_costheta',
+    #                         'title':'cos#theta_{Z1}',
+    #                         'bin':1000,'xmin':-1,'xmax':1},
 
     # ZZ pair variables (4 jets clustering): 2nd Z boson
-    'Z2_m':                {'name':'Z2_m',
-                            'title':'m_{Z2} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
+    # 'Z2_m':                {'name':'Z2_m',
+    #                         'title':'m_{Z2} [GeV]',
+    #                         'bin':2000,'xmin':0,'xmax':200},
 
-    'Z2_p':                {'name':'Z2_p',
-                            'title':'p_{Z2} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
+    # 'Z2_p':                {'name':'Z2_p',
+    #                         'title':'p_{Z2} [GeV]',
+    #                         'bin':2000,'xmin':0,'xmax':200},
 
-    'Z2_theta':            {'name':'Z2_theta',
-                            'title':'#theta_{Z2}',
-                            'bin':128,'xmin':0,'xmax':3.2},
+    # 'Z2_theta':            {'name':'Z2_theta',
+    #                         'title':'#theta_{Z2}',
+    #                         'bin':128,'xmin':0,'xmax':3.2},
 
-    'Z2_costheta':         {'name':'Z2_costheta',
-                            'title':'cos#theta_{Z2}',
-                            'bin':1000,'xmin':-1,'xmax':1},
+    # 'Z2_costheta':         {'name':'Z2_costheta',
+    #                         'title':'cos#theta_{Z2}',
+    #                         'bin':1000,'xmin':-1,'xmax':1},
 
     # Distance from WW or ZZ pair mass
     'delta_mWW':           {'name':'delta_mWW',
                             'title':'#Deltam_{WW} [GeV]',
                             'bin':2000,'xmin':0,'xmax':200},
 
-    'delta_mZZ':           {'name':'delta_mZZ',
-                            'title':'#Deltam_{ZZ} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
+    # 'delta_mZZ':           {'name':'delta_mZZ',
+    #                         'title':'#Deltam_{ZZ} [GeV]',
+    #                         'bin':2000,'xmin':0,'xmax':200},
 
     # Jet clustering variables
     'best_clustering_idx': {'name':'best_clustering_idx',
