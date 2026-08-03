@@ -818,6 +818,7 @@ def get_process_list(
         ecm: int,
         z_decays: tuple[str, ...] = Z_DECAYS,
         h_decays: tuple[str, ...] = H_DECAYS_ALL,
+        quarks: tuple[str, ...] = QUARKS,
         train: bool = False,
         batch: bool = False,
         onlysig: bool = False,
@@ -867,6 +868,10 @@ def get_process_list(
     if train:
         # Training mode: category-specific signal only
         sigs = _get_training_signals(cat, ecm)
+        if cat in ['ee', 'mumu']:
+            sigs.extend([f'wzp6_ee_{cat}H_H{y}_ecm{ecm}' for y in h_decays if 'noInv' not in y])
+        elif cat == 'qq':
+            sigs.extend([f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays if 'noInv' not in y])
     else:
         # Non-training mode: all Z and Higgs decay combinations
         sigs = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
