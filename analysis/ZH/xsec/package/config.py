@@ -781,6 +781,10 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
             # f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
         },
     }
+    # Special case: top production at 365 GeV for qq
+    if ecm == 365:
+        category_specific['qq']['wzp6_ee_WbWb_ecm365'] = {'frac': 1, 'nb': small}
+        category_specific['qq']['p8_ee_tt_ecm365']     = {'frac': 1, 'nb': small}
 
     # Training mode: category-specific backgrounds (reduced sample size)
     if train:
@@ -805,9 +809,6 @@ def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False)
         bkgs[f'p8_ee_Zqq_ecm{ecm}']             = {'frac': 0.1, 'nb': big}
 
         bkgs[f'wzp6_ee_tautau_ecm{ecm}']['frac'] = 0.5
-        # Special case: top production at 365 GeV
-        if ecm == 365:
-            bkgs['p8_ee_tt_ecm365'] = {'frac': 1, 'nb': small}
         return bkgs
 
     return common
