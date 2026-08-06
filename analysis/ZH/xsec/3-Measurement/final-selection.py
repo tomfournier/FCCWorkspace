@@ -66,11 +66,9 @@ samples = get_process_list(cat, ecm).keys()
 processList = event(samples, inputDir)
 
 # Define BDT score from trained model and apply BDT cut
-if test:
-    loc_BDT = loc.get('BDT', cat, ecm, 'test')
-else:
-    loc_BDT = loc.get('BDT', cat, ecm, 'Baseline')
-defineList, bdt_cut = def_bdt(loc_BDT)
+if test: loc_BDT = loc.get('BDT', cat, ecm, 'test')
+else:    loc_BDT = loc.get('BDT', cat, ecm, 'Baseline')
+defineList, bdt_cut = def_bdt(loc_BDT, weight_suffix='_weights')
 
 
 
@@ -94,8 +92,8 @@ if cat in ['ee', 'mumu']:
         cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
         cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
-    Baseline      = Baseline_cut_qq(ecm)
-    Baseline_miss = Baseline_cut_qq(ecm, True)
+    Baseline      = Baseline_cut_qq(ecm, False, True)
+    Baseline_miss = Baseline_cut_qq(ecm, True,  True)
     if test:
         cutList['test'] = Baseline_cut_qq(ecm, True, True)
     else:
