@@ -152,18 +152,20 @@ def do_fit(
                '--X-allow-no-signal', '--X-allow-no-background',
                '--for-fits', '--no-wrappers', '-m', '125', '-o', ws_file]
 
-    cmd_diag = ['combine', ws_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1',
+    cmd_diag = ['combine', ws_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2',
                 '--algo', 'singles', '--cl=0.68', '--robustFit=1', '--expectSignal=1',
                 '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
                 '--rMin', '0.9', '--rMax', '1.1', '-n', f'Diag{tar}']
+    cmd_diag += ['-t', '0'] if arg.bias else ['-t', '0']
 
     cmd_fastscan = ['combineTools.py', '-M', 'FastScan', '-w', str(ws_file)+':w']
 
-    cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1',
+    cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2',
                '--expectSignal=1', '-n', f'Xsec{tar}', '-w', 'w', '--snapshotName', 'MultiDimFit',
                '--autoRange', '5', '--alignEdges', '1', '--squareDistPoiStep',
                '--algo', 'grid', '--points', '200', '--skipInitialFit']
     cmd_fit += ['--fastScan'] if arg.fast_scan else []
+    cmd_fit += ['-t', '0'] if arg.bias else ['-t', '0']
 
 
 
@@ -191,7 +193,7 @@ def do_fit(
     LOGGER.info('Doing the fit')
     run_cmd(cmd_diag, log_diag, ws, env)
     res_diag = get_results(diag_file, 'r', 'singles')
-    res_saving(res_diag, res, arg.print, '_diag')
+    res_saving(res_diag, res, arg.print, f'_diag{tar}')
 
     if arg.only_diag:
         LOGGER.debug('Skipping the likelihood scan')
@@ -199,7 +201,7 @@ def do_fit(
         LOGGER.info('Doing the likelihood scan')
         run_cmd(cmd_fit, log_fit, ws, env)
         res_fit = get_results(fit_file, 'r', 'grid')
-        res_saving(res_fit, res, arg.print, '_fit')
+        res_saving(res_fit, res, arg.print, f'_fit{tar}')
 
     return 0
 

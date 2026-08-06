@@ -2,9 +2,8 @@
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-import os, sys, time, subprocess
+import os, sys, time, json, subprocess
 
-import numpy as np
 import pandas as pd
 
 # Start timer for performance tracking
@@ -164,7 +163,7 @@ def run_fit(target: str,
 
     # Now run the fit via subprocess (fit.py only, datacard already exists)
     cmd = ['python', '5-Fit/fit.py', '--bias', '--target', target, '--no-timer',
-           '--pert', str(pert), '--ecm', str(ecm), '--no-print', '--toy', '0'] + cmd_args
+           '--pert', str(pert), '--ecm', str(ecm), '--no-print'] + cmd_args
 
     result = subprocess.run(cmd, check=False, capture_output=False, text=True, env=os.environ.copy())
     if result.returncode != 0:
@@ -173,8 +172,10 @@ def run_fit(target: str,
 
     # Extract and return the fitted signal strength
     inputdir = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
-    mu = np.loadtxt(f'{inputdir}/results_{target}.txt')[0]
+    with open(f'{inputdir}/results_fit_{target}.json', 'r') as fIn:
+        mu = json.load(fIn)['r']['best_fit']
     return mu
+
 
 def get_bias(inDir: str,
              outDir: str,

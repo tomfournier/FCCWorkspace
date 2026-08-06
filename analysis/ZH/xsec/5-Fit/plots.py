@@ -89,11 +89,11 @@ def main():
                           H_labels.get(target, target),
                           colors[i % len(colors)])
                 if arg.only1:
-                    plot_1d_scans([scan], outDir, arg.param, arg.y_cut, arg.y_max, suffix='_'+target, bias=True)
+                    plot_1d_scans([scan], outDir, arg.param, arg.y_cut, arg.y_max, suffix='_'+target)
                     continue
                 all_scans.append(scan)
             if not arg.only1:
-                plot_1d_scans(all_scans, outDir, arg.param, arg.y_cut, arg.y_max, bias=True)
+                plot_1d_scans(all_scans, outDir, arg.param, arg.y_cut, arg.y_max)
 
     else:
         if arg.which == '':
