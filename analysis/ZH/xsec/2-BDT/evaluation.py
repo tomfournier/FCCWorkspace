@@ -48,7 +48,8 @@ from package.config import (
     timer,                           # Utility function
     modes_label, modes_color,        # Plot styling for processes
     vars_label_ll, vars_xlabel_ll,   # Variable naming for plots (leptonic channel)
-    vars_label_qq, vars_xlabel_qq    # Variable naming for plots (hadronic channel)
+    vars_label_qq, vars_xlabel_qq,   # Variable naming for plots (hadronic channel)
+    quarks, h_decays
 )
 
 # Import data handling utilities
@@ -79,20 +80,20 @@ if arg.sels=='':
 else:
     sels = arg.sels.split('-')   # Parse selection names from command-line
 
-# Process modes: maps display names to file naming convention
-# Used for loading data and labeling plots
+# Process modes for BDT training (signal and all major background processes)
 modes = {
-    f'Z{cat}H':      f'wzp6_ee_{cat}H_ecm{ecm}',                 # Signal: ZH production
-    f'WW{cat}':      f'p8_ee_WW_ecm{ecm}' if cat == 'qq'         # Background: diboson WW
-                     else f'p8_ee_WW_{cat}_ecm{ecm}',
-    'ZZ':            f'p8_ee_ZZ_ecm{ecm}',                       # Background: diboson ZZ
-    f'Z{cat}':       f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'  # Background: Z+jets
-                     else f'wzp6_ee_{cat}_ecm{ecm}',
-    f'egamma_{cat}': f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',          # Background: radiative Z
-    f'gammae_{cat}': f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',          # Background: radiative Z
+    f'Z{cat}H':      [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else             # Signal: ZH production
+                     [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays],
+    'ZZ':            [f'p8_ee_ZZ_ecm{ecm}'],                             # Background: diboson ZZ
+    f'Z{cat}':       [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'     # Background: Z+jets
+                      else f'wzp6_ee_{cat}_ecm{ecm}'],
+    f'WW{cat}':      [f'p8_ee_WW_ecm{ecm}' if cat == 'qq'                # Background: diboson WW
+                      else f'p8_ee_WW_{cat}_ecm{ecm}'],
+    f'gammae_{cat}': [f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
+    f'egamma_{cat}': [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
 }
 if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
-    modes[f'gaga_{cat}'] = f'wzp6_gaga_{cat}_60_ecm{ecm}'        # Background: diphoton
+    modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']             # Background: diphoton
 
 
 

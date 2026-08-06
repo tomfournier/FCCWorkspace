@@ -44,7 +44,8 @@ from package.userConfig import loc
 from package.config import (
     timer,                      # Performance timing utility
     input_vars_ll,              # List of variables for BDT training (hadronic channel)
-    input_vars_qq               # List of variables for BDT training (hadronic channel)
+    input_vars_qq,              # List of variables for BDT training (hadronic channel)
+    quarks, h_decays
 )
 
 # File I/O and process dictionary utilities
@@ -84,20 +85,18 @@ else:
 
 # Process modes for BDT training (signal and all major background processes)
 modes = {
-    f'Z{cat}H':      [f'wzp6_ee_{cat}H_ecm{ecm}'],                 # Signal: ZH production
-    'ZZ':            [f'p8_ee_ZZ_ecm{ecm}'],                       # Background: diboson ZZ
-    f'Z{cat}':       [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'  # Background: Z+jets
+    f'Z{cat}H':      [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else             # Signal: ZH production
+                     [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays],
+    'ZZ':            [f'p8_ee_ZZ_ecm{ecm}'],                             # Background: diboson ZZ
+    f'Z{cat}':       [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'     # Background: Z+jets
                       else f'wzp6_ee_{cat}_ecm{ecm}'],
-    f'WW{cat}':      [f'p8_ee_WW_ecm{ecm}' if cat == 'qq'          # Background: diboson WW
+    f'WW{cat}':      [f'p8_ee_WW_ecm{ecm}' if cat == 'qq'                # Background: diboson WW
                       else f'p8_ee_WW_{cat}_ecm{ecm}'],
-    f'gammae_{cat}': [f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],          # Background: radiative Z
-    f'egamma_{cat}': [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}'],          # Background: radiative Z
+    f'gammae_{cat}': [f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
+    f'egamma_{cat}': [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
 }
 if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
-    modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']        # Background: diphoton
-
-# if (cat == 'qq') and (ecm == 365):
-#     modes[f'Z{cat}H'].extend(['wzp6_ee_bbH_ecm365', 'wzp6_ee_ccH_ecm365', 'wzp6_ee_ssH_ecm365'])
+    modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']             # Background: diphoton
 
 # Process dictionary with cross-sections and normalization info
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
@@ -149,10 +148,12 @@ def run(
     # Set uniform reweighting fraction for all processes
     # (can be adjusted to emphasize specific backgrounds)
     frac = {mode: 1.0 if mode==sig else 1.0 for mode in modes}
+    frac[sig] = 1/8
 
     for sel in sels:
         # Output directory for preprocessed pickle files
         outDir = loc.get('MVA_INPUTS', cat, ecm, sel)
+        lumi = 10.8 if ecm == 240 else (3.12 if ecm == 365 else -1)
 
         # Initialize storage containers for each process
         eff, eff_proc, N_procs, N_events = {}, {}, {}, {m:0 for m in modes}
@@ -189,7 +190,7 @@ def run(
                 continue
 
             # Sample the mode dataframe in proportion to process cross-sections.
-            df[mode] = sample_df_by_xsec(df_mode, proc_xsec, eff_proc, selected_events, mode)
+            df[mode]  = sample_df_by_xsec(df_mode, proc_xsec, eff_proc, selected_events, mode, 1, arg.all_inputs)
             eff[mode] = selected_events / N_events[mode] if N_events[mode] > 0 else 0.0
 
             LOGGER.info(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}\n'
@@ -209,9 +210,23 @@ def run(
             df[mode] = df_split_data(
                 df[mode], N_BDT_inputs,
                 eff, xsec, N_events, mode,
-                10.8 if ecm==240 else (3.12 if ecm==365 else -1),
+                lumi,
                 0.5 if cat in ['ee', 'mumu'] else (0.2 if cat=='qq' else -1)
             )
+            if mode == sig:
+                sig_procs = modes[sig]
+                bkg_norm = sum(eff[bkg_mode] * xsec[bkg_mode] for bkg_mode in modes if bkg_mode != sig)
+                if bkg_norm > 0 and sig_procs:
+                    proc_norm   = bkg_norm / len(sig_procs)
+                    proc_weight = proc_norm * lumi * 1e6
+                    for proc in sig_procs:
+                        proc_mask = df[mode]['proc'] == proc
+                        n_proc = int(proc_mask.sum())
+                        if n_proc == 0:
+                            LOGGER.warning(f'No selected events for signal process {proc}; skipping equal-weight assignment')
+                            continue
+                        df[mode].loc[proc_mask, 'norm_weight'] = proc_norm   / n_proc
+                        df[mode].loc[proc_mask, 'weights']     = proc_weight / n_proc
             good_modes.append(mode)
 
         # Merge all processes and save to single pickle file for BDT training

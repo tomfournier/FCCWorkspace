@@ -55,10 +55,8 @@ from package.func.bdt import (
 cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
 
 # Selection strategies for BDT training (from command-line or defaults)
-if arg.sels=='':
-    sels = ['Baseline']          # Default selections if not specified
-else:
-    sels = arg.sels.split('-')   # Parse selection names from command-line
+if arg.sels=='': sels = ['Baseline']          # Default selections if not specified
+else:            sels = arg.sels.split('-')   # Parse selection names from command-line
 
 # Process modes for training (signal and major backgrounds)
 # Must match modes defined in process_input.py
@@ -83,14 +81,22 @@ configs = {
         'max_delta_step': 0,                           # Maximum delta step for weight update (0 = no limit)
         'colsample_bytree': 0.5,                       # Subsample ratio of columns when building each tree
         'early_stopping_rounds': 25,                   # Validation metric needs to improve at least once every early stopping round
-        'eval_metric': ['error', 'logloss', 'auc']     # Metrics to use for monitoring the training
+        'eval_metric': ['error', 'logloss', 'auc'],    # Metrics to use for monitoring the training
+        'tree_method': 'hist',                         # Fast histogram-based tree builder
+        'n_jobs': -1,                                  # Use all available CPU cores
+        'max_bin': 256,                                # Histogram bins for the fast tree builder
     },
     'had': {
-        'objective': 'binary:logistic',                # Learning task and the correspondinf learning objective to be used
+        'objective': 'binary:logistic',                # Learning task and the corresponding learning objective to be used
         'eval_metric': ['error', 'logloss', 'auc'],    # Metrics to use for monitoring the training
         'n_estimators': 350,                           # Number of boosting round (tree to grow)
         'max_depth': 5,                                # Maximum tree depth
-        'early_stopping_rounds': 1                     # Validation metric need to improve at least once every early stoppinf round
+        'colsample_bytree': 0.5,
+        'subsample': 0.5,
+        'early_stopping_rounds': 25,                   # Validation metric need to improve at least once every early stopping round
+        'tree_method': 'hist',                         # Fast histogram-based tree builder
+        'n_jobs': -1,                                  # Use all available CPU cores
+        'max_bin': 256,                                # Histogram bins for the fast tree builder
     }
 }
 config = configs['lep'] if cat in ['ee', 'mumu'] else configs['had']
