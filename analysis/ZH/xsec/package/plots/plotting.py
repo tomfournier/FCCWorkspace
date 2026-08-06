@@ -1108,7 +1108,7 @@ def Bias(
 
     # Lazy-load ROOT, numpy and helpers
     import numpy as np
-    import ROOT
+    import json, ROOT
     ROOT.gROOT.SetBatch(True)
     ROOT.gStyle.SetOptStat(0)
     ROOT.gStyle.SetOptTitle(0)
@@ -1121,7 +1121,8 @@ def Bias(
 
     # Load bias values and uncertainty from results file.
     bias_dict = dict(zip(df['mode'], df['bias'] * 100))
-    unc = float(np.loadtxt(f'{nomDir}/results.txt')[-1] * 1e4)
+    with open(f'{nomDir}/results_fit.json', 'r') as fIn:
+        unc = json.load(fIn)['r']['err'] * 1e4
 
     bias_values = list(bias_dict.values())
     max_bias = max(abs(min(bias_values)), abs(max(bias_values)))
@@ -1130,7 +1131,7 @@ def Bias(
         else (-int(max_bias*1.2), int(max_bias*1.2))
 
     # Count biases inside and outside the uncertainty band.
-    In = sum(1 for b in bias_values if abs(b) < unc)
+    In  = sum(1 for b in bias_values if abs(b) < unc)
     Out = len(bias_values) - In
 
     h_pulls = ROOT.TH2F(
@@ -1140,18 +1141,21 @@ def Bias(
         len(h_decays),
         0, len(h_decays)
     )
-    g_in, g_out = ROOT.TGraphErrors(In), ROOT.TGraphErrors(Out)
+    g_in  = ROOT.TGraphErrors(In)  if In  > 0 else None
+    g_out = ROOT.TGraphErrors(Out) if Out > 0 else None
 
     # Fill graph points, separating by whether bias is inside/outside band.
     i, j = 0, 0
     for k, h_decay in enumerate(h_decays):
         b = bias_dict[h_decay]
         if np.abs(b) < unc:
-            g_in.SetPoint(i, b, float(k) + 0.5)
+            if g_in is not None:
+                g_in.SetPoint(i, b, float(k) + 0.5)
             h_pulls.GetYaxis().SetBinLabel(k+1, h_labels[h_decay])
             i += 1
         else:
-            g_out.SetPoint(j, b, float(k) + 0.5)
+            if g_out is not None:
+                g_out.SetPoint(j, b, float(k) + 0.5)
             h_pulls.GetYaxis().SetBinLabel(k+1, h_labels[h_decay])
             j += 1
 
@@ -1174,10 +1178,10 @@ def Bias(
 
     xTitle = 'Bias (#times 100) [%]'
 
-    h_pulls.GetXaxis().SetTitleSize(0.04), h_pulls.GetXaxis().SetLabelSize(0.035)
-    h_pulls.GetXaxis().SetTitle(xTitle), h_pulls.GetXaxis().SetTitleOffset(1)
+    h_pulls.GetXaxis().SetTitleSize(0.04),  h_pulls.GetXaxis().SetLabelSize(0.035)
+    h_pulls.GetXaxis().SetTitle(xTitle),    h_pulls.GetXaxis().SetTitleOffset(1)
     h_pulls.GetYaxis().SetLabelSize(0.055), h_pulls.GetYaxis().SetTickLength(0)
-    h_pulls.GetYaxis().LabelsOption('v'), h_pulls.SetNdivisions(506, 'XYZ')
+    h_pulls.GetYaxis().LabelsOption('v'),   h_pulls.SetNdivisions(506, 'XYZ')
     h_pulls.Draw('HIST 0')
 
     # Draw uncertainty band lines: ±1σ and zero.
@@ -1192,13 +1196,15 @@ def Bias(
         lines.append(line)
 
     # Draw markers: black for inside band, red for outside.
-    g_in.SetMarkerSize(1.2), g_in.SetMarkerStyle(20)
-    g_in.SetLineWidth(2), g_in.SetMarkerColor(ROOT.kBlack)
-    g_in.Draw('P0 SAME')
+    if g_in is not None:
+        g_in.SetMarkerSize(1.2), g_in.SetMarkerStyle(20)
+        g_in.SetLineWidth(2),    g_in.SetMarkerColor(ROOT.kBlack)
+        g_in.Draw('P0 SAME')
 
-    g_out.SetMarkerSize(1.2), g_out.SetMarkerStyle(20)
-    g_out.SetLineWidth(2), g_out.SetMarkerColor(ROOT.kRed)
-    g_out.Draw('P0 SAME')
+    if g_out is not None:
+        g_out.SetMarkerSize(1.2), g_out.SetMarkerStyle(20)
+        g_out.SetLineWidth(2),    g_out.SetMarkerColor(ROOT.kRed)
+        g_out.Draw('P0 SAME')
 
 
     latex = setup_latex(

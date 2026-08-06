@@ -232,9 +232,9 @@ def add_bdt_inputs(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('BDT inputs arguments')
     args.add_argument(
         '--all-inputs',
-        action='store_true',
-        default=False,
-        help='Use all the events in each mode for the training'
+        action=BooleanOptionalAction,
+        default=True,
+        help='Use all the events in each mode for the training (default True)'
     )
 
 

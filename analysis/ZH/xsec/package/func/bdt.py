@@ -179,7 +179,8 @@ def BDT_input_numbers(
     eff: dict[str, float],
     xsec: dict[str, float],
     frac: dict[str, float],
-    all_inputs: bool = False
+    all_inputs: bool = False,
+    scale_with_sig: bool = False
      ) -> dict[str, int]:
     '''Calculate number of events to use for BDT training per process.
 
@@ -199,16 +200,21 @@ def BDT_input_numbers(
     N_BDT_inputs: dict[str, int] = {}
     if all_inputs:
         LOGGER.info('Take all the events in the dataframes for training')
-        return {m:df[m].shape[0] for m in modes}
+        return {m: int(df[m].shape[0] * frac[m]) for m in modes}
 
     # Total background cross-section weighted by efficiency
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in modes if mode != sig)
     if xsec_tot_bkg <= 0:
         LOGGER.warning('Total background normalization is zero; returning zero BDT inputs for backgrounds')
     for m in modes:
-        N_BDT_inputs[m] = (
-            int(frac[m] * df[m].shape[0]) if m == sig else
-            int(frac[m] * df[sig].shape[0] * frac[sig] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
+        if scale_with_sig:
+            N_BDT_inputs[m] = (
+                int(frac[m] * df[m].shape[0]) if m == sig else
+                int(frac[m] * df[sig].shape[0] * frac[sig] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
+        else:
+            N_BDT_inputs[m] = (
+                int(frac[m] * df[m].shape[0]) if m == sig else
+                int(frac[m] * df[sig].shape[0] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
     return N_BDT_inputs
 
 # __________________________
@@ -219,7 +225,7 @@ def sample_df_by_xsec(
     target_events: int,
     mode: str = '',
     random_state: int = 1,
-    all_inputs: bool = False
+    all_inputs: bool = True
      ) -> 'pd.DataFrame':
     '''Sample and concatenate process dataframes in proportion to eff * xsec.
 
@@ -281,7 +287,7 @@ def sample_df_by_xsec(
             f'Reducing total events for {mode} from {target_events:,} to {total_sampled:,} '
             'to preserve the expected process proportions.'
         )
-    proc_width    = max(len(proc) for proc in available)
+    proc_width = max(len(proc) for proc in available)
 
     ideal_counts = {
         proc: total_sampled * proc_weight[proc] / total_weight
@@ -357,7 +363,7 @@ def df_split_data(
     Returns:
         pd.DataFrame: Dataframe with 'valid', 'norm_weight', and 'weights' columns added.
     '''
-    from sklearn.model_selection import train_test_split
+    import numpy as np
 
     n_events = df.shape[0]
     if n_events == 0:
@@ -370,21 +376,24 @@ def df_split_data(
     else:
         sampled: pd.DataFrame = df.sample(N_BDT_inputs[mode], random_state=1)
 
-    # Split 50/50 into training and validation sets
-    df0: pd.DataFrame; df1: pd.DataFrame
-    df0, df1 = train_test_split(sampled, test_size=test_size, random_state=7)
+    # Split 50/50 into training and validation sets without an extra dataframe shuffle
+    valid_size = int(round(sampled.shape[0] * test_size))
+    valid_idx = np.random.default_rng(7).choice(sampled.index.to_numpy(), size=valid_size, replace=False)
+    valid_mask = sampled.index.isin(valid_idx)
 
     # Normalization weight per event
     sampled.loc[:, 'norm_weight'] = xsec[mode] / N_events[mode]
 
     # Mark validation set
-    sampled.loc[df0.index, 'valid'] = False  # Training set
-    sampled.loc[df1.index, 'valid'] = True   # Validation set
+    sampled.loc[:, 'valid'] = False  # Training set
+    sampled.loc[valid_mask, 'valid'] = True   # Validation set
 
     # Calculate event weights accounting for efficiency, cross-section, and luminosity
     coeff = eff[mode] * xsec[mode] * lumi * 1e6
-    sampled.loc[df0.index, 'weights'] = coeff / df0.shape[0]
-    sampled.loc[df1.index, 'weights'] = coeff / df1.shape[0]
+    n_valid = int(valid_mask.sum())
+    n_train = sampled.shape[0] - n_valid
+    sampled.loc[~valid_mask, 'weights'] = coeff / n_train if n_train > 0 else 0.0
+    sampled.loc[valid_mask, 'weights']  = coeff / n_valid if n_valid > 0 else 0.0
 
     return sampled
 
@@ -436,14 +445,14 @@ def split_data(
 
     train = df['valid'] == False
     # Features for training and validation sets
-    X_train = df.loc[train,  vars].to_numpy(np.float32, copy=False)
-    X_valid = df.loc[~train, vars].to_numpy(np.float32, copy=False)
+    X_train = np.ascontiguousarray(df.loc[train,  vars].to_numpy(np.float32, copy=False))
+    X_valid = np.ascontiguousarray(df.loc[~train, vars].to_numpy(np.float32, copy=False))
     # Labels (signal/background) for training and validation sets
-    y_train = df.loc[train,  'isSignal'].to_numpy(np.int8, copy=False).ravel()
-    y_valid = df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel()
+    y_train = np.ascontiguousarray(df.loc[train,  'isSignal'].to_numpy(np.int8, copy=False).ravel())
+    y_valid = np.ascontiguousarray(df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel())
 
-    train_weight = df.loc[train,  weight].to_numpy(copy=False).ravel()
-    valid_weight = df.loc[~train, weight].to_numpy(copy=False).ravel()
+    train_weight = np.ascontiguousarray(df.loc[train,  weight].to_numpy(np.float32, copy=False).ravel())
+    valid_weight = np.ascontiguousarray(df.loc[~train, weight].to_numpy(np.float32, copy=False).ravel())
     return X_train, y_train, X_valid, y_valid, train_weight, valid_weight
 
 # ____________________________________
@@ -475,7 +484,8 @@ def train_model(
     bdt = xgb.XGBClassifier(**config)
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
     LOGGER.info('Beginning the training')
-    bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True, sample_weight_eval_set=[train_weight, valid_weight])
+    bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True,
+            sample_weight_eval_set=[train_weight, valid_weight])
     return bdt
 
 # ____________________________
@@ -587,7 +597,8 @@ def def_bdt(
     MVAVec:  str = 'MVAVec',
     score:   str = 'BDTscore',
     defineList: dict[str, str] = {},
-    suffix: str = ''
+    suffix: str = '',
+    weight_suffix: str = ''
      ) -> tuple[dict[str, str], float]:
     '''Define BDT computation in ROOT RDataFrame and load cut value.
 
@@ -603,7 +614,6 @@ def def_bdt(
         tuple: (updated defineList, BDT cut threshold).
     '''
     import uproot, ROOT
-    import numpy as np
 
     # Load TMVA model from ROOT file
     ROOT.gInterpreter.ProcessLine(f'''
@@ -623,7 +633,8 @@ def def_bdt(
     defineList[score+suffix] = 'mva_score.at(0)'
 
     # Load BDT cut value from file
-    bdt_cut  = float(np.loadtxt(f'{loc_bdt}/BDT_cut.txt'))
+    with open(f'{loc_bdt}/BDT_cut{weight_suffix}.txt', 'r') as fIn:
+        bdt_cut = float(fIn.read())
     return defineList, bdt_cut
 
 # ___________________________

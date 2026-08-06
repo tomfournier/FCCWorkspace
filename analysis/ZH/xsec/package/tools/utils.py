@@ -106,7 +106,7 @@ def mkdir(mydir: str) -> None:
 # __________________________________________
 def get_procDict(
     procFile: str,
-    fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts'
+    fcc_path: str = '/cvmfs/fcc.cern.ch/FCCDicts'
      ) -> dict[str, dict[str, float]]:
     '''
     Load process dictionary from a JSON file.
@@ -126,7 +126,7 @@ def get_procDict(
 
     # Check environment variable for FCC dictionaries directory
     env = os.getenv('FCCDICTSDIR')
-    base_dir = env.split(':')[0] if env else fcc
+    base_dir = env.split(':')[0] if env else fcc_path
     proc_path = os.path.join(base_dir, procFile)
 
     if not os.path.isfile(proc_path):

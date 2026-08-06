@@ -81,7 +81,7 @@ def _get_procDict(
     '''
     cache_key = (procFile, fcc)
     if cache_key not in PROCDICT_CACHE:
-        PROCDICT_CACHE[cache_key] = get_procDict(procFile, fcc=fcc)
+        PROCDICT_CACHE[cache_key] = get_procDict(procFile, fcc_path=fcc)
     return PROCDICT_CACHE[cache_key]
 
 

@@ -687,7 +687,6 @@ def significance(
         dpi (int, optional): Figure DPI. Defaults to 100.
         format (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
-    import numpy as np
     LOGGER.debug('Plotting Significance scan')
 
     # Extract validation signal and background samples
@@ -705,7 +704,8 @@ def significance(
     LOGGER.debug(f'Max Z: {max_Z:,.3f}, cut threshold: {max_index:,.2f}')
 
     # Save optimal BDT cut threshold to file
-    np.savetxt(f'{out_txt}/BDT_cut.txt', [float(max_index)])
+    with open(f'{out_txt}/BDT_cut{suffix}.txt', 'w') as out:
+        out.write(f'{max_index:.2f}')
     LOGGER.debug(f'Wrote BDT cut at {out_txt}/BDT_cut.txt')
 
     fig, ax = _make_fig(dpi=dpi)
