@@ -59,9 +59,11 @@ processList = get_process_list(cat, ecm, train=True).keys()
 cutList: dict[str, str] = {}
 # cutList['sel0'] = 'return true;'  # No cuts
 if cat in ['ee', 'mumu']:
-    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
+    if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
+    else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
-    cutList['Baseline'] = Baseline_cut_qq(ecm, True, True)   # Baseline selection (hadronic channel)
+    if test: cutList['test']     = Baseline_cut_qq(ecm, True, True)   # Test selection (hadronic channel)
+    else:    cutList['Baseline'] = Baseline_cut_qq(ecm, True, True)   # Baseline selection (hadronic channel)
 doTree = False if 'sel0' in cutList else doTree  # Do not write TTree if sel0 is in cutList
 
 

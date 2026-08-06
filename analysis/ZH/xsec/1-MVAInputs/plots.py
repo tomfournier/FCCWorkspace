@@ -59,8 +59,10 @@ customLabel    = 'Training sample'  # Custom label shown on plots
 
 # Comprehensive list of kinematic variables to plot (sorted alphabetically)
 # These variables are computed in pre-selection.py and filled into histograms by final-selection.py
-vars = histos_ll.keys() if cat in ['ee', 'mumu'] else (histos_qq.keys() if cat=='qq' else [])
-variables = sorted([var for var in vars if (var!='zqq_m_recoil_m' and var!='zqq_m_recoil_m_test')])  # Remove 2D histogram (not supported by FCCAnalyses)
+variables = sorted(histos_ll.keys()) if cat in ['ee', 'mumu'] else \
+    (sorted(histos_qq.keys()) if cat=='qq' else [])
+
+
 
 #####################################
 ### PLOT CONFIGURATION DICTIONARY ###
@@ -86,6 +88,7 @@ extralabel['test']     = 'test'           # Test selection
 plots = {}
 plots['ZH'] = {
     'signal': {
+        # 'ZH': [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays],
         f'{cat}H': [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else
         [f'wzp6_ee_{x}H_ecm{ecm}' for x in quarks]
     },
@@ -106,9 +109,11 @@ if cat in ['ee', 'mumu']:
     plots['ZH']['backgrounds'][f'gaga{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']
 
 
+
 # ROOT color assignments for each process (used in legend and stacked histograms)
 # Ensures consistent color scheme across all plots
 colors = {}
+colors['ZH']         = ROOT.kBlack      # Signal from exclusive sample (test)
 colors[f'{cat}H']    = ROOT.kRed        # Signal: bright red
 colors['WW']         = ROOT.kBlue+1     # WW background: blue
 colors['ZZ']         = ROOT.kGreen+2    # ZZ background: green
@@ -121,6 +126,7 @@ colors['Rare']       = ROOT.kBlue-8     # Rare processes: dark blue
 # LaTeX legend labels for ROOT plots
 # Maps process names to formatted particle physics notation
 legend = {}
+legend['ZH']       = 'ZH'
 legend['mumuH']    = 'Z(#mu^{+}#mu^{-})H'
 legend['eeH']      = 'Z(e^{+}e^{-})H'
 legend['qqH']      = 'Z(q#bar{q})H'
