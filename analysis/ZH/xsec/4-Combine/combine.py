@@ -67,10 +67,12 @@ bkg_procs = {
                              f'wzp6_gaga_tautau_60_ecm{ecm}',
                              f'wzp6_ee_nuenueZ_ecm{ecm}'], inputDir)
 }
-# if (cat == 'qq') and (ecm == 365):
-#     bkg_procs['tt'] = ['p8_ee_tt_ecm365']
+if (cat == 'qq') and (ecm == 365):
+    bkg_procs['tt'] = ['p8_ee_tt_ecm365']
+    bkg_procs['tt'] = ['wzp6_ee_WbWb_ecm365']
 
-categories = [f'z_{cat}']     # Category identifier (e.g., 'z_ee', 'z_mumu', 'z_qq')
+
+categories = [f'z_{cat}']                # Category identifier
 hist_names = ['zqq_m_recoil_m_mva_fit']  # Histogram name for this category
 
 # Define systematic uncertainties
