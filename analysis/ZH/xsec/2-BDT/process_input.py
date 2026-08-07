@@ -98,6 +98,9 @@ modes = {
 if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
     modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']             # Background: diphoton
 
+if (cat == 'qq') and (ecm == 365):
+    modes['ttbar'] = ['wzp6_ee_WbWb_ecm365']
+
 # Process dictionary with cross-sections and normalization info
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
 procDict_name = 'FCCee_procDict_winter2023_training_IDEA.json'
@@ -179,7 +182,7 @@ def run(
                 selected_events += df_proc.shape[0]
 
                 # Add signal/background classification and event weights
-                df_proc = additional_info(df_proc, mode, proc, sig)
+                df_proc = additional_info(df_proc, proc_xsec, eff_proc, mode, proc, sig)
                 df_mode[proc] = df_proc
 
             if selected_events == 0:
@@ -210,8 +213,7 @@ def run(
             df[mode] = df_split_data(
                 df[mode], N_BDT_inputs,
                 eff, xsec, N_events, mode,
-                lumi,
-                0.5 if cat in ['ee', 'mumu'] else (0.2 if cat=='qq' else -1)
+                lumi, 0.5
             )
             if mode == sig:
                 sig_procs = modes[sig]

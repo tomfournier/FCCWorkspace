@@ -141,7 +141,7 @@ def run(sels: list[str],
 
         # Create training and validation datasets (50% training, 50% validation)
         LOGGER.debug('Splitting data into training and validation sample')
-        X_train, y_train, X_valid, y_valid, train_weight, valid_weight = split_data(df, vars, 'norm_weight')
+        X_train, y_train, X_valid, y_valid, train_weight, valid_weight = split_data(df, vars, 'train_weights')
 
         # Train XGBoost classifier with early stopping
         # Monitor validation loss and stop if no improvement for 'early' rounds

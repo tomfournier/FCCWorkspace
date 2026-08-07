@@ -95,6 +95,9 @@ modes = {
 if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
     modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']             # Background: diphoton
 
+if (cat == 'qq') and (ecm == 365):
+    modes['ttbar'] = ['wzp6_ee_WbWb_ecm365']
+
 
 
 #########################
@@ -174,8 +177,8 @@ def plot_metrics(df: 'pd.DataFrame',
         # Generate feature and performance analysis plots
         # These show which variables are most important and signal purity
         importance(bdt, vars, vars_label, label, outDir, format=plot_file)
-        significance(df, label, outDir, inBDT, format=plot_file, weight='weights', suffix='_weights')
-        significance(df, label, outDir, inBDT, format=plot_file, weight='norm_weight', suffix='_norm_weight')
+        significance(df, label, outDir, inBDT, format=plot_file, weight='train_weights', suffix='_weights')
+        significance(df, label, outDir, inBDT, format=plot_file, weight='norm_train', suffix='_norm_weight')
         efficiency(df, modes, modes_label, modes_color, label, outDir, incr=1e-3, format=plot_file)
 
     if arg.tree:
