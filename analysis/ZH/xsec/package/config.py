@@ -59,9 +59,10 @@ input_vars_qq = (
     'leading_p',    'leading_costheta',
     'subleading_p', 'subleading_costheta',
     'acolinearity', 'acoplanarity',
+    'zqq_m',
     'zqq_p',        'zqq_costheta',
-    'W1_m', 'W1_p', 'W1_costheta',
-    'W2_m', 'W2_p', 'W2_costheta',
+    # 'W1_m', 'W1_p', 'W1_costheta',
+    # 'W2_m', 'W2_p', 'W2_costheta',
     'thrust'
 )
 
@@ -259,7 +260,9 @@ modes_color = {
     'WWqq':        'tab:green',
     'egamma_qq':   'tab:purple',
     'gammae_qq':   'tab:brown',
-    'gaga_qq':     'tab:pink'
+    'gaga_qq':     'tab:pink',
+
+    'ttbar':       'tab:olive'
 }
 
 
@@ -448,7 +451,9 @@ modes_label = {
     'WWqq':        r'$e^+e^-\rightarrow W^{+}W^{-}[had]$',
     'egamma_qq':   r'$e^-\gamma\rightarrow e^-Z(q\bar{q})$',
     'gammae_qq':   r'$e^+\gamma\rightarrow e^+Z(q\bar{q})$',
-    'gaga_qq':     r'$\gamma\gamma\rightarrow q\bar{q}$'
+    'gaga_qq':     r'$\gamma\gamma\rightarrow q\bar{q}$',
+
+    'ttbar':       r'$e^+ e^-\rightarrow t\bar{t}$'
 }
 
 process_label = {
@@ -623,7 +628,8 @@ def _build_processes(z_set: tuple[str, ...],
         ),
     }
     if ecm == 365:
-        processes['tt'] = ('p8_ee_tt_ecm365',)
+        # processes['tt'] = ('p8_ee_tt_ecm365',)
+        processes['tt'] = ('wzp6_ee_WbWb_ecm365',)
     return processes
 
 @lru_cache(maxsize=None)
