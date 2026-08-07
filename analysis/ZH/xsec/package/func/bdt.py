@@ -151,6 +151,8 @@ def counts_and_effs(
 # ______________________
 def additional_info(
     df: 'pd.DataFrame',
+    xsec: dict[str, float | int],
+    eff: dict[str, float],
     mode: str,
     proc: str,
     sig: str
@@ -166,9 +168,13 @@ def additional_info(
     Returns:
         pd.DataFrame: Dataframe with added 'sample' and 'isSignal' columns.
     '''
-    df['sample']   = mode
-    df['proc']     = proc
+    df['sample'], df['proc'] = mode, proc
     df['isSignal'] = int(mode == sig)  # Add sample identifier and signal flag
+
+    df['xsec'], df['eff'], df['n'] = xsec[proc], eff[proc], df.shape[0]
+
+    df['norm_weight'] = xsec[proc] / df.shape[0]
+    df['norm_train']  = xsec[proc] / df.shape[0]
     return df
 
 # __________________________
@@ -245,7 +251,6 @@ def sample_df_by_xsec(
 
     if not df_mode:
         return pd.DataFrame()
-
 
     available = {
         proc: df.shape[0]
@@ -378,22 +383,27 @@ def df_split_data(
 
     # Split 50/50 into training and validation sets without an extra dataframe shuffle
     valid_size = int(round(sampled.shape[0] * test_size))
-    valid_idx = np.random.default_rng(7).choice(sampled.index.to_numpy(), size=valid_size, replace=False)
+    valid_idx  = np.random.default_rng(7).choice(sampled.index.to_numpy(), size=valid_size, replace=False)
     valid_mask = sampled.index.isin(valid_idx)
 
     # Normalization weight per event
-    sampled.loc[:, 'norm_weight'] = xsec[mode] / N_events[mode]
+    # sampled.loc[:, 'norm_weight'] = xsec[mode] / N_events[mode]
+    # sampled.loc[:, 'norm_train']  = xsec[mode] / N_events[mode]
 
     # Mark validation set
-    sampled.loc[:, 'valid'] = False  # Training set
+    sampled.loc[:, 'valid']          = False  # Training set
     sampled.loc[valid_mask, 'valid'] = True   # Validation set
 
     # Calculate event weights accounting for efficiency, cross-section, and luminosity
-    coeff = eff[mode] * xsec[mode] * lumi * 1e6
+    coeff = sampled['eff'] * sampled['xsec'] * lumi * 1e6
     n_valid = int(valid_mask.sum())
     n_train = sampled.shape[0] - n_valid
-    sampled.loc[~valid_mask, 'weights'] = coeff / n_train if n_train > 0 else 0.0
-    sampled.loc[valid_mask, 'weights']  = coeff / n_valid if n_valid > 0 else 0.0
+
+    sampled.loc[~valid_mask, 'train_weights'] = coeff[~valid_mask] / n_train if n_train > 0 else 0.0
+    sampled.loc[valid_mask,  'train_weights'] = coeff[valid_mask]  / n_valid if n_valid > 0 else 0.0
+
+    sampled.loc[~valid_mask, 'weights'] = coeff[~valid_mask] / n_train if n_train > 0 else 0.0
+    sampled.loc[valid_mask,  'weights'] = coeff[valid_mask]  / n_valid if n_valid > 0 else 0.0
 
     return sampled
 
