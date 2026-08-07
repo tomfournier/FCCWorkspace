@@ -66,7 +66,7 @@ from package.func.bias import pseudo_datacard                 # Bias test utilit
 
 # Bundle parsed arguments for configuration
 cat, ecm, sel, pert = arg.cat, arg.ecm, arg.sel, arg.pert  # Perturbation factor for bias test
-lumi = 10.8 if ecm==240 else (3.1 if ecm==365 else -1)     # Integrated luminosity [ab^-1]
+lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)    # Integrated luminosity [ab^-1]
 if (arg.cat and arg.lep) or (arg.cat and arg.combine):
     raise ValueError("Cannot use '--cat' and '--lep' or '--combine' at the same time")
 if arg.lep and arg.combine:
