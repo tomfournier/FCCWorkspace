@@ -182,15 +182,18 @@ def do_fit(
 
     if not (arg.skip_setup and ws_file.exists()):
         LOGGER.info('Converting the datacard to RooFit workspace')
+        ws_file.unlink()
         run_cmd(cmd_t2w, log_t2w, dr, env)
     else:
         LOGGER.debug('Skipping the RooFit workspace setup')
 
     if arg.fastscan:
         LOGGER.info('Doing a fast likelyhood scan to check the fit')
+        log_fscan.unlink()
         run_cmd(cmd_fastscan, log_fscan, scan, env)
 
     LOGGER.info('Doing the fit')
+    log_diag.unlink()
     run_cmd(cmd_diag, log_diag, ws, env)
     res_diag = get_results(diag_file, 'r', 'singles')
     res_saving(res_diag, res, arg.print, f'_diag{tar}')
@@ -199,6 +202,7 @@ def do_fit(
         LOGGER.debug('Skipping the likelihood scan')
     else:
         LOGGER.info('Doing the likelihood scan')
+        log_fit.unlink()
         run_cmd(cmd_fit, log_fit, ws, env)
         res_fit = get_results(fit_file, 'r', 'grid')
         res_saving(res_fit, res, arg.print, f'_fit{tar}')
