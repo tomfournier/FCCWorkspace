@@ -134,15 +134,4 @@ if cat == 'qq':
                                             'bins':[(50, 100, 150), (100, 40, 140), (1, bdt_cut, 1)]}
     histoList['zqq_m_recoil_m_mva_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
                                            'bins':[(50, 100, 150), (100, 40, 140), (1, 0, bdt_cut)]}
-    if ecm == 240:
-        histoList['zqq_m_recoil_m_mva_jan_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                                    'bins':[(50, 100, 150), (100, 40, 140), (1, 0.75, 1)]}
-        histoList['zqq_m_recoil_m_mva_jan_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                                   'bins':[(50, 100, 150), (100, 40, 140), (1, 0, 0.75)]}
-    elif ecm == 365:
-        histoList['zqq_m_recoil_m_mva_jan_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                                    'bins':[(100, 100, 200), (100, 40, 140), (1, 0.95, 1)]}
-        histoList['zqq_m_recoil_m_mva_jan_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
-                                                   'bins':[(100, 100, 200), (100, 40, 140), (1, 0, 0.95)]}
-    else:
-        raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
+    histoList['WW_m'] = {'cols':['W1_m', 'W2_m'], 'bins':[(200, 0, 200), (200, 0, 200)]}
