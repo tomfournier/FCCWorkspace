@@ -59,11 +59,11 @@ input_vars_qq = (
     'leading_p',    'leading_costheta',
     'subleading_p', 'subleading_costheta',
     'acolinearity', 'acoplanarity',
-    'zqq_m',
+    # 'zqq_m',
     'zqq_p',        'zqq_costheta',
     # 'W1_m', 'W1_p', 'W1_costheta',
     # 'W2_m', 'W2_p', 'W2_costheta',
-    'thrust'
+    # 'thrust'
 )
 
 
@@ -834,6 +834,7 @@ def get_process_list(
         chunks: dict[str, int] | None = None,
         include: dict[str, dict] | None = None,
         exclude: set[str] | None = None,
+        all_train_sig: bool = True
          ) -> dict[str, dict[str, float | int]]:
     '''Generate analysis-ready process dictionary with signals and backgrounds.
 
@@ -875,9 +876,9 @@ def get_process_list(
     if train:
         # Training mode: category-specific signal only
         sigs = _get_training_signals(cat, ecm)
-        if cat in ['ee', 'mumu']:
+        if cat in ['ee', 'mumu'] and all_train_sig:
             sigs.extend([f'wzp6_ee_{cat}H_H{y}_ecm{ecm}' for y in h_decays if 'noInv' not in y])
-        elif cat == 'qq':
+        elif cat == 'qq' and all_train_sig:
             sigs.extend([f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays if 'noInv' not in y])
     else:
         # Non-training mode: all Z and Higgs decay combinations
