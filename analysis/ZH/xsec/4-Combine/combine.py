@@ -68,7 +68,6 @@ bkg_procs = {
                              f'wzp6_ee_nuenueZ_ecm{ecm}'], inputDir)
 }
 if (cat == 'qq') and (ecm == 365):
-    bkg_procs['tt'] = ['p8_ee_tt_ecm365']
     bkg_procs['tt'] = ['wzp6_ee_WbWb_ecm365']
 
 
