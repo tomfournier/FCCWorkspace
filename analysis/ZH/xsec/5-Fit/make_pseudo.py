@@ -128,7 +128,7 @@ if __name__=='__main__' and (arg.run or arg.onlyrun):
         '--pert', str(arg.pert),
         '--sel', arg.sel,
         '--ecm', str(ecm),
-        '--noprint'
+        '--no-print'
     ])
 
     # Add combine flag if channels are combined
