@@ -78,7 +78,7 @@ def add_stamp(
         path: PathObj,
         label: str,
         status: str = 'ok'
-         ) -> None:
+         ) -> str:
     '''Add a timestamped stamp to a log file for tracking execution status.'''
 
     # Generate timestamp and unique ID
@@ -90,6 +90,7 @@ def add_stamp(
     with open(path, 'a') as log_file:
         log_file.write(stamp)
     LOGGER.debug(f'Added STAMP: {ts} | id={uniq} | status={status} | file={label}')
+    return uniq
 
 def mk_csv(
     params: list[str],
@@ -140,11 +141,12 @@ def mk_csv(
 def run_cmd(cmd: list[str] | str,
             log_file: Path | PathObj | str | None = None,
             cwd: Path | PathObj | str | None = None,
-            env: os._Environ | None = None
-            ) -> int:
+            env: os._Environ | None = None,
+            return_stamp: bool = False
+            ) -> int | tuple[int, str]:
     '''Run a command using subprocess'''
     if isinstance(log_file, str): log_file = PathObj(log_file)
-    status = 'not-run'
+    status, stamp = 'not-run', None
     try:
         if log_file is not None:
             with open(log_file, 'w') as out:
@@ -158,8 +160,10 @@ def run_cmd(cmd: list[str] | str,
         return exc.returncode
     finally:
         if log_file is not None and log_file.exists():
-            add_stamp(log_file, log_file.name, status)
+            stamp = add_stamp(log_file, log_file.name, status)
 
+    if return_stamp:
+        return result.returncode, stamp
     return result.returncode
 
 
