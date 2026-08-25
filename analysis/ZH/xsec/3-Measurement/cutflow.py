@@ -132,9 +132,9 @@ baseline_cuts_qq = {
     'cut0': '',
     'cut1': '',
     'cut2': '',
-    'cut5': '' if arg.kin else 'zqq_costheta > -0.85 & zqq_costheta < 0.85',
-    'cut6': '' if arg.kin else 'acolinearity > 0.35',
-    'cut7': '' if arg.kin else 'delta_mWW > 6',
+    # 'cut5': '' if arg.kin else 'zqq_costheta > -0.85 & zqq_costheta < 0.85',
+    # 'cut6': '' if arg.kin else 'acolinearity > 0.35',
+    'cut5': '' if arg.kin else 'delta_mWW > 6',
     # 'cut8': '' if arg.kin else 'cosTheta_miss < 0.995',
 }
 
@@ -143,9 +143,9 @@ baseline_labels_qq = {
     'cut0': 'No cut',
     'cut1': 'Veto leptonic',
     'cut2': 'Clustering',
-    'cut5': '|cos#theta_{jj}| < 0.85',
-    'cut6': 'Acolinearity > 0.35',
-    'cut7': 'WW pair mass',
+    # 'cut5': '|cos#theta_{jj}| < 0.85',
+    # 'cut6': 'Acolinearity > 0.35',
+    'cut5': 'WW pair mass',
     # 'cut8': '|cos#theta_{miss}| < 0.995',
 }
 
@@ -171,12 +171,15 @@ elif ecm == 365:
 cuts_qq       = {sel: {k: baseline_cuts_qq[k]   for k in sorted(baseline_cuts_qq.keys())}   for sel in sels}
 cuts_label_qq = {sel: {k: baseline_labels_qq[k] for k in sorted(baseline_labels_qq.keys())} for sel in sels}
 
+if 'Baseline_miss' in sels:
+    cuts_qq['Baseline_miss']['cut6'] = 'cosTheta_miss < 0.995'
+    cuts_label_qq['Baseline_miss']['cut6'] = '|cos#theta_{miss}| < 0.995'
 if 'Baseline_sep' in sels:
     if ecm == 240:
-        cuts_qq['Baseline_sep']['cut8'] = '((visibleEnergy > 100) | (visibleEnergy < 100 & cosTheta_miss < 0.995))'
+        cuts_qq['Baseline_sep']['cut6'] = '((visibleEnergy > 100) | (visibleEnergy < 100 & cosTheta_miss < 0.995))'
     else:
-        cuts_qq['Baseline_sep']['cut8'] = '((visibleEnergy > 171) | (visibleEnergy < 171 & cosTheta_miss < 0.995))'
-    cuts_label_qq['Baseline_sep']['cut8'] = '|cos#theta_{miss}| < 0.995 [inv]'
+        cuts_qq['Baseline_sep']['cut6'] = '((visibleEnergy > 171) | (visibleEnergy < 171 & cosTheta_miss < 0.995))'
+    cuts_label_qq['Baseline_sep']['cut6'] = '|cos#theta_{miss}| < 0.995 [inv]'
 
 
 
