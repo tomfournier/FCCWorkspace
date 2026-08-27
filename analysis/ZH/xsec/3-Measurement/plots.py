@@ -39,7 +39,8 @@ from package.config import (
     mk_processes,       # Build process definitions
     z_decays,           # Z boson decay modes
     H_decays,           # Higgs decay modes
-    colors, labels,      # Plot styling
+    quarks,
+    colors, labels,     # Plot styling
     vars_label_ll,
     vars_label_qq,
     vars_xlabel_ll,
@@ -137,14 +138,22 @@ def run(
                 # Preload all histograms for this selection to avoid repeated file I/O
                 all_procs = [p for proc in processes.values() for p in proc]
                 LOGGER.info(f'Making plots for {sel} selection')
-                preload_histograms(all_procs, inDir, suffix=f'_{sel}_histo', hNames=vars)
+                if arg.make or arg.decay or arg.scan:
+                    preload_histograms(all_procs, inDir, suffix=f'_{sel}_histo', hNames=vars)
 
             # Generate yields plots unless skipped
             if arg.yields:
-                from package.plots.plotting import AAAyields
+                from package.plots.plotting import AAAyields, Efficiency
                 histo = 'zll_p' if cat in ['ee', 'mumu'] else 'zqq_p'
-                AAAyields(histo, inDir, outDir, plots,     legend, colors, cat, sel, ecm=ecm, lumi=lumi, tot=False)
+                AAAyields(histo, inDir, outDir, plots, legend, colors, cat, sel, ecm=ecm, lumi=lumi, tot=False)
                 AAAyields(histo, inDir, outDir, plots_tot, legend, colors, cat, sel, ecm=ecm, lumi=lumi, tot=True)
+
+                from package.config import z_labels, h_labels
+                Z_decays = [cat] if cat in ['ee', 'mumu'] else quarks
+                Efficiency(histo, inDir, outDir, sel, Z_decays, H_decays, h_labels, f'_{sel}_histo', ecm=ecm)
+                Efficiency(histo, inDir, outDir, sel, z_decays, H_decays, h_labels, f'_{sel}_histo', 'selection_efficiency_tot', ecm=ecm)
+                Efficiency(histo, inDir, outDir, sel, z_decays, H_decays, z_labels, f'_{sel}_histo', 'efficiency_selection', ecm=ecm, invert=True)
+
 
             # Generate distribution and decay plots unless all skipped
             if arg.make or arg.decay or arg.scan:

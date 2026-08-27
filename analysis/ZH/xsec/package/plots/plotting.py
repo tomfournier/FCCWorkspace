@@ -46,6 +46,10 @@ Lazy Imports:
 
 from typing import Union, TYPE_CHECKING
 
+from package.func.bias import getMetaInfo
+from package.plots.root.helper import build_cfg
+from package.tools.process import get_range_decay, getHist
+
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
@@ -1221,6 +1225,201 @@ def Bias(
     mkdir(outDir)
     savecanvas(canvas, outDir, outName, suffix, format)
     canvas.Close()
+
+
+
+def get_efficiency(
+        hName: str,
+        inDir: str,
+        ecm: int,
+        z_decays: list[str],
+        h_decays: list[str],
+        suffix: str = '',
+        invert: bool = False
+         ):
+
+    import os, uproot
+
+    if invert:
+        signals = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for y in h_decays] for x in z_decays]
+    else:
+        signals = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in h_decays]
+    selected, total = {k:0 for k in h_decays}, {k:0 for k in h_decays}
+    eff, eff_err = {}, {}
+
+    lumi = 10.8e6 if ecm==240 else (3.12e6 if ecm==365 else -1)
+
+    for h, sigs in zip(h_decays, signals):
+        processed = 0
+        for sig in sigs:
+            fIn = f'{inDir}/{sig}{suffix}.root'
+            if os.path.exists(fIn): processed += uproot.open(fIn)['eventsProcessed'].value
+        total = sum([getMetaInfo(sig, rmww=True) for sig in sigs]) * lumi
+        total_err = total / processed**0.5
+
+        hist = getHist(hName, sigs, inDir, suffix)
+        selected, entries = hist.Integral(), hist.GetEntries()
+        selected_err = entries**0.5 * total / processed
+
+        eff[h] = 100 * selected / total
+        eff_err[h] = eff[h] * ((total_err/total)**2 + (selected_err/selected)**2)**0.5
+
+    return eff, eff_err
+
+def eff_to_txt(
+        outDir: str,
+        sel: str,
+        eff: list[float],
+        eff_err: list[float],
+        h_decays: list[str],
+        outName: str = 'efficiency'
+         ) -> None:
+    """Format and save bias results to a text file with fixed-width columns."""
+
+    out = _parse_selection_dir(sel, outDir, 'yield')
+    ndecays, col_w = len(h_decays), 15
+
+    # Create header with decay mode names
+    header = f"{'Decay modes':<{col_w}}" + ''.join(f'{decay:<{col_w}}' for decay in h_decays)
+    sep = '-' * col_w * (ndecays + 1)
+
+    # Create rows with formatted values
+    vals = [f'{float(val):.2f}+/-{float(val_err):.2f}' for val, val_err in zip(eff, eff_err)]
+    row = f"{'Eff':<{col_w}}" + ''.join(f'{val:<{col_w}}' for val in vals)
+
+    # Write formatted table to file
+    with open(f'{out}/{outName}.txt', 'w') as f:
+        for row in [header, sep, row]:
+            f.write(row + '\n')
+
+    LOGGER.info(f'Efficiencies saved at {out}/{outName}.txt')
+
+# ________________________________
+def Efficiency(
+    hName: str,
+    inDir: str,
+    outDir: str,
+    sel: str,
+    z_decays: list[str],
+    h_decays: list[str],
+    h_labels: dict[str, str],
+    suffix: str = '',
+    outName: str = 'selection_efficiency',
+    format: list[str] = ['png'],
+    ecm: int = 240,
+    invert: bool = False
+     ) -> None:
+
+    '''Generate efficiency summary plots and detailed comparison tables.
+
+    Creates a pull-plot canvas showing final-step efficiencies for each decay mode
+    relative to the average, with uncertainty error bars. Overlays average efficiency
+    line and uncertainty band. Exports both plot and per-cut efficiency table.
+
+    Plot Elements:
+    - Y-axis: Decay channels + average
+    - X-axis: Efficiency percentage at final cut
+    - Markers: Final efficiency per decay ± uncertainty
+    - Vertical line: Average efficiency
+    - Shaded band: ±1σ uncertainty around average
+
+    Args:
+        outDir (str): Output directory for plots and tables.
+        h_decays (list[str]): Ordered list of decay channel identifiers.
+        suffix (str, optional): String appended to output file names. Defaults to ''.
+        format (list[str], optional): Image formats (e.g., ['png', 'pdf']). Defaults to ['png'].
+        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
+    '''
+
+    import ROOT
+    from .root import plotter
+    from .root.helper import (
+        canvas_margins,
+        setup_latex,
+        save_plot
+    )
+
+    lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
+
+    efficiency, efficiency_err = get_efficiency(hName, inDir, ecm, z_decays, h_decays, suffix, invert)
+    eff, eff_err = list(efficiency.values()), list(efficiency_err.values())
+    eff_avg     = sum(eff) / len(eff)
+    eff_avg_err = (sum(err**2 for err in eff_err))**0.5 / len(eff_err)
+    eff_min, eff_max = eff_avg - min(eff), max(eff) - eff_avg
+
+    # Create 2D pull plot with efficiency values and uncertainties
+    xMin, xMax = int(min(eff))-5, int(max(eff))+3
+    if invert: h_pulls = ROOT.TH2F('pulls', 'pulls', (xMax-xMin)*10, xMin, xMax, len(z_decays)+1, 0, len(z_decays)+1)
+    else:      h_pulls = ROOT.TH2F('pulls', 'pulls', (xMax-xMin)*10, xMin, xMax, len(h_decays)+1, 0, len(h_decays)+1)
+    g_pulls = ROOT.TGraphErrors(len(h_decays)+1)
+
+    # Add average efficiency as first entry
+    g_pulls.SetPoint(0, eff_avg, 0.5); g_pulls.SetPointError(0, eff_avg_err, 0.)
+    h_pulls.GetYaxis().SetBinLabel(1, 'Average')
+
+    # Add per-decay final efficiencies
+    decays = z_decays if invert else h_decays
+    for i, h_decay in enumerate(decays):
+        g_pulls.SetPoint(i+1, eff[i], float(i+1) + 0.5)
+        g_pulls.SetPointError(i+1, eff_err[i], 0.)
+        h_pulls.GetYaxis().SetBinLabel(i+2, h_labels[h_decay])
+
+    cfg = build_cfg(h_pulls, range_func=get_range_decay, decay=True, hists=[h_pulls])
+    plotter.cfg = cfg
+
+    # Setup canvas with grid for readability
+    canvas = plotter.canvas(800, 800)
+    canvas_margins(canvas, top=0.08, bottom=0.1, left=0.15, right=0.05)
+    canvas.SetFillStyle(4000)
+    canvas.SetGrid(1, 0)
+    canvas.SetTickx(1)
+
+    # Format axes
+    h_pulls.GetXaxis().SetTitle('Selection efficiency [%]')
+    h_pulls.GetXaxis().SetTitleSize(0.04)
+    h_pulls.GetXaxis().SetLabelSize(0.035)
+    h_pulls.GetXaxis().SetTitleOffset(1)
+    h_pulls.GetYaxis().SetLabelSize(0.055)
+    h_pulls.GetYaxis().SetTickLength(0)
+    h_pulls.GetYaxis().LabelsOption('v')
+    h_pulls.SetNdivisions(506, 'XYZ')
+    h_pulls.Draw('HIST 0')
+
+    # Draw average efficiency line
+    maxx = len(h_decays)+1
+    line = ROOT.TLine(eff_avg, 0, eff_avg, maxx)
+    line.SetLineColor(ROOT.kGray)
+    line.SetLineWidth(2)
+    line.Draw('SAME')
+
+    # Draw uncertainty band around average
+    shade = ROOT.TGraph()
+    shade.SetPoint(0, eff_avg-eff_avg_err, 0);    shade.SetPoint(1, eff_avg+eff_avg_err, 0)
+    shade.SetPoint(2, eff_avg+eff_avg_err, maxx); shade.SetPoint(3, eff_avg-eff_avg_err, maxx)
+    shade.SetPoint(4, eff_avg-eff_avg_err, 0)
+    shade.SetFillColor(16); shade.SetFillColorAlpha(16, 0.35); shade.Draw('SAME F')
+
+    # Overlay efficiency points with error bars
+    g_pulls.SetMarkerSize(1.2); g_pulls.SetMarkerStyle(20); g_pulls.SetLineWidth(2)
+    g_pulls.Draw('P0 SAME')
+
+    # Add beam energy and luminosity label
+    latex = setup_latex(0.045, 30, text_color=1, text_font=42)
+    latex.DrawLatex(0.95, 0.925, f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}')
+    latex = setup_latex(0.045, 13, text_color=1, text_font=42)
+    latex.DrawLatex(0.15, 0.96, '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}')
+    # Add efficiency statistics
+    txt = setup_latex(0.04, 11, text_color=1, text_font=42)
+    txt.DrawLatex(0.2, 0.2, f'Avg eff: {eff_avg:.2f} #pm {eff_avg_err:.2f} %')
+    txt.DrawLatex(0.2, 0.15, f'Min/max: {eff_min:.2f}/{eff_max:.2f}')
+    txt.Draw('SAME')
+
+    # Export pull plot
+    out = _parse_selection_dir(sel, outDir, 'yield')
+    save_plot(canvas, out, outName, '', format)
+
+    eff_to_txt(outDir, sel, eff, eff_err, z_decays if invert else h_decays, outName)
+
 
 # ____________________________
 def hist_to_arrays(

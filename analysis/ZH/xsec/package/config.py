@@ -271,6 +271,18 @@ modes_color = {
 ### PROCESSES LABEL ###
 #######################
 
+# ROOT TLatex labels for Z decay modes
+z_labels = {
+    'bb'     : 'Z#rightarrowb#bar{b}',
+    'cc'     : 'Z#rightarrowc#bar{c}',
+    'ss'     : 'Z#rightarrows#bar{s}',
+    'qq'     : 'Z#rightarrowq#bar{q}',
+    'ee'     : 'Z#rightarrowe^{#plus}e^{#minus}',
+    'mumu'   : 'Z#rightarrow#mu^{#plus}#mu^{#minus}',
+    'tautau' : 'Z#rightarrow#tau^{#plus}#tau^{#minus}',
+    'nunu'   : 'Z#rightarrow#nu#bar{#nu}',
+}
+
 # ROOT TLatex labels for Higgs decay modes
 h_labels = {
     'bb'     : 'H#rightarrowb#bar{b}',
