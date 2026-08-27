@@ -1,0 +1,190 @@
+'''Wrapper to run the chi2 optimization pipeline with automated parameters.
+
+Provides:
+- Argument parsing for channel (ee/mumu), energy (240/365 GeV), and pipeline stages.
+- Temporary config JSON per job to pass cat/ecm/lumi to downstream scripts.
+- Batch execution across energies and channels while streaming child output.
+
+Conventions:
+- Temporary configuration files are created in loc.RUN and removed after each stage.
+- Environment variable RUN='1' flags automated mode for the analysis scripts.
+- Scripts are executed in nested loops: ecm -> cat -> stage-specific script.
+
+Usage:
+    python b-run.py                                 # Default: all channels, all ecms, stages 1-3
+    python b-run.py --cat ee --ecm 365 --run 1-2    # Pre-selection and optimization only
+    python b-run.py --cat ee-mumu --ecm 240-365     # Multiple channels and energies
+'''
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+import os, sys, json, time, subprocess
+
+from pathlib import Path
+
+# Load directory path manager and timing utility
+from package.userConfig import loc         # Directory path configuration
+from package.config import timer           # Execution timing utility
+
+# Start execution timer
+t = time.time()
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, set_log  # Argument parsing utilities
+from package.logger import get_logger               # Logging setup
+parser = create_parser(
+    cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
+    ecm_multi=True,        # Support multiple energies (--ecm 240-365)
+    include_sels=True,     # Include selection strategy options
+    run_stages=3,          # Optimization pipeline has 3 stages: pre-selection, optimize, plots
+    batch=True,            # Include batch execution options
+    optimize=True,         # Include optimization-specific options
+    is_run=True,           # Flag that this is a run wrapper script
+    description='Run BDT Optimization pipeline'
+)
+arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+#############################
+### SETUP CONFIG SETTINGS ###
+#############################
+
+# Parse comma-separated arguments into lists
+cats = arg.cat.split('-')                              # Decay categories: ['ee'] or ['ee', 'mumu']
+ecms = [int(e) for e in arg.ecm.split('-')]          # Energies: [240] or [240, 365]
+
+# Map pipeline stage numbers to script names
+script_map = {
+    '1': 'pre-selection',  # Stage 1: Apply pre-selection cuts for optimization studies
+    '2': 'optimize',       # Stage 2: Run BDT hyperparameter optimization
+    '3': 'plots'           # Stage 3: Generate optimization result visualization plots
+}
+scripts = [script_map[s] for s in arg.run.split('-')]
+
+# Map script names to fccanalysis subcommands
+cmds = {
+    'pre-selection': 'run',     # Use fccanalysis run for pre-selection
+    'final-selection': 'final'  # Use fccanalysis final for final selections
+}
+
+# Base path for optimization analysis scripts
+path = f'{loc.ROOT}/b-Optimization'
+
+
+
+##########################
+### EXECUTION FUNCTION ###
+##########################
+
+def run(cat: str,
+        ecm: int,
+        path: str,
+        script: str,
+        ) -> None:
+    '''Execute one measurement stage with a temporary config and streamed output.
+
+    Builds a JSON file with cat/ecm/lumi, sets RUN=1, and calls the stage script
+    via fccanalysis (or python for non-fccanalysis steps) while piping stdout/stderr
+    through to the parent terminal.
+
+    Args:
+        cfg_dir (str): Directory where the temporary config file will be stored.
+        cat (str): Lepton channel identifier ('ee' or 'mumu').
+        ecm (int): Center-of-mass energy in GeV (240 or 365).
+        path (str): Base directory for stage scripts.
+        script (str): Stage script name ('pre-selection', 'optimisation', 'plots').
+
+    Returns:
+        int: Return code from the subprocess.
+    '''
+    # Create configuration directory if it doesn't exist
+    cfg_path = Path(loc.RUN) / 'b-run.json'
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Build configuration dictionary
+    config = {'cat': cat, 'ecm': ecm}
+
+    # Write configuration to temporary JSON file
+    cfg_path.write_text(json.dumps(config))
+    LOGGER.info(f'Wrote config file to {cfg_path}')
+
+    # Set up environment with RUN flag for automated mode detection
+    env = os.environ.copy()
+    env['RUN'] = '1'
+    if arg.batch:
+        env['RUN_BATCH'] = '1'
+
+    script_path = f'{path}/{script}.py'
+
+    # Display execution header with clear identification
+    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = }'
+    length = len(msg) + 2
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
+
+    # Build per-stage arguments and apply plotting cutflow flags
+    extra_args = ['--cat', cat, '--ecm', str(ecm)]
+    if 'optimize' in script:
+        extra_args.extend(['--procs',  arg.procs])
+        extra_args.extend(['--method', arg.method])
+        extra_args.extend(['--nevents', str(arg.nevents)])
+        extra_args.extend(['--incr',    str(arg.incr)])
+    elif 'plots' in script:
+        extra_args.extend(['--procs',  arg.procs])
+        extra_args.extend(['--method', arg.method])
+        if not arg.dist:
+            extra_args.append('--no-dist')
+        if not arg.metrics:
+            extra_args.append('--no-metrics')
+
+    # Use fccanalysis subcommands when available; fall back to python for others
+    cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
+        else ['python', script_path] + extra_args
+
+    try:
+        # Execute fccanalysis with modified environment and stream output
+        result = subprocess.run(
+            cmd,
+            env=env,
+            stdout=sys.stdout,
+            stderr=sys.stderr
+        )
+        # Completion status marker
+        status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
+        msg = f'{status}: [{script}] {cat = } | {ecm = }'
+        length = len(msg) + 2
+        LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
+        return result.returncode
+    finally:
+        pass
+
+
+######################
+### CODE EXECUTION ###
+######################
+
+if __name__ == '__main__':
+    try:
+        # Nested loops: iterate over energies, channels, and pipeline stages
+        for ecm in ecms:
+            for cat in cats:
+                for script in scripts:
+                    result = run(cat, ecm, path, script)
+                    if result != 0: sys.exit(result)
+
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution:', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)
