@@ -199,14 +199,11 @@ inline int get_max_idx(Vec_f prop){
 
 
 // compute Higgstrahlungness
-inline float Higgsstrahlungness(float mll, float mrecoil) {
-  float mZ = 91.2;
-  float mH = 125.;
-  float chi2_recoil_frac = 0.4;
-  float chiZ = std::pow(mll - mZ, 2); // mass
-  float chiH = std::pow(mrecoil - mH, 2); // recoil
-  float chi2 = (1.0-chi2_recoil_frac)*chiZ + chi2_recoil_frac*chiH;
-  return chi2;
+inline float Higgsstrahlungness(float mll, float mrec, float mZ = 91.2, float mH = 125) {
+  float chiZ = std::pow(mll  - mZ, 2); // mass
+  float chiH = std::pow(mrec - mH, 2); // recoil
+  float chi = std::sqrt(chiZ + chiH);
+  return chi;
 }
 
 
