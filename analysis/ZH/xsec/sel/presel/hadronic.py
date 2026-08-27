@@ -148,6 +148,7 @@ def best_algo_variables(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('zqq',          'zqq_algo[best_clustering_idx]')
     df = df.Define('zqq_m',        'zqq_algo_m[best_clustering_idx]')
     df = df.Define('zqq_p',        'zqq_algo_p[best_clustering_idx]')
+    df = df.Define('zqq_e',        'FCCAnalyses::ReconstructedParticle::get_e(zqq)[0]')
     df = df.Define('zqq_pT',       'FCCAnalyses::ReconstructedParticle::get_pt(zqq)[0]')
     df = df.Define('zqq_theta',    'FCCAnalyses::ReconstructedParticle::get_theta(zqq)[0]')
     df = df.Define('zqq_costheta', 'FCCAnalyses::get_costheta(zqq)[0]')
@@ -200,26 +201,6 @@ def W_reconstruction(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('W2_m',        'W2.M()')
     df = df.Define('delta_mWW4',  'FCCAnalyses::delta_mVV(W1_m, W2_m, 78)')
     df = df.Define('delta_mWW',   'FCCAnalyses::delta_mVV(zqq_m, zqq_recoil_m, 78)')
-
-    return df
-
-
-def Z_reconstruction(df: 'ROOT.ROOT.RDataFrame'
-                     ) -> 'ROOT.ROOT.RDataFrame':
-
-    # Attempt to reconstruct WW with 4 jets
-    df = df.Define('pairs_ZZ_N4', 'FCCAnalyses::pair_WW_N4(jets_rp_cand_N4, 91.2)')
-    df = df.Define('Z1',          'pairs_ZZ_N4[0]')
-    df = df.Define('Z2',          'pairs_ZZ_N4[1]')
-    df = df.Define('Z1_m',        'Z1.M()')
-    df = df.Define('Z2_m',        'Z2.M()')
-    df = df.Define('Z1_p',        'Z1.P()')
-    df = df.Define('Z2_p',        'Z2.P()')
-    df = df.Define('Z1_theta',    'Z1.Theta()')
-    df = df.Define('Z2_theta',    'Z1.Theta()')
-    df = df.Define('Z1_costheta', 'Z1.CosTheta()')
-    df = df.Define('Z2_costheta', 'Z1.CosTheta()')
-    df = df.Define('delta_mZZ',   'FCCAnalyses::delta_mVV(Z1_m, Z2_m, 91.2)')
 
     return df
 
