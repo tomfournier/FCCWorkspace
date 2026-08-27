@@ -154,6 +154,7 @@ def best_algo_variables(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('zqq_recoil_m', 'zqq_algo_recoil_m[best_clustering_idx]')
 
     df = df.Define('zqq_jets',          'zqq_algo_jets[best_clustering_idx]')
+    df = df.Define('zqq_jets_e',        'FCCAnalyses::ReconstructedParticle::get_e(zqq_jets)')
     df = df.Define('zqq_jets_p',        'FCCAnalyses::ReconstructedParticle::get_p(zqq_jets)')
     df = df.Define('zqq_jets_pT',       'FCCAnalyses::ReconstructedParticle::get_pt(zqq_jets)')
     df = df.Define('zqq_jets_theta',    'FCCAnalyses::ReconstructedParticle::get_theta(zqq_jets)')
@@ -172,12 +173,14 @@ def jets_kinematics(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('subleading_idx', '(zqq_jets_p[0] > zqq_jets_p[1]) ? 1 : 0')
 
     # Leading jet variables
+    df = df.Define('leading_e',        'zqq_jets_e[leading_idx]')
     df = df.Define('leading_p',        'zqq_jets_p[leading_idx]')
     df = df.Define('leading_pT',       'zqq_jets_pT[leading_idx]')
     df = df.Define('leading_theta',    'zqq_jets_theta[leading_idx]')
     df = df.Define('leading_costheta', 'zqq_jets_costheta[leading_idx]')
 
     # Subleading jet variable
+    df = df.Define('subleading_e',        'zqq_jets_e[subleading_idx]')
     df = df.Define('subleading_p',        'zqq_jets_p[subleading_idx]')
     df = df.Define('subleading_pT',       'zqq_jets_pT[subleading_idx]')
     df = df.Define('subleading_theta',    'zqq_jets_theta[subleading_idx]')
@@ -195,13 +198,8 @@ def W_reconstruction(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('W2',          'pairs_WW_N4[1]')
     df = df.Define('W1_m',        'W1.M()')
     df = df.Define('W2_m',        'W2.M()')
-    df = df.Define('W1_p',        'W1.P()')
-    df = df.Define('W2_p',        'W2.P()')
-    df = df.Define('W1_theta',    'W1.Theta()')
-    df = df.Define('W2_theta',    'W1.Theta()')
-    df = df.Define('W1_costheta', 'W1.CosTheta()')
-    df = df.Define('W2_costheta', 'W1.CosTheta()')
-    df = df.Define('delta_mWW',   'FCCAnalyses::delta_mVV(W1_m, W2_m, 78)')
+    df = df.Define('delta_mWW4',  'FCCAnalyses::delta_mVV(W1_m, W2_m, 78)')
+    df = df.Define('delta_mWW',   'FCCAnalyses::delta_mVV(zqq_m, zqq_recoil_m, 78)')
 
     return df
 
@@ -234,6 +232,8 @@ def additional_variable(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('acoplanarity', 'FCCAnalyses::acoplanarity(zqq_jets)')
     df = df.Define('acopolarity',  'FCCAnalyses::acopolarity(zqq_jets)')
     df = df.Define('deltaR',       'FCCAnalyses::deltaR(zqq_jets)')
+
+    df = df.Define('H', 'FCCAnalyses::Higgsstrahlungness(zqq_m, zqq_recoil_m)')
 
     df = df.Define('visibleEnergy',     'FCCAnalyses::visibleEnergy(ReconstructedParticles, zqq_jets)')
     df = df.Define('missingEnergy_rp', f'FCCAnalyses::missingEnergy({ecm}, ReconstructedParticles)')
@@ -300,7 +300,6 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
     df = best_algo_variables(df)
     df = jets_kinematics(df)
     df = W_reconstruction(df)
-    # df = Z_reconstruction(df)
     df = additional_variable(df, ecm)
 
 
@@ -407,7 +406,6 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     df = best_algo_variables(df)
     df = jets_kinematics(df)
     df = W_reconstruction(df)
-    # df = Z_reconstruction(df)
     df = additional_variable(df, ecm)
 
 
@@ -474,17 +472,15 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
 
 
 branch_list_qq =[
-    'leading_p',    'leading_pT',    'leading_theta',    'leading_costheta',      # Leading jet kinematics
-    'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_costheta',   # Subleading jet kinematics
-    'zqq_m', 'zqq_p', 'zqq_pT', 'zqq_theta', 'zqq_costheta',                      # Z boson kinematics
+    'leading_e', 'leading_p',    'leading_pT',    'leading_theta',    'leading_costheta',         # Leading jet kinematics
+    'subleading_e', 'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_costheta',   # Subleading jet kinematics
+    'zqq_e', 'zqq_m', 'zqq_p', 'zqq_pT', 'zqq_theta', 'zqq_costheta',             # Z boson kinematics
     'zqq_recoil_m',                                                               # Recoil mass (Higgs candidate)
-    'W1_m', 'W1_p', 'W1_theta', 'W1_costheta', 'delta_mWW',                       # W1 boson kinematics (4 jets clustering)
-    'W2_m', 'W2_p', 'W2_theta', 'W2_costheta',                                    # W2 boson kinematics (4 jets clustering)
-    # 'Z1_m', 'Z1_p', 'Z1_theta', 'Z1_costheta', 'delta_mZZ'                        # Z1 boson kinematics (4 jets clustering)
-    # 'Z2_m', 'Z2_p', 'Z2_theta', 'Z2_costheta',                                    # Z2 boson kinematics (4 jets clustering)
+    'delta_mWW', 'delta_mWW4',                                                    # Distance from W mass (Inclusive and 4 jets clustering)
     'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',                      # Angular correlation variables
     'visibleEnergy',                                                              # Visible energy
     'missingEnergy', 'cosTheta_miss', 'missingMass',                              # Missing energy variables
     'thrust', 'thrust_costheta',                                                  # Thrust variables
-    'njets', 'best_clustering_idx'                                                # Number of jets and best clustering variable
+    'njets', 'best_clustering_idx',                                               # Number of jets and best clustering variable
+    'H'                                                                           # Higgsstrahlungness
 ]
