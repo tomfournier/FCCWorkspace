@@ -44,11 +44,11 @@ def veto_leptonic(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define(f'zll_recoil_{cat}',      f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll_{cat})')
     df = df.Define(f'zll_recoil_m_{cat}',    f'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_{cat})[0]')
 
-    sel_leps =   f'leps_{cat}_no >= 2 && leps_{cat}_sel_iso.size() > 0 && abs(Sum(leps_{cat}_q)) < leps_{cat}_q.size()'
-    sel_mll =    f'zll_m_{cat} > 86 && zll_m_{cat} < 96'
-    if ecm == 240:   sel_pll = f'zll_p_{cat} > 20 && zll_p_{cat} < 70'
+    sel_leps = f'leps_{cat}_no >= 2 && leps_{cat}_sel_iso.size() > 0 && abs(Sum(leps_{cat}_q)) < leps_{cat}_q.size()'
+    sel_mll  = f'zll_m_{cat} > 86 && zll_m_{cat} < 96'
+    if   ecm == 240: sel_pll = f'zll_p_{cat} > 20 && zll_p_{cat} < 70'
     elif ecm == 365: sel_pll = f'zll_p_{cat} > 50 && zll_p_{cat} < 150'
-    else: raise ValueError(f'ecm = {ecm} is not supported')
+    else: raise ValueError(f'ecm = {ecm} is not supported, choose between [240, 365]')
     sel_recoil = f'zll_recoil_m_{cat} > 100 && zll_recoil_m_{cat} < 150'
 
     df = df.Filter(f'!({sel_leps} && {sel_mll} && {sel_pll} && {sel_recoil})')
@@ -308,32 +308,32 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 5: Z Polar angle
     ##########
-    if test:
-        df = df.Filter('zqq_costheta > -0.85 && zqq_costheta < 0.85')
+    # if test:
+    #     df = df.Filter('zqq_costheta > -0.85 && zqq_costheta < 0.85')
 
     ##########
     ### CUT 6: Acolinearity
     ##########
-    if test:
-        df = df.Filter('acolinearity > 0.35')
+    # if test:
+    #     df = df.Filter('acolinearity > 0.35')
 
     ##########
     ### CUT 7: WW pair removal
     ##########
-    if test:
-        df = df.Filter('delta_mWW > 6')
+    # if test:
+    #     df = df.Filter('delta_mWW > 6')
 
     ##########
     ### CUT 8: Polar angle of the missing energy
     ##########
-    if test:
-        df = df.Filter('cosTheta_miss < 0.995')
+    # if test:
+    #     df = df.Filter('cosTheta_miss < 0.995')
 
     ##########
     ### CUT 9: Thrust (365 GeV)
     ##########
-    if test:
-        if ecm == 365: df = df.Filter('thrust < 0.85')
+    # if test:
+    #     if ecm == 365: df = df.Filter('thrust < 0.85')
 
     return df
 
@@ -399,7 +399,7 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ### CUT 3: Z mass window
     ##########
     if test:
-        if ecm == 240:   df = df.Filter('zqq_m > 20 && zqq_m < 140')  # loose
+        if   ecm == 240: df = df.Filter('zqq_m > 20 && zqq_m < 140')  # loose
         elif ecm == 365: df = df.Filter('zqq_m > 60 && zqq_m < 200')  # loose
         else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
         df, hists = cutflow(df, hists, 3)
@@ -408,7 +408,7 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ### CUT 4: Z momentum (CoM dependent)
     ##########
     if test:
-        if ecm == 240:   df = df.Filter('zqq_p > 20 && zqq_p < 90')
+        if   ecm == 240: df = df.Filter('zqq_p > 20 && zqq_p < 90')
         elif ecm == 365: df = df.Filter('zqq_p > 20 && zqq_p < 160')
         else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
         df, hists = cutflow(df, hists, 4)
@@ -416,44 +416,44 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 5: Z Polar angle
     ##########
-    if test:
-        df = df.Filter('zqq_costheta > -0.85 && zqq_costheta < 0.85')
-        df, hists = cutflow(df, hists, 5)
+    # if test:
+    #     df = df.Filter('zqq_costheta > -0.85 && zqq_costheta < 0.85')
+    #     df, hists = cutflow(df, hists, 5)
 
     ##########
     ### CUT 6: Acolinearity
     ##########
-    if test:
-        df = df.Filter('acolinearity > 0.35')
-        df, hists = cutflow(df, hists, 6)
+    # if test:
+    #     df = df.Filter('acolinearity > 0.35')
+    #     df, hists = cutflow(df, hists, 6)
 
     ##########
     ### CUT 7: WW pair removal
     ##########
-    if test:
-        df = df.Filter('delta_mWW > 6')
-        df, hists = cutflow(df, hists, 7)
+    # if test:
+    #     df = df.Filter('delta_mWW > 6')
+    #     df, hists = cutflow(df, hists, 7)
 
     ##########
     ### CUT 8: Polar angle of the missing energy
     ##########
-    if test:
-        df = df.Filter('cosTheta_miss < 0.995')
-        df, hists = cutflow(df, hists, 8)
+    # if test:
+    #     df = df.Filter('cosTheta_miss < 0.995')
+    #     df, hists = cutflow(df, hists, 8)
 
     ##########
     ### CUT 9: Thrust (365 GeV)
     ##########
-    if test:
-        if ecm == 365:
-            df = df.Filter('thrust < 0.85')
-            df, hists = cutflow(df, hists, 9)
+    # if test:
+    #     if ecm == 365:
+    #         df = df.Filter('thrust < 0.85')
+    #         df, hists = cutflow(df, hists, 9)
 
     return df, hists
 
 
 branch_list_qq =[
-    'leading_e', 'leading_p',    'leading_pT',    'leading_theta',    'leading_costheta',         # Leading jet kinematics
+    'leading_e',    'leading_p',    'leading_pT',    'leading_theta',    'leading_costheta',      # Leading jet kinematics
     'subleading_e', 'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_costheta',   # Subleading jet kinematics
     'zqq_e', 'zqq_m', 'zqq_p', 'zqq_pT', 'zqq_theta', 'zqq_costheta',             # Z boson kinematics
     'zqq_recoil_m',                                                               # Recoil mass (Higgs candidate)

@@ -126,6 +126,7 @@ def Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
         recoil mass (zll_recoil_m), and polar angle category (zll_category).
     """
     # Z boson kinematics
+    df = df.Define('zll_e',     'FCCAnalyses::ReconstructedParticle::get_e(zll)[0]')
     df = df.Define('zll_m',     'FCCAnalyses::ReconstructedParticle::get_mass(zll)[0]')
     df = df.Define('zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(zll)[0]')
     df = df.Define('zll_pT',    'FCCAnalyses::ReconstructedParticle::get_pt(zll)[0]')
@@ -153,6 +154,7 @@ def lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
         leading_p, leading_pT, leading_theta, leading_phi and subleading equivalents.
     """
     # Individual Z lepton kinematics with leading/subleading ordering by momentum
+    df = df.Define('zll_leps_e',       'FCCAnalyses::ReconstructedParticle::get_e(zll_leps)')
     df = df.Define('zll_leps_p',       'FCCAnalyses::ReconstructedParticle::get_p(zll_leps)')
     df = df.Define('zll_leps_pT',      'FCCAnalyses::ReconstructedParticle::get_pt(zll_leps)')
     df = df.Define('zll_leps_theta',   'FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)')
@@ -161,11 +163,14 @@ def lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('subleading_p_idx', '(zll_leps_p[0] > zll_leps_p[1]) ? 1 : 0')
 
     # Extract leading/subleading properties
+    df = df.Define('leading_e',        'zll_leps_e[leading_p_idx]')
     df = df.Define('leading_p',        'zll_leps_p[leading_p_idx]')
     df = df.Define('leading_pT',       'zll_leps_pT[leading_p_idx]')
+    df = df.Define('leading_theta',    'zll_leps_theta[leading_p_idx]')
+
+    df = df.Define('subleading_e',     'zll_leps_e[subleading_p_idx]')
     df = df.Define('subleading_p',     'zll_leps_p[subleading_p_idx]')
     df = df.Define('subleading_pT',    'zll_leps_pT[subleading_p_idx]')
-    df = df.Define('leading_theta',    'zll_leps_theta[leading_p_idx]')
     df = df.Define('subleading_theta', 'zll_leps_theta[subleading_p_idx]')
     return df
 
@@ -278,7 +283,7 @@ def training_ll(df: 'ROOT.ROOT.RDataFrame',
     ### CUT 4: Z momentum (CoM dependent)
     ##########
     if test:
-        if ecm == 240:   df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
+        if   ecm == 240: df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
         elif ecm == 365: df = df.Filter('zll_p > 50 && zll_p < 150')  # 365 GeV
 
     ##########
@@ -372,7 +377,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     ### CUT 4: Z momentum (CoM dependent)
     ##########
     if test:
-        if ecm == 240:   df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
+        if   ecm == 240: df = df.Filter('zll_p > 20 && zll_p < 70')   # 240 GeV
         elif ecm == 365: df = df.Filter('zll_p > 50 && zll_p < 150')  # 365 GeV
         df, params = cutflow(df, params, 4)
 
@@ -388,14 +393,14 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
 
 branch_list_ll = [
     # Lepton kinematics (leading and subleading)
-    'leading_p',    'leading_pT',    'leading_theta',
-    'subleading_p', 'subleading_pT', 'subleading_theta',
+    'leading_e',    'leading_p',    'leading_pT',    'leading_theta',
+    'subleading_e', 'subleading_p', 'subleading_pT', 'subleading_theta',
 
     # Angular correlation
     'acolinearity', 'acopolarity', 'acoplanarity', 'deltaR',
 
     # Z boson kinematics
-    'zll_m', 'zll_p', 'zll_pT', 'zll_theta',
+    'zll_e', 'zll_m', 'zll_p', 'zll_pT', 'zll_theta',
 
     # Recoil mass (Higgs candidate)
     'zll_recoil_m',
@@ -407,5 +412,8 @@ branch_list_ll = [
     'missingEnergy', 'cosTheta_miss', 'missingMass',
 
     # Higgsstrahlungness discriminant
-    'H'
+    'H',
+
+    # Number of isolated leptons in the event
+    'leps_iso_no',
 ]
