@@ -50,7 +50,7 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc
 from package.config import (
     timer,              # Timing utility
-    mk_processes,       # Build process definitions
+    get_process_dict,   # Build process definitions
     z_decays,           # Z boson decay modes
     h_decays,           # Higgs decay modes (visible only)
     H_decays            # Higgs decay modes (all including invisible)
@@ -77,7 +77,7 @@ hNames, categories = ('zll_recoil_m',), (f'z_{cat}',)  # Recoil mass histogram
 # Signal: ZH production with all Higgs decay modes
 # Backgrounds: WW, ZZ, Drell-Yan, and rare processes
 procs = ['ZH' if tot else f'Z{cat}H', 'WW', 'ZZ', 'Zgamma', 'Rare']
-processes = mk_processes(procs, ecm=ecm)
+processes = get_process_dict(procs, ecm=ecm)
 
 # Select Higgs decay modes: all modes for invisible target, visible only for other targets
 decays = H_decays if arg.target=='inv' else h_decays

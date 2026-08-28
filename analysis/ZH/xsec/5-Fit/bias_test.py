@@ -44,7 +44,7 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc
 from package.config import (
     timer,              # Timing utility
-    mk_processes,       # Build process definitions
+    get_process_dict,   # Build process definitions
     z_decays,           # Z boson decay modes
     h_decays,           # Higgs decay modes (visible)
     H_decays,           # Higgs decay modes (all)
@@ -75,7 +75,7 @@ cat = 'leptonic' if arg.lep     else cat                   # Use 'leptonic' for 
 cat = 'combined' if arg.combine else cat                   # Use 'combined' for all channels combination
 
 # Build process definitions for analysis
-processes = mk_processes(ecm=ecm)
+processes = get_process_dict(['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'], ecm=ecm)
 
 # Build subprocess command arguments for calling make_pseudo.py and fit.py
 cmd_args = []
@@ -111,17 +111,13 @@ def _setup_cache() -> None:
     # Preload histograms and xsec caches once to minimize repeated I/O
     # Determine processed histogram directory
 
-    # Process labels used across plots and pseudo-data
-    procs_labels = ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
-    processes = mk_processes(procs_labels, ecm=ecm)
-
     # Flatten actual sample names for caching
     samples = []
-    for p in procs_labels:
+    for p in processes.keys():
         samples.extend(processes[p])
 
     # Preload the most used histograms
-    hNames = ('zqq_m_recoil_m_mva_fit',) if cat=='qq' else ('zll_recoil_m',)
+    hNames = ('zqq_m_recoil_m_mva_fit',) if cat=='qq' else ('zll_recoil_m_fit',)
     LOGGER.debug('Preloading histograms and cross-section before bias loop')
     preload_histograms(samples, h_inDir, hNames=hNames, rmww=True)
 

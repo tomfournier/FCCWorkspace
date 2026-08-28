@@ -65,16 +65,16 @@ Lowercase aliases (`z_decays`, `h_decays`, `H_decays`, `quarks`) provided for ba
 
 #### Key Functions
 
-**`mk_processes(procs=None, z_decays=None, h_decays=None, H_decays=None, quarks=None, ecm=240)`**
+**`get_process_dict(procs=None, z_decays=None, h_decays=None, H_decays=None, quarks=None, ecm=240)`**
 - Generate process dictionary with optional filtering and custom decay modes
 - Uses cached defaults if all decay parameters are None
 - Supports filtering to specific processes (e.g., `procs=['ZH', 'WW']`)
 - Returns dict mapping process keys to tuples of full FCC process names
 - Examples:
   ```python
-  all_procs = mk_processes()  # All processes with defaults
-  zh_ww = mk_processes(procs=['ZH', 'WW'], ecm=365)  # Specific processes at 365 GeV
-  bb_cc = mk_processes(h_decays=['bb', 'cc'])  # Custom Higgs decays
+  all_procs = get_process_dict()  # All processes with defaults
+  zh_ww = get_process_dict(procs=['ZH', 'WW'], ecm=365)  # Specific processes at 365 GeV
+  bb_cc = get_process_dict(h_decays=['bb', 'cc'])  # Custom Higgs decays
   ```
 
 **`get_process_list(cat, ecm, z_decays=Z_DECAYS, h_decays=H_DECAYS_ALL, train=False, batch=False, ...)`**
@@ -398,7 +398,7 @@ LOGGER.info('Starting analysis...')
 
 # Step 2: Import configuration
 from package.config import (
-    mk_processes, 
+    get_process_dict, 
     input_vars,
     labels,
     colors
@@ -414,7 +414,7 @@ cat, ecm, test_flag = get_params(os.environ, 'config.json')
 
 # Step 5: Generate processes and access paths
 LOGGER.info(f'Generating processes for {cat} at {ecm} GeV')
-processes = mk_processes(procs=['ZH', 'WW'], ecm=ecm)
+processes = get_process_dict(procs=['ZH', 'WW'], ecm=ecm)
 
 events_path = loc.EVENTS.get(cat=cat, ecm=ecm)
 bdt_path = loc.BDT.get(cat=cat, ecm=ecm, sel=args.sel, type=Path)
@@ -428,7 +428,7 @@ LOGGER.info('Analysis setup complete!')
 ```python
 # Import configuration
 from package.config import (
-    mk_processes, 
+    get_process_dict, 
     input_vars, 
     Z_DECAYS, 
     H_DECAYS,
@@ -440,7 +440,7 @@ from package.config import (
 from package.userConfig import loc, cat, ecm, lumi
 
 # Generate process dictionary for ZH and WW at 365 GeV
-processes = mk_processes(procs=['ZH', 'WW'], ecm=365)
+processes = get_process_dict(procs=['ZH', 'WW'], ecm=365)
 
 # Access path templates
 events_path = loc.EVENTS.get(cat='mumu', ecm=365, sel='Baseline')
@@ -471,7 +471,7 @@ from package.logger import get_logger
 LOGGER = get_logger(__name__)
 
 # Configuration access
-from package.config import mk_processes, input_vars
+from package.config import get_process_dict, input_vars
 from package.userConfig import loc, get_params
 
 # In plotting scripts
@@ -514,7 +514,7 @@ FCC process naming follows standard patterns:
 
 ```python
 # Create processes with specific Higgs decay modes
-zh_only = mk_processes(
+zh_only = get_process_dict(
     procs=['ZH'],
     h_decays=['bb', 'cc', 'ss'],  # Only 3 decays
     ecm=365
@@ -522,7 +522,7 @@ zh_only = mk_processes(
 
 # Build all decay channels manually
 all_z = ['bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu']
-custom = mk_processes(
+custom = get_process_dict(
     z_decays=all_z,
     h_decays=['bb', 'WW', 'ZZ'],
     ecm=240

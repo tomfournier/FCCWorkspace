@@ -59,7 +59,7 @@ bkg_procs = {
     'Zgamma': event_combine([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',       # ee -> ff processes
                              f'wzp6_ee_mumu_ecm{ecm}',
                              f'wzp6_ee_tautau_ecm{ecm}',
-                             f'p8_ee_qq_ecm{ecm}'
+                             f'wzp6_ee_qq_ecm{ecm}'
                              ], inputDir),
     'Rare':   event_combine([f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Rare backgrounds
                              f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
@@ -71,15 +71,12 @@ if (cat == 'qq') and (ecm == 365):
     bkg_procs['tt'] = ['wzp6_ee_WbWb_ecm365']
 
 
-categories = [f'z_{cat}']                # Category identifier
-hist_names = ['zqq_m_recoil_m_mva_fit']  # Histogram name for this category
+categories = [f'z_{cat}']  # Category identifier
+hist_names = ['zqq_m_recoil_m_mva_fit'] if cat=='qq' else ['zll_recoil_m_fit']  # Histogram name for this category
 
 # Define systematic uncertainties
 # Log-normal normalization uncertainties (1% each) for all background processes
-systs = {}
-for i in sorted(bkg_procs.keys()):
-    systs[f'{i}_norm'] = {
-        'type':  'lnN',       # Log-normal uncertainty type
-        'value': 1.01,        # 1% normalization uncertainty (±1%)
-        'procs': [i]          # Apply to this background process
-    }
+systs = {f'{proc}_norm':{'type':'lnN',      # Log-normal uncertainty type
+                         'value':1.01,      # 1% normalization uncertainty (±1%)
+                         'procs':[proc]}    # Apply to this background process
+         for proc in sorted(bkg_procs.keys())}

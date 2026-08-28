@@ -37,11 +37,11 @@ from package.userConfig import loc
 from sel.final.leptonic import histos_ll
 from sel.final.hadronic import histos_qq
 from package.config import (
-    timer,              # Timing utility
-    mk_processes,       # Build process definitions
-    z_decays,           # Z boson decay modes
-    H_decays,           # Higgs decay modes
-    colors, labels      # Process styling for plots
+    timer,                # Timing utility
+    get_process_dict,     # Build process definitions
+    z_decays,             # Z boson decay modes
+    H_decays,             # Higgs decay modes
+    colors, labels        # Process styling for plots
 )
 from package.plots.cutflow import (
     get_cutflow,            # Calculate event counts per cut
@@ -245,7 +245,7 @@ def run(cats: list[str],
 if __name__=='__main__':
     try:
         # Run cutflow analysis for all categories and selections
-        run(cats, sels, mk_processes(ecm=ecm), colors, labels)
+        run(cats, sels, get_process_dict(ecm=ecm), colors, labels)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

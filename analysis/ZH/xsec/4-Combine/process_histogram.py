@@ -39,7 +39,7 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc
 from package.config import (
     timer,              # Timing utility
-    mk_processes,       # Build process definitions
+    get_process_dict,   # Build process definitions
     get_process_list,
     H_decays            # Higgs decay modes
 )
@@ -80,7 +80,7 @@ if procs_scales!={}:
 
 
 # Define physics processes and their Higgs decay modes
-processes = mk_processes(
+processes = get_process_dict(
     ['ZH', 'WW', 'ZZ', 'Zgamma', 'Rare'] + ['tt'] if ecm == 365 else [],
     H_decays=H_decays+('ZZ_noInv',), ecm=ecm
 )
