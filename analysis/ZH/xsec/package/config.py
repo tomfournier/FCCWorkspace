@@ -8,12 +8,9 @@ Provides:
 - Physics and axis labels (ROOT TLatex and LaTeX): `labels`, `h_labels`,
     `vars_label`, `vars_xlabel`, `modes_label`, `process_label`.
 - Process builders:
-    - `mk_processes()`: Simple process dictionary builder with optional filtering.
+    - `get_process_dict()`: Simple process dictionary builder with optional filtering.
     - `get_process_list()`: Full-featured process builder with signal/background handling.
-    - Helper functions: `_default_processes()`, `_build_processes()`, `_as_tuple()`.
-- Background/signal builders for analysis workflows:
-    - `_get_training_signals()`: Training-mode signal samples.
-    - `_build_background_dict()`: Category and mode-specific background processes.
+- Background/signal process construction for analysis workflows.
 - Utilities: `warning()` for formatted exceptions and `timer()` for timing output.
 
 Conventions:
@@ -23,7 +20,7 @@ Conventions:
 - Units are appended in `vars_xlabel` (e.g., GeV, GeV^2).
 
 Usage:
-- Simple process dictionary: ``mk_processes(procs=['ZH','WW'], ecm=365)``.
+- Simple process dictionary: ``get_process_dict(procs=['ZH','WW'], ecm=365)``.
 - Full analysis workflow: ``get_process_list(cat='mumu', ecm=240, train=True)``.
 '''
 
@@ -31,10 +28,7 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import sys
-
 from time import time
-from functools import lru_cache
 from typing import Sequence, Union
 
 from .logger import get_logger
@@ -59,11 +53,7 @@ input_vars_qq = (
     'leading_p',    'leading_costheta',
     'subleading_p', 'subleading_costheta',
     'acolinearity', 'acoplanarity',
-    # 'zqq_m',
     'zqq_p',        'zqq_costheta',
-    # 'W1_m', 'W1_p', 'W1_costheta',
-    # 'W2_m', 'W2_p', 'W2_costheta',
-    # 'thrust'
 )
 
 
@@ -191,52 +181,10 @@ def _get_colors_dict() -> dict:
         'tt'       : _TT_COLOR
     }
 
-class LazyDict(dict):
-    """Dictionary that defers initialization until first access.
 
-    Avoids importing ROOT or loading color definitions until the dictionary
-    is actually used. Supports standard dict operations.
-    """
-    def __init__(self, lazy_func):
-        super().__init__()
-        self._lazy_func = lazy_func
-        self._loaded = False
-
-    def _ensure_loaded(self):
-        if not self._loaded:
-            data = self._lazy_func()
-            self.update(data)
-            self._loaded = True
-
-    def __getitem__(self, key):
-        self._ensure_loaded()
-        return super().__getitem__(key)
-
-    def __iter__(self):
-        self._ensure_loaded()
-        return super().__iter__()
-
-    def __len__(self):
-        self._ensure_loaded()
-        return super().__len__()
-
-    def items(self):
-        self._ensure_loaded()
-        return super().items()
-
-    def keys(self):
-        self._ensure_loaded()
-        return super().keys()
-
-    def values(self):
-        self._ensure_loaded()
-        return super().values()
-
-
-# Lazy-loaded color dictionaries - ROOT is imported only on first access
 # Maps decay modes and process names to ROOT color indices
-h_colors = LazyDict(_get_h_colors_dict)  # Decay mode -> ROOT color
-colors   = LazyDict(_get_colors_dict)    # Process name -> ROOT color
+h_colors = _get_h_colors_dict  # Decay mode   -> ROOT color
+colors   = _get_colors_dict    # Process name -> ROOT color
 
 # Matplotlib tab colors for different analysis modes by channel (no lazy loading needed)
 modes_color = {
@@ -333,11 +281,13 @@ labels = {
 
 # LaTeX labels for kinematic variables with units
 vars_xlabel_ll = {
+    'leading_e':        r'$E_{\ell,leading}$ [GeV]',
     'leading_p':        r'$p_{\ell,leading}$ [GeV]',
     'leading_pT':       r'$p_{T,leading}$ [GeV]',
     'leading_theta':    r'$\theta_{\ell,leading}$',
     'leading_phi':      r'$\phi_{\ell,leading}$',
 
+    'subleading_e':     r'$E_{\ell,subleading}$ [GeV]',
     'subleading_p':     r'$p_{\ell,subleading}$ [GeV]',
     'subleading_pT':    r'$p_{T,subleading}$ [GeV]',
     'subleading_theta': r'$\theta_{\ell,subleading}$',
@@ -349,6 +299,7 @@ vars_xlabel_ll = {
     'deltaR':           r'$\Delta R$',
 
     'zll_m':            r'$m_{\ell^{+}\ell^{-}}$ [GeV]',
+    'zll_e':            r'$E_{\ell^{+}\ell^{-}}$ [GeV]',
     'zll_p':            r'$p_{\ell^{+}\ell^{-}}$ [GeV]',
     'zll_pT':           r'$p_{T, \ell^{+}\ell^{-}}$ [GeV]',
     'zll_theta':        r'$\theta_{\ell^{+}\ell^{+}}$',
@@ -362,7 +313,7 @@ vars_xlabel_ll = {
     'missingEnergy':    r'$E_{miss}$ [GeV]',
     'missingMass':      r'$m_{miss}$ [GeV]',
 
-    'H':                r'$H$ [GeV$^{2}$]',
+    'H':                r'$H$ [GeV]',
     'BDTscore':         r'BDT Score',
 
     'leps_iso':         r'$I_{rel}$',
@@ -370,12 +321,14 @@ vars_xlabel_ll = {
 }
 
 vars_xlabel_qq = {
+    'leading_e':             r'$E_{jet,leading}$ [GeV]',
     'leading_p':             r'$p_{jet,leading}$ [GeV]',
     'leading_pT':            r'$p_{T,leading}$ [GeV]',
     'leading_theta':         r'$\theta_{jet,leading}$',
     'leading_costheta':      r'$\cos\theta_{jet,leading}$',
     'leading_phi':           r'$\phi_{jet,leading}$',
 
+    'subleading_e':          r'$E_{jet,subleading}$ [GeV]',
     'subleading_p':          r'$p_{jet,subleading}$ [GeV]',
     'subleading_pT':         r'$p_{T,subleading}$ [GeV]',
     'subleading_theta':      r'$\theta_{jet,subleading}$',
@@ -388,34 +341,15 @@ vars_xlabel_qq = {
     'deltaR':                r'$\Delta R$',
 
     'zqq_m':                 r'$m_{jj}$ [GeV]',
+    'zqq_e':                 r'$E_{jj}$ [GeV]',
     'zqq_p':                 r'$p_{jj}$ [GeV]',
     'zqq_pT':                r'$p_{T,jj}$ [GeV]',
     'zqq_theta':             r'$\theta_{jj}$',
     'zqq_costheta':          r'$\cos\theta_{jj}$',
     'zqq_phi':               r'$\phi_{jj}$',
 
-    'W1_m':                  r'$m_{W1}$ [GeV]',
-    'W1_p':                  r'$p_{W1}$ [GeV]',
-    'W1_theta':              r'$\theta_{W1}$',
-    'W1_costheta':           r'$\cos\theta_{W1}$',
-
-    'W2_m':                  r'$m_{W2}$ [GeV]',
-    'W2_p':                  r'$p_{W2}$ [GeV]',
-    'W2_theta':              r'$\theta_{W2}$',
-    'W2_costheta':           r'$\cos\theta_{W2}$',
-
-    'Z1_m':                  r'$m_{W1}$ [GeV]',
-    'Z1_p':                  r'$p_{W1}$ [GeV]',
-    'Z1_theta':              r'$\theta_{W1}$',
-    'Z1_costheta':           r'$\cos\theta_{W1}$',
-
-    'Z2_m':                  r'$m_{W2}$ [GeV]',
-    'Z2_p':                  r'$p_{W2}$ [GeV]',
-    'Z2_theta':              r'$\theta_{W2}$',
-    'Z2_costheta':           r'$\cos\theta_{W2}$',
-
     'delta_mWW':             r'$\Delta m_{WW}$ [GeV]',
-    'delta_mZZ':             r'$\Delta m_{ZZ}$ [GeV]',
+    'delta_mWW4':            r'$\Delta m_{WW}$ (4 jets algo) [GeV]',
 
     'thrust':                r'$T$',
     'thrust_costheta':       r'$\cos\theta_{T}$',
@@ -433,12 +367,14 @@ vars_xlabel_qq = {
     'best_cluster_idx':      'Best clustering algorithm',
     'njets_inclusive':       'Number of jets (inclusive)',
     'njets_incl':            'Number of jets (inclusive)',
-    'njets':                 r'n_{jets}'
+    'njets':                 r'n_{jets}',
+
+    'H':                     r'$H$ [GeV]'
 }
 
 # LaTeX x-axis labels without units
-vars_label_ll = {k: v.replace(' [GeV]', '').replace(' [GeV$^{2}$]', '') for k, v in vars_xlabel_ll.items()}
-vars_label_qq = {k: v.replace(' [GeV]', '').replace(' [GeV$^{2}$]', '') for k, v in vars_xlabel_qq.items()}
+vars_label_ll = {k: v.replace(' [GeV]', '') for k, v in vars_xlabel_ll.items()}
+vars_label_qq = {k: v.replace(' [GeV]', '') for k, v in vars_xlabel_qq.items()}
 
 
 # LaTeX labels for analysis modes (physics processes)
@@ -489,40 +425,6 @@ process_label = {
 ### CONFIG FUNCTIONS ###
 ########################
 
-# _____________________________
-def warning(log_msg: str,
-            lenght: int = -1,
-            abort_msg: str = ''
-            ) -> None:
-    '''Log formatted error message and exit.
-
-    Displays an error message in a centered box and terminates execution.
-    Message box width is auto-calculated if not specified.
-
-    Args:
-        log_msg: Error message to display.
-        lenght: Box width. Auto-calculated if -1 (default).
-        abort_msg: Header text for error box (default: ' ERROR CODE ').
-    '''
-    if not abort_msg:
-        abort_msg = ' ERROR CODE '
-    # Auto-calculate box width if not specified
-    if lenght==-1:
-        if len(log_msg) < len(abort_msg) + 6:
-            lenght = len(abort_msg) + 6
-        else:
-            lenght = len(log_msg) + 6
-
-    # Format and raise exception
-    msg  = f'\n{abort_msg:=^{lenght}}\n'
-    msg += f'{log_msg:^{lenght}}\n'
-    sep  = '=' * lenght
-    msg += f'{sep:^{lenght}}\n'
-
-    LOGGER.error(msg)
-
-    sys.exit(1)
-
 # __________________
 def timer(t: float
           ) -> None:
@@ -564,105 +466,7 @@ def timer(t: float
 ### PROCESSES FUNCTION ###
 ##########################
 
-def _as_tuple(seq: Union[Sequence[str], None],
-              fallback: tuple[str, ...]
-              ) -> tuple[str, ...]:
-    '''Convert sequence to tuple or use fallback if None.
-
-    Helper for flexible parameter handling in process builders.
-
-    Args:
-        seq: Input sequence to convert, or None.
-        fallback: Default tuple if seq is None.
-
-    Returns:
-        Tuple from seq if provided, otherwise fallback tuple.
-    '''
-    return tuple(seq) if seq is not None else fallback
-
-def _build_processes(z_set: tuple[str, ...],
-                     h_set: tuple[str, ...],
-                     H_set: tuple[str, ...],
-                     q_set: tuple[str, ...],
-                     ecm: int) -> dict[str,
-                                       tuple[str, ...]]:
-    '''Build process dictionary from decay modes and center-of-mass energy.
-
-    Generates full FCC process names by combining decay modes with energy.
-    Uppercase keys (ZH, ZeeH, etc.) use h_set (no invisible).
-    Lowercase keys (zh, zeeh, etc.) use H_set (with invisible).
-
-    Args:
-        z_set: Z boson decay modes (bb, cc, ss, qq, ee, mumu, tautau, nunu).
-        h_set: Higgs decay modes without invisible (bb, cc, ss, gg, mumu, etc.).
-        H_set: Higgs decay modes with invisible (includes 'inv').
-        q_set: Quark channels (bb, cc, ss, qq).
-        ecm: Center-of-mass energy in GeV (240 or 365).
-
-    Returns:
-        Dictionary mapping process keys to tuples of FCC sample names.
-    '''
-    processes =  {
-        'ZH':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in h_set),
-        'ZeeH':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_set),
-        'ZmumuH': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_set),
-        'ZqqH':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in h_set),
-
-        # Lowercase variants include H -> Inv decay
-        'zh':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in H_set),
-        'zeeh':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in H_set),
-        'zmumuh': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in H_set),
-        'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in H_set),
-
-        'WW': (
-            f'p8_ee_WW_ee_ecm{ecm}',
-            f'p8_ee_WW_mumu_ecm{ecm}',
-            f'p8_ee_WW_ecm{ecm}',
-        ),
-        'ZZ': (f'p8_ee_ZZ_ecm{ecm}',),
-        'Zgamma': (
-            f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
-            f'wzp6_ee_mumu_ecm{ecm}',
-            f'wzp6_ee_tautau_ecm{ecm}',
-            f'p8_ee_Zqq_ecm{ecm}' if ecm==240 else f'wzp6_ee_qq_ecm{ecm}',
-        ),
-        'Rare': (
-            f'wzp6_gammae_eZ_Zee_ecm{ecm}',
-            f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',
-            f'wzp6_gammae_eZ_Zqq_ecm{ecm}',
-            f'wzp6_egamma_eZ_Zee_ecm{ecm}',
-            f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
-            f'wzp6_egamma_eZ_Zqq_ecm{ecm}',
-            f'wzp6_gaga_ee_60_ecm{ecm}',
-            f'wzp6_gaga_mumu_60_ecm{ecm}',
-            f'wzp6_gaga_tautau_60_ecm{ecm}',
-            f'wzp6_ee_nuenueZ_ecm{ecm}',
-        ),
-    }
-    if ecm == 365:
-        # processes['tt'] = ('p8_ee_tt_ecm365',)
-        processes['tt'] = ('wzp6_ee_WbWb_ecm365',)
-    return processes
-
-@lru_cache(maxsize=None)
-def _default_processes(ecm: int
-                       ) -> dict[str,
-                                 tuple[str, ...]]:
-    '''Generate process dictionary with standard decay modes (cached).
-
-    Uses default Z_DECAYS, H_DECAYS, H_DECAYS_WITH_INV, and QUARKS.
-    Results are cached by functools.lru_cache for performance.
-
-    Args:
-        ecm: Center-of-mass energy in GeV.
-
-    Returns:
-        Process dictionary with default decay modes.
-    '''
-    return _build_processes(Z_DECAYS, H_DECAYS, H_DECAYS_WITH_INV, QUARKS, ecm)
-
-# __________________________________________________
-def mk_processes(
+def get_process_dict(
         procs:    Union[Sequence[str], None] = None,
         z_decays: Union[Sequence[str], None] = None,
         h_decays: Union[Sequence[str], None] = None,
@@ -688,148 +492,54 @@ def mk_processes(
         Dictionary mapping process keys to tuples of FCC sample names.
 
     Examples:
-        >>> mk_processes()  # All processes, default decays, 240 GeV
-        >>> mk_processes(procs=['ZH', 'WW'], ecm=365)  # Filtered, 365 GeV
-        >>> mk_processes(h_decays=['bb', 'cc'])  # Custom Higgs decays
+        >>> get_process_dict()  # All processes, default decays, 240 GeV
+        >>> get_process_dict(procs=['ZH', 'WW'], ecm=365)  # Filtered, 365 GeV
+        >>> get_process_dict(h_decays=['bb', 'cc'])  # Custom Higgs decays
     '''
-    # Use cached defaults if all decay parameters are None
-    use_defaults = all(val is None for val in (z_decays, h_decays, H_decays, quarks))
-    if use_defaults:
-        processes = _default_processes(ecm)  # Cached for performance
-    else:
-        processes = _build_processes(
-            _as_tuple(z_decays, Z_DECAYS),
-            _as_tuple(h_decays, H_DECAYS),
-            _as_tuple(H_decays, H_DECAYS_WITH_INV),
-            _as_tuple(quarks, QUARKS),
-            ecm
-        )
+    z_set = Z_DECAYS          if z_decays is None else tuple(z_decays)
+    h_set = H_DECAYS          if h_decays is None else tuple(h_decays)
+    H_set = H_DECAYS_WITH_INV if H_decays is None else tuple(H_decays)
+    q_set = QUARKS            if quarks   is None else tuple(quarks)
 
-    # Filter to requested process keys if specified
-    if procs:
-        requested = tuple(procs)
-        return {proc: processes[proc] for proc in requested if proc in processes}
-    return processes
+    processes = {
+        # All signals for the Z and Higgs exclusive decay
+        'ZH':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in h_set),
 
+        # All signals for a specific Z decays and Higgs exclusive decay
+        'ZeeH':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_set),
+        'ZmumuH': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_set),
+        'ZqqH':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in h_set),
 
+        # All signals for the Z and Higgs exclusive decay (Include invisible decay)
+        'zh':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in H_set),
 
+        # All signals for a specific Z decays and Higgs exclusive decay (Include invisible decay)
+        'zeeh':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in H_set),
+        'zmumuh': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in H_set),
+        'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in H_set),
 
+        # Diboson production e+e- -> VV (V = W or Z)
+        'WW':     (f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ecm{ecm}'),
+        'ZZ':     (f'p8_ee_ZZ_ecm{ecm}',),
 
-def _get_training_signals(cat: str, ecm: int) -> list[str]:
-    '''Build training signal samples for specified category.
+        # 2 fermion production e+e- -> ff
+        'Zgamma': (f'wzp6_ee_ee_Mee_30_150_ecm{ecm}', f'wzp6_ee_mumu_ecm{ecm}',
+                   f'wzp6_ee_tautau_ecm{ecm}',        f'wzp6_ee_qq_ecm{ecm}'),
 
-    Returns category-specific signal processes for training mode.
-    For leptonic categories (ee, mumu), returns single mode samples.
-    For hadronic (qq), returns all quark flavors at 365 GeV and qqH at 240 GeV.
-
-    Args:
-        cat: Category ('ee', 'mumu', 'qq').
-        ecm: Center-of-mass energy in GeV (240 or 365).
-
-    Returns:
-        List of signal sample names for training.
-
-    Raises:
-        ValueError: If cat is not in ['ee', 'mumu', 'qq'] or ecm is unsupported.
-    '''
-    if cat in ['ee', 'mumu']:
-        return [f'wzp6_ee_{cat}H_ecm{ecm}']
-    if cat == 'qq':
-        return [f'wzp6_ee_{x}H_ecm{ecm}' for x in ['bb', 'cc', 'ss', 'qq']]
-    raise ValueError(f'{cat} is not a valid category. Use [ee, mumu, qq].')
-
-def _build_background_dict(cat: str, ecm: int, train: bool, batch: bool = False) -> dict[str, dict]:
-    '''Build category and mode-specific background process dictionary.
-
-    Constructs background processes with appropriate event chunk counts.
-    Training mode uses reduced backgrounds (category-specific only).
-    Non-training mode includes all lepton-pair and rare processes.
-    Chunk sizes scale with batch mode: larger chunks for batch processing.
-
-    Args:
-        cat: Category ('ee', 'mumu', 'qq').
-        ecm: Center-of-mass energy in GeV.
-        train: If True, use training-specific backgrounds (smaller sample).
-        batch: If True, use larger chunk sizes for batch processing.
-
-    Returns:
-        Dictionary mapping process names to {'frac': fraction, 'nb': chunks}.
-
-    Raises:
-        ValueError: If cat is unsupported.
-    '''
-
-    if train:
-        small  = 5  if batch else 1
-        middle = 5  if batch else 5
-        big    = 10 if batch else 10
-    else:
-        small  = 5  if batch else 1
-        middle = 20 if batch else 5
-        big    = 30 if batch else 10
-
-    # Common diboson processes
-    common: dict[str, dict[str, int]] = {}
-    common[f'p8_ee_ZZ_ecm{ecm}'] = {'frac': 0.25 if cat=='qq' else 1, 'nb': middle}
-    if not train or (cat == 'qq'):
-        if train:
-            common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 0.3 if (cat=='qq') and (ecm==240) else 1, 'nb': big}
-        else:
-            common[f'p8_ee_WW_ecm{ecm}'] = {'frac': 0.05 if cat=='qq' else 1, 'nb': big}
-
-    category_specific = {
-        'ee': {
-            f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1, 'nb': middle},
-            f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 1, 'nb': big},
-            f'wzp6_egamma_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
-            f'wzp6_gammae_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
-            f'wzp6_gaga_ee_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
-        },
-        'mumu': {
-            f'p8_ee_WW_mumu_ecm{ecm}':         {'frac': 1, 'nb': middle},
-            f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 1, 'nb': big},
-            f'wzp6_egamma_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
-            f'wzp6_gammae_eZ_Zmumu_ecm{ecm}':  {'frac': 1, 'nb': middle},
-            f'wzp6_gaga_mumu_60_ecm{ecm}':     {'frac': 1, 'nb': middle},
-        },
-        'qq': {
-            f'wzp6_ee_qq_ecm{ecm}':            {'frac': 0.5, 'nb': big},
-            f'wzp6_egamma_eZ_Zqq_ecm{ecm}':    {'frac': 1,   'nb': middle},
-            f'wzp6_gammae_eZ_Zqq_ecm{ecm}':    {'frac': 1,   'nb': middle},
-            # f'wzp6_gaga_qq_60_ecm{ecm}':       {'frac': 1, 'nb': middle},
-        },
+        # Rare processes: photon induced, diphoton and nunuZ processes
+        'Rare':   (f'wzp6_gammae_eZ_Zee_ecm{ecm}',    f'wzp6_egamma_eZ_Zee_ecm{ecm}',
+                   f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',  f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
+                   f'wzp6_gammae_eZ_Zqq_ecm{ecm}',    f'wzp6_egamma_eZ_Zqq_ecm{ecm}',
+                   f'wzp6_gaga_ee_60_ecm{ecm}',       f'wzp6_gaga_mumu_60_ecm{ecm}',
+                   f'wzp6_gaga_tautau_60_ecm{ecm}',   f'wzp6_ee_nuenueZ_ecm{ecm}'),
     }
-    # Special case: top production at 365 GeV for qq
     if ecm == 365:
-        category_specific['qq']['wzp6_ee_WbWb_ecm365'] = {'frac': 1, 'nb': small}
-        category_specific['qq']['p8_ee_tt_ecm365']     = {'frac': 1, 'nb': small}
+        # Include e+e- -> tt process for ecm = 365 GeV
+        processes['tt'] = ('wzp6_ee_WbWb_ecm365',)
 
-    # Training mode: category-specific backgrounds (reduced sample size)
-    if train:
-        return {**common, **category_specific.get(cat, {})}
-
-    # Non-training mode: comprehensive backgrounds (full sample)
-    # Lepton-pair backgrounds (ee, mumu, tautau channels)
-    nominal_bkgs = {
-        f'wzp6_ee_tautau_ecm{ecm}':         {'frac': 1, 'nb': small},
-        f'wzp6_gaga_tautau_60_ecm{ecm}':    {'frac': 1, 'nb': small},
-        f'wzp6_ee_nuenueZ_ecm{ecm}':        {'frac': 1, 'nb': small},
-    }
-
-    bkgs = {**common, **category_specific.get(cat, {}), **nominal_bkgs}
-    if cat in ['ee', 'mumu']:
-        return bkgs
-    elif cat == 'qq':
-        bkgs[f'p8_ee_WW_ee_ecm{ecm}']           = {'frac': 1,   'nb': middle}
-        bkgs[f'p8_ee_WW_mumu_ecm{ecm}']         = {'frac': 1,   'nb': middle}
-        bkgs[f'wzp6_ee_ee_Mee_30_150_ecm{ecm}'] = {'frac': 0.1, 'nb': big}
-        bkgs[f'wzp6_ee_mumu_ecm{ecm}']          = {'frac': 0.1, 'nb': big}
-        bkgs[f'p8_ee_Zqq_ecm{ecm}']             = {'frac': 0.1, 'nb': big}
-
-        bkgs[f'wzp6_ee_tautau_ecm{ecm}']['frac'] = 0.5
-        return bkgs
-
-    return common
+    if procs:
+        return {proc: processes[proc] for proc in procs if proc in processes}
+    return processes
 
 
 def get_process_list(
@@ -884,20 +594,62 @@ def get_process_list(
     if onlysig and onlybkg:
         raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
 
-    # Generate signal samples
     if train:
-        # Training mode: category-specific signal only
-        sigs = _get_training_signals(cat, ecm)
-        if cat in ['ee', 'mumu'] and all_train_sig:
-            sigs.extend([f'wzp6_ee_{cat}H_H{y}_ecm{ecm}' for y in h_decays if 'noInv' not in y])
-        elif cat == 'qq' and all_train_sig:
-            sigs.extend([f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays if 'noInv' not in y])
+        if cat in ['ee', 'mumu']:
+            sigs = [f'wzp6_ee_{cat}H_ecm{ecm}']
+            if all_train_sig:
+                sigs += [f'wzp6_ee_{cat}H_H{y}_ecm{ecm}' for y in h_decays if 'noInv' not in y]
+        elif cat == 'qq':
+            sigs = [f'wzp6_ee_{x}H_ecm{ecm}' for x in quarks]
+            if all_train_sig:
+                sigs += [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays if 'noInv' not in y]
+        else:
+            raise ValueError(f'{cat} is not a valid category. Use [ee, mumu, qq].')
     else:
-        # Non-training mode: all Z and Higgs decay combinations
         sigs = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
 
-    # Generate background samples
-    bkgs = _build_background_dict(cat, ecm, train, batch)
+    small, middle, big = ((5, 5, 10) if batch else (1, 5, 10)) if train \
+        else ((5, 20, 30) if batch else (1, 5, 10))
+    common = {f'p8_ee_ZZ_ecm{ecm}': {'frac': 0.25 if cat == 'qq' else 1, 'nb': middle}}
+    if not train or cat == 'qq':
+        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': (0.3 if ecm == 240 else 1) if train else (0.1 if cat == 'qq' else 1), 'nb': big}
+
+    category_specific: dict[str, dict[str, float | int]] = {
+        'ee': {
+            f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1, 'nb': middle},
+            f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            f'wzp6_gammae_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            f'wzp6_gaga_ee_60_ecm{ecm}':       {'frac': 1, 'nb': middle}},
+        'mumu': {
+            f'p8_ee_WW_mumu_ecm{ecm}':        {'frac': 1, 'nb': middle},
+            f'wzp6_ee_mumu_ecm{ecm}':         {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zmumu_ecm{ecm}': {'frac': 1, 'nb': middle},
+            f'wzp6_gammae_eZ_Zmumu_ecm{ecm}': {'frac': 1, 'nb': middle},
+            f'wzp6_gaga_mumu_60_ecm{ecm}':    {'frac': 1, 'nb': middle}},
+        'qq': {
+            f'wzp6_ee_qq_ecm{ecm}':         {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zqq_ecm{ecm}': {'frac': 1,   'nb': middle},
+            f'wzp6_gammae_eZ_Zqq_ecm{ecm}': {'frac': 1,   'nb': middle}},
+    }
+    if ecm == 365:
+        category_specific['qq'].update({
+            'wzp6_ee_WbWb_ecm365': {'frac': 1, 'nb': small},
+            'p8_ee_tt_ecm365':     {'frac': 1, 'nb': small}})
+
+    if train:
+        bkgs = {**common, **category_specific.get(cat, {})}
+    else:
+        bkgs = {**common, **category_specific.get(cat, {}),
+                f'wzp6_ee_tautau_ecm{ecm}':      {'frac': 1, 'nb': small},
+                f'wzp6_gaga_tautau_60_ecm{ecm}': {'frac': 1, 'nb': small},
+                f'wzp6_ee_nuenueZ_ecm{ecm}':     {'frac': 1, 'nb': small}}
+        if cat == 'qq':
+            bkgs.update({
+                f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1,   'nb': middle},
+                f'p8_ee_WW_mumu_ecm{ecm}':         {'frac': 1,   'nb': middle},
+                f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 0.1, 'nb': middle},
+                f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 0.1, 'nb': middle}})
 
     # Build signal dict with custom overrides
     process_sig = {
