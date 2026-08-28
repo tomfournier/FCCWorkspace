@@ -31,7 +31,8 @@ from .helper import setup_alias, cutflow
 ########################
 
 def lesp_properties(df: 'ROOT.ROOT.RDataFrame',
-                    ecm: int
+                    ecm: int,
+                    test: bool
                     ) -> 'ROOT.ROOT.RDataFrame':
     """Define baseline lepton collections and isolation selections.
 
@@ -60,7 +61,10 @@ def lesp_properties(df: 'ROOT.ROOT.RDataFrame',
         raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
 
     # Apply momentum cut (p > 20 GeV) to reduce soft backgrounds
-    df = df.Define('leps',     'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_fsr)')
+    if test:
+        df = df.Define('leps', 'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_all)')
+    else:
+        df = df.Define('leps', 'FCCAnalyses::ReconstructedParticle::sel_p(20)(leps_fsr)')
     df = df.Define('leps_q',   'FCCAnalyses::ReconstructedParticle::get_charge(leps)')
     df = df.Define('leps_no',  'FCCAnalyses::ReconstructedParticle::get_n(leps)')
     df = df.Define('leps_iso', 'FCCAnalyses::coneIsolation(0.01, 0.5)(leps, ReconstructedParticles)')
@@ -245,7 +249,7 @@ def training_ll(df: 'ROOT.ROOT.RDataFrame',
     """
 
     df = setup_alias(df, cat)
-    df = lesp_properties(df, ecm)
+    df = lesp_properties(df, ecm, test)
 
     ##########
     ### CUT 0: all events
@@ -332,7 +336,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
         df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
         df = df.Filter('!ww_leptonic')
 
-    df = lesp_properties(df, ecm)
+    df = lesp_properties(df, ecm, test)
 
     params.append(df.Histo1D(("leps_iso",     "leps_iso",  4000, 0, 20), "leps_iso"))
     params.append(df.Histo1D(("leps_iso_no",  "leps_iso_no", 20, 0, 20), "leps_iso_no"))
