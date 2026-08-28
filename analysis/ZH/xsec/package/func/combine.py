@@ -67,7 +67,10 @@ def datacard_txt(
 
     if mc_stats: dc_lines.append('* autoMCStats 1 1')
 
-    return '\n'.join(dc_lines) + '\n'
+    dc_txt = '\n'.join(dc_lines) + '\n'
+    LOGGER.info(dc_txt)
+
+    return dc_txt
 
 
 def datacard_root(
@@ -78,14 +81,16 @@ def datacard_root(
         bkg_procs: dict[str, list],
         systs_procs: dict[str, dict[str, Any]],
         rebin: int = 1,
-        intLumi: float | int = 1):
+        intLumi: float | int = 1,
+        scales: dict[str, float | int] = {},
+        only_asimov: bool = True):
 
     import ROOT
 
     hists, hists_asimov = [], {}
     proc_dict = sig_procs | bkg_procs
 
-    def get_hist(proc_list: list[str], name: str):
+    def get_hist(proc_list: list[str], name: str, scales: dict[str, float | int] = {}):
         if isinstance(proc_list, str):
             proc_list = [proc_list]
 
@@ -97,6 +102,9 @@ def datacard_root(
                     raise KeyError(f'Histogram {name!r} not found in {proc}.root')
                 hist = source.Clone()
                 hist.SetDirectory(0)
+            scale = scales.get(proc, 1)
+            if scale != 1:
+                hist.Scale(scale)
             if result is None:
                 result = hist
             else:
@@ -105,21 +113,26 @@ def datacard_root(
         if result is None:
             raise ValueError('A process list must contain at least one process')
         if intLumi != 1: result.Scale(intLumi)
-        if rebin != 1: result.Rebin(rebin)
+        if rebin   != 1: result.Rebin(rebin)
         return result
 
     for procName, procList in proc_dict.items():
         for i, cat in enumerate(categories):
-            hist = get_hist(procList, hNames[i])
+            if only_asimov:
+                hist        = get_hist(procList, hNames[i], {})
+                hist_asimov = get_hist(procList, hNames[i], scales)
+            else:
+                hist        = get_hist(procList, hNames[i], scales)
+                hist_asimov = hist.Clone()
+                hist_asimov.SetDirectory(0)
             hist.SetName(f'{cat}_{procName}')
             hists.append(hist)
 
             if cat not in hists_asimov:
-                hist_asimov = hist.Clone()
                 hist_asimov.SetName(f'{cat}_asimov')
-                hist_asimov.SetDirectory(0)
                 hists_asimov[cat] = hists_asimov
-            else: hists_asimov[cat].Add(hist)
+            else:
+                hists_asimov[cat].Add(hist)
 
     for systName, systDict in systs_procs.items():
         for direction in ['Up', 'Down']:
@@ -154,7 +167,7 @@ def datacard_root(
 
             for i, cat in enumerate(categories):
                 for proc, proc_sources in target_sources.items():
-                    variation = get_hist(proc_sources, hNames[i] + f'_{systName}{direction}')
+                    variation = get_hist(proc_sources, hNames[i] + f'_{systName}{direction}', scales)
                     hist = variation.Clone(f'{cat}_{proc}_{systName}{direction}')
                     hist.SetDirectory(0)
                     hists.append(hist)
@@ -176,5 +189,28 @@ def write_datacards(
     with ROOT.TFile(f'{outputDir}/datacard{suffix}.root', 'RECREATE') as fOut:
         for hist in hists + hists_asimov:
             fOut.Write(hist)
-
     return None
+
+def do_combine(
+        inputDir: str,
+        outputDir: str,
+        hNames: list[str],
+        categories: list[str],
+        sig_procs: dict[str, list],
+        bkg_procs: dict[str, list],
+        systs: dict[str, dict[str, Any]],
+        systs_procs: dict[str, dict[str, Any]],
+        rebin: int = 1,
+        intLumi: float | int = 1,
+        scales: dict[str, float | int] = {},
+        only_asimov: bool = True,
+        mc_stats: bool = False,
+        suffix: str = '',
+        col_w: int = 12
+         ):
+    dc_txt = datacard_txt(categories, sig_procs, bkg_procs, systs, suffix, mc_stats, col_w)
+    hists, hists_asimov = datacard_root(
+        inputDir, hNames, categories, sig_procs, bkg_procs, systs_procs,
+        rebin, intLumi, scales, only_asimov
+    )
+    write_datacards(outputDir, dc_txt, hists, hists_asimov, suffix)
