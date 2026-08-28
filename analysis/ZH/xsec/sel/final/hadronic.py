@@ -8,9 +8,9 @@ def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False) -> str:
         cut += ' && zqq_p > 20 && zqq_p < 160'
     else:
         raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
-    cut += ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cut += ' && acolinearity > 0.35'
-    cut += ' && delta_mWW > 6'
+    # cut += ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    # cut += ' && acolinearity > 0.35'
+    # cut += ' && delta_mWW > 6'
     if miss:
         cut += ' && cosTheta_miss < 0.995'
     if thrust and (ecm == 365):
@@ -35,6 +35,10 @@ custom_hists_qq = {
 histos_qq = {
 
     # Lepton kinematics: leading lepton
+    'leading_e':           {'name':'leading_E',
+                            'title':'E_{jet,leading} [GeV]',
+                            'bin':1000,'xmin':0,'xmax':250},
+
     'leading_p':           {'name':'leading_p',
                             'title':'p_{jet,leading} [GeV]',
                             'bin':1000,'xmin':0,'xmax':250},
@@ -52,6 +56,10 @@ histos_qq = {
                             'bin':1000,'xmin':-1,'xmax':1},
 
     # Lepton kinematics: subleading lepton
+    'subleading_e':        {'name':'subleading_e',
+                            'title':'E_{jet,subleading} [GeV]',
+                            'bin':800,'xmin':0,'xmax':200},
+
     'subleading_p':        {'name':'subleading_p',
                             'title':'p_{jet,subleading} [GeV]',
                             'bin':800,'xmin':0,'xmax':200},
@@ -90,6 +98,10 @@ histos_qq = {
                             'title':'m_{jj} [GeV]',
                             'bin':2000,'xmin':0,'xmax':200},
 
+    'zqq_e':               {'name':'zqq_e',
+                            'title':'E_{jj} [GeV]',
+                            'bin':2500,'xmin':0,'xmax':250},
+
     'zqq_p':               {'name':'zqq_p',
                             'title':'p_{jj} [GeV]',
                             'bin':2500,'xmin':0,'xmax':250},
@@ -110,6 +122,10 @@ histos_qq = {
     'zqq_recoil_m':        {'name':'zqq_recoil_m',
                             'title':'m_{recoil} [GeV]',
                             'bin':200,'xmin':100,'xmax':150},
+
+    'zqq_recoil_m_tot':    {'name':'zqq_recoil_m_tot',
+                            'title':'m_{recoil} [GeV]',
+                            'bin':1400,'xmin':0,'xmax':350},
 
     # Visible and invisible information
     'cosTheta_miss':       {'name':'cosTheta_miss',
@@ -137,83 +153,14 @@ histos_qq = {
                             'title':'cos(Thrust)',
                             'bin':1000,'xmin':-1,'xmax':1},
 
-
-    # WW pair variables (4 jets clustering): 1st W boson
-    'W1_m':                {'name':'W1_m',
-                            'title':'m_{W1} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
-
-    'W1_p':                {'name':'W1_p',
-                            'title':'p_{W1} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
-
-    'W1_theta':            {'name':'W1_theta',
-                            'title':'#theta_{W1}',
-                            'bin':128,'xmin':0,'xmax':3.2},
-
-    'W1_costheta':         {'name':'W1_costheta',
-                            'title':'cos#theta_{W1}',
-                            'bin':1000,'xmin':-1,'xmax':1},
-
-    # WW pair variables (4 jets clustering): 2nd W boson
-    'W2_m':                {'name':'W2_m',
-                            'title':'m_{W2} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
-
-    'W2_p':                {'name':'W2_p',
-                            'title':'p_{W2} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
-
-    'W2_theta':            {'name':'W2_theta',
-                            'title':'#theta_{W2}',
-                            'bin':128,'xmin':0,'xmax':3.2},
-
-    'W2_costheta':         {'name':'W2_costheta',
-                            'title':'cos#theta_{W2}',
-                            'bin':1000,'xmin':-1,'xmax':1},
-
-    # ZZ pair variables (4 jets clustering): 1st Z boson
-    # 'Z1_m':                {'name':'Z1_m',
-    #                         'title':'m_{Z1} [GeV]',
-    #                         'bin':2000,'xmin':0,'xmax':200},
-
-    # 'Z1_p':                {'name':'Z1_p',
-    #                         'title':'p_{Z1} [GeV]',
-    #                         'bin':2000,'xmin':0,'xmax':200},
-
-    # 'Z1_theta':            {'name':'Z1_theta',
-    #                         'title':'#theta_{Z1}',
-    #                         'bin':128,'xmin':0,'xmax':3.2},
-
-    # 'Z1_costheta':         {'name':'Z1_costheta',
-    #                         'title':'cos#theta_{Z1}',
-    #                         'bin':1000,'xmin':-1,'xmax':1},
-
-    # ZZ pair variables (4 jets clustering): 2nd Z boson
-    # 'Z2_m':                {'name':'Z2_m',
-    #                         'title':'m_{Z2} [GeV]',
-    #                         'bin':2000,'xmin':0,'xmax':200},
-
-    # 'Z2_p':                {'name':'Z2_p',
-    #                         'title':'p_{Z2} [GeV]',
-    #                         'bin':2000,'xmin':0,'xmax':200},
-
-    # 'Z2_theta':            {'name':'Z2_theta',
-    #                         'title':'#theta_{Z2}',
-    #                         'bin':128,'xmin':0,'xmax':3.2},
-
-    # 'Z2_costheta':         {'name':'Z2_costheta',
-    #                         'title':'cos#theta_{Z2}',
-    #                         'bin':1000,'xmin':-1,'xmax':1},
-
-    # Distance from WW or ZZ pair mass
+    # Distance from WW pair mass
     'delta_mWW':           {'name':'delta_mWW',
                             'title':'#Deltam_{WW} [GeV]',
                             'bin':2000,'xmin':0,'xmax':200},
 
-    # 'delta_mZZ':           {'name':'delta_mZZ',
-    #                         'title':'#Deltam_{ZZ} [GeV]',
-    #                         'bin':2000,'xmin':0,'xmax':200},
+    'delta_mWW4':          {'name':'delta_mWW4',
+                            'title':'#Deltam_{WW} (4 jets algo) [GeV]',
+                            'bin':2000,'xmin':0,'xmax':200},
 
     # Jet clustering variables
     'best_clustering_idx': {'name':'best_clustering_idx',
@@ -223,5 +170,10 @@ histos_qq = {
     'njets':               {'name':'njets',
                             'title':'Number of jets',
                             'bin':20,'xmin':0,'xmax':20},
+
+    # Higgstrahlungness
+    'H':                   {'name':'H',
+                            'title':'Higgsstrahlungness [GeV]',
+                            'bin':400,'xmin':0,'xmax':200}
 
 }

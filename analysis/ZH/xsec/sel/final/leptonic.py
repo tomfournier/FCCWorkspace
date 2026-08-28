@@ -25,6 +25,10 @@ custom_hists_ll = {
 histos_ll = {
 
     # Lepton kinematics: leading lepton
+    'leading_e':           {'name':'leading_e',
+                            'title':'E_{l,leading} [GeV]',
+                            'bin':1000,'xmin':0,'xmax':250},
+
     'leading_p':           {'name':'leading_p',
                             'title':'p_{l,leading} [GeV]',
                             'bin':1000,'xmin':0,'xmax':250},
@@ -38,6 +42,10 @@ histos_ll = {
                             'bin':128, 'xmin':0, 'xmax':3.2},
 
     # Lepton kinematics: subleading lepton
+    'subleading_e':        {'name':'subleading_e',
+                            'title':'E_{l,subleading} [GeV]',
+                            'bin':800,'xmin':0,'xmax':200},
+
     'subleading_p':        {'name':'subleading_p',
                             'title':'p_{l,subleading} [GeV]',
                             'bin':800,'xmin':0,'xmax':200},
@@ -72,6 +80,10 @@ histos_ll = {
                             'title':'m_{l^{+}l^{-}} [GeV]',
                             'bin':100,'xmin':86,'xmax':96},
 
+    'zll_e':               {'name':'zll_e',
+                            'title':'E_{l^{+}l^{-}} [GeV]',
+                            'bin':2500,'xmin':0,'xmax':250},
+
     'zll_p':               {'name':'zll_p',
                             'title':'p_{l^{+}l^{-}} [GeV]',
                             'bin':2500,'xmin':0,'xmax':250},
@@ -88,6 +100,10 @@ histos_ll = {
     'zll_recoil_m':        {'name':'zll_recoil_m',
                             'title':'m_{recoil} [GeV]',
                             'bin':200,'xmin':100,'xmax':150},
+
+    'zll_recoil_m_tot':    {'name':'zll_recoil_m_tot',
+                            'title':'m_{recoil} [GeV]',
+                            'bin':1400,'xmin':0,'xmax':350},
 
     # Visible and invisible information
     'cosTheta_miss':       {'name':'cosTheta_miss',
@@ -108,7 +124,12 @@ histos_ll = {
 
     # Higgsstrahlungness
     'H':                   {'name':'H',
-                            'title':'Higgsstrahlungness [GeV^{2}]',
-                            'bin':110,'xmin':0,'xmax':110},
+                            'title':'Higgsstrahlungness [GeV]',
+                            'bin':400,'xmin':0,'xmax':200},
+
+    # Leptons properties
+    'leps_iso_no':         {'name':'leps_iso_no',
+                            'title':'Number of isolated leptons',
+                            'bin':20,'xmin':0,'xmax':20}
 
 }
