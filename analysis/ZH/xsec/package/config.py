@@ -628,7 +628,7 @@ def get_process_list(
             f'wzp6_gammae_eZ_Zmumu_ecm{ecm}': {'frac': 1, 'nb': middle},
             f'wzp6_gaga_mumu_60_ecm{ecm}':    {'frac': 1, 'nb': middle}},
         'qq': {
-            f'wzp6_ee_qq_ecm{ecm}':         {'frac': 1, 'nb': big},
+            f'wzp6_ee_qq_ecm{ecm}':         {'frac': 1,   'nb': middle},
             f'wzp6_egamma_eZ_Zqq_ecm{ecm}': {'frac': 1,   'nb': middle},
             f'wzp6_gammae_eZ_Zqq_ecm{ecm}': {'frac': 1,   'nb': middle}},
     }
