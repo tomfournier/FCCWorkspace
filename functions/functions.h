@@ -648,7 +648,8 @@ inline Vec_rp resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil::operat
             reso.momentum.x = reso_lv.Px();
             reso.momentum.y = reso_lv.Py();
             reso.momentum.z = reso_lv.Pz();
-            reso.mass = reso_lv.M();
+            reso.mass   = reso_lv.M();
+            reso.energy = reso_lv.E();
             result.emplace_back(reso);
             pairs.push_back(pair);
 
@@ -659,7 +660,8 @@ inline Vec_rp resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil::operat
         dummy.momentum.x = 0;
         dummy.momentum.y = 0;
         dummy.momentum.z = 0;
-        dummy.mass = 0;
+        dummy.mass   = -1;
+        dummy.energy = -1;
         result.emplace_back(dummy);
         result.emplace_back(dummy);
         result.emplace_back(dummy);
@@ -683,15 +685,16 @@ inline Vec_rp resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil::operat
             recoil_fcc.momentum.x = recoil_p4.Px();
             recoil_fcc.momentum.y = recoil_p4.Py();
             recoil_fcc.momentum.z = recoil_p4.Pz();
-            recoil_fcc.mass = recoil_p4.M();
+            recoil_fcc.mass   = recoil_p4.M();
+            recoil_fcc.energy = recoil_p4.E();
 
             TLorentzVector tg;
             tg.SetXYZM(result.at(i).momentum.x, result.at(i).momentum.y, result.at(i).momentum.z, result.at(i).mass);
 
             // float boost = tg.P();
             float mass = std::pow(result.at(i).mass - m_resonance_mass, 2); // mass
-            float rec = std::pow(recoil_fcc.mass - m_recoil_mass, 2); // recoil
-            float d = (1.0-chi2_recoil_frac)*mass + chi2_recoil_frac*rec;
+            float rec  = std::pow(recoil_fcc.mass - m_recoil_mass, 2);          // recoil
+            float d    = (1.0-chi2_recoil_frac) * mass + chi2_recoil_frac * rec;     // chi2
 
             if(d < d_min) {
                 d_min = d;
@@ -711,7 +714,8 @@ inline Vec_rp resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil::operat
             dummy.momentum.x = 0;
             dummy.momentum.y = 0;
             dummy.momentum.z = 0;
-            dummy.mass = 0;
+            dummy.mass   = -1;
+            dummy.energy = -1;
             result.emplace_back(dummy);
             result.emplace_back(dummy);
             result.emplace_back(dummy);
