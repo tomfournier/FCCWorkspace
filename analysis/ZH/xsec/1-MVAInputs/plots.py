@@ -72,7 +72,7 @@ variables = sorted(histos_ll.keys()) if cat in ['ee', 'mumu'] else \
 # Keys: analysis identifier | Values: list of selection cut names to plot
 # Selection names must match those defined in final-selection.py
 selections: dict[str, list[str]] = {}
-selections['ZH'] = ['Baseline']
+selections['ZH'] = ['sel0', 'Baseline']
 if test: selections['ZH'].append('test')
 
 # Additional descriptive labels for each selection cut
@@ -88,7 +88,6 @@ extralabel['test']     = 'test'           # Test selection
 plots = {}
 plots['ZH'] = {
     'signal': {
-        # 'ZH': [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays],
         f'{cat}H': [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else
         [f'wzp6_ee_{x}H_ecm{ecm}' for x in quarks]
     },
@@ -98,15 +97,17 @@ plots['ZH'] = {
         'ZZ':         [f'p8_ee_ZZ_ecm{ecm}'],
         f'Z{cat}':    [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'
                        else f'wzp6_ee_{cat}_ecm{ecm}'],
-        # 'Rare':       [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
-        #                f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-        #                f'wzp6_gaga_{cat}_60_ecm{ecm}'],
         'eeZ':        [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
                        f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],
     }
 }
 if cat in ['ee', 'mumu']:
+    # plots['ZH']['signal']['ZH'] = [f'wzp6_ee_{cat}H_H{y}_ecm{ecm}' for y in h_decays]
     plots['ZH']['backgrounds'][f'gaga{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']
+# elif cat == 'qq':
+#     plots['ZH']['signal']['ZH'] = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays]
+# else:
+#     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
 
 
@@ -121,7 +122,6 @@ colors[f'Z{cat}']    = ROOT.kCyan       # Z+jets background: cyan
 colors['eeZ']        = ROOT.kSpring+10  # Radiative Z: spring color
 colors[f'WW{cat}']   = ROOT.kBlue+1     # WW with leptons: blue
 colors[f'gaga{cat}'] = ROOT.kBlue-8     # Diphoton: dark blue
-colors['Rare']       = ROOT.kBlue-8     # Rare processes: dark blue
 
 # LaTeX legend labels for ROOT plots
 # Maps process names to formatted particle physics notation
@@ -147,5 +147,3 @@ legend['eeZ']      = 'e^{+}(e^{-})#gamma'
 legend['gagamumu'] = '#gamma#gamma#rightarrow#mu^{+}#mu^{-}'
 legend['gagaee']   = '#gamma#gamma#rightarrow e^{+}e^{-}'
 legend['gagaqq']   = '#gamma#gamma#rightarrow q#bar{q}'
-
-legend['Rare']     = 'Rare'
