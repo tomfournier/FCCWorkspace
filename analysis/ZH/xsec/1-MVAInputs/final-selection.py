@@ -57,16 +57,16 @@ processList = get_process_list(cat, ecm, train=True).keys()
 # Selection cuts dictionary for ROOT filtering
 # Keys: selection names appearing in output file names and histograms
 cutList: dict[str, str] = {}
-# cutList['sel0'] = 'return true;'  # No cuts
+if not test: cutList['sel0'] = 'return true;'  # No cuts
 if cat in ['ee', 'mumu']:
     if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
     else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
-    if test: cutList['test']     = Baseline_cut_qq(ecm, True, True)   # Test selection (hadronic channel)
-    else:    cutList['Baseline'] = Baseline_cut_qq(ecm, True, True)   # Baseline selection (hadronic channel)
+    if test: cutList['test']     = Baseline_cut_qq(ecm, False, False)   # Test selection (hadronic channel)
+    else:    cutList['Baseline'] = Baseline_cut_qq(ecm, False, False)   # Baseline selection (hadronic channel)
 doTree = False if 'sel0' in cutList else doTree  # Do not write TTree if sel0 is in cutList
 
-
+# Have to redo the final-selection
 
 #################################
 ### DEFINE HISTOGRAM SETTINGS ###

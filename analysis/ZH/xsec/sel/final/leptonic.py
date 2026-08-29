@@ -2,7 +2,7 @@ def Baseline_cut_ll(ecm: int) -> str:
     cut = 'zll_m > 86 && zll_m < 96'
 
     if ecm == 240:
-        cut += ' && zll_p > 20 && zqq_p < 70'
+        cut += ' && zll_p > 20 && zll_p < 70'
     elif ecm == 365:
         cut += ' && zll_p > 50 && zll_p < 150'
         cut += ' && zll_recoil_m > 100 && zll_recoil_m < 150'
@@ -101,7 +101,7 @@ histos_ll = {
                             'title':'m_{recoil} [GeV]',
                             'bin':200,'xmin':100,'xmax':150},
 
-    'zll_recoil_m_tot':    {'name':'zll_recoil_m_tot',
+    'zll_recoil_m_tot':    {'name':'zll_recoil_m',
                             'title':'m_{recoil} [GeV]',
                             'bin':1400,'xmin':0,'xmax':350},
 

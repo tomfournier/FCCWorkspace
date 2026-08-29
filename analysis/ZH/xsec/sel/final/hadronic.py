@@ -35,7 +35,7 @@ custom_hists_qq = {
 histos_qq = {
 
     # Lepton kinematics: leading lepton
-    'leading_e':           {'name':'leading_E',
+    'leading_e':           {'name':'leading_e',
                             'title':'E_{jet,leading} [GeV]',
                             'bin':1000,'xmin':0,'xmax':250},
 
@@ -123,7 +123,7 @@ histos_qq = {
                             'title':'m_{recoil} [GeV]',
                             'bin':200,'xmin':100,'xmax':150},
 
-    'zqq_recoil_m_tot':    {'name':'zqq_recoil_m_tot',
+    'zqq_recoil_m_tot':    {'name':'zqq_recoil_m',
                             'title':'m_{recoil} [GeV]',
                             'bin':1400,'xmin':0,'xmax':350},
 
