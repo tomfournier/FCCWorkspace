@@ -57,7 +57,7 @@ processList = get_process_list(cat, ecm, train=True).keys()
 # Selection cuts dictionary for ROOT filtering
 # Keys: selection names appearing in output file names and histograms
 cutList: dict[str, str] = {}
-if not test: cutList['sel0'] = 'return true;'  # No cuts
+# if not test: cutList['sel0'] = 'return true;'  # No cuts
 if cat in ['ee', 'mumu']:
     if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
     else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
