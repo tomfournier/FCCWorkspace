@@ -174,7 +174,6 @@ def additional_info(
     df['xsec'], df['eff'], df['n'] = xsec[proc], eff[proc], df.shape[0]
 
     df['norm_weight'] = xsec[proc] / df.shape[0]
-    df['norm_train']  = xsec[proc] / df.shape[0]
     return df
 
 # __________________________
@@ -186,6 +185,7 @@ def BDT_input_numbers(
     xsec: dict[str, float],
     frac: dict[str, float],
     all_inputs: bool = False,
+    n_max: int = 1e6,
     scale_with_sig: bool = False
      ) -> dict[str, int]:
     '''Calculate number of events to use for BDT training per process.
@@ -205,8 +205,8 @@ def BDT_input_numbers(
     '''
     N_BDT_inputs: dict[str, int] = {}
     if all_inputs:
-        LOGGER.info('Take all the events in the dataframes for training')
-        return {m: int(df[m].shape[0] * frac[m]) for m in modes}
+        LOGGER.info(f'Take all the events in the dataframes for training ({n_max = :,.0f})')
+        return {m: int(df[m].shape[0] * frac[m]) if int(df[m].shape[0] * frac[m])<=n_max else int(n_max) for m in modes}
 
     # Total background cross-section weighted by efficiency
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in modes if mode != sig)
@@ -347,9 +347,6 @@ def sample_df_by_xsec(
 def df_split_data(
     df: 'pd.DataFrame',
     N_BDT_inputs: dict[str, int],
-    eff: dict[str, float],
-    xsec: dict[str, float],
-    N_events: dict[str, int],
     mode: str,
     lumi: float = 10.8,
     test_size: float = 0.5
@@ -386,10 +383,6 @@ def df_split_data(
     valid_idx  = np.random.default_rng(7).choice(sampled.index.to_numpy(), size=valid_size, replace=False)
     valid_mask = sampled.index.isin(valid_idx)
 
-    # Normalization weight per event
-    # sampled.loc[:, 'norm_weight'] = xsec[mode] / N_events[mode]
-    # sampled.loc[:, 'norm_train']  = xsec[mode] / N_events[mode]
-
     # Mark validation set
     sampled.loc[:, 'valid']          = False  # Training set
     sampled.loc[valid_mask, 'valid'] = True   # Validation set
@@ -399,6 +392,7 @@ def df_split_data(
     n_valid = int(valid_mask.sum())
     n_train = sampled.shape[0] - n_valid
 
+    # Normalization weight per event
     sampled.loc[~valid_mask, 'train_weights'] = coeff[~valid_mask] / n_train if n_train > 0 else 0.0
     sampled.loc[valid_mask,  'train_weights'] = coeff[valid_mask]  / n_valid if n_valid > 0 else 0.0
 
@@ -406,6 +400,95 @@ def df_split_data(
     sampled.loc[valid_mask,  'weights'] = coeff[valid_mask]  / n_valid if n_valid > 0 else 0.0
 
     return sampled
+
+# _______________________________________________
+def apply_balanced_training_weights(
+    df: dict[str, 'pd.DataFrame'],
+    modes: dict[str, list[str]],
+    sig: str,
+    lumi: float,
+     ) -> list[str]:
+    '''Apply a simple, class-balanced training weight scheme.
+
+    The physical ``weights`` column is kept unchanged for plotting and physics interpretation.
+    The training-only ``train_weights`` column is rebalanced in three steps:
+
+    1. For each mode, make all events in that mode share the same training weight.
+    2. For the signal mode, make all signal subprocesses share the same training weight.
+    3. Rescale the total signal training weight to match the total background training weight.
+
+    This preserves the total mode contribution while making the training sample class-balanced.
+    '''
+    good_modes: list[str] = []
+    mode_weights: dict[str, float] = {}
+
+    length = max(len(m) for m in modes) + 2
+    for mode in modes:
+        mode_df = df.get(mode)
+        if mode_df is None or mode_df.empty:
+            continue
+
+        # Keep the original physics weight for plotting; only build the training weight here.
+        mode_total_weight = float(mode_df['weights'].sum())
+        n_mode = int(mode_df.shape[0])
+        if n_mode > 0:
+            mode_weight = mode_total_weight / n_mode
+            mode_df.loc[:, 'train_weights'] = mode_weight
+            mode_weights[mode] = float(mode_df['train_weights'].sum())
+
+        if mode == sig:
+            sig_procs = modes[sig]
+            sig_mask = mode_df['proc'].isin(sig_procs)
+            n_sig = int(sig_mask.sum())
+            if n_sig > 0:
+                sig_total_weight = float(mode_df.loc[sig_mask, 'weights'].sum())
+                sig_weight = sig_total_weight / n_sig
+                for proc in sig_procs:
+                    proc_mask = mode_df['proc'].eq(proc)
+                    if not proc_mask.any():
+                        LOGGER.warning(f'No selected events for signal process {proc}; skipping equal-weight assignment')
+                        continue
+                    mode_df.loc[proc_mask, 'train_weights'] = sig_weight
+
+                mode_weights[mode] = float(mode_df.loc[sig_mask, 'train_weights'].sum())
+                proc_weights = ', '.join(
+                    f'{proc}: {float(mode_df.loc[mode_df["proc"].eq(proc), "train_weights"].sum()):,.4f}'
+                    for proc in sig_procs
+                )
+                LOGGER.debug(
+                    f'Signal mode {mode}: total train weight = {sig_total_weight:,.0f}, '
+                    f'per-event weight = {sig_weight:.4f}, '
+                    f'proc weights = [{proc_weights}]'
+                )
+
+        if n_mode > 0:
+            train_total = float(mode_df['train_weights'].sum())
+            LOGGER.debug(
+                f'Mode {mode:<{length}}: total train weight = {train_total:<15,.0f}'
+                f'average train weight = {train_total / n_mode:.4f}'
+            )
+
+        good_modes.append(mode)
+
+    if sig not in mode_weights:
+        return good_modes
+
+    sig_total = mode_weights[sig]
+    bkg_total = sum(mode_weights[m] for m in mode_weights if m != sig)
+    if bkg_total <= 0 or sig_total <= 0:
+        return good_modes
+
+    scale = bkg_total / sig_total
+    signal_df = df.get(sig)
+    if signal_df is None or signal_df.empty:
+        return good_modes
+
+    signal_df.loc[:, 'train_weights'] *= scale
+    LOGGER.info(
+        f'Rescaled signal training weights by {scale:,.4f} to enforce W_sig = W_bkg '
+        f'({sig_total:,.2f} -> {sig_total * scale:,.2f})'
+    )
+    return good_modes
 
 # ______________________
 def print_stats(
@@ -493,9 +576,11 @@ def train_model(
 
     bdt = xgb.XGBClassifier(**config)
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
+    sample_weight_eval_set = None if train_weight is None or valid_weight is None else [train_weight, valid_weight]
     LOGGER.info('Beginning the training')
     bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True,
-            sample_weight_eval_set=[train_weight, valid_weight])
+            sample_weight=train_weight,
+            sample_weight_eval_set=sample_weight_eval_set)
     return bdt
 
 # ____________________________

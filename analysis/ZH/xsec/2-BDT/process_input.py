@@ -61,7 +61,8 @@ from package.func.bdt import (
     additional_info,            # Add signal/background labels and weights
     BDT_input_numbers,          # Determine optimal training set sizes
     sample_df_by_xsec,          # Sample process dataframes in proportion to cross-sections
-    df_split_data               # Split data into training/validation sets
+    df_split_data,              # Split data into training/validation sets
+    apply_balanced_training_weights
 )
 
 LOGGER.debug('Modules loaded')
@@ -85,7 +86,7 @@ else:
 
 # Process modes for BDT training (signal and all major background processes)
 modes = {
-    f'Z{cat}H':      [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else             # Signal: ZH production
+    f'Z{cat}H':      [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else    # Signal: ZH production
                      [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays],
     'ZZ':            [f'p8_ee_ZZ_ecm{ecm}'],                             # Background: diboson ZZ
     f'Z{cat}':       [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'     # Background: Z+jets
@@ -151,7 +152,8 @@ def run(
     # Set uniform reweighting fraction for all processes
     # (can be adjusted to emphasize specific backgrounds)
     frac = {mode: 1.0 if mode==sig else 1.0 for mode in modes}
-    frac[sig] = 1/8
+    frac[sig] = 1/8 if cat=='qq' else 1.0
+    if cat == 'qq': frac[f'Z{cat}'] = 1/10
 
     for sel in sels:
         # Output directory for preprocessed pickle files
@@ -205,31 +207,16 @@ def run(
 
         LOGGER.debug('Printing BDT inputs number for the different modes')
         # Split data into training (50%) and validation (50%) sets per process
-        good_modes = []
         for mode in modes:
             LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}')
             if df[mode].shape[0] == 0:
                 continue
             df[mode] = df_split_data(
                 df[mode], N_BDT_inputs,
-                eff, xsec, N_events, mode,
-                lumi, 0.5
+                mode, lumi, 0.5
             )
-            if mode == sig:
-                sig_procs = modes[sig]
-                bkg_norm = sum(eff[bkg_mode] * xsec[bkg_mode] for bkg_mode in modes if bkg_mode != sig)
-                if bkg_norm > 0 and sig_procs:
-                    proc_norm   = bkg_norm / len(sig_procs)
-                    proc_weight = proc_norm * lumi * 1e6
-                    for proc in sig_procs:
-                        proc_mask = df[mode]['proc'] == proc
-                        n_proc = int(proc_mask.sum())
-                        if n_proc == 0:
-                            LOGGER.warning(f'No selected events for signal process {proc}; skipping equal-weight assignment')
-                            continue
-                        df[mode].loc[proc_mask, 'norm_weight'] = proc_norm   / n_proc
-                        df[mode].loc[proc_mask, 'weights']     = proc_weight / n_proc
-            good_modes.append(mode)
+
+        good_modes = apply_balanced_training_weights(df, modes, sig, lumi)
 
         # Merge all processes and save to single pickle file for BDT training
         dfsum = pd.concat([df[mode] for mode in good_modes])

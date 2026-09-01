@@ -177,8 +177,8 @@ def plot_metrics(df: 'pd.DataFrame',
         # Generate feature and performance analysis plots
         # These show which variables are most important and signal purity
         importance(bdt, vars, vars_label, label, outDir, format=plot_file)
-        significance(df, label, outDir, inBDT, format=plot_file, weight='train_weights', suffix='_weights')
-        significance(df, label, outDir, inBDT, format=plot_file, weight='norm_train', suffix='_norm_weight')
+        significance(df, label, outDir, inBDT, format=plot_file, weight='weights', suffix='_weights')
+        significance(df, label, outDir, inBDT, format=plot_file, weight='norm_weight', suffix='_norm_weight')
         efficiency(df, modes, modes_label, modes_color, label, outDir, incr=1e-3, format=plot_file)
 
     if arg.tree:
@@ -205,7 +205,7 @@ def plot_metrics(df: 'pd.DataFrame',
         import numpy as np
         from package.plots.eval import hist_check
         LOGGER.info('Plotting histograms for input variables in high/low BDT score regions')
-        bdt_cut = np.loadtxt(f'{inBDT}/BDT_cut.txt')
+        bdt_cut = np.loadtxt(f'{inBDT}/BDT_cut_weights.txt')
         df_high = df.query(f'BDTscore > {bdt_cut}')  # Signal-enriched region
         df_low  = df.query(f'BDTscore < {bdt_cut}')  # Background-enriched region
         for var in vars:

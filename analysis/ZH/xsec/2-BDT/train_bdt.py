@@ -88,12 +88,12 @@ configs = {
     },
     'had': {
         'objective': 'binary:logistic',                # Learning task and the corresponding learning objective to be used
-        'eval_metric': ['error', 'logloss', 'auc'],    # Metrics to use for monitoring the training
         'n_estimators': 350,                           # Number of boosting round (tree to grow)
         'max_depth': 5,                                # Maximum tree depth
-        'colsample_bytree': 0.5,
-        'subsample': 0.5,
+        'subsample': 0.5,                              # Subsample ratio of training instances per tree
+        'colsample_bytree': 0.5,                       # Subsample ratio of columns when building each tree
         'early_stopping_rounds': 25,                   # Validation metric need to improve at least once every early stopping round
+        'eval_metric': ['error', 'logloss', 'auc'],    # Metrics to use for monitoring the training
         'tree_method': 'hist',                         # Fast histogram-based tree builder
         'n_jobs': -1,                                  # Use all available CPU cores
         'max_bin': 256,                                # Histogram bins for the fast tree builder
