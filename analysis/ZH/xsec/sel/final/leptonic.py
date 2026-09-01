@@ -60,7 +60,7 @@ histos_ll = {
 
     # Angular separation between leptons
     'acolinearity':        {'name':'acolinearity',
-                            'title':'#Delta#alpha_{l^{+}l^{-}}',
+                            'title':'#pi-#Delta#alpha_{l^{+}l^{-}}',
                             'bin':256,'xmin':0,'xmax':3.2},
 
     'acopolarity':         {'name':'acopolarity',
@@ -125,7 +125,7 @@ histos_ll = {
     # Higgsstrahlungness
     'H':                   {'name':'H',
                             'title':'Higgsstrahlungness [GeV]',
-                            'bin':400,'xmin':0,'xmax':200},
+                            'bin':800,'xmin':0,'xmax':200},
 
     # Leptons properties
     'leps_iso_no':         {'name':'leps_iso_no',

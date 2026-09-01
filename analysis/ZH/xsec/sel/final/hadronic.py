@@ -78,7 +78,7 @@ histos_qq = {
 
     # Angular separation between leptons
     'acolinearity':        {'name':'acolinearity',
-                            'title':'#Delta#alpha_{jj}',
+                            'title':'#pi-#Delta#alpha_{jj}',
                             'bin':256,'xmin':0,'xmax':3.2},
 
     'acopolarity':         {'name':'acopolarity',
