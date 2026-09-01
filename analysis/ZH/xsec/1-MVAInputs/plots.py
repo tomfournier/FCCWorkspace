@@ -43,8 +43,8 @@ stacksig       = ['nostack']    # Signal display mode (nostack = overlaid)
 formats        = plot_file      # Output file formats (e.g., png, pdf)
 
 # Scale factors for signal and background (for visual comparison)
-scaleSig       = 1.   # Signal scale     (1.0 = no scaling)
-scaleBkg       = 1.   # Background scale (1.0 = no scaling)
+scaleSig       = 50. if cat=='qq' else 1.   # Signal scale     (1.0 = no scaling)
+scaleBkg       = 1.                         # Background scale (1.0 = no scaling)
 
 # Plot appearance settings
 strictRange    = True      # Use strict axis ranges from histogram definitions
