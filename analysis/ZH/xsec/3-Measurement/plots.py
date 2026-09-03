@@ -68,23 +68,6 @@ if arg.sels=='': sels = ['Baseline']
 else:            sels = arg.sels.split('-')
 if arg.hl: sels = high_low_sels(sels, arg.hlsel.split('-'))
 
-
-# Define physics processes
-procs_bkg = ['WW', 'ZZ', 'Zgamma', 'Rare']
-if ecm == 365: procs_bkg.append('tt')
-processes = get_process_dict(
-    procs=[
-        'ZH', 'ZeeH', 'ZmumuH', 'ZqqH'
-    ] + procs_bkg,
-    ecm=ecm
-)
-
-# Define signal and background samples for AAAyields
-plots_tot = {
-    'signal':      {proc: processes[proc] for proc in ['ZH']},
-    'backgrounds': {proc: processes[proc] for proc in procs_bkg}
-}
-
 # Custom plot arguments for specific variables
 args = {
     'cosTheta_miss': {'xmin': 0.9},
@@ -104,21 +87,36 @@ args = {
 def run(
         cats: str,
         sels: list[str],
-        processes: dict[str, list[str]],
+        # processes: dict[str, list[str]],
         colors: dict[str, list],
         legend: dict[str, list[str]]
          ) -> None:
     '''Generate distribution plots for all channels, selections, and variables.'''
     # Define process names for all Z decays (signal must be first)
-    procs_tot = ['ZH'] + procs_bkg
     for cat in cats:
+        # Define physics processes
+        procs_bkg = ['WW', 'ZZ', 'Zgamma', 'Rare']
+        if (cat == 'qq') and (ecm == 365): procs_bkg.append('tt')
+        procs_tot = ['ZH'] + procs_bkg
+        processes = get_process_dict(
+            procs=[
+                'ZH', 'ZeeH', 'ZmumuH', 'ZqqH'
+            ] + procs_bkg,
+            ecm=ecm
+        )
+
+        # Define signal and background samples for AAAyields
+        plots_tot = {
+            'signal':      {proc: processes[proc] for proc in ['ZH']},
+            'backgrounds': {proc: processes[proc] for proc in procs_bkg}
+        }
         LOGGER.info(f'Making plots for {cat} channel')
         # Define process names for specific channel (signal must be first)
         procs = [f'Z{cat}H'] + procs_bkg
         if cat in ['ee', 'mumu']:
-            vars = list(histos_ll) + list(custom_hists_ll)
+            vars = list(histos_ll) + list(h['name'] for h in custom_hists_ll.values())
         elif cat == 'qq':
-            vars = [v for v in histos_qq if ('m_recoil_m' not in v)] + list(custom_hists_qq)
+            vars = [v for v in histos_qq if ('m_recoil_m' not in v)] + list(h['name'] for h in custom_hists_qq.values())
         vars.append('BDTscore')
 
         vars_label  = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq
@@ -201,7 +199,7 @@ def run(
 if __name__=='__main__':
     # Run plotting for all categories, selections and variables
     try:
-        run(cats, sels, processes, colors, labels)
+        run(cats, sels, colors, labels)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

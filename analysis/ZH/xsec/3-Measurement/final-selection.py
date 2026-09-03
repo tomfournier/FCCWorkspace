@@ -81,37 +81,40 @@ cutList: dict[str, str] = {}
 if not test: cutList['sel0'] = 'return true;'
 if cat in ['ee', 'mumu']:
     Baseline = Baseline_cut_ll(ecm)
-    cutList['Baseline']      = Baseline
-    cutList['Baseline_miss'] = Baseline + ' && cosTheta_miss < 0.98'
-    if ecm == 240:
-        cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 100'
-        cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 100'
-        cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 100) || (visibleEnergy < 100 && cosTheta_miss < 0.99))'
-    elif ecm == 365:
-        cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 171'
-        cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
-        cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
+    if test:
+        cutList['test'] = Baseline
+    else:
+        cutList['Baseline']      = Baseline
+        cutList['Baseline_miss'] = Baseline + ' && cosTheta_miss < 0.98'
+        if ecm == 240:
+            cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 100'
+            cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 100'
+            cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 100) || (visibleEnergy < 100 && cosTheta_miss < 0.99))'
+        elif ecm == 365:
+            cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 171'
+            cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
+            cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
     Baseline      = Baseline_cut_qq(ecm, False, True)
-    Baseline_miss = Baseline_cut_qq(ecm, True,  True)
+    Baseline_miss = Baseline_cut_qq(ecm, True,  False)
     if test:
-        cutList['test'] = Baseline_cut_qq(ecm, True, True)
+        cutList['test'] = Baseline_cut_qq(ecm, True, False)
     else:
         cutList['Baseline']      = Baseline
         cutList['Baseline_miss'] = Baseline_miss
         if ecm == 240:
-            cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 100) || (visibleEnergy < 100 && cosTheta_miss < 0.995))'
-            cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 100'
-            cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 100'
+            cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 120) || (visibleEnergy < 120 && cosTheta_miss < 0.995))'
+            cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 120'
+            cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 120'
         elif ecm == 365:
-            cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.995))'
-            cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 171'
-            cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
+            cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 175) || (visibleEnergy < 175 && cosTheta_miss < 0.995))'
+            cutList['Baseline_vis'] = Baseline + ' && visibleEnergy > 175'
+            cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 175'
 else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
 # List of selections to split into high/low BDT score regions
-sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']
+sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'Baseline_vis', 'Baseline_inv', 'test']
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
 
@@ -134,4 +137,11 @@ if cat == 'qq':
                                             'bins':[(50, 100, 150), (100, 40, 140), (1, bdt_cut, 1)]}
     histoList['zqq_m_recoil_m_mva_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
                                            'bins':[(50, 100, 150), (100, 40, 140), (1, 0, bdt_cut)]}
-    histoList['WW_m'] = {'cols':['W1_m', 'W2_m'], 'bins':[(200, 0, 200), (200, 0, 200)]}
+    histoList['zqq_m_recoil_m_tot_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
+                                                'bins':[(150, 50, 200), (100, 40, 140), (1, bdt_cut, 1)]}
+    histoList['zqq_m_recoil_m_tot_mva_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
+                                               'bins':[(150, 50, 200), (100, 40, 140), (1, 0, bdt_cut)]}
+    histoList['zqq_m_recoil_m_full_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
+                                                 'bins':[(350, 0, 350), (180, 20, 200), (1, bdt_cut, 1)]}
+    histoList['zqq_m_recoil_m_full_mva_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
+                                                'bins':[(350, 0, 350), (180, 20, 200), (1, 0, bdt_cut)]}

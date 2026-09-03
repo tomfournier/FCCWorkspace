@@ -2,7 +2,7 @@
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
 ###########################################################
 
-import os, sys
+import os, re, sys
 
 # Add parent directory to path so package and sel modules are found
 # This is necessary for HTCondor batch jobs to find local modules
@@ -79,10 +79,20 @@ processList = get_process_list(cat, ecm, batch=runBatch)
 class RDFgraph():
     '''RDataFrame analysis class for pre-selection stage.'''
 
+    @staticmethod
+    def dataset_name(dataset):
+        '''Recover the process name for direct-file batch jobs.'''
+        if dataset:
+            return dataset
+
+        match = re.fullmatch(r'job_(.+)_chunk_\d+', os.path.basename(os.getcwd()))
+        return match.group(1) if match else dataset
+
     # _________________________________________________________________
     # Mandatory: analysers function to define the analysers to process
     def analysers(df, dataset):
         '''Apply analysis graph construction to the dataframe.'''
+        dataset = RDFgraph.dataset_name(dataset)
         if cat in ['ee', 'mumu']:
             df, params = presel_ll(df, cat, ecm, dataset, test)
         elif cat == 'qq':
