@@ -68,7 +68,7 @@ def datacard_txt(
     if mc_stats: dc_lines.append('* autoMCStats 1 1')
 
     dc_txt = '\n'.join(dc_lines) + '\n'
-    LOGGER.info(dc_txt)
+    LOGGER.info('\n'+dc_txt)
 
     return dc_txt
 
@@ -83,9 +83,9 @@ def datacard_root(
         rebin: int = 1,
         intLumi: float | int = 1,
         scales: dict[str, float | int] = {},
-        only_asimov: bool = True):
+        only_asimov: bool = False):
 
-    import ROOT
+    import os, ROOT
 
     hists, hists_asimov = [], {}
     proc_dict = sig_procs | bkg_procs
@@ -96,6 +96,8 @@ def datacard_root(
 
         result = None
         for proc in proc_list:
+            if not os.path.exists(f'{inputDir}/{proc}.root'):
+                continue
             with ROOT.TFile(f'{inputDir}/{proc}.root', 'READ') as fIn:
                 source = fIn.Get(name)
                 if source is None:
@@ -130,7 +132,7 @@ def datacard_root(
 
             if cat not in hists_asimov:
                 hist_asimov.SetName(f'{cat}_asimov')
-                hists_asimov[cat] = hists_asimov
+                hists_asimov[cat] = hist_asimov
             else:
                 hists_asimov[cat].Add(hist)
 
@@ -179,16 +181,18 @@ def write_datacards(
         outputDir: str,
         dc_txt: str,
         hists: list,
-        hists_asimov: list,
+        hists_asimov: dict[str, Any],
         suffix: str = ''):
-    import ROOT
+    import os, ROOT
+
+    if not os.path.exists(outputDir): os.makedirs(outputDir)
 
     with open(f'{outputDir}/datacard{suffix}.txt', 'w') as fOut:
         fOut.write(dc_txt)
 
     with ROOT.TFile(f'{outputDir}/datacard{suffix}.root', 'RECREATE') as fOut:
-        for hist in hists + hists_asimov:
-            fOut.Write(hist)
+        for hist in hists + list(hists_asimov.values()):
+            hist.Write()
     return None
 
 def do_combine(
@@ -214,3 +218,5 @@ def do_combine(
         rebin, intLumi, scales, only_asimov
     )
     write_datacards(outputDir, dc_txt, hists, hists_asimov, suffix)
+    LOGGER.info(f'Written datacard at {outputDir}/datacard{suffix}.root')
+    LOGGER.info(f'Written datacard at {outputDir}/datacard{suffix}.txt')

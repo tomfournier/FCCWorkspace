@@ -1,34 +1,41 @@
+#################################
+### STANDARD LIBRARIES IMPORT ###
+#################################
+
+import time
+
+t = time.time()
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser, set_log
+from package.logger import get_logger
+parser = create_parser(
+    cat_multi=True,
+    ecm_multi=True,
+    include_sels=True,
+    combine=True,
+    description='Datacard making script'
+)
+arg = parser.parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
 ##########################################################
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, json
-
-from pathlib import Path
-
 # Load user configuration and event utilities
-from package.userConfig import (
-    loc,             # Directory path manager
-    event_combine    # Event sample selection
-)
-from package.config import z_decays, H_decays  # Physics process definitions
-
-# Load configuration from JSON file if automated, otherwise prompt user
-if os.environ.get('RUN'):
-    cfg_file = Path(loc.RUN) / '4-run.json'
-    if cfg_file.exists():
-        cfg = json.loads(cfg_file.read_text())
-        cat, ecm, sel = cfg['cat'], cfg['ecm'], cfg['sel']
-        print(f'Loaded config: {cat = }, {ecm = }, {sel = }')
-    else:
-        raise FileNotFoundError(f"Couldn't find {cfg_file} file")
-else:
-    cat = input('Select channel [ee, mumu]: ')
-    ecm = input('Select center-of-mass energy [240, 365]: ')
-    sel = input('Select a selection: ')
-
-if cat not in ['ee', 'mumu', 'qq']:
-    raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
+from package.userConfig import loc
+from package.config import H_DECAYS_FIT, get_process_dict, timer
+from package.func.combine import do_combine
 
 
 
@@ -36,47 +43,84 @@ if cat not in ['ee', 'mumu', 'qq']:
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-# Datacard configuration for combine tool
-mc_stats = False  # Include MC statistical uncertainties (default: False, assume Poisson)
-rebin    = 1      # Histogram rebinning factor (1 = no rebinning)
-intLumi  = 1      # Luminosity scaling factor for normalization
+cats, ecms, sels = arg.cat.split('-'), arg.ecm.split('-'), arg.sels.split('-')
 
-# Define input/output directories
-inputDir  = loc.get('HIST_PROCESSED',   cat, ecm, sel)  # Processed histograms from step 4
-outputDir = loc.get('NOMINAL_DATACARD', cat, ecm, sel)  # Output datacards for combine
-inDir     = loc.get('EVENTS',           cat, ecm)       # Event sample directory
+mc_stats = arg.mc_stats    # Include MC statistical uncertainties (default: False, assume Poisson)
+rebin    = arg.rebin       # Histogram rebinning factor (1 = no rebinning)
+intLumi  = arg.intLumi     # Luminosity scaling factor for normalization
+scales = {}                # Re-scale histograms (value per process)
+only_asimov = False        # Apply scales only to asimov histograms
 
-# Define signal processes: ZH production with all Higgs decay modes
-samples_sig = event_combine([f'wzp6_ee_{x}H_H{y}_ecm{ecm}'.replace('HZZ', 'HZZ_noInv') for x in z_decays for y in H_decays], inputDir)
-sig_procs = {'sig': samples_sig}  # Combine all signal samples under 'sig' label
-
-# Define background processes with their respective samples
-bkg_procs = {
-    'ZZ':     event_combine([f'p8_ee_ZZ_ecm{ecm}'], inputDir),   # Diboson ZZ
-    'WW':     event_combine([f'p8_ee_WW_ecm{ecm}',                    # Diboson WW
-                             f'p8_ee_WW_ee_ecm{ecm}',
-                             f'p8_ee_WW_mumu_ecm{ecm}'], inputDir),
-    'Zgamma': event_combine([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',       # ee -> ff processes
-                             f'wzp6_ee_mumu_ecm{ecm}',
-                             f'wzp6_ee_tautau_ecm{ecm}',
-                             f'wzp6_ee_qq_ecm{ecm}'
-                             ], inputDir),
-    'Rare':   event_combine([f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',       # Rare backgrounds
-                             f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-                             f'wzp6_gaga_{cat}_60_ecm{ecm}',
-                             f'wzp6_gaga_tautau_60_ecm{ecm}',
-                             f'wzp6_ee_nuenueZ_ecm{ecm}'], inputDir)
+sig_procs_dict = {
+    '240': get_process_dict(['ZH'], 240, h_decays=H_DECAYS_FIT),
+    '365': get_process_dict(['ZH'], 365, h_decays=H_DECAYS_FIT),
 }
-if (cat == 'qq') and (ecm == 365):
-    bkg_procs['tt'] = ['wzp6_ee_WbWb_ecm365']
+bkg_procs_dict = {
+    '240':{'*':  get_process_dict(['ZZ', 'WW', 'Zgamma', 'Rare'],       240)},
+    '365':{'*':  get_process_dict(['ZZ', 'WW', 'Zgamma', 'Rare'],       365),
+           'qq': get_process_dict(['ZZ', 'WW', 'Zgamma', 'Rare', 'tt'], 365)}
+}
+
+hist_names_dict = {
+    'lep': ['zll_recoil_m_fit_high', 'zll_recoil_m_fit_low'],
+    'had': ['zqq_m_recoil_m_mva_fit']
+}
+# Category identifier
+cats_template: list[str] = ['z_cat_high', 'z_cat_low']
 
 
-categories = [f'z_{cat}']  # Category identifier
-hist_names = ['zqq_m_recoil_m_mva_fit'] if cat=='qq' else ['zll_recoil_m_fit']  # Histogram name for this category
 
-# Define systematic uncertainties
-# Log-normal normalization uncertainties (1% each) for all background processes
-systs = {f'{proc}_norm':{'type':'lnN',      # Log-normal uncertainty type
-                         'value':1.01,      # 1% normalization uncertainty (±1%)
-                         'procs':[proc]}    # Apply to this background process
-         for proc in sorted(bkg_procs.keys())}
+##########################
+### EXECUTION FUNCTION ###
+##########################
+
+def main():
+    for ecm in ecms:
+        sig_procs = sig_procs_dict.get(ecm, {})
+        lumi = 1  # (intLumi/10.8) if ecm=='240' else ((intLumi/3.12) if ecm=='365' else intLumi)
+        if not sig_procs:
+            LOGGER.warning('sig_procs is an empty dictionary')
+        for cat in cats:
+            bkg_procs_ecm = bkg_procs_dict.get(ecm, {})
+            bkg_procs     = bkg_procs_ecm.get(cat, bkg_procs_ecm['*'])
+            if not bkg_procs:
+                LOGGER.warning('bkg_procs is an empty dictionary')
+            categories = [c.replace('cat', cat) for c in cats_template]
+            hist_names = hist_names_dict['had' if cat=='qq' else 'lep']
+
+            # Define systematic uncertainties
+            systs = {
+                f'{proc}_norm':{
+                    'type':'lnN',     # Log-normal uncertainty
+                    'value':1.01,     # 1% normalization uncertainty
+                    'procs':[proc]}   # Apply to this process
+                for proc in bkg_procs.keys()
+            }
+            systs_procs = {}
+            for sel in sels:
+                inputDir  = loc.get('HIST_PROCESSED',   cat, ecm, sel)
+                outputDir = loc.get('NOMINAL_DATACARD', cat, ecm, sel)
+
+                do_combine(
+                    inputDir, outputDir, hist_names,
+                    categories, sig_procs, bkg_procs, systs,
+                    systs_procs, rebin, lumi, scales,
+                    only_asimov, mc_stats
+                )
+    return None
+
+
+######################
+### CODE EXECUTION ###
+######################
+
+if __name__=='__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass  # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)
