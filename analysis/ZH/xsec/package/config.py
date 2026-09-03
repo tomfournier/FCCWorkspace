@@ -564,8 +564,7 @@ def get_process_dict(
         'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in H_set),
 
         # Diboson production e+e- -> VV (V = W or Z)
-        # 'WW':     (f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ecm{ecm}'),
-        'WW':     (f'p8_ee_WW_ecm{ecm}'),
+        'WW':     (f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ecm{ecm}'),
         'ZZ':     (f'p8_ee_ZZ_ecm{ecm}',),
 
         # 2 fermion production e+e- -> ff
