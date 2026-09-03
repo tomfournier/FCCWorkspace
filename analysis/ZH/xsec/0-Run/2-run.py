@@ -41,11 +41,12 @@ parser = create_parser(
     ecm_multi=True,        # Support multiple energies (--ecm 240-365)
     allow_qq=True,         # Disable hadronic channel (ee/mumu only)
     include_sels=True,     # Include selection strategy options
+    bdt_inputs=True,       # Include BDT inputs options
     bdt_eval=True,         # Include BDT evaluation options (metrics, trees, checks)
     run_stages=3,          # BDT pipeline has 3 stages: process + train + evaluate
     description='Run BDT pipeline'
 )
-arg = parser.parse_args()
+arg, forwarded_args = parser.parse_known_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -115,13 +116,18 @@ def run(cat: str,
     if arg.verbose:
         extra_args.append('-v')
 
+    if 'process_input' in script:
+        if not arg.all_inputs: extra_args.append('--no-all-inputs')
     if 'evaluation' in script:
-        if not arg.metric: extra_args.append('--no-metric')
-        if arg.tree:       extra_args.append('--tree')
-        if arg.check:      extra_args.append('--check')
-        if arg.hl:         extra_args.append('--hl')
+        if not arg.metric:     extra_args.append('--no-metric')
+        if arg.tree:           extra_args.append('--tree')
+        if arg.check:          extra_args.append('--check')
+        if arg.hl:             extra_args.append('--hl')
     if arg.sels!='':
         extra_args.extend(['--sels', arg.sels])
+
+    # Forward child-specific options without duplicating them in this wrapper.
+    extra_args.extend(forwarded_args)
 
     # Execute stage script; pipe outputs through to this terminal
     cmd = ['python', script_path] + extra_args
