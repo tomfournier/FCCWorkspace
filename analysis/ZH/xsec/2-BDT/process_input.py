@@ -152,8 +152,8 @@ def run(
     # Set uniform reweighting fraction for all processes
     # (can be adjusted to emphasize specific backgrounds)
     frac = {mode: 1.0 if mode==sig else 1.0 for mode in modes}
-    frac[sig] = 1/8 if cat=='qq' else 1.0
-    if cat == 'qq': frac[f'Z{cat}'] = 1/10
+    # frac[sig] = 1/8 if cat=='qq' else 1.0
+    # if cat == 'qq': frac[f'Z{cat}'] = 1/10
 
     for sel in sels:
         # Output directory for preprocessed pickle files

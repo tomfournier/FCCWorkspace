@@ -87,12 +87,12 @@ configs = {
         'max_bin': 256,                                # Histogram bins for the fast tree builder
     },
     'had': {
-        'objective': 'binary:logistic',                # Learning task and the corresponding learning objective to be used
+        # 'objective': 'binary:logistic',                # Learning task and the corresponding learning objective to be used
         'n_estimators': 350,                           # Number of boosting round (tree to grow)
         'max_depth': 5,                                # Maximum tree depth
         'subsample': 0.5,                              # Subsample ratio of training instances per tree
         'colsample_bytree': 0.5,                       # Subsample ratio of columns when building each tree
-        'early_stopping_rounds': 25,                   # Validation metric need to improve at least once every early stopping round
+        'early_stopping_rounds': 5,                    # Validation metric need to improve at least once every early stopping round
         'eval_metric': ['error', 'logloss', 'auc'],    # Metrics to use for monitoring the training
         'tree_method': 'hist',                         # Fast histogram-based tree builder
         'n_jobs': -1,                                  # Use all available CPU cores
@@ -148,8 +148,8 @@ def run(sels: list[str],
         bdt = train_model(
             X_train, y_train,
             X_valid, y_valid,
-            train_weight,
-            valid_weight,
+            None,  # train_weight,
+            None,  # valid_weight,
             config,
         )
 

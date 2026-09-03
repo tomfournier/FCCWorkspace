@@ -214,13 +214,15 @@ def BDT_input_numbers(
         LOGGER.warning('Total background normalization is zero; returning zero BDT inputs for backgrounds')
     for m in modes:
         if scale_with_sig:
+            n_sig = df[sig].shape[0] if df[sig].shape[0]<=n_max else n_max
             N_BDT_inputs[m] = (
-                int(frac[m] * df[m].shape[0]) if m == sig else
-                int(frac[m] * df[sig].shape[0] * frac[sig] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
+                int(frac[m] * n_sig) if m == sig else
+                int(frac[m] * n_sig * frac[sig] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
         else:
+            n_sig = df[sig].shape[0] if df[sig].shape[0]<=n_max else n_max
             N_BDT_inputs[m] = (
-                int(frac[m] * df[m].shape[0]) if m == sig else
-                int(frac[m] * df[sig].shape[0] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
+                int(frac[m] * n_sig) if m == sig else
+                int(frac[m] * n_sig * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
     return N_BDT_inputs
 
 # __________________________
@@ -231,7 +233,9 @@ def sample_df_by_xsec(
     target_events: int,
     mode: str = '',
     random_state: int = 1,
-    all_inputs: bool = True
+    all_inputs: bool = True,
+    n_max: int = 1e6,
+    keep_prop: bool = False
      ) -> 'pd.DataFrame':
     '''Sample and concatenate process dataframes in proportion to eff * xsec.
 
@@ -263,6 +267,8 @@ def sample_df_by_xsec(
     if all_inputs:
         LOGGER.debug('Returning the concatenation of all available process dataframe')
         return pd.concat([df_mode[proc] for proc in available], ignore_index=True)
+    if not keep_prop:
+        return pd.concat([df_mode[proc] for proc in available], ignore_index=True).sample(int(n_max), random_state=random_state)
 
     if len(available) == 1:
         proc = next(iter(available))
