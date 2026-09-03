@@ -60,6 +60,7 @@ if arg.combine: arg.cat = 'combined'
 
 # Bundle arguments for directory lookup
 args = [arg.cat, arg.ecm, arg.sel]
+lumi = 10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else 1)
 
 # Map fit mode (nominal vs bias test) to corresponding directory locations
 # This allows reusing code for both standard fits and bias test procedures
@@ -156,7 +157,7 @@ def do_fit(
                 '--algo', 'singles', '--cl=0.68', '--robustFit=1', '--expectSignal=1',
                 '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
                 '--rMin', '0.9', '--rMax', '1.1', '-n', f'Diag{tar}']
-    cmd_diag += ['-t', '0'] if arg.bias else ['-t', '0']
+    cmd_diag += ['-t', '0'] if arg.bias else ['-t', '-1']
 
     cmd_fastscan = ['combineTools.py', '-M', 'FastScan', '-w', str(ws_file)+':w']
 
@@ -165,7 +166,7 @@ def do_fit(
                '--autoRange', '5', '--alignEdges', '1', '--squareDistPoiStep',
                '--algo', 'grid', '--points', '200', '--skipInitialFit']
     cmd_fit += ['--fastScan'] if arg.fast_scan else []
-    cmd_fit += ['-t', '0'] if arg.bias else ['-t', '0']
+    cmd_fit += ['-t', '0'] if arg.bias else ['-t', '-1']
 
 
 
@@ -182,29 +183,29 @@ def do_fit(
 
     if not (arg.skip_setup and ws_file.exists()):
         LOGGER.info('Converting the datacard to RooFit workspace')
-        ws_file.unlink()
+        ws_file.unlink(True)
         run_cmd(cmd_t2w, log_t2w, dr, env)
     else:
         LOGGER.debug('Skipping the RooFit workspace setup')
 
     if arg.fastscan:
         LOGGER.info('Doing a fast likelyhood scan to check the fit')
-        log_fscan.unlink()
+        log_fscan.unlink(True)
         run_cmd(cmd_fastscan, log_fscan, scan, env)
 
     LOGGER.info('Doing the fit')
-    log_diag.unlink()
+    log_diag.unlink(True)
     run_cmd(cmd_diag, log_diag, ws, env)
-    res_diag = get_results(diag_file, 'r', 'singles')
+    res_diag = get_results(diag_file, 'r', 'singles', lumi)
     res_saving(res_diag, res, arg.print, f'_diag{tar}')
 
     if arg.only_diag:
         LOGGER.debug('Skipping the likelihood scan')
     else:
         LOGGER.info('Doing the likelihood scan')
-        log_fit.unlink()
+        log_fit.unlink(True)
         run_cmd(cmd_fit, log_fit, ws, env)
-        res_fit = get_results(fit_file, 'r', 'grid')
+        res_fit = get_results(fit_file, 'r', 'grid', lumi)
         res_saving(res_fit, res, arg.print, f'_fit{tar}')
 
     return 0
