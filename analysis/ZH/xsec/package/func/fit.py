@@ -2,7 +2,7 @@
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os, json, uproot, subprocess, ROOT
+import os, json, uproot, subprocess
 
 import numpy as np
 import pandas as pd
@@ -211,7 +211,7 @@ def check_log(res_log: str) -> int | None:
     return status
 
 
-def get_results(file, params, algo) -> dict[str, float | int]:
+def get_results(file, params, algo, lumi) -> dict[str, float | int]:
 
     res = {}
     if isinstance(params, str): params = [params]
@@ -223,12 +223,18 @@ def get_results(file, params, algo) -> dict[str, float | int]:
             if bestfit < 0 and bestfit > -1e-2: bestfit = abs(bestfit)
             err_lo, err_hi = abs(float(tree[param][2 * i + 1]) - bestfit), abs(float(tree[param][2 * i + 2]) - bestfit)
             res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
+            # res[param]['err_lo'] *= (1/lumi)**0.5
+            # res[param]['err']    *= (1/lumi)**0.5
+            # res[param]['err_hi'] *= (1/lumi)**0.5
 
     elif algo == 'grid':
         for param in params:
             other_params = [p for p in params if p!=param] if len(params)>1 else []
             bestfit, err_hi, err_lo = process_scan(file, param, 1e3, True, other_params)
             res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
+            # res[param]['err_lo'] *= (1/lumi)**0.5
+            # res[param]['err']    *= (1/lumi)**0.5
+            # res[param]['err_hi'] *= (1/lumi)**0.5
     else:
         raise ValueError(f'{algo = } is not supported, choose between [singles, grid]')
 
@@ -236,6 +242,7 @@ def get_results(file, params, algo) -> dict[str, float | int]:
 
 
 def get_hesse(file, params):
+    import ROOT
     res = {}
     file = ROOT.TFile(file)
 

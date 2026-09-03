@@ -68,6 +68,9 @@ Z_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nu
 # Standard Higgs boson decay modes
 H_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa')
 
+# Higgs decays use to make the fit
+H_DECAYS_FIT: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ_noInv', 'WW', 'Za', 'aa', 'inv')
+
 # Higgs decay modes including invisible decays
 H_DECAYS_WITH_INV: tuple[str, ...] = H_DECAYS + ('inv',)
 
@@ -182,9 +185,51 @@ def _get_colors_dict() -> dict:
     }
 
 
-# Maps decay modes and process names to ROOT color indices
-h_colors = _get_h_colors_dict  # Decay mode   -> ROOT color
-colors   = _get_colors_dict    # Process name -> ROOT color
+class LazyColorDict(dict):
+    """Dictionary proxy that initializes ROOT colors on first access."""
+
+    def __init__(self, builder):
+        super().__init__()
+        self._builder = builder
+
+    def _ensure(self):
+        if not self:
+            self.update(self._builder())
+
+    def __getitem__(self, key):
+        self._ensure()
+        return super().__getitem__(key)
+
+    def __contains__(self, key):
+        self._ensure()
+        return super().__contains__(key)
+
+    def get(self, key, default=None):
+        self._ensure()
+        return super().get(key, default)
+
+    def __iter__(self):
+        self._ensure()
+        return super().__iter__()
+
+    def items(self):
+        self._ensure()
+        return super().items()
+
+    def keys(self):
+        self._ensure()
+        return super().keys()
+
+    def values(self):
+        self._ensure()
+        return super().values()
+
+
+# Maps decay modes and process names to ROOT color indices while keeping the
+# import side-effect free. Callers can still use colors['ZH'] and h_colors['bb']
+# without re-defining anything in each script.
+h_colors = LazyColorDict(_get_h_colors_dict)  # Decay mode   -> ROOT color
+colors   = LazyColorDict(_get_colors_dict)    # Process name -> ROOT color
 
 # Matplotlib tab colors for different analysis modes by channel (no lazy loading needed)
 modes_color = {
@@ -468,11 +513,11 @@ def timer(t: float
 
 def get_process_dict(
         procs:    Union[Sequence[str], None] = None,
+        ecm: int = 240,
         z_decays: Union[Sequence[str], None] = None,
         h_decays: Union[Sequence[str], None] = None,
         H_decays: Union[Sequence[str], None] = None,
         quarks:   Union[Sequence[str], None] = None,
-        ecm: int = 240
      ) -> dict[str, tuple[str, ...]]:
     '''Generate process dictionary with optional filtering and custom decay modes.
 
@@ -519,7 +564,8 @@ def get_process_dict(
         'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in H_set),
 
         # Diboson production e+e- -> VV (V = W or Z)
-        'WW':     (f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ecm{ecm}'),
+        # 'WW':     (f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ecm{ecm}'),
+        'WW':     (f'p8_ee_WW_ecm{ecm}'),
         'ZZ':     (f'p8_ee_ZZ_ecm{ecm}',),
 
         # 2 fermion production e+e- -> ff

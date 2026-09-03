@@ -55,9 +55,12 @@ import os, ROOT
 from functools import lru_cache
 from typing import Union
 
-from ...config import warning
 from ...tools.utils import mkdir
 from ...tools.process import getHist, get_range
+
+from ...logger import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 
@@ -89,8 +92,8 @@ def make_cfg(
     # Validate required x-y range parameters
     if ('xmin' not in cfg) or ('xmax' not in cfg) \
             or ('ymin' not in cfg) or ('ymax' not in cfg):
-        msg = 'Histogram limits not set. Aborting code'
-        warning(msg)
+        LOGGER.error('Histogram limits not set. Aborting code')
+        exit(1)
 
     # Set default x-y scale options
     cfg.setdefault('logx', False)
@@ -104,8 +107,8 @@ def make_cfg(
 
     # Configure ratio plot settings if enabled
     if (('ymin' not in cfg) or ('ymax' not in cfg)) and ratio_plot:
-        msg = 'Ratio limits of the histogram not set. Aborting code'
-        warning(msg)
+        LOGGER.error('Ratio limits of the histogram not set. Aborting code')
+        exit(1)
     cfg.setdefault('ytitleR', 'Ratio')
     cfg.setdefault('ratiofraction', 0.3)
 

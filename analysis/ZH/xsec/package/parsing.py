@@ -35,6 +35,96 @@ Examples:
 '''
 
 from argparse import ArgumentParser, Namespace, BooleanOptionalAction
+from collections.abc import Sequence
+
+
+def get_argument_metadata(parser: ArgumentParser) -> dict[str, dict]:
+    '''Return metadata for each option registered on a parser.
+
+    The returned dictionary is useful for wrappers and documentation without
+    changing the parser API used by existing scripts.
+    '''
+    metadata = {}
+    for action in parser._actions:
+        if not action.option_strings:
+            continue
+        metadata[action.dest] = {
+            'flags': list(action.option_strings),
+            'choices': list(action.choices) if action.choices is not None else None,
+            'type': action.type,
+            'help': action.help,
+            'default': action.default,
+            'nargs': action.nargs,
+            'const': action.const,
+            'required': action.required,
+            'metavar': action.metavar,
+            'action': type(action).__name__,
+        }
+    return metadata
+
+
+def create_parser_from_parsers(
+    parsers: ArgumentParser | Sequence[ArgumentParser],
+    group_names: str | Sequence[str],
+    description: str | None = None
+) -> ArgumentParser:
+    '''Create a parser by copying arguments from one or more parsers.
+
+    Each source parser is copied into its own argument group. When multiple
+    parsers are provided, ``group_names`` must contain one name per parser.
+    '''
+    if isinstance(parsers, ArgumentParser):
+        source_parsers = [parsers]
+    else:
+        source_parsers = list(parsers)
+
+    if isinstance(group_names, str):
+        source_group_names = [group_names]
+    else:
+        source_group_names = list(group_names)
+
+    if len(source_parsers) != len(source_group_names):
+        raise ValueError('parsers and group_names must have the same length')
+
+    action_names = {
+        '_StoreTrueAction': 'store_true',
+        '_StoreFalseAction': 'store_false',
+        '_StoreConstAction': 'store_const',
+        '_AppendAction': 'append',
+        '_CountAction': 'count',
+        '_SubParsersAction': 'parsers',
+    }
+    parser = ArgumentParser(description=description)
+
+    for source_parser, group_name in zip(source_parsers, source_group_names):
+        group = parser.add_argument_group(group_name)
+        for action in source_parser._actions:
+            if not action.option_strings or action.dest == 'help':
+                continue
+
+            kwargs = {
+                'default':  action.default,
+                'help':     action.help,
+                'type':     action.type,
+                'choices':  action.choices,
+                'nargs':    action.nargs,
+                'const':    action.const,
+                'required': action.required,
+                'metavar':  action.metavar,
+            }
+            kwargs = {key: value for key, value in kwargs.items()
+                      if value is not None}
+
+            action_name = action_names.get(type(action).__name__)
+            if isinstance(action, BooleanOptionalAction):
+                kwargs['action'] = BooleanOptionalAction
+            elif action_name is not None:
+                kwargs['action'] = action_name
+
+            group.add_argument(*action.option_strings, **kwargs)
+
+    return parser
+
 
 
 # ========================================================== #
@@ -42,13 +132,13 @@ from argparse import ArgumentParser, Namespace, BooleanOptionalAction
 # ========================================================== #
 
 def add_cat_argument(
-        parser: ArgumentParser,
-        multi: bool = False,
-        allow_empty: bool = False,
-        default: str | None = None,
-        allow_qq: bool = True,
-        group: str | None = None
-         ) -> None:
+    parser: ArgumentParser,
+    multi: bool = False,
+    allow_empty: bool = False,
+    default: str | None = None,
+    allow_qq: bool = True,
+    group: str | None = None
+) -> None:
     '''Add --cat/--cats argument for final state selection.'''
 
     if default is None:
@@ -88,11 +178,11 @@ def add_cat_argument(
 
 
 def add_ecm_argument(
-        parser: ArgumentParser,
-        multi: bool = False,
-        default: int | str | None = None,
-        group: str | None = None
-         ) -> None:
+    parser: ArgumentParser,
+    multi: bool = False,
+    default: int | str | None = None,
+    group: str | None = None
+) -> None:
     '''Add --ecm/--ecms argument for center-of-mass energy.'''
     if default is None:
         default = '240' if multi else 240
@@ -123,10 +213,10 @@ def add_ecm_argument(
 
 
 def add_sel_argument(
-        parser: ArgumentParser,
-        default: str = '',
-        group: str | None = None
-         ) -> None:
+    parser: ArgumentParser,
+    default: str = '',
+    group: str | None = None
+) -> None:
     '''Add --sel argument for single selection strategy.'''
     if group is None:
         group = parser.add_argument_group('General arguments')
@@ -139,10 +229,10 @@ def add_sel_argument(
 
 
 def add_sels_argument(
-        parser: ArgumentParser,
-        default: str = '',
-        group=None
-         ) -> None:
+    parser: ArgumentParser,
+    default: str = '',
+    group=None
+) -> None:
     '''Add --sels argument for multiple selection strategies (batch mode).'''
     if group is None:
         group = parser.add_argument_group('General arguments')
@@ -155,24 +245,26 @@ def add_sels_argument(
 
 
 def add_run_argument(
-        parser: ArgumentParser,
-        n_stages: int = 3,
-        default: str = '2-3',
-        add_test: bool = False,
-        group: str | None = None
-         ) -> None:
+    parser: ArgumentParser,
+    n_stages: int = 3,
+    default: str = '2-3',
+    add_test: bool = False,
+    group: str | None = None
+) -> None:
     '''Add --run argument for pipeline stage selection.'''
     if n_stages == 2:
         choices = ['1', '2', '1-2']
     elif n_stages == 3:
         choices = ['1', '2', '3', '1-2', '2-3', '1-2-3']
     elif n_stages == 4:
-        choices = ['1', '2', '3', '4', '1-2', '2-3', '3-4', '1-2-3', '2-3-4', '1-2-3-4']
+        choices = ['1', '2', '3', '4', '1-2', '2-3',
+                   '3-4', '1-2-3', '2-3-4', '1-2-3-4']
     else:
         raise ValueError(f'n_stages must be 2, 3, or 4, got {n_stages}')
 
     if group is None:
-        group: ArgumentParser = parser.add_argument_group('Execution arguments')
+        group: ArgumentParser = parser.add_argument_group(
+            'Execution arguments')
 
     help_text = f'Pipeline stages to execute (1-{n_stages} or combinations separated by dash) (default: {default})'
 
@@ -194,9 +286,9 @@ def add_run_argument(
 
 
 def add_verbose_argument(
-        parser: ArgumentParser,
-        group: str | None = None
-         ) -> None:
+    parser: ArgumentParser,
+    group: str | None = None
+) -> None:
     '''Add -v/--verbose argument for debugging output.'''
     if group is None:
         group = parser.add_argument_group('General arguments')
@@ -209,12 +301,13 @@ def add_verbose_argument(
 
 
 def add_batch_argument(
-        parser: ArgumentParser,
-        group: str | None = None
-         ) -> None:
+    parser: ArgumentParser,
+    group: str | None = None
+) -> None:
     '''Add --batch for HTCondor batch processing.'''
     if group is None:
-        group: ArgumentParser = parser.add_argument_group('Execution arguments')
+        group: ArgumentParser = parser.add_argument_group(
+            'Execution arguments')
     group.add_argument(
         '--batch',
         action='store_true',
@@ -304,7 +397,7 @@ def add_plots_args(parser: ArgumentParser) -> None:
     args.add_argument(
         '--hlsel',
         type=str,
-        default='Baseline-Baseline_miss-Baseline_sep-test',
+        default='Baseline-Baseline_miss-Baseline_sep-Baseline_vis-Baseline_inv-test',
         help='sels to include in the hl plot'
     )
 
@@ -327,11 +420,11 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
 
 
 def add_optimize_args(
-        parser: ArgumentParser,
-        is_plot: bool = False,
-        is_run: bool = False,
-        only_procs: bool = False
-         ) -> None:
+    parser: ArgumentParser,
+    is_plot: bool = False,
+    is_run: bool = False,
+    only_procs: bool = False
+) -> None:
     '''Add optimization arguments (procs, method, nevents, incr, metric, dist).'''
     args = parser.add_argument_group('Optimization arguments')
     args.add_argument(
@@ -400,13 +493,34 @@ def add_polarization(parser: ArgumentParser) -> None:
     )
 
 
+def add_combine_args(parser: ArgumentParser) -> None:
+    parser.add_argument(
+        '--mc-stats',
+        action='store_true',
+        default=False,
+        help='Include MC statistical uncertainties (default False)'
+    )
+    parser.add_argument(
+        '--rebin',
+        type=int,
+        default=1,
+        help='Histogram rebinning factor (default 1)'
+    )
+    parser.add_argument(
+        '--intLumi',
+        type=float,
+        default=1.,
+        help='Luminosity scaling factor for normalization'
+    )
+
+
 def add_fit_args(
-        parser: ArgumentParser,
-        bias: bool = False,
-        default_target: str = '',
-        default_pert: float = 1.0,
-        nlo: bool = False
-         ) -> None:
+    parser: ArgumentParser,
+    bias: bool = False,
+    default_target: str = '',
+    default_pert: float = 1.0,
+    nlo: bool = False
+) -> None:
     '''Add fit arguments (pert, target, combine, bias, timer, print).'''
     args = parser.add_argument_group('Fit arguments')
     args.add_argument(
@@ -435,8 +549,8 @@ def add_fit_args(
     )
     args.add_argument(
         '--skip-setup',
-        action=BooleanOptionalAction,
-        default=True,
+        action='store_true',
+        default=False,
         help='Skip the datacard and workspace setup'
     )
     args.add_argument(
@@ -493,8 +607,8 @@ def add_fit_args(
 
 
 def add_fit_plot_args(
-        parser: ArgumentParser,
-         ) -> None:
+    parser: ArgumentParser,
+) -> None:
     args = parser.add_argument_group('Fit plot arguments')
     args.add_argument(
         "--param",
@@ -608,39 +722,40 @@ def add_bias_args(parser: ArgumentParser, extra: bool = False) -> None:
 # ============================================================================
 
 def create_parser(
-        cat_single: bool = False,
-        cat_multi: bool = False,
-        cat_default: str | None = None,
-        allow_qq: bool = True,
-        ecm_multi: bool = False,
-        ecm_default: int | str | None = None,
-        no_ecm: bool = False,
-        allow_empty: bool = False,
-        include_sel: bool = False,
-        include_sels: bool = False,
-        run_stages: int = 0,
-        run_default: str = '2-3',
-        add_test: bool = False,
-        batch: bool = False,
-        bdt_inputs: bool = False,
-        bdt_eval: bool = False,
-        plots: bool = False,
-        cutflow: bool = False,
-        optimize: bool = False,
-        is_plot: bool = False,
-        is_run: bool = False,
-        only_procs: bool = False,
-        polarization: bool = False,
-        fit: bool = False,
-        fit_plot: bool = False,
-        bias: bool = False,
-        bias_extra: bool = False,
-        default_target: str = '',
-        default_pert: float = 1.0,
-        is_nlo: bool = False,
-        do_bias: bool = False,
-        description: str = 'Analysis script'
-         ) -> ArgumentParser:
+    cat_single: bool = False,
+    cat_multi: bool = False,
+    cat_default: str | None = None,
+    allow_qq: bool = True,
+    ecm_multi: bool = False,
+    ecm_default: int | str | None = None,
+    no_ecm: bool = False,
+    allow_empty: bool = False,
+    include_sel: bool = False,
+    include_sels: bool = False,
+    run_stages: int = 0,
+    run_default: str = '2-3',
+    add_test: bool = False,
+    batch: bool = False,
+    bdt_inputs: bool = False,
+    bdt_eval: bool = False,
+    plots: bool = False,
+    cutflow: bool = False,
+    optimize: bool = False,
+    is_plot: bool = False,
+    is_run: bool = False,
+    only_procs: bool = False,
+    polarization: bool = False,
+    combine: bool = False,
+    fit: bool = False,
+    fit_plot: bool = False,
+    bias: bool = False,
+    bias_extra: bool = False,
+    default_target: str = '',
+    default_pert: float = 1.0,
+    is_nlo: bool = False,
+    do_bias: bool = False,
+    description: str = 'Analysis script'
+) -> ArgumentParser:
     '''
     Factory function to compose a custom parser with selected argument groups.
 
@@ -690,11 +805,12 @@ def create_parser(
 
     # Create argument groups once to avoid duplication in help output
     general = parser.add_argument_group('General arguments')
-    exec    = parser.add_argument_group('Execution arguments')
+    exec = parser.add_argument_group('Execution arguments')
 
     # Core arguments (share the same groups)
     if cat_single or cat_multi:
-        add_cat_argument(parser, cat_multi, allow_empty, cat_default, allow_qq, general)
+        add_cat_argument(parser, cat_multi, allow_empty,
+                         cat_default, allow_qq, general)
     if (ecm_multi or (cat_single or cat_multi)) and not no_ecm:
         add_ecm_argument(parser, ecm_multi, ecm_default, general)
     add_verbose_argument(parser, group=general)
@@ -724,6 +840,8 @@ def create_parser(
         add_optimize_args(parser, is_plot, is_run, only_procs)
     if polarization:
         add_polarization(parser)
+    if combine:
+        add_combine_args(parser)
     if fit:
         add_fit_args(parser, do_bias, default_target, default_pert, is_nlo)
     if fit_plot:
@@ -734,16 +852,15 @@ def create_parser(
     return parser
 
 
-
 # ==================== #
 # VALIDATION UTILITIES #
 # ==================== #
 
 def parse_args(
-        parser: ArgumentParser,
-        validate_cat: bool = False,
-        comb: bool = False
-         ) -> Namespace:
+    parser: ArgumentParser,
+    validate_cat: bool = False,
+    comb: bool = False
+) -> Namespace:
     '''
     Parse and validate command-line arguments.
 
@@ -779,7 +896,7 @@ def include_polarizations(parser: ArgumentParser) -> None:
 # LOGGING SETUP        #
 # ==================== #
 
-def set_log(args: Namespace) -> None:
+def set_log(args: Namespace | None) -> None:
     """
     Initialize logging system based on parsed arguments.
 

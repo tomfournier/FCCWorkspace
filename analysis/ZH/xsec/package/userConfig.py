@@ -274,13 +274,11 @@ class loc(metaclass=locMeta):
     HIST_OPTIMISATION   = LocPath(f"{repo}/output/data/histograms/optimisation/ecm/cat/sel")  # Optimisation analysis histograms
 
     # Plots: templates use {ecm}, {cat}, {sel} placeholders
-    PLOTS_MVA           = LocPath(f"{repo}/output/plots/MVAInputs/ecm/cat")       # Input variable distributions
-    PLOTS_BDT           = LocPath(f"{repo}/output/plots/evaluation/ecm/cat/sel")  # BDT performance and scores
-    PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")     # Analysis measurement plots
-    PLOTS_OPTIMISATION  = LocPath(f"{repo}/output/plots/optimisation/ecm/cat")    # Selection optimisation plots
-    PLOTS_FSR           = LocPath(f"{repo}/output/plots/fsr/ecm/cat")             # FSR analysis plots
-    PLOTS_FIT_SCAN      = LocPath(f"{repo}/output/plots/fit/scans")               # Likelyhood scan comparison plots
-    PLOTS_FIT_NLO       = LocPath(f"{repo}/output/plots/fit/nlo")                 # NLO scan comparison plots
+    PLOTS_MVA           = LocPath(f"{repo}/output/plots/1-MVAInputs/ecm/cat")       # Input variable distributions
+    PLOTS_BDT           = LocPath(f"{repo}/output/plots/2-evaluation/ecm/cat/sel")  # BDT performance and scores
+    PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/3-measurement/ecm/cat")     # Analysis measurement plots
+    PLOTS_FIT_SCAN      = LocPath(f"{repo}/output/plots/4-fit/scans")               # Likelyhood scan comparison plots
+    PLOTS_FIT_NLO       = LocPath(f"{repo}/output/plots/4-fit/nlo")                 # NLO scan comparison plots
 
     # Statistical fit: templates use {sel}, {ecm}, {cat} placeholders
     COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")           # Combine root directory

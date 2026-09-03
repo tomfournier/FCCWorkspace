@@ -1262,7 +1262,10 @@ def get_efficiency(
         selected_err = entries**0.5 * total / processed
 
         eff[h] = 100 * selected / total
-        eff_err[h] = eff[h] * ((total_err/total)**2 + (selected_err/selected)**2)**0.5
+        if selected > 0:
+            eff_err[h] = eff[h] * ((total_err/total)**2 + (selected_err/selected)**2)**0.5
+        else:
+            eff_err[h] = eff[h] * (total_err/total)
 
     return eff, eff_err
 
