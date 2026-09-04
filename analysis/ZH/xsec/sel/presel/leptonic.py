@@ -261,9 +261,6 @@ def define_systs(df: 'ROOT.ROOT.RDataFrame',
     elif cat == 'mumu':
         df = df.Define('zll_recoil_m_SCALE_MUUp',   'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueUp)[0]')
         df = df.Define('zll_recoil_m_SCALE_MUDown', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueDw)[0]')
-    elif cat == 'qq':
-        df = df.Define('zll_recoil_m_SCALE_QQUp',   'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueUp)[0]')
-        df = df.Define('zll_recoil_m_SCALE_QQDown', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueDw)[0]')
     else:
         raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
