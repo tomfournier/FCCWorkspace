@@ -41,6 +41,7 @@ from package.userConfig import loc, PathObj
 loc.set_default_type(Path)
 from package.config import timer  # Timing utility
 from package.func.fit import (
+    check_log,
     get_results,
     res_saving,
     run_cmd
@@ -60,7 +61,10 @@ if arg.combine: arg.cat = 'combined'
 
 # Bundle arguments for directory lookup
 args = [arg.cat, arg.ecm, arg.sel]
-lumi = 10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else 1)
+if arg.rescaled:
+    lumi = 10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else 1)
+else:
+    lumi = 1
 
 # Map fit mode (nominal vs bias test) to corresponding directory locations
 # This allows reusing code for both standard fits and bias test procedures
@@ -163,8 +167,8 @@ def do_fit(
 
     cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2',
                '--expectSignal=1', '-n', f'Xsec{tar}', '-w', 'w', '--snapshotName', 'MultiDimFit',
-               '--autoRange', '5', '--alignEdges', '1', '--squareDistPoiStep',
-               '--algo', 'grid', '--points', '200', '--skipInitialFit']
+               '--rMin', '0.9', '--rMax', '1.1', '--alignEdges', '1', '--squareDistPoiStep',
+               '--algo', 'grid', '--points', str(arg.npoints), '--skipInitialFit']
     cmd_fit += ['--fastScan'] if arg.fast_scan else []
     cmd_fit += ['-t', '0'] if arg.bias else ['-t', '-1']
 
@@ -194,8 +198,9 @@ def do_fit(
         run_cmd(cmd_fastscan, log_fscan, scan, env)
 
     LOGGER.info('Doing the fit')
-    log_diag.unlink(True)
+    diag_file.unlink(True); log_diag.unlink(True)
     run_cmd(cmd_diag, log_diag, ws, env)
+    check_log(log_diag)
     res_diag = get_results(diag_file, 'r', 'singles', lumi)
     res_saving(res_diag, res, arg.print, f'_diag{tar}')
 
@@ -203,7 +208,7 @@ def do_fit(
         LOGGER.debug('Skipping the likelihood scan')
     else:
         LOGGER.info('Doing the likelihood scan')
-        log_fit.unlink(True)
+        fit_file.unlink(True); log_fit.unlink(True)
         run_cmd(cmd_fit, log_fit, ws, env)
         res_fit = get_results(fit_file, 'r', 'grid', lumi)
         res_saving(res_fit, res, arg.print, f'_fit{tar}')
