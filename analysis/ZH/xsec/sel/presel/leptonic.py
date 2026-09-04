@@ -95,20 +95,21 @@ def recoil_builder(df: 'ROOT.ROOT.RDataFrame',
     # Veto H->mumu/ee candidate leptons (mass window: 125 ± 3 GeV)
     df = df.Define('zbuilder_result_Hll', f'FCCAnalyses::resonanceBuilder_mass_recoil(125, 91.2, 0.4, {ecm}, false)'
                    '(leps, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
-    df = df.Define('zll_Hll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[0]}')  # the Z
-    df = df.Define('zll_Hll_m',           'FCCAnalyses::ReconstructedParticle::get_mass(zll_Hll)[0]')
-    df = df.Define('zll_leps_Hll',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result_Hll[1],zbuilder_result_Hll[2]}')  # the leptons
-    df = df.Define('zll_leps_dummy',      'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{}')  # placeholder for empty vector
+    df = df.Define('zll_Hll',        'Vec_rp{zbuilder_result_Hll[0]}')                         # the Z
+    df = df.Define('zll_leps_Hll',   'Vec_rp{zbuilder_result_Hll[1],zbuilder_result_Hll[2]}')  # the leptons
+    df = df.Define('zll_leps_dummy', 'Vec_rp{}')  # placeholder for empty vector
+    df = df.Define('zll_Hll_m',      'FCCAnalyses::ReconstructedParticle::get_mass(zll_Hll)[0]')
     # Remove H-candidate leptons if reconstructed mass falls in Higgs window
-    df = df.Define('leps_to_remove',      'return (zll_Hll_m > (125-3) && zll_Hll_m < (125+3)) ? zll_leps_Hll : zll_leps_dummy')
-    df = df.Define('leps_good',           'FCCAnalyses::ReconstructedParticle::remove(leps, leps_to_remove)')
+    df = df.Define('leps_to_remove', 'return (zll_Hll_m > (125-3) && zll_Hll_m < (125+3)) ? zll_leps_Hll : zll_leps_dummy')
+    df = df.Define('leps_good',      'FCCAnalyses::ReconstructedParticle::remove(leps, leps_to_remove)')
 
     # Build Z resonance from good leptons (mass ~ 91.2 GeV, recoil ~ 125 GeV)
     # resonanceBuilder returns: [0] di-lepton system, [1,2] individual leptons
     df = df.Define('zbuilder_result', f'FCCAnalyses::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)'
                    '(leps_good, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
-    df = df.Define('zll',             'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[0]}')  # the Z
-    df = df.Define('zll_leps',        'ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>{zbuilder_result[1],zbuilder_result[2]}')  # the leptons
+    df = df.Define('zll',          'Vec_rp{zbuilder_result[0]}')                     # the Z
+    df = df.Define('zll_leps',     'Vec_rp{zbuilder_result[1],zbuilder_result[2]}')  # the leptons
+    df = df.Define('zll_category', 'FCCAnalyses::polarAngleCategorization(0.8, 2.34)(zll_leps)')
     return df
 
 
@@ -127,7 +128,7 @@ def Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
 
     Returns:
         The dataframe with Z properties (zll_m, zll_p, zll_pT, zll_theta, zll_phi),
-        recoil mass (zll_recoil_m), and polar angle category (zll_category).
+        recoil mass (zll_recoil_m).
     """
     # Z boson kinematics
     df = df.Define('zll_e',     'FCCAnalyses::ReconstructedParticle::get_e(zll)[0]')
@@ -139,6 +140,7 @@ def Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
     # Recoil mass: invariant mass of system recoiling against Z (Higgs candidate)
     df = df.Define('zll_recoil',  f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)')
     df = df.Define('zll_recoil_m', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil)[0]')
+
     return df
 
 
@@ -215,6 +217,62 @@ def additional_variables(df: 'ROOT.ROOT.RDataFrame',
     df = df.Define('missingEnergy',     'missingEnergy_rp[0].energy')
     df = df.Define('cosTheta_miss',     'FCCAnalyses::get_cosTheta_miss(missingEnergy_rp)')
     df = df.Define('missingMass',      f'FCCAnalyses::missingMass({ecm}, ReconstructedParticles)')
+
+    return df
+
+
+def define_systs(df: 'ROOT.ROOT.RDataFrame',
+                 cat: str,
+                 ecm: int,
+                 dataset: str
+                 ) -> 'ROOT.ROOT.RDataFrame':
+
+    # sqrt(s) uncertainty
+    df = df.Define('zll_recoil_sqrtsUp', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm} + 0.002)(zll)')
+    df = df.Define('zll_recoil_sqrtsDw', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm} - 0.002)(zll)')
+
+    df = df.Define('zll_recoil_m_sqrtsUp',   'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsUp)[0]')
+    df = df.Define('zll_recoil_m_sqrtsDown', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsDw)[0]')
+
+    # Lepton momentum scale uncertainty
+    df = df.Define('leps_scaleUp', 'FCCAnalyses::lepton_momentum_scale(1e-5)(leps)')
+    df = df.Define('leps_scaleDw', 'FCCAnalyses::lepton_momentum_scale(-1e-5)(leps)')
+
+    df = df.Define('leps_dummy', 'Vec_rp{}')
+
+    for scl in ['_scaleUp', '_scaleDw']:
+        df = df.Define(f'hbuilder{scl}', f'FCCAnalyses::resonanceBuilder_mass_recoil(125, 91.2, 0.4, {ecm}, false)'
+                       'leps_scaleUp, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1')
+        df = df.Define(f'hll{scl}',      'Vec_rp{hbuilder'f'{scl}''[0]}')
+        df = df.Define(f'hll_leps{scl}', 'Vec_rp{hbuilder'f'{scl}''[1],hbuilder'f'{scl}''[2]}')
+        df = df.Define(f'hll_m{scl}',    f'FCCAnalyses::ReconstructedParticle::get_mass(hll{scl})[0]')
+
+        df = df.Define(f'leps_to_remove{scl}', f'return (hll_m{scl} > (125 -3) && hll_m{scl} < (125+3)) ? hll_leps{scl} : leps_dummy')
+        df = df.Define(f'leps_good{scl}',      f'FCCAnalyses::ReconstructedParticle::remove(leps{scl}, leps_to_remove{scl})')
+
+        df = df.Define(f'zbuilder{scl}', f'FCCAnalyses::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)'
+                       f'(leps_good{scl}, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, PArticle, Particle0, Particle1)')
+        df = df.Define(f'zll{scl}',           'Vec_rp{zbuilder'f'{scl}''[0]}')
+        df = df.Define(f'zll_recoil{scl}',   f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll{scl})')
+
+    if cat == 'ee':
+        df = df.Define('zll_recoil_m_SCALE_ELUp',   'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueUp)[0]')
+        df = df.Define('zll_recoil_m_SCALE_ELDown', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueDw)[0]')
+    elif cat == 'mumu':
+        df = df.Define('zll_recoil_m_SCALE_MUUp',   'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueUp)[0]')
+        df = df.Define('zll_recoil_m_SCALE_MUDown', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueDw)[0]')
+    elif cat == 'qq':
+        df = df.Define('zll_recoil_m_SCALE_QQUp',   'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueUp)[0]')
+        df = df.Define('zll_recoil_m_SCALE_QQDown', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_scalueDw)[0]')
+    else:
+        raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
+
+
+    # BES uncertainty
+    if 'BES-higher' in dataset:
+        df = df.Alias('zll_recoil_m_BESUp', 'zll_recoil_m')
+    elif 'BES-lower' in dataset:
+        df = df.Alias('zll_recoil_BESDown', 'zll_recoil_m')
 
     return df
 
