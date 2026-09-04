@@ -1,4 +1,4 @@
-def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False) -> str:
+def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False, mW: bool = False) -> str:
     cut = ''
     if ecm == 240:
         cut += 'zqq_m > 20 && zqq_m < 140'
@@ -10,7 +10,8 @@ def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False) -> str:
         raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
     # cut += ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
     # cut += ' && acolinearity > 0.35'
-    # cut += ' && delta_mWW > 6'
+    if mW:
+        cut += ' && delta_mWW > 6'
     if miss:
         cut += ' && cosTheta_miss < 0.995'
     if thrust and (ecm == 365):
