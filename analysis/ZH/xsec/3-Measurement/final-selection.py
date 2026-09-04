@@ -98,7 +98,7 @@ elif cat == 'qq':
     Baseline      = Baseline_cut_qq(ecm, False, True)
     Baseline_miss = Baseline_cut_qq(ecm, True,  False)
     if test:
-        cutList['test'] = Baseline_cut_qq(ecm, True, False)
+        cutList['test'] = Baseline_cut_qq(ecm, True, False, True)
     else:
         cutList['Baseline']      = Baseline
         cutList['Baseline_miss'] = Baseline_miss
