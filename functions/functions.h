@@ -571,6 +571,28 @@ inline Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps, Ve
 }
 
 
+// perturb the momentum scale with a given constant
+struct lepton_momentum_scale {
+    lepton_momentum_scale(float arg_scaleunc);
+    float scaleunc = 1.;
+    Vec_rp operator() (ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> in);
+};
+
+inline lepton_momentum_scale::lepton_momentum_scale(float arg_scaleunc) : scaleunc(arg_scaleunc) {};
+inline Vec_rp lepton_momentum_scale::operator() (Vec_rp in) {
+    Vec_rp result;
+    result.reserve(in.size());
+    for (size_t i = 0; i < in.size(); ++i) {
+        auto & p = in[i];
+        p.momentum.x = p.momentum.x*(1. + scaleunc);
+        p.momentum.y = p.momentum.y*(1. + scaleunc);
+        p.momentum.z = p.momentum.z*(1. + scaleunc);
+        result.emplace_back(p);
+    }
+    return result;
+}
+
+
 // calculate the number of foward leptons
 struct polarAngleCategorization {
 polarAngleCategorization(float arg_thetaMin, float arg_thetaMax);
