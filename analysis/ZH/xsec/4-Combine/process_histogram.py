@@ -116,7 +116,7 @@ def run(cats: str,
         inDir = loc.get('HIST_PREPROCESSED', cat, ecm)
 
         # Histograms to process for BDT training/measurement
-        hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_tot_mva', 'zqq_m_recoil_m_full_mva']
+        hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_recoil_m_tot', 'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_tot_mva', 'zqq_m_recoil_m_full_mva']
         samples = get_process_list(cat, ecm).keys()
 
         # Process each selection strategy
@@ -194,8 +194,10 @@ def run(cats: str,
                         hists.extend([h, h_high, h_low, h_high_1D, h_low_1D])
                     elif 'TH3' in h_high.ClassName():
                         h = stack_hist([h_low, h_high], hName)
-                        h_1d = unroll(h, hName+'_fit')
-                        hists.extend([h, h_1d, h_low, h_high])
+                        h_high_1D = unroll(h_high, hName+'_fit_high_1D')
+                        h_low_1D  = unroll(h_low,  hName+'_fit_low_1D')
+                        h_1d      = unroll(h, hName+'_fit')
+                        hists.extend([h, h_1d, h_high_1D, h_low_1D, h_low, h_high])
 
                 # Skip sample if no valid histograms found
                 if not has_valid_hist:

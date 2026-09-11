@@ -512,6 +512,12 @@ def add_combine_args(parser: ArgumentParser) -> None:
         default=1.,
         help='Luminosity scaling factor for normalization'
     )
+    parser.add_argument(
+        '--rescale',
+        default=False,
+        action='store_true',
+        help='Rescale the histograms to 1 ab-1 (default False)'
+    )
 
 
 def add_fit_args(
@@ -564,6 +570,18 @@ def add_fit_args(
         action='store_true',
         default=False,
         help='Do a fast likelihood scan for the second fit'
+    )
+    args.add_argument(
+        '--rescaled',
+        default=False,
+        action='store_true',
+        help='Rescaled the uncertainties to the nominal luminosity (default False)'
+    )
+    args.add_argument(
+        '--npoints',
+        type=int,
+        default=200,
+        help='Number of points to make the likelihood scan (default 200)'
     )
 
     if not bias:

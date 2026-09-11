@@ -199,6 +199,12 @@ def W_reconstruction(df: 'ROOT.ROOT.RDataFrame'
     df = df.Define('W2',          'pairs_WW_N4[1]')
     df = df.Define('W1_m',        'W1.M()')
     df = df.Define('W2_m',        'W2.M()')
+    df = df.Define('W1_p',        'W1.P()')
+    df = df.Define('W2_p',        'W2.P()')
+    df = df.Define('W1_theta',    'W1.Theta()')
+    df = df.Define('W2_theta',    'W2.Theta()')
+    df = df.Define('W1_costheta', 'std::cos(W1_theta)')
+    df = df.Define('W2_costheta', 'std::cos(W2_theta)')
     df = df.Define('delta_mWW4',  'FCCAnalyses::delta_mVV(W1_m, W2_m, 78)')
     df = df.Define('delta_mWW',   'FCCAnalyses::delta_mVV(zqq_m, zqq_recoil_m, 78)')
 
@@ -466,5 +472,7 @@ branch_list_qq =[
     'missingEnergy', 'cosTheta_miss', 'missingMass',                              # Missing energy variables
     'thrust', 'thrust_costheta',                                                  # Thrust variables
     'njets', 'best_clustering_idx',                                               # Number of jets and best clustering variable
-    'H'                                                                           # Higgsstrahlungness
+    'H',                                                                          # Higgsstrahlungness
+    'W1_m', 'W1_p', 'W1_theta', 'W1_costheta',
+    'W2_m', 'W2_p', 'W2_theta', 'W2_costheta',
 ]

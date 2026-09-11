@@ -63,7 +63,8 @@ bkg_procs_dict = {
 
 hist_names_dict = {
     'lep': ['zll_recoil_m_fit_high', 'zll_recoil_m_fit_low'],
-    'had': ['zqq_m_recoil_m_mva_fit']
+    'had': ['zqq_m_recoil_m_tot_mva_fit_high_1D', 'zqq_m_recoil_m_tot_mva_fit_low_1D']
+    # 'had': ['zqq_recoil_m_tot_fit_high', 'zqq_recoil_m_tot_fit_low']
 }
 # Category identifier
 cats_template: list[str] = ['z_cat_high', 'z_cat_low']
@@ -77,7 +78,10 @@ cats_template: list[str] = ['z_cat_high', 'z_cat_low']
 def main():
     for ecm in ecms:
         sig_procs = sig_procs_dict.get(ecm, {})
-        lumi = 1  # (intLumi/10.8) if ecm=='240' else ((intLumi/3.12) if ecm=='365' else intLumi)
+        if arg.rescale:
+            lumi = (intLumi/10.8) if ecm=='240' else ((intLumi/3.12) if ecm=='365' else intLumi)
+        else:
+            lumi = 1
         if not sig_procs:
             LOGGER.warning('sig_procs is an empty dictionary')
         for cat in cats:

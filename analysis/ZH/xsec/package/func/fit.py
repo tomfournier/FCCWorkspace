@@ -186,7 +186,7 @@ def check_log(res_log: str) -> int | None:
 
     # Parse log file for signal strength result
     # (parse from end to find latest result)
-    status = None, False
+    status = None
     with open(str(res_log)) as file:
         lines = file.readlines()
         for line in reversed(lines):
@@ -195,18 +195,17 @@ def check_log(res_log: str) -> int | None:
                 break
         if status is None:
             for line in reversed(lines):
-                if 'Minimization finished with status=' in line:
-                    status = int(line.split('=')[-1])
+                if 'Warning - No valid high-error found' in line or \
+                        'Warning - No valid low-error found' in line:
+                    status = -2
 
     if status is None:
-        LOGGER.error(f"Couldn't find minimization status at {res_log}")
-    elif status == 0:
         LOGGER.debug(f'Minimization success, {status = }')
-    elif status == 1:
-        LOGGER.warning(f'Minimization finished with {status = }\n'
-                       f'Check the log at {res_log}')
     elif status == -1:
         LOGGER.error('Minimization did not converge\n'
+                     f'Check the log at {res_log}')
+    elif status == -2:
+        LOGGER.error("Couldn't find the high/low-error\n"
                      f'Check the log at {res_log}')
     return status
 
@@ -223,18 +222,18 @@ def get_results(file, params, algo, lumi) -> dict[str, float | int]:
             if bestfit < 0 and bestfit > -1e-2: bestfit = abs(bestfit)
             err_lo, err_hi = abs(float(tree[param][2 * i + 1]) - bestfit), abs(float(tree[param][2 * i + 2]) - bestfit)
             res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
-            # res[param]['err_lo'] *= (1/lumi)**0.5
-            # res[param]['err']    *= (1/lumi)**0.5
-            # res[param]['err_hi'] *= (1/lumi)**0.5
+            res[param]['err_lo'] *= (1/lumi)**0.5
+            res[param]['err']    *= (1/lumi)**0.5
+            res[param]['err_hi'] *= (1/lumi)**0.5
 
     elif algo == 'grid':
         for param in params:
             other_params = [p for p in params if p!=param] if len(params)>1 else []
             bestfit, err_hi, err_lo = process_scan(file, param, 1e3, True, other_params)
             res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
-            # res[param]['err_lo'] *= (1/lumi)**0.5
-            # res[param]['err']    *= (1/lumi)**0.5
-            # res[param]['err_hi'] *= (1/lumi)**0.5
+            res[param]['err_lo'] *= (1/lumi)**0.5
+            res[param]['err']    *= (1/lumi)**0.5
+            res[param]['err_hi'] *= (1/lumi)**0.5
     else:
         raise ValueError(f'{algo = } is not supported, choose between [singles, grid]')
 
