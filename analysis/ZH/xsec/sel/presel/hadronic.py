@@ -346,13 +346,16 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
               ) -> tuple['ROOT.ROOT.RDataFrame',
                          list['ROOT.TH1',
                               'ROOT.TParameter']]:
+    import ROOT
 
     hists = []
     df = setup_alias(df, cat)
 
-    if 'p8_ee_WW_ecm' in dataset:  # remove muons/electrons from inclusive WW
+    is_WW_events = 'p8_ee_WW_ecm' in dataset
+    if is_WW_events:  # remove muons/electrons from inclusive WW
         df = df.Define('ww_leptonic', 'FCCAnalyses::is_ww_leptonic(Particle, Particle1)')
         df = df.Filter('!ww_leptonic')
+    hists.append(ROOT.TParameter(bool)('ww_leptonic_filter', is_WW_events))
 
     df = df.Define('muons_all',     'FCCAnalyses::ReconstructedParticle::get(Muon0,     ReconstructedParticles)')
     df = df.Define('photons_all',   'FCCAnalyses::ReconstructedParticle::get(Photon0,   ReconstructedParticles)')
