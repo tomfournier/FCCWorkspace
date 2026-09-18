@@ -95,10 +95,16 @@ if cat in ['ee', 'mumu']:
             cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
             cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
-    Baseline      = Baseline_cut_qq(ecm, False, True)
+    Baseline      = Baseline_cut_qq(ecm, False, False)
     Baseline_miss = Baseline_cut_qq(ecm, True,  False)
+    Baseline_old = Baseline + ' && delta_mWW4 > 9 && cosTheta_miss < 0.995'
+    Baseline_mWW = Baseline + ' && zqq_costheta < 0.85 && zqq_costheta > -0.85 && acolinearity > 0.35 && cosTheta_miss < 0.995'
     if test:
-        cutList['test'] = Baseline_cut_qq(ecm, True, False, True)
+        cutList['test']  = Baseline_old
+        # cutList['test1'] = Baseline_mWW + ' && thrust_costheta < 0.83'
+        # cutList['test2'] = Baseline_old + ' && thrust_costheta < 0.93'
+        # cutList['test3'] = Baseline_mWW + ' && (thrust < 0.73 || thrust > 0.77)'
+        # cutList['test4'] = Baseline_old + ' && (thrust < 0.73 || thrust > 0.77)'
     else:
         cutList['Baseline']      = Baseline
         cutList['Baseline_miss'] = Baseline_miss
@@ -114,7 +120,7 @@ else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
 # List of selections to split into high/low BDT score regions
-sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'Baseline_vis', 'Baseline_inv', 'test']
+sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'Baseline_vis', 'Baseline_inv', 'test', 'test1', 'test2', 'test3', 'test4']
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, sels)
 
@@ -145,3 +151,8 @@ if cat == 'qq':
                                                  'bins':[(350, 0, 350), (180, 20, 200), (1, bdt_cut, 1)]}
     histoList['zqq_m_recoil_m_full_mva_low'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'],
                                                 'bins':[(350, 0, 350), (180, 20, 200), (1, 0, bdt_cut)]}
+
+    histoList['zqq_m_thrust'] = {'cols':['zqq_m', 'thrust'],
+                                 'bins':[(100, 40, 140), (200, 0, 1)]}
+    histoList['zqq_m_thrust_costheta'] = {'cols':['zqq_m', 'thrust_costheta'],
+                                          'bins':[(100, 40, 140), (200, 0, 1)]}
