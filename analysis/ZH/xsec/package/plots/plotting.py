@@ -616,7 +616,8 @@ def makePlot(
     logX: bool = False,
     logY: bool = True,
     stack: bool = False,
-    lazy: bool = True
+    lazy: bool = True,
+    quiet: bool = False
      ) -> None:
     '''Draw signal/background histograms with optional background stacking.
 
@@ -740,7 +741,7 @@ def makePlot(
     base = _parse_selection_dir(sel, outDir, 'makePlot')
     linlog = '_log' if logY else '_lin'
     out = f'{base}/tot' if procs[0] == 'ZH' else f'{base}/cat'
-    save_plot(canvas, out, outName, linlog+suffix, format)
+    save_plot(canvas, out, outName, linlog+suffix, format, quiet)
 
     # Explicitly delete objects to free memory faster
     canvas.Close()
@@ -769,7 +770,8 @@ def PlotDecays(
     logY: bool = False,
     lazy: bool = True,
     strict: bool = True,
-    tot: bool = False
+    tot: bool = False,
+    quiet: bool = False
      ) -> None:
     '''Plot Higgs decay modes with unit-integral normalization for shape comparison.
 
@@ -873,7 +875,7 @@ def PlotDecays(
     out = f'{base}/tot' if tot else f'{base}/cat'
     linlog = '_log' if logY else '_lin'
     finalize_canvas(canvas)
-    save_plot(canvas, out, outName, linlog+suffix, format)
+    save_plot(canvas, out, outName, linlog+suffix, format, quiet)
 
     # Explicitly delete objects to free memory faster
     canvas.Close()
@@ -896,7 +898,8 @@ def AAAyields(
     lazy: bool = True,
     tot: bool = False,
     outName: str = '',
-    format: list[str] = ['png']
+    format: list[str] = ['png'],
+    quiet: bool = False
      ) -> None:
     '''Render a yields summary canvas with process list and metadata.
 
@@ -1078,7 +1081,7 @@ def AAAyields(
     out = _parse_selection_dir(sel, outDir, 'yield')
     mkdir(out)
     suff = '_tot' if tot else ''
-    savecanvas(canvas, out, outName, suff, format=format)
+    savecanvas(canvas, out, outName, suff, format, quiet)
     canvas.Close()
 
 # ______________________________
@@ -1310,7 +1313,8 @@ def Efficiency(
     outName: str = 'selection_efficiency',
     format: list[str] = ['png'],
     ecm: int = 240,
-    invert: bool = False
+    invert: bool = False,
+    quiet: bool = False
      ) -> None:
 
     '''Generate efficiency summary plots and detailed comparison tables.
@@ -1419,7 +1423,7 @@ def Efficiency(
 
     # Export pull plot
     out = _parse_selection_dir(sel, outDir, 'yield')
-    save_plot(canvas, out, outName, '', format)
+    save_plot(canvas, out, outName, '', format, quiet)
 
     eff_to_txt(outDir, sel, eff, eff_err, z_decays if invert else h_decays, outName)
 

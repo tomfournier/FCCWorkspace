@@ -56,21 +56,21 @@ Lazy Imports:
 ####################################
 
 # To remove numpy warning
-import warnings
-warnings.filterwarnings('ignore', message='The value of the smallest subnormal for')
-
+from ..logger import get_logger
+from ..tools.utils import mkdir
 from typing import overload, TYPE_CHECKING
+import warnings
+warnings.filterwarnings(
+    'ignore', message='The value of the smallest subnormal for')
+
 
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
     import xgboost as xgb
 
-from ..tools.utils import mkdir
-from ..logger import get_logger
 
 LOGGER = get_logger(__name__)
-
 
 
 ######################
@@ -82,27 +82,30 @@ def counts_and_effs(
     files: list[str],
     vars: list[str],
     only_eff: bool = True
-     ) -> float:
+) -> float:
     ...
+
 
 @overload
 def counts_and_effs(
     files: list[str],
     vars: list[str],
     only_eff: bool = False
-     ) -> tuple['pd.DataFrame',
-                float,
-                int]:
+) -> tuple['pd.DataFrame',
+           float,
+           int]:
     ...
 
 # ___________________________
+
+
 def counts_and_effs(
     files: list[str],
     vars: list[str],
     only_eff: bool = False
-     ) -> tuple['pd.DataFrame',
-                float,
-                int] | float:
+) -> tuple['pd.DataFrame',
+           float,
+           int] | float:
     '''Calculate event counts, dataframe, and selection efficiency.
 
     Args:
@@ -139,16 +142,20 @@ def counts_and_effs(
             # Read events tree
             tree = file['events']
             if tree.num_entries > 0:
-                df_chunk = tree.arrays(vars, library='pd') if vars else tree.arrays(library='pd')
+                df_chunk = tree.arrays(
+                    vars, library='pd') if vars else tree.arrays(library='pd')
                 dfs.append(df_chunk)
 
     # Concatenate all dataframes at once
-    df = pd.concat(dfs, ignore_index=True, copy=False) if dfs else pd.DataFrame()
+    df = pd.concat(dfs, ignore_index=True,
+                   copy=False) if dfs else pd.DataFrame()
     eff = df.shape[0] / N_events if N_events > 0 else 0.0
 
     return df, eff, N_events
 
 # ______________________
+
+
 def additional_info(
     df: 'pd.DataFrame',
     xsec: dict[str, float | int],
@@ -156,7 +163,7 @@ def additional_info(
     mode: str,
     proc: str,
     sig: str
-     ) -> 'pd.DataFrame':
+) -> 'pd.DataFrame':
     '''Add sample mode and signal label columns to dataframe.
 
     Args:
@@ -177,6 +184,8 @@ def additional_info(
     return df
 
 # __________________________
+
+
 def BDT_input_numbers(
     df: 'pd.DataFrame',
     modes: dict[str, list[str]],
@@ -187,7 +196,7 @@ def BDT_input_numbers(
     all_inputs: bool = False,
     n_max: int = 1e6,
     scale_with_sig: bool = False
-     ) -> dict[str, int]:
+) -> dict[str, int]:
     '''Calculate number of events to use for BDT training per process.
 
     Balances signal and background using cross-sections and efficiencies.
@@ -205,27 +214,31 @@ def BDT_input_numbers(
     '''
     N_BDT_inputs: dict[str, int] = {}
     if all_inputs:
-        LOGGER.info(f'Take all the events in the dataframes for training ({n_max = :,.0f})')
-        return {m: int(df[m].shape[0] * frac[m]) if int(df[m].shape[0] * frac[m])<=n_max else int(n_max) for m in modes}
+        LOGGER.info(
+            f'Take all the events in the dataframes for training ({n_max = :,.0f})')
+        return {m: int(df[m].shape[0] * frac[m]) if int(df[m].shape[0] * frac[m]) <= n_max else int(n_max) for m in modes}
 
     # Total background cross-section weighted by efficiency
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in modes if mode != sig)
     if xsec_tot_bkg <= 0:
-        LOGGER.warning('Total background normalization is zero; returning zero BDT inputs for backgrounds')
+        LOGGER.warning(
+            'Total background normalization is zero; returning zero BDT inputs for backgrounds')
     for m in modes:
         if scale_with_sig:
-            n_sig = df[sig].shape[0] if df[sig].shape[0]<=n_max else n_max
+            n_sig = df[sig].shape[0] if df[sig].shape[0] <= n_max else n_max
             N_BDT_inputs[m] = (
                 int(frac[m] * n_sig) if m == sig else
                 int(frac[m] * n_sig * frac[sig] * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
         else:
-            n_sig = df[sig].shape[0] if df[sig].shape[0]<=n_max else n_max
+            n_sig = df[sig].shape[0] if df[sig].shape[0] <= n_max else n_max
             N_BDT_inputs[m] = (
                 int(frac[m] * n_sig) if m == sig else
                 int(frac[m] * n_sig * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
     return N_BDT_inputs
 
 # __________________________
+
+
 def sample_df_by_xsec(
     df_mode: dict[str, 'pd.DataFrame'],
     proc_xsec: dict[str, float],
@@ -236,7 +249,7 @@ def sample_df_by_xsec(
     all_inputs: bool = True,
     n_max: int = 1e6,
     keep_prop: bool = False
-     ) -> 'pd.DataFrame':
+) -> 'pd.DataFrame':
     '''Sample and concatenate process dataframes in proportion to eff * xsec.
 
     Args:
@@ -265,14 +278,17 @@ def sample_df_by_xsec(
     if not available:
         return pd.DataFrame()
     if all_inputs:
-        LOGGER.debug('Returning the concatenation of all available process dataframe')
+        LOGGER.debug(
+            'Returning the concatenation of all available process dataframe')
         return pd.concat([df_mode[proc] for proc in available], ignore_index=True)
     if not keep_prop:
-        return pd.concat([df_mode[proc] for proc in available], ignore_index=True).sample(int(n_max), random_state=random_state)
+        dataframe = pd.concat([df_mode[proc] for proc in available], ignore_index=True)
+        return dataframe.sample(int(n_max) if n_max<=dataframe.shape[0] else dataframe.shape[0], random_state=random_state)
 
     if len(available) == 1:
         proc = next(iter(available))
-        LOGGER.debug(f'Only one process found for {mode}; keeping {proc} without resampling.')
+        LOGGER.debug(
+            f'Only one process found for {mode}; keeping {proc} without resampling.')
         return df_mode[proc]
 
     total_available = sum(available.values())
@@ -341,8 +357,10 @@ def sample_df_by_xsec(
 
     total_sampled = sum(sampled_counts.values())
     for proc in available:
-        expected_fraction = (proc_weight[proc] / total_weight) * 100 if total_weight > 0 else 0.0
-        actual_fraction = sampled_counts[proc] / total_sampled * 100 if total_sampled > 0 else 0.0
+        expected_fraction = (
+            proc_weight[proc] / total_weight) * 100 if total_weight > 0 else 0.0
+        actual_fraction = sampled_counts[proc] / \
+            total_sampled * 100 if total_sampled > 0 else 0.0
         if abs(expected_fraction - actual_fraction) > 1e-3:
             LOGGER.warning(f'Fraction in {mode:<{max(len(mode), 1)}} from {proc:<{proc_width}} = '
                            f'expected {expected_fraction:.3f}% | actual {actual_fraction:.3f}%')
@@ -350,13 +368,15 @@ def sample_df_by_xsec(
     return pd.concat(sampled_mode, ignore_index=True)
 
 # ________________________________
+
+
 def df_split_data(
     df: 'pd.DataFrame',
     N_BDT_inputs: dict[str, int],
     mode: str,
     lumi: float = 10.8,
     test_size: float = 0.5
-     ) -> 'pd.DataFrame':
+) -> 'pd.DataFrame':
     '''Sample events are split into training/validation sets with weights.
 
     Args:
@@ -386,34 +406,36 @@ def df_split_data(
 
     # Split 50/50 into training and validation sets without an extra dataframe shuffle
     valid_size = int(round(sampled.shape[0] * test_size))
-    valid_idx  = np.random.default_rng(7).choice(sampled.index.to_numpy(), size=valid_size, replace=False)
+    valid_idx = np.random.default_rng(7).choice(
+        sampled.index.to_numpy(), size=valid_size, replace=False)
     valid_mask = sampled.index.isin(valid_idx)
 
     # Mark validation set
-    sampled.loc[:, 'valid']          = False  # Training set
+    sampled.loc[:,          'valid'] = False  # Training set
     sampled.loc[valid_mask, 'valid'] = True   # Validation set
 
     # Calculate event weights accounting for efficiency, cross-section, and luminosity
-    coeff = sampled['eff'] * sampled['xsec'] * lumi * 1e6
+    coeff = sampled['eff'] * sampled['xsec'] / sampled['n'] * lumi * 1e6
     n_valid = int(valid_mask.sum())
     n_train = sampled.shape[0] - n_valid
+    frac_valid = n_valid / (n_train + n_valid)
 
     # Normalization weight per event
-    sampled.loc[~valid_mask, 'train_weights'] = coeff[~valid_mask] / n_train if n_train > 0 else 0.0
-    sampled.loc[valid_mask,  'train_weights'] = coeff[valid_mask]  / n_valid if n_valid > 0 else 0.0
+    sampled.loc[~valid_mask, 'train_weights'] = coeff[~valid_mask] * (1 - frac_valid)
+    sampled.loc[valid_mask,  'train_weights'] = coeff[valid_mask]  * frac_valid
 
-    sampled.loc[~valid_mask, 'weights'] = coeff[~valid_mask] / n_train if n_train > 0 else 0.0
-    sampled.loc[valid_mask,  'weights'] = coeff[valid_mask]  / n_valid if n_valid > 0 else 0.0
+    sampled.loc[~valid_mask, 'weights'] = coeff[~valid_mask] * (1 - frac_valid)
+    sampled.loc[valid_mask,  'weights'] = coeff[valid_mask]  * frac_valid
 
     return sampled
+
 
 # _______________________________________________
 def apply_balanced_training_weights(
     df: dict[str, 'pd.DataFrame'],
     modes: dict[str, list[str]],
     sig: str,
-    lumi: float,
-     ) -> list[str]:
+) -> list[str]:
     '''Apply a simple, class-balanced training weight scheme.
 
     The physical ``weights`` column is kept unchanged for plotting and physics interpretation.
@@ -422,8 +444,10 @@ def apply_balanced_training_weights(
     1. For each mode, make all events in that mode share the same training weight.
     2. For the signal mode, make all signal subprocesses share the same training weight.
     3. Rescale the total signal training weight to match the total background training weight.
+    4. Normalize all training weights so their combined sum is one.
 
-    This preserves the total mode contribution while making the training sample class-balanced.
+    This preserves the relative mode contribution while making the training sample
+    class-balanced and keeping the overall weight scale bounded.
     '''
     good_modes: list[str] = []
     mode_weights: dict[str, float] = {}
@@ -447,16 +471,19 @@ def apply_balanced_training_weights(
             sig_mask = mode_df['proc'].isin(sig_procs)
             n_sig = int(sig_mask.sum())
             if n_sig > 0:
-                sig_total_weight = float(mode_df.loc[sig_mask, 'weights'].sum())
+                sig_total_weight = float(
+                    mode_df.loc[sig_mask, 'weights'].sum())
                 sig_weight = sig_total_weight / n_sig
                 for proc in sig_procs:
                     proc_mask = mode_df['proc'].eq(proc)
                     if not proc_mask.any():
-                        LOGGER.warning(f'No selected events for signal process {proc}; skipping equal-weight assignment')
+                        LOGGER.warning(
+                            f'No selected events for signal process {proc}; skipping equal-weight assignment')
                         continue
                     mode_df.loc[proc_mask, 'train_weights'] = sig_weight
 
-                mode_weights[mode] = float(mode_df.loc[sig_mask, 'train_weights'].sum())
+                mode_weights[mode] = float(
+                    mode_df.loc[sig_mask, 'train_weights'].sum())
                 proc_weights = ', '.join(
                     f'{proc}: {float(mode_df.loc[mode_df["proc"].eq(proc), "train_weights"].sum()):,.4f}'
                     for proc in sig_procs
@@ -476,31 +503,38 @@ def apply_balanced_training_weights(
 
         good_modes.append(mode)
 
-    if sig not in mode_weights:
-        return good_modes
+    if sig in mode_weights:
+        sig_total = mode_weights[sig]
+        bkg_total = sum(mode_weights[m] for m in mode_weights if m != sig)
+        signal_df = df.get(sig)
+        if bkg_total > 0 and sig_total > 0 and signal_df is not None and not signal_df.empty:
+            scale = bkg_total / sig_total
+            signal_df.loc[:, 'train_weights'] *= scale
+            LOGGER.info(
+                f'Rescaled signal training weights by {scale:,.4f} to enforce W_sig = W_bkg '
+                f'({sig_total:,.2f} -> {sig_total * scale:,.2f})'
+            )
 
-    sig_total = mode_weights[sig]
-    bkg_total = sum(mode_weights[m] for m in mode_weights if m != sig)
-    if bkg_total <= 0 or sig_total <= 0:
-        return good_modes
-
-    scale = bkg_total / sig_total
-    signal_df = df.get(sig)
-    if signal_df is None or signal_df.empty:
-        return good_modes
-
-    signal_df.loc[:, 'train_weights'] *= scale
-    LOGGER.info(
-        f'Rescaled signal training weights by {scale:,.4f} to enforce W_sig = W_bkg '
-        f'({sig_total:,.2f} -> {sig_total * scale:,.2f})'
+    total_train_weight = sum(
+        float(df[mode]['train_weights'].sum()) for mode in good_modes
     )
+    if total_train_weight > 0:
+        normalization = 1.0 / total_train_weight
+        for mode in good_modes:
+            df[mode].loc[:, 'train_weight'] = df[mode].loc[:, 'train_weights'] * normalization
+        LOGGER.info(
+            f'Normalized combined training weights by {normalization:,.6g} '
+            f'(sum {total_train_weight:,.6g} -> 1.0)'
+        )
     return good_modes
 
 # ______________________
+
+
 def print_stats(
     df: 'pd.DataFrame',
     modes: list
-     ) -> None:
+) -> None:
     '''Print training and validation event counts per process.
 
     Args:
@@ -515,22 +549,24 @@ def print_stats(
     LOGGER.info(f"{' NUMBER OF BDT INPUT EVENTS ':=^{n}}")
     train = df['valid'] == False
     for m in modes:
-        m_mask = df['sample']==m
+        m_mask = df['sample'] == m
         LOGGER.info(f"{f'Number of training for {m:<{lenght+2}} : {int((m_mask &  train).sum()):<10,}':^45}"
                     f"  {f'Number of validation for {m:<{lenght}} : {int((m_mask & ~train).sum()):<10,}':^45}".center(n))
     LOGGER.info(f"{'=' * n:^{n}}\n")
 
 # ____________________________
+
+
 def split_data(
     df: 'pd.DataFrame',
     vars: list[str],
     weight: str = 'norm_weight'
-     ) -> tuple['np.ndarray',
-                'np.ndarray',
-                'np.ndarray',
-                'np.ndarray',
-                'np.ndarray',
-                'np.ndarray']:
+) -> tuple['np.ndarray',
+           'np.ndarray',
+           'np.ndarray',
+           'np.ndarray',
+           'np.ndarray',
+           'np.ndarray']:
     '''Split data into training and validation sets for features and labels.
 
     Args:
@@ -544,17 +580,25 @@ def split_data(
 
     train = df['valid'] == False
     # Features for training and validation sets
-    X_train = np.ascontiguousarray(df.loc[train,  vars].to_numpy(np.float32, copy=False))
-    X_valid = np.ascontiguousarray(df.loc[~train, vars].to_numpy(np.float32, copy=False))
+    X_train = np.ascontiguousarray(
+        df.loc[train,  vars].to_numpy(np.float32, copy=False))
+    X_valid = np.ascontiguousarray(
+        df.loc[~train, vars].to_numpy(np.float32, copy=False))
     # Labels (signal/background) for training and validation sets
-    y_train = np.ascontiguousarray(df.loc[train,  'isSignal'].to_numpy(np.int8, copy=False).ravel())
-    y_valid = np.ascontiguousarray(df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel())
+    y_train = np.ascontiguousarray(
+        df.loc[train,  'isSignal'].to_numpy(np.int8, copy=False).ravel())
+    y_valid = np.ascontiguousarray(
+        df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel())
 
-    train_weight = np.ascontiguousarray(df.loc[train,  weight].to_numpy(np.float32, copy=False).ravel())
-    valid_weight = np.ascontiguousarray(df.loc[~train, weight].to_numpy(np.float32, copy=False).ravel())
+    train_weight = np.ascontiguousarray(
+        df.loc[train,  weight].to_numpy(np.float32, copy=False).ravel())
+    valid_weight = np.ascontiguousarray(
+        df.loc[~train, weight].to_numpy(np.float32, copy=False).ravel())
     return X_train, y_train, X_valid, y_valid, train_weight, valid_weight
 
 # ____________________________________
+
+
 def train_model(
     X_train: 'np.ndarray',
     y_train: 'np.ndarray',
@@ -564,7 +608,7 @@ def train_model(
     valid_weight: 'np.ndarray',
     config: dict[str,
                  str | int | float | list[str]],
-     ) -> 'xgb.XGBClassifier':
+) -> 'xgb.XGBClassifier':
     '''Train XGBoost model with early stopping.
 
     Args:
@@ -582,7 +626,8 @@ def train_model(
 
     bdt = xgb.XGBClassifier(**config)
     eval_set = [(X_train, y_train), (X_valid, y_valid)]
-    sample_weight_eval_set = None if train_weight is None or valid_weight is None else [train_weight, valid_weight]
+    sample_weight_eval_set = None if train_weight is None or valid_weight is None else [
+        train_weight, valid_weight]
     LOGGER.info('Beginning the training')
     bdt.fit(X_train, y_train, eval_set=eval_set, verbose=True,
             sample_weight=train_weight,
@@ -590,11 +635,13 @@ def train_model(
     return bdt
 
 # ____________________________
+
+
 def evaluate_bdt(
     df: 'pd.DataFrame',
     bdt: 'xgb.XGBClassifier',
     vars: list[str]
-     ) -> 'pd.DataFrame':
+) -> 'pd.DataFrame':
     '''Compute BDT scores and add to dataframe.
 
     Args:
@@ -616,11 +663,13 @@ def evaluate_bdt(
     return df
 
 # ___________________________________________
+
+
 def get_metrics(
     bdt: 'xgb.XGBClassifier'
-     ) -> tuple[dict[str,
-                     dict[str, list[float]]],
-                int, 'np.ndarray', int]:
+) -> tuple[dict[str,
+                dict[str, list[float]]],
+           int, 'np.ndarray', int]:
     '''Extract training metrics from trained model.
 
     Args:
@@ -641,6 +690,8 @@ def get_metrics(
     return results, epochs, x_axis, best_iteration
 
 # _________________________________________________
+
+
 def load_model(inDir: str) -> 'xgb.XGBClassifier':
     '''Load previously trained XGBoost model.
 
@@ -656,11 +707,13 @@ def load_model(inDir: str) -> 'xgb.XGBClassifier':
     return joblib.load(fpath)
 
 # ____________________________
+
+
 def save_model(
     bdt: 'xgb.XGBClassifier',
     vars: list[str],
     path: str
-     ) -> None:
+) -> None:
     '''Save trained model in ROOT and joblib formats.
 
     Args:
@@ -671,7 +724,8 @@ def save_model(
     Returns:
         None
     '''
-    import joblib, ROOT
+    import joblib
+    import ROOT
     mkdir(path)
     froot, fjob = f'{path}/xgb_bdt.root', f'{path}/xgb_bdt.joblib'
     LOGGER.info(f'Saving BDT in a .root file at {froot}')
@@ -693,6 +747,8 @@ def save_model(
     joblib.dump(bdt, fjob, compress=2)
 
 # ______________________________________
+
+
 def def_bdt(
     loc_bdt: str,
     MVAVec:  str = 'MVAVec',
@@ -700,7 +756,7 @@ def def_bdt(
     defineList: dict[str, str] = {},
     suffix: str = '',
     weight_suffix: str = ''
-     ) -> tuple[dict[str, str], float]:
+) -> tuple[dict[str, str], float]:
     '''Define BDT computation in ROOT RDataFrame and load cut value.
 
     Args:
@@ -714,7 +770,8 @@ def def_bdt(
     Returns:
         tuple: (updated defineList, BDT cut threshold).
     '''
-    import uproot, ROOT
+    import uproot
+    import ROOT
 
     # Load TMVA model from ROOT file
     ROOT.gInterpreter.ProcessLine(f'''
@@ -724,7 +781,6 @@ def def_bdt(
     # Get the BDT inputs from the .root file
     tlist = uproot.open(f'{loc_bdt}/xgb_bdt.root')['variables']
     var_list = ', (float)'.join([str(x) for x in tlist])
-
 
     # Define feature vector if not already present
     if MVAVec not in defineList:
@@ -739,12 +795,14 @@ def def_bdt(
     return defineList, bdt_cut
 
 # ___________________________
+
+
 def make_high_low(
     cutList: dict[str, str],
     bdt_cut: float,
     sels: list[str],
     score: str = 'BDTscore'
-     ) -> dict[str, str]:
+) -> dict[str, str]:
     '''Create high/low BDT score cut regions for selected criteria.
 
     Args:
@@ -758,11 +816,12 @@ def make_high_low(
     '''
 
     valid_sels = [sel for sel in sels if sel in cutList]
-    LOGGER.info(f'Adding selection with BDT separation for\n{" ".join(valid_sels)}')
+    LOGGER.info(
+        f'Adding selection with BDT separation for\n{" ".join(valid_sels)}')
     for sel in valid_sels:
         old_cut = cutList[sel]
         # Add high BDT score region (signal-like)
         cutList[sel+'_high'] = old_cut + f' && {score} > {bdt_cut}'
         # Add low BDT score region (background-like)
-        cutList[sel+'_low'] = old_cut  + f' && {score} < {bdt_cut}'
+        cutList[sel+'_low'] = old_cut + f' && {score} < {bdt_cut}'
     return cutList
