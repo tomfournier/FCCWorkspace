@@ -23,6 +23,7 @@ parser = create_parser(
     cat_single=True,
     include_sels=True,
     allow_qq=True,
+    bdt_training=True,
     description='BDT Training Script'
 )
 arg = parse_args(parser, True)
@@ -87,11 +88,12 @@ configs = {
         'max_bin': 256,                                # Histogram bins for the fast tree builder
     },
     'had': {
-        # 'objective': 'binary:logistic',                # Learning task and the corresponding learning objective to be used
+        'objective': 'binary:logistic',                # Learning task and the corresponding learning objective to be used
         'n_estimators': 350,                           # Number of boosting round (tree to grow)
         'max_depth': 5,                                # Maximum tree depth
-        'subsample': 0.5,                              # Subsample ratio of training instances per tree
-        'colsample_bytree': 0.5,                       # Subsample ratio of columns when building each tree
+        'subsample': 1.0,                              # Subsample ratio of training instances per tree
+        'min_child_weight': 0.01,                      # Minimum sum of instance weight in leaf node
+        'colsample_bytree': 1.0,                       # Subsample ratio of columns when building each tree
         'early_stopping_rounds': 5,                    # Validation metric need to improve at least once every early stopping round
         'eval_metric': ['error', 'logloss', 'auc'],    # Metrics to use for monitoring the training
         'tree_method': 'hist',                         # Fast histogram-based tree builder
@@ -141,15 +143,26 @@ def run(sels: list[str],
 
         # Create training and validation datasets (50% training, 50% validation)
         LOGGER.debug('Splitting data into training and validation sample')
-        X_train, y_train, X_valid, y_valid, train_weight, valid_weight = split_data(df, vars, 'train_weights')
+        X_train, y_train, X_valid, y_valid, train_weight, valid_weight = split_data(df, vars, arg.weight_name)
+        train_weight = train_weight if arg.use_weights else None
+        valid_weight = valid_weight if arg.use_weights else None
+
+        if arg.use_weights:
+            LOGGER.info(f"Using '{arg.weight_name}' as training weight")
+        else:
+            LOGGER.info('Not using weights for the BDT training')
+
+        if (arg.weight_name=='train_weight') and \
+                train_weight is not None and valid_weight is not None:
+            train_weight *= len(train_weight)
+            valid_weight *= len(valid_weight)
 
         # Train XGBoost classifier with early stopping
         # Monitor validation loss and stop if no improvement for 'early' rounds
         bdt = train_model(
             X_train, y_train,
             X_valid, y_valid,
-            None,  # train_weight,
-            None,  # valid_weight,
+            train_weight, valid_weight,
             config,
         )
 

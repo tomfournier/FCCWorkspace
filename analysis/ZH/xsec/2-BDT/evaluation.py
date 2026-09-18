@@ -84,11 +84,11 @@ else:
 modes = {
     f'Z{cat}H':      [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else             # Signal: ZH production
                      [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays],
+    f'WW{cat}':      [f'p8_ee_WW_ecm{ecm}' if cat == 'qq'                # Background: diboson WW
+                      else f'p8_ee_WW_{cat}_ecm{ecm}'],
     'ZZ':            [f'p8_ee_ZZ_ecm{ecm}'],                             # Background: diboson ZZ
     f'Z{cat}':       [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'     # Background: Z+jets
                       else f'wzp6_ee_{cat}_ecm{ecm}'],
-    f'WW{cat}':      [f'p8_ee_WW_ecm{ecm}' if cat == 'qq'                # Background: diboson WW
-                      else f'p8_ee_WW_{cat}_ecm{ecm}'],
     f'gammae_{cat}': [f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
     f'egamma_{cat}': [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
 }
