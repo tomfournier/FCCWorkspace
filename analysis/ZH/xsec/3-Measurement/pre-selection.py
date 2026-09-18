@@ -13,7 +13,7 @@ if script_dir not in sys.path:
 # Load analysis configuration and preselection functions
 from package.userConfig import loc, get_params
 from package.config import get_process_list
-from sel.presel.leptonic import presel_ll, branch_list_ll
+from sel.presel.leptonic import get_systs_list, presel_ll, branch_list_ll
 from sel.presel.hadronic import presel_qq, branch_list_qq
 
 # Load environment to know which configuration to use
@@ -106,7 +106,7 @@ class RDFgraph():
     def output():
         '''Define output branches to save.'''
         if cat in ['ee', 'mumu']:
-            return sorted(branch_list_ll)
+            return sorted(branch_list_ll + get_systs_list(cat))
         elif cat == 'qq':
             return sorted(branch_list_qq)
         else:
