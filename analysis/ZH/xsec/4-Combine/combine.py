@@ -63,11 +63,13 @@ bkg_procs_dict = {
 
 hist_names_dict = {
     'lep': ['zll_recoil_m_fit_high', 'zll_recoil_m_fit_low'],
-    'had': ['zqq_m_recoil_m_tot_mva_fit_high_1D', 'zqq_m_recoil_m_tot_mva_fit_low_1D']
-    # 'had': ['zqq_recoil_m_tot_fit_high', 'zqq_recoil_m_tot_fit_low']
+    'had': ['zqq_m_recoil_m_tot_mva_fit']
 }
 # Category identifier
-cats_template: list[str] = ['z_cat_high', 'z_cat_low']
+cats_template: dict[str, list[str]] = {
+    'lep': ['z_cat_high', 'z_cat_low'],
+    'had': ['z_cat']
+}
 
 
 
@@ -87,9 +89,10 @@ def main():
         for cat in cats:
             bkg_procs_ecm = bkg_procs_dict.get(ecm, {})
             bkg_procs     = bkg_procs_ecm.get(cat, bkg_procs_ecm['*'])
+            cat_template  = cats_template['had' if cat=='qq' else 'lep']
             if not bkg_procs:
                 LOGGER.warning('bkg_procs is an empty dictionary')
-            categories = [c.replace('cat', cat) for c in cats_template]
+            categories = [c.replace('cat', cat) for c in cat_template]
             hist_names = hist_names_dict['had' if cat=='qq' else 'lep']
 
             # Define systematic uncertainties
