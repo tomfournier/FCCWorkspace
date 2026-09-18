@@ -43,7 +43,7 @@ stacksig       = ['nostack']    # Signal display mode (nostack = overlaid)
 formats        = plot_file      # Output file formats (e.g., png, pdf)
 
 # Scale factors for signal and background (for visual comparison)
-scaleSig       = 50. if cat=='qq' else 1.   # Signal scale     (1.0 = no scaling)
+scaleSig       = 10. if cat=='qq' else 1.   # Signal scale     (1.0 = no scaling)
 scaleBkg       = 1.                         # Background scale (1.0 = no scaling)
 
 # Plot appearance settings
@@ -72,8 +72,7 @@ variables = sorted(histos_ll.keys()) if cat in ['ee', 'mumu'] else \
 # Keys: analysis identifier | Values: list of selection cut names to plot
 # Selection names must match those defined in final-selection.py
 selections: dict[str, list[str]] = {}
-selections['ZH'] = ['sel0', 'Baseline']
-if test: selections['ZH'].append('test')
+selections['ZH'] = ['test'] if test else ['sel0', 'Baseline']
 
 # Additional descriptive labels for each selection cut
 # Displayed below plot titles for clarity
