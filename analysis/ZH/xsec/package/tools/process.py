@@ -999,7 +999,7 @@ def get_yrange(
 # _______________________________________
 def get_range(
     h_sigs: list['ROOT.TH1'],
-    h_bkgs: list['ROOT.TH1'],
+    h_bkgs: list['ROOT.TH1'] = None,
     logY: bool = False,
     strict: bool = True,
     stack: bool = False,
@@ -1036,45 +1036,48 @@ def get_range(
         tuple: (xmin, xmax, ymin, ymax) ranges ready for plotting.
     '''
     import numpy as np
-    # Stack all signal and background histograms
-    h_stack = get_stack(h_sigs + h_bkgs)
 
-    # Determine x-range from stacked histogram
-    xMin, xMax = get_xrange(
-        h_stack, strict=strict,
-        xmin=xmin, xmax=xmax
-    )
-    h_bkg = [get_stack(h_bkgs)]
+    h_sigs = h_sigs or []
+    h_bkgs = h_bkgs or []
+    hists = [*h_sigs, *h_bkgs]
+    if not hists:
+        raise ValueError('get_range requires at least one histogram')
 
-    # Get y-min values from all histograms
-    yMin = np.array([
+    # Combine the visible ranges of all histograms. This also works for decay
+    # plots, where there are several signals and no background histograms.
+    ranges = [
+        get_xrange(h, strict=strict, xmin=xmin, xmax=xmax)
+        for h in hists
+    ]
+    xMin = min(value[0] for value in ranges)
+    xMax = max(value[1] for value in ranges)
+
+    y_ranges = [
         get_yrange(
-            h, logY=logY,
-            ymin=ymin, ymax=ymax,
+            h,
+            logY=logY,
+            ymin=ymin,
+            ymax=ymax,
             scale_min=scale_min,
-            scale_max=scale_max)[0]
-        for h in h_sigs + h_bkgs
-    ])
+            scale_max=scale_max,
+        )
+        for h in hists
+    ]
+    yMin = np.nanmin([value[0] for value in y_ranges])
 
-    # Get y-max values based on stacking option
-    if stack:
+    if stack and h_bkgs:
         yMax = get_yrange(
-            h_stack, logY=logY,
-            ymin=ymin, ymax=ymax,
+            get_stack(h_bkgs),
+            logY=logY,
+            ymin=ymin,
+            ymax=ymax,
             scale_min=scale_min,
-            scale_max=scale_max
+            scale_max=scale_max,
         )[1]
+        # A signal can be higher than the background stack.
+        yMax = max(yMax, *(value[1] for value in y_ranges))
     else:
-        yMax = np.array([
-            get_yrange(
-                h, logY=logY,
-                ymin=ymin, ymax=ymax,
-                scale_min=scale_min,
-                scale_max=scale_max)[1]
-            for h in h_sigs + h_bkg
-        ])
-        yMax = yMax.max()
-    yMin = yMin.min()
+        yMax = max(value[1] for value in y_ranges)
 
     return xMin, xMax, yMin, yMax
 
@@ -1112,21 +1115,15 @@ def get_range_decay(
     Returns:
         tuple: (xmin, xmax, ymin, ymax) ranges for decay mode visualization.
     '''
-    import numpy as np
-    # Stack signal histograms
-    h_sig = get_stack(h_sigs)
-
-    # Get x-range from stacked histogram
-    xMin, xMax = get_xrange(
-        h_sig, strict=strict,
-        xmin=xmin, xmax=xmax
+    return get_range(
+        h_sigs,
+        [],
+        logY=logY,
+        strict=strict,
+        scale_min=scale_min,
+        scale_max=scale_max,
+        xmin=xmin,
+        xmax=xmax,
+        ymin=ymin,
+        ymax=ymax,
     )
-
-    # Get y-range values from all signal histograms
-    y_ranges = np.array([get_yrange(
-        h, logY=logY, ymin=ymin, ymax=ymax
-    ) for h in h_sigs])
-    yMin = y_ranges[:,0].min()*scale_min
-    yMax = y_ranges[:,1].max()*scale_max
-
-    return xMin, xMax, yMin, yMax

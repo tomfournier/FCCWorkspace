@@ -5,7 +5,8 @@ histogram plots. The lower-level ROOT details remain in ``plots.root`` so
 that specialized plot classes can override individual steps later.
 '''
 
-from typing import Any, Optional, Union
+from typing import Any
+from pathlib import Path
 
 
 class HistogramPlot:
@@ -60,17 +61,58 @@ class HistogramPlot:
             process_map,
             self.variable,
             self.inDir,
-            suffix=suffix,
-            rebin=rebin,
-            lazy=lazy,
+            suffix, rebin, lazy,
         )
 
 
-    def define_legend(self, num_entries: int) -> Any:
+    def define_legend(
+            self,
+            num_entries: int,
+            columns: int = 1,
+            x1: float = 0.55,
+            y1: float = 0.99,
+            x2: float = 0.99,
+            y2: float = 0.90,
+            border_size: int = 0,
+            fill_style: int = 0,
+            text_size: float = 0.03,
+            set_margin: float = 0.2,
+            text_font: int = -1
+    ) -> Any:
         '''Create the legend used by the plot.'''
-        from .root.helper import mk_legend
 
-        return mk_legend(num_entries)
+        import ROOT
+        leg = ROOT.TLegend(x1, y1 - num_entries * 0.06 / columns, x2, y2)
+
+        if text_font != -1:
+            leg.SetTextFont(text_font)
+        leg.SetBorderSize(border_size)
+        leg.SetFillStyle(fill_style)
+        leg.SetTextSize(text_size)
+        leg.SetMargin(set_margin)
+        leg.SetNColumns(columns)
+
+        return leg
+
+
+    def style_hist(
+            hist,
+            color: int,
+            width: int = 1,
+            style: int = 1,
+            scale: float = 1.,
+            fill_color: int | None = None
+    ) -> None:
+
+        hist.SetLineColor(color)
+        hist.SetLineWidth(width)
+        hist.SetLineStyle(style)
+        if fill_color is not None:
+            hist.SetFilleColor(fill_color)
+        if scale != 1.:
+            hist.Scale(scale)
+
+        return None
 
 
     def style_histograms(
@@ -78,10 +120,10 @@ class HistogramPlot:
         histograms: dict[str, Any],
         legend_obj: Any,
         sig_scale: float = 1.,
+        bkg_scale: float = 1.
     ) -> tuple[Any, list[Any]]:
         '''Style histograms and return the background stack contents.'''
         import ROOT
-        from .root.helper import style_hist
 
         stack = ROOT.THStack('stack', 'stack')
         backgrounds = []
@@ -91,16 +133,18 @@ class HistogramPlot:
                 continue
 
             is_signal = process in self.signals
-            style_hist(
+            self.style_hist(
                 hist,
                 color=self.colors[process] if is_signal else ROOT.kBlack,
                 width=3 if is_signal else 1,
                 fill_color=self.colors[process] if not is_signal else None,
-                scale=sig_scale if is_signal else 1.,
+                scale=sig_scale if is_signal else bkg_scale,
             )
             label = self.legend[process]
             if is_signal and sig_scale != 1:
                 label += f' (#times {int(sig_scale)})'
+            if not is_signal and bkg_scale != 1:
+                label += f' (#times {int(bkg_scale)})'
             legend_obj.AddEntry(hist, label, 'L' if is_signal else 'F')
 
             if not is_signal:
@@ -121,28 +165,103 @@ class HistogramPlot:
         self,
         signal_hists: list[Any],
         backgrounds: list[Any],
-        **kwargs: Any,
+        xmin: float | None = None,
+        xmax: float | None = None,
+        ymin: float | None = None,
+        ymax: float | None = None,
+        logX: bool = False,
+        logY: bool = False,
+        xtitle: str | None = '',
+        ytitle: str = 'Events',
+        scale_min: float | None = None,
+        scale_max: float | None = None,
+        strict: bool = True,
+        stack: bool = False,
     ) -> dict[str, Any]:
         '''Build the ROOT plot configuration for the loaded histograms.'''
-        from .root.helper import build_cfg
+        from .root.helper import make_cfg
 
-        config_keys = (
-            'logX', 'logY', 'xmin', 'xmax', 'ymin', 'ymax',
-            'strict', 'stack',
+        ref_hist = signal_hists[0] if signal_hists else backgrounds[0]
+        all_hists = [*signal_hists, *backgrounds]
+        xMin, xMax, yMin, yMax = self._get_ranges(
+            all_hists, backgrounds,
+            xmin, xmax, ymin, ymax,
+            scale_min, scale_max,
+            logY, strict, stack,
         )
-        reference_hist = signal_hists[0] if signal_hists else backgrounds[0]
-        other_hists = (
-            [*signal_hists[1:], *backgrounds]
-            if signal_hists
-            else backgrounds[1:]
-        )
-        return build_cfg(
-            reference_hist,
-            ecm=self.ecm,
-            lumi=self.lumi,
-            hists=other_hists,
-            **{key: kwargs[key] for key in config_keys if key in kwargs},
-        )
+
+        if xtitle in ('', None):
+            xTitle = ref_hist.GetXaxis().GetTitle() if xtitle == '' else ''
+        else:
+            xTitle = xtitle
+
+        bwidth = ref_hist.GetBinWidth(1)
+        if   'MeV' in xTitle: unit = 'MeV'
+        elif 'GeV' in xTitle: unit = 'GeV'
+        elif 'TeV' in xTitle: unit = 'TeV'
+        else: unit = ''
+
+        if bwidth.is_integer():
+            ytitle += f' / {bwidth} {unit}'
+        else:
+            ytitle += f' / {bwidth:.2f} {unit}'
+
+        return make_cfg({
+            'xmin': xMin,     'xmax': xMax,
+            'ymin': yMin,     'ymax': yMax,
+            'logx': logX,     'logy': logY,
+            'xtitle': xTitle, 'ytitle': ytitle,
+        }, self.ecm, self.lumi)
+
+
+    def _get_ranges(
+        self,
+        histograms: list[Any],
+        backgrounds: list[Any],
+        xmin: float | int | None = None,
+        xmax: float | int | None = None,
+        ymin: float | int | None = None,
+        ymax: float | int | None = None,
+        min_scale: float | None = None,
+        max_scale: float | None = None,
+        logY: bool = False,
+        strict: bool = True,
+        stack: bool = False,
+    ) -> tuple[float, float, float, float]:
+        '''Get common axis limits for signals and backgrounds.'''
+        from ..tools.process import get_xrange, get_yrange, get_stack
+
+        if not histograms:
+            raise ValueError('At least one histogram is required for ranges')
+
+        x_ranges = [
+            get_xrange(hist, strict=strict, xmin=xmin, xmax=xmax)
+            for hist in histograms
+        ]
+        xMin = min(axis_range[0] for axis_range in x_ranges)
+        xMax = max(axis_range[1] for axis_range in x_ranges)
+
+        scale_min = min_scale if min_scale is not None else (0.5 if logY else 1.0)
+        scale_max = max_scale if max_scale is not None else (1e4 if logY else 1.5)
+        y_ranges = [
+            get_yrange(
+                hist, logY, ymin, ymax,
+                scale_min, scale_max,
+            )
+            for hist in histograms
+        ]
+        yMin = min(axis_range[0] for axis_range in y_ranges)
+        yMax = max(axis_range[1] for axis_range in y_ranges)
+
+        if stack and backgrounds:
+            stacked_range = get_yrange(
+                get_stack(backgrounds),
+                logY, ymin, ymax,
+                scale_min, scale_max,
+            )
+            yMax = max(yMax, stacked_range[1])
+
+        return xMin, xMax, yMin, yMax
 
 
     def draw(
@@ -151,17 +270,25 @@ class HistogramPlot:
         stack: Any,
         backgrounds: list[Any],
         legend_obj: Any,
+        stack_signals: bool = False,
     ) -> tuple[Any, Any]:
+
         '''Draw the configured histograms on a standard ROOT canvas.'''
+
         from .root import plotter
 
         plotter.cfg = self.cfg
         canvas, dummy = plotter.canvas(), plotter.dummy()
         dummy.Draw('HIST')
-        if backgrounds:
+        if stack_signals:
+            for signal in self.signals:
+                stack.Add(histograms[signal])
             stack.Draw('HIST SAME')
-        for signal in self.signals:
-            histograms[signal].Draw('HIST SAME')
+        else:
+            if backgrounds:
+                stack.Draw('HIST SAME')
+            for signal in self.signals:
+                histograms[signal].Draw('HIST SAME')
         legend_obj.Draw('SAME')
         return canvas, dummy
 
@@ -169,16 +296,18 @@ class HistogramPlot:
     def save(
         self,
         canvas: Any,
+        dirName: str,
         outName: str,
         suffix: str,
         format: list[str],
         logY: bool,
         quiet: bool,
     ) -> None:
+
         '''Finalize and save the canvas using the standard output layout.'''
+
         from .root.plotter import finalize_canvas
         from .root.helper import save_plot
-        from ..tools.utils import mkdir
 
         base_sel = self.sel.replace('_high', '').replace('_low', '')
         direction = (
@@ -187,16 +316,14 @@ class HistogramPlot:
             else 'nominal'
         )
         category = 'tot' if 'ZH' in self.signals else 'cat'
-        out = f'{self.outDir}/makePlot/{base_sel}/{direction}/{category}'
-        mkdir(out)
+        out = Path(f'{self.outDir}/{dirName}/{base_sel}/{direction}/{category}')
+        out.mkdir(exist_ok=True, parents=True)
+
         finalize_canvas(canvas)
         save_plot(
-            canvas,
-            out,
-            outName,
+            canvas, out, outName,
             ('_log' if logY else '_lin') + suffix,
-            format,
-            quiet,
+            format, quiet,
         )
 
 
@@ -205,12 +332,12 @@ class HistogramPlot:
         suffix: str = '',
         outName: str = '',
         format: list[str] = ['png'],
-        ecm: Optional[int] = None,
-        lumi: Optional[float] = None,
-        xmin: Optional[Union[float, int]] = None,
-        xmax: Optional[Union[float, int]] = None,
-        ymin: Optional[Union[float, int]] = None,
-        ymax: Optional[Union[float, int]] = None,
+        ecm: int | None = None,
+        lumi: int | None = None,
+        xmin: float | int | None = None,
+        xmax: float | int | None = None,
+        ymin: float | int | None = None,
+        ymax: float | int | None = None,
         rebin: int = 1,
         sig_scale: float = 1.,
         strict: bool = True,
@@ -220,22 +347,20 @@ class HistogramPlot:
         lazy: bool = True,
         quiet: bool = False,
     ) -> None:
+
         '''Run the complete signal/background plotting workflow.'''
+
         import ROOT
         ROOT.gROOT.SetBatch(True)
         ROOT.gStyle.SetOptStat(0)
         ROOT.gStyle.SetOptTitle(0)
 
-        if ecm is not None:
-            self.ecm = ecm
-        if lumi is not None:
-            self.lumi = lumi
-        if outName == '':
-            outName = self.variable
+        if ecm  is not None: self.ecm  = ecm
+        if lumi is not None: self.lumi = lumi
+        if outName == '': outName = self.variable
         histograms = self.load_histograms(
             suffix=f'_{self.sel}_histo',
-            rebin=rebin,
-            lazy=lazy,
+            rebin=rebin, lazy=lazy,
         )
         legend_obj = self.define_legend(len(self.processes))
         stack_obj, backgrounds = self.style_histograms(
@@ -243,22 +368,18 @@ class HistogramPlot:
         )
         signal_hists = [histograms[signal] for signal in self.signals]
         self.cfg = self.build_config(
-            signal_hists,
-            backgrounds,
-            logX=logX,
-            logY=logY,
-            xmin=xmin,
-            xmax=xmax,
-            ymin=ymin,
-            ymax=ymax,
+            signal_hists, backgrounds,
+            xmin, xmax, ymin, ymax,
+            logX, logY,
             strict=strict,
             stack=stack,
         )
-        canvas, dummy = self.draw(
+        canvas, _ = self.draw(
             histograms,
             stack_obj,
             backgrounds,
             legend_obj,
+            stack,
         )
         self.save(canvas, outName, suffix, format, logY, quiet)
         canvas.Close()
