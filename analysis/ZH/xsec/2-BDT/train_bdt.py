@@ -91,9 +91,9 @@ configs = {
         'objective': 'binary:logistic',                # Learning task and the corresponding learning objective to be used
         'n_estimators': 350,                           # Number of boosting round (tree to grow)
         'max_depth': 5,                                # Maximum tree depth
-        'subsample': 1.0,                              # Subsample ratio of training instances per tree
-        'min_child_weight': 0.01,                      # Minimum sum of instance weight in leaf node
-        'colsample_bytree': 1.0,                       # Subsample ratio of columns when building each tree
+        'subsample': 0.5,                              # Subsample ratio of training instances per tree
+        'min_child_weight': 10,                        # Minimum sum of instance weight in leaf node
+        'colsample_bytree': 0.5,                       # Subsample ratio of columns when building each tree
         'early_stopping_rounds': 5,                    # Validation metric need to improve at least once every early stopping round
         'eval_metric': ['error', 'logloss', 'auc'],    # Metrics to use for monitoring the training
         'tree_method': 'hist',                         # Fast histogram-based tree builder
