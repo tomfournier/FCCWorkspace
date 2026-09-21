@@ -62,8 +62,8 @@ if cat in ['ee', 'mumu']:
     if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
     else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
-    if test: cutList['test']     = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 9'   # Test selection (hadronic channel)
-    else:    cutList['Baseline'] = Baseline_cut_qq(ecm, True, False)   # Baseline selection (hadronic channel)
+    if test: cutList['test']     = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Test selection     (hadronic channel)
+    else:    cutList['Baseline'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Baseline selection (hadronic channel)
 doTree = False if 'sel0' in cutList else doTree  # Do not write TTree if sel0 is in cutList
 
 # Have to redo the final-selection

@@ -95,16 +95,12 @@ if cat in ['ee', 'mumu']:
             cutList['Baseline_inv'] = Baseline + ' && visibleEnergy < 171'
             cutList['Baseline_sep'] = Baseline + ' && ((visibleEnergy > 171) || (visibleEnergy < 171 && cosTheta_miss < 0.99))'
 elif cat == 'qq':
-    Baseline      = Baseline_cut_qq(ecm, False, False)
-    Baseline_miss = Baseline_cut_qq(ecm, True,  False)
-    Baseline_old = Baseline + ' && delta_mWW4 > 9 && cosTheta_miss < 0.995'
-    Baseline_mWW = Baseline + ' && zqq_costheta < 0.85 && zqq_costheta > -0.85 && acolinearity > 0.35 && cosTheta_miss < 0.995'
+    Baseline      = Baseline_cut_qq(ecm, False)
+    Baseline_miss = Baseline_cut_qq(ecm, True)
+    Baseline_old  = Baseline_miss + ' && delta_mWW4 > 6'
     if test:
-        cutList['test']  = Baseline_old
-        # cutList['test1'] = Baseline_mWW + ' && thrust_costheta < 0.83'
-        # cutList['test2'] = Baseline_old + ' && thrust_costheta < 0.93'
-        # cutList['test3'] = Baseline_mWW + ' && (thrust < 0.73 || thrust > 0.77)'
-        # cutList['test4'] = Baseline_old + ' && (thrust < 0.73 || thrust > 0.77)'
+        # cutList['test']   = Baseline_old
+        cutList['test1']  = Baseline_miss + ' && delta_mWW4 > 9'
     else:
         cutList['Baseline']      = Baseline
         cutList['Baseline_miss'] = Baseline_miss
