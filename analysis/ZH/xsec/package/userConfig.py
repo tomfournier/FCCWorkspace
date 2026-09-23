@@ -13,7 +13,7 @@ Conventions:
 - Expanded paths can be str or pathlib.Path; both support `astype()`.
 
 Usage:
-- path = loc.EVENTS
+- path  = loc.EVENTS
 - path1 = loc.EVENTS.get(cat='ee', ecm=240, sel='Baseline')
 - path2 = loc.get('EVENTS', cat='ee', ecm=240, sel='Baseline', type=Path)
 - path3 = path1.astype(str)
@@ -179,7 +179,7 @@ class locMeta(type):
         super().__init__(name, bases, dct)
         cls._default_type = str  # Default returns LocPath (str type)
 
-    def __getattribute__(cls, name):
+    def __getattribute__(cls, name: str):
         """Intercept attribute access to convert templates based on default type."""
         obj = super().__getattribute__(name)
 
@@ -246,20 +246,12 @@ class loc(metaclass=locMeta):
     RUN                 = LocPath(f"{repo}/output/tmp/config_json/run")  # Per-run configuration directory
 
     # Event directories: templates use {ecm}, {cat} placeholders
-    EVENTS              = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis")  # Full event samples for analysis
-    EVENTS_TEST         = LocPath(f"{repo}/output/data/events/ecm/cat/test/analysis")  # Test event samples for analysis
     EVENTS_TRAINING     = LocPath(f"{repo}/output/data/events/ecm/cat/full/training")  # Full event samples for BDT training
+    EVENTS              = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis")  # Full event samples for analysis
     EVENTS_TRAIN_TEST   = LocPath(f"{repo}/output/data/events/ecm/cat/test/training")  # Test event samples for BDT training
-
-    # Optimisation directories: templates use {ecm}, {cat} placeholders
-    OPTIMISATION        = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/full")  # Full optimisation samples
-    OPTIMISATION_TEST   = LocPath(f"{repo}/output/data/optimisation/Inputs/ecm/cat/test")  # Test optimisation samples
-    OPTIMISATION_RES    = LocPath(f"{repo}/output/data/optimisation/results/ecm/cat")      # Optimisation results
-
-    # FSR (Final State Radiation) directories: templates use {ecm}, {cat} placeholders
-    FSR_TREE            = LocPath(f"{repo}/output/data/FSR/Inputs/ecm/cat/full")  # Full FSR samples
-    FSR_TEST            = LocPath(f"{repo}/output/data/FSR/Inputs/ecm/cat/test")  # Test FSR samples
-    FSR_RES             = LocPath(f"{repo}/output/data/FSR/results/ecm/cat")      # FSR analysis results
+    EVENTS_TEST         = LocPath(f"{repo}/output/data/events/ecm/cat/test/analysis")  # Test event samples for analysis
+    EVENTS_TRAIN_JAN    = LocPath(f"{repo}/output/data/events/ecm/cat/jan/training")   # Test event samples for BDT training with Jan's defintion
+    EVENTS_JAN          = LocPath(f"{repo}/output/data/events/ecm/cat/jan/analysis")   # Test event samples for analysis with Jan's definition
 
     # Multivariate analysis (BDT): templates use {ecm}, {cat}, {sel} placeholders
     MVA                 = LocPath(f"{repo}/output/data/MVA")                        # MVA root directory

@@ -329,6 +329,27 @@ def add_bdt_inputs(parser: ArgumentParser) -> None:
         default=True,
         help='Use all the events in each mode for the training (default True)'
     )
+    args.add_argument(
+        '--n-max',
+        type=int,
+        default=1_000_000,
+        help='Maximum number of events per mode (default 1,000,000)'
+    )
+
+def add_bdt_training(parser: ArgumentParser) -> None:
+    args = parser.add_argument_group('BDT training arguments')
+    args.add_argument(
+        '--use-weights',
+        action='store_true',
+        default=False,
+        help='Use event weighting for BDT training (default False)'
+    )
+    args.add_argument(
+        '--weight-name',
+        type=str,
+        default='train_weight',
+        help="Name of the weight used for the BDT training (default 'train_weight')"
+    )
 
 
 def add_bdt_eval(parser: ArgumentParser) -> None:
@@ -399,6 +420,12 @@ def add_plots_args(parser: ArgumentParser) -> None:
         type=str,
         default='Baseline-Baseline_miss-Baseline_sep-Baseline_vis-Baseline_inv-test',
         help='sels to include in the hl plot'
+    )
+    args.add_argument(
+        '--hl-include',
+        type=str,
+        default='',
+        help='Selections to include in the hl plots'
     )
 
 
@@ -755,6 +782,7 @@ def create_parser(
     add_test: bool = False,
     batch: bool = False,
     bdt_inputs: bool = False,
+    bdt_training: bool = False,
     bdt_eval: bool = False,
     plots: bool = False,
     cutflow: bool = False,
@@ -848,6 +876,8 @@ def create_parser(
     # Feature groups
     if bdt_inputs:
         add_bdt_inputs(parser)
+    if bdt_training:
+        add_bdt_training(parser)
     if bdt_eval:
         add_bdt_eval(parser)
     if plots:

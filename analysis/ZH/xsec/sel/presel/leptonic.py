@@ -224,12 +224,11 @@ def additional_variables(df: 'ROOT.ROOT.RDataFrame',
 def define_systs(df: 'ROOT.ROOT.RDataFrame',
                  cat: str,
                  ecm: int,
-                 dataset: str
                  ) -> 'ROOT.ROOT.RDataFrame':
 
     # sqrt(s) uncertainty
-    df = df.Define('zll_recoil_sqrtsUp', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm} + 0.002)(zll)')
-    df = df.Define('zll_recoil_sqrtsDw', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm} - 0.002)(zll)')
+    df = df.Define('zll_recoil_m_sqrtsUp', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm} + 0.002)(zll)')
+    df = df.Define('zll_recoil_m_sqrtsDw', f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm} - 0.002)(zll)')
 
     df = df.Define('zll_recoil_m_sqrtsUp',   'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsUp)[0]')
     df = df.Define('zll_recoil_m_sqrtsDown', 'FCCAnalyses::ReconstructedParticle::get_mass(zll_recoil_sqrtsDw)[0]')
@@ -266,10 +265,7 @@ def define_systs(df: 'ROOT.ROOT.RDataFrame',
 
 
     # BES uncertainty
-    if 'BES-higher' in dataset:
-        df = df.Alias('zll_recoil_m_BESUp', 'zll_recoil_m')
-    elif 'BES-lower' in dataset:
-        df = df.Alias('zll_recoil_BESDown', 'zll_recoil_m')
+    ## Will be processed during the process_histogram.py step
 
     return df
 
@@ -418,6 +414,7 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
     df = Z_kinematics(df, ecm)
     df = lead_sublead_properties(df)
     df = additional_variables(df, ecm)
+    df = define_systs(df, cat, ecm, dataset)
 
 
 
@@ -476,3 +473,13 @@ branch_list_ll = [
     # Number of isolated leptons in the event
     'leps_iso_no',
 ]
+
+def get_systs_list(cat: str) -> list[str]:
+    systs = [f'zll_recoil_m_{x}{y}' for x in ['sqrts'] for y in ['Up', 'Down']]
+    if cat == 'ee':
+        systs.extend(['zll_recoil_m_SCALE_ELUP', 'zll_recoil_m_SCALE_ELDown'])
+    elif cat == 'mumu':
+        systs.extend(['zll_recoil_m_SCALE_MUUP', 'zll_recoil_m_SCALE_MUDown'])
+    else:
+        raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
+    return systs

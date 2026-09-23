@@ -54,6 +54,11 @@ input_vars_qq = (
     'subleading_p', 'subleading_costheta',
     'acolinearity', 'acoplanarity',
     'zqq_p',        'zqq_costheta',
+    'W1_m', 'W1_p', 'W1_costheta',
+    'W2_m', 'W2_p', 'W2_costheta',
+    # 'thrust',
+    'thrust_costheta',
+    # 'delta_mWW4'
 )
 
 
@@ -352,6 +357,7 @@ vars_xlabel_ll = {
     'zll_phi':          r'$\phi_{\ell^{+}\ell^{-}}$',
 
     'zll_recoil_m':     r'$m_{recoil}$ [GeV]',
+    'zll_recoil_m_tot': r'$m_{recoil}$ [GeV]',
     'cosTheta_miss':    r'$\cos\theta_{miss}$',
 
     'visibleEnergy':    r'$E_{vis}$ [GeV]',
@@ -393,6 +399,16 @@ vars_xlabel_qq = {
     'zqq_costheta':          r'$\cos\theta_{jj}$',
     'zqq_phi':               r'$\phi_{jj}$',
 
+    'W1_m':                  r'$m_{W1}$ [GeV]',
+    'W1_p':                  r'$p_{W1}$ [GeV]',
+    'W1_theta':              r'$\theta_{W1}$',
+    'W1_costheta':           r'$\cos\theta_{W1}$',
+
+    'W2_m':                  r'$m_{W2}$ [GeV]',
+    'W2_p':                  r'$p_{W2}$ [GeV]',
+    'W2_theta':              r'$\theta_{W2}$',
+    'W2_costheta':           r'$\cos\theta_{W2}$',
+
     'delta_mWW':             r'$\Delta m_{WW}$ [GeV]',
     'delta_mWW4':            r'$\Delta m_{WW}$ (4 jets algo) [GeV]',
 
@@ -400,6 +416,7 @@ vars_xlabel_qq = {
     'thrust_costheta':       r'$\cos\theta_{T}$',
 
     'zqq_recoil_m':          r'$m_{recoil}$ [GeV]',
+    'zqq_recoil_m_tot':      r'$m_{recoil}$ [GeV]',
     'cosTheta_miss':         r'$\cos\theta_{miss}$',
 
     'visibleEnergy':         r'$E_{vis}$ [GeV]',
@@ -565,6 +582,7 @@ def get_process_dict(
 
         # Diboson production e+e- -> VV (V = W or Z)
         'WW':     (f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ecm{ecm}'),
+        # 'WW':     (f'p8_ee_WW_ecm{ecm}',),
         'ZZ':     (f'p8_ee_ZZ_ecm{ecm}',),
 
         # 2 fermion production e+e- -> ff

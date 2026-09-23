@@ -50,7 +50,8 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os, ROOT
+import os
+import ROOT
 
 from functools import lru_cache
 from typing import Union
@@ -61,7 +62,6 @@ from ...tools.process import getHist, get_range
 from ...logger import get_logger
 
 LOGGER = get_logger(__name__)
-
 
 
 ######################
@@ -75,8 +75,8 @@ def make_cfg(
     ecm: int = 240,
     lumi: float = 10.8,
     ratio_plot: bool = False
-     ) -> dict[str,
-               Union[str, float, int, None]]:
+) -> dict[str,
+          Union[str, float, int, None]]:
     '''Complete plotting configuration with defaults and validation.
 
     Args:
@@ -115,6 +115,8 @@ def make_cfg(
     return cfg
 
 # ____________________________________
+
+
 def build_cfg(
     hist: ROOT.TH1,
     logX: bool = False,
@@ -133,7 +135,7 @@ def build_cfg(
     range_func: callable = get_range,
     cutflow: bool = False,
     decay: bool = False
-     ) -> dict:
+) -> dict:
     '''Build complete plotting configuration with computed axis ranges.
 
     Args:
@@ -178,11 +180,12 @@ def build_cfg(
 
     if cutflow:
         xMin, xMax = xmin, xmax
-        if ymin is not None and (ymin < yMin): yMin = ymin
+        if ymin is not None and (ymin < yMin):
+            yMin = ymin
     # Determine x-axis title from parameter or histogram
-    if xtitle=='':
+    if xtitle == '':
         xTitle = hist.GetXaxis().GetTitle()
-    elif xtitle=='None':
+    elif xtitle == 'None':
         xTitle = ''
     else:
         xTitle = xtitle
@@ -209,13 +212,15 @@ def build_cfg(
     }, ecm=ecm, lumi=lumi)
 
 # ______________________________________
+
+
 def canvas_margins(
     c: ROOT.TCanvas,
     top:    Union[float, None] = 0.055,
     bottom: Union[float, None] = 0.11,
     left:   Union[float, None] = 0.15,
     right:  Union[float, None] = 0.05
-     ) -> None:
+) -> None:
     '''Set canvas margins with optional values.
 
     Args:
@@ -238,13 +243,15 @@ def canvas_margins(
         c.SetRightMargin(right)
 
 # ________________________
+
+
 def pad_margins(
     pad: ROOT.TPad,
     top:    float = 0.0,
     bottom: float = 0.0,
     left:   float = 0.15,
     right:  float = 0.05
-     ) -> None:
+) -> None:
     '''Set margins for a ROOT pad.
 
     Args:
@@ -263,6 +270,8 @@ def pad_margins(
     pad.SetRightMargin(right)
 
 # ____________________________
+
+
 def mk_legend(
     num_entries: int,
     columns: int = 1,
@@ -275,7 +284,7 @@ def mk_legend(
     text_size:  float = 0.03,
     set_margin: float = 0.2,
     text_font: int = -1
-     ) -> ROOT.TLegend:
+) -> ROOT.TLegend:
     '''Create configured ROOT legend with automatic sizing.
 
     Args:
@@ -297,7 +306,7 @@ def mk_legend(
     leg = ROOT.TLegend(x1, y1 - (num_entries) *
                        0.06 * (1/columns),
                        x2, y2)
-    if text_font!=-1:
+    if text_font != -1:
         leg.SetTextFont(text_font)
     leg.SetBorderSize(border_size)
     leg.SetFillStyle(fill_style)
@@ -305,6 +314,7 @@ def mk_legend(
     leg.SetMargin(set_margin)
     leg.SetNColumns(columns)
     return leg
+
 
 @lru_cache(maxsize=128)
 def _get_hist_cached(
@@ -314,7 +324,7 @@ def _get_hist_cached(
     suffix: str,
     rebin: int,
     lazy: bool
-     ) -> ROOT.TH1:
+) -> ROOT.TH1:
     '''Load histogram with LRU caching to reduce file I/O.
 
     Args:
@@ -334,6 +344,8 @@ def _get_hist_cached(
     )
 
 # ______________________________
+
+
 def load_hists(
     processes: dict[str,
                     list[str]],
@@ -342,7 +354,7 @@ def load_hists(
     suffix: str,
     rebin: int = 1,
     lazy: bool = True
-     ) -> dict[str, ROOT.TH1]:
+) -> dict[str, ROOT.TH1]:
     '''Load histograms for all specified processes.
 
     Args:
@@ -357,19 +369,21 @@ def load_hists(
         dict[str, ROOT.TH1]: Dictionary mapping process names to histograms.
     '''
     return {proc: _get_hist_cached(
-                    variable, tuple(proc_list),
-                    inDir, suffix=suffix,
-                    rebin=rebin, lazy=lazy
-                )
-            for proc, proc_list in processes.items()}
+        variable, tuple(proc_list),
+        inDir, suffix=suffix,
+        rebin=rebin, lazy=lazy
+    )
+        for proc, proc_list in processes.items()}
 
 # ___________________________________________
+
+
 def axis_limits(
     cfg: dict[str,
               Union[str, float, int, bool]],
     axis: str,
     ratio: str = ''
-     ) -> tuple[float, float]:
+) -> tuple[float, float]:
     '''Extract axis range from configuration with log scale padding.
 
     Args:
@@ -390,6 +404,8 @@ def axis_limits(
     return min, max
 
 # _____________________________
+
+
 def configure_axis(
     axis,
     title: str,
@@ -401,7 +417,7 @@ def configure_axis(
     label_offset: float = 1.2,
     title_font:   int = 43,
     label_font:   int = 43
-     ) -> None:
+) -> None:
     '''Configure axis styling, range, and typography.
 
     Args:
@@ -430,6 +446,8 @@ def configure_axis(
     axis.SetLabelOffset(label_offset * axis.GetLabelOffset())
 
 # ______________________________________
+
+
 def style_hist(
     hist: ROOT.TH1,
     color: int,
@@ -437,7 +455,7 @@ def style_hist(
     style: int = 1,
     scale: float = 1.,
     fill_color: Union[int, None] = None
-     ) -> None:
+) -> None:
     '''Apply visual styling and optional scaling to histogram.
 
     Args:
@@ -460,13 +478,15 @@ def style_hist(
         hist.Scale(scale)
 
 # ______________________________________________
+
+
 def style_hists_batch(
     hists: list[ROOT.TH1],
     colors: list[int],
     widths: list[int] = None,
     scales: list[float] = None,
     fill_colors: list[Union[int, None]] = None
-     ) -> None:
+) -> None:
     '''Apply styling to multiple histograms in batch for performance.
 
     Optimized version for styling many histograms at once, reducing Python
@@ -496,12 +516,14 @@ def style_hists_batch(
             hist.Scale(scales[i])
 
 # ___________________________________________
+
+
 def setup_latex(
     text_size: float,
     text_align: int,
     text_color: Union[int, ROOT.TColor] = 1,
     text_font: int = 42
-     ) -> ROOT.TLatex:
+) -> ROOT.TLatex:
     '''Create TLatex object for text annotations.
 
     Args:
@@ -522,11 +544,13 @@ def setup_latex(
     return latex
 
 # _______________________
+
+
 def y_offset(
     text: str,
     high: float = 0.955,
     low:  float = 0.945
-     ) -> float:
+) -> float:
     '''Compute vertical offset to prevent superscript/subscript clipping.
 
     Args:
@@ -542,11 +566,13 @@ def y_offset(
     return low if (has_underscore or has_caret) else high
 
 # _______________________________________
+
+
 def draw_latex(
     latex: ROOT.TLatex,
     text_data: list[tuple[str, float,
                           float, float]]
-     ) -> None:
+) -> None:
     '''Draw multiple text annotations with individual sizing.
 
     Args:
@@ -561,13 +587,16 @@ def draw_latex(
         latex.DrawLatex(x, y, text)
 
 # ______________________________
+
+
 def savecanvas(
     c: ROOT.TCanvas,
     outDir: str,
     plotname: str,
     suffix: str = '',
-    format: list[str] = ['png']
-     ) -> None:
+    format: list[str] = ['png'],
+    quiet: bool = False
+) -> None:
     '''Export canvas to multiple file formats.
 
     Args:
@@ -576,22 +605,32 @@ def savecanvas(
         plotname (str): Base filename without extension.
         suffix (str, optional): Optional filename suffix. Defaults to ''.
         format (list[str], optional): List of file formats (e.g., ['png', 'pdf']). Defaults to ['png'].
+        quiet (bool, optional): Suppress ROOT informational messages while saving. Defaults to False.
 
     Returns:
         None
     '''
     fpath = os.path.join(outDir, plotname+suffix)
-    for f in format:
-        c.SaveAs(f'{fpath}.{f}')
+    previous_level = ROOT.gErrorIgnoreLevel
+    try:
+        if quiet:
+            ROOT.gErrorIgnoreLevel = ROOT.kWarning
+        for f in format:
+            c.SaveAs(f'{fpath}.{f}')
+    finally:
+        ROOT.gErrorIgnoreLevel = previous_level
 
 # ________________________
+
+
 def save_plot(
     canvas: ROOT.TCanvas,
     outDir: str,
     outName: str,
     suffix: str,
     format: list[str],
-     ) -> None:
+    quiet: bool = False,
+) -> None:
     '''Save canvas with automatic directory creation.
 
     Args:
@@ -600,6 +639,7 @@ def save_plot(
         outName (str): Base filename without extension.
         suffix (str): Optional filename suffix.
         format (list[str]): List of file formats (e.g., ['png', 'pdf']).
+        quiet (bool, optional): Suppress ROOT informational messages while saving. Defaults to False.
 
     Returns:
         None
@@ -607,5 +647,5 @@ def save_plot(
     mkdir(outDir)
     savecanvas(
         canvas, outDir, outName,
-        suffix=suffix, format=format
+        suffix=suffix, format=format, quiet=quiet
     )

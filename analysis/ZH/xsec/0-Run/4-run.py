@@ -20,13 +20,10 @@ Usage:
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, sys, json, time, subprocess
-
-from pathlib import Path
+import os, sys, time, subprocess
 
 # Load directory path manager and utilities
 from package.userConfig import loc           # Directory path configuration
-from package.tools.utils import mkdir        # Directory creation utility
 from package.config import timer             # Execution timing utility
 
 # Start execution timer
@@ -80,9 +77,6 @@ script_map = {
 }
 scripts = [script_map[s] for s in arg.run.split('-')]
 
-# Map script names to fccanalysis subcommands
-cmds = {'combine': 'combine'}  # Only 'combine' uses fccanalysis subcommand
-
 # Base path for combine analysis scripts
 path = f'{loc.ROOT}/4-Combine'
 
@@ -115,16 +109,6 @@ def run(cfg_dir: str,
     Returns:
         int: Return code from the subprocess.
     '''
-    # Create configuration directory if it doesn't exist
-    mkdir(cfg_dir)
-    cfg_file = Path(cfg_dir) / '4-run.json'
-
-    # Build configuration dictionary
-    config = {'cat': cat, 'ecm': ecm}
-    if script=='combine': config['sel'] = sel
-
-    # Write configuration to temporary JSON file
-    cfg_file.write_text(json.dumps(config))
 
     script_path = f'{path}/{script}.py'
 
@@ -134,36 +118,31 @@ def run(cfg_dir: str,
     LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
 
     # Build per-stage arguments and apply plotting cutflow flags
-    extra_args = ['--cat', cat, '--ecm', str(ecm)]
+    extra_args = ['--cat', cat, '--ecm', str(ecm), '--sels', arg.sels]
+    if arg.verbose: extra_args.append('--v')
     if 'process_histogram' in script:
         if arg.polL: extra_args.append('--polL')
         if arg.polR: extra_args.append('--polR')
         if arg.ILC:  extra_args.append('--ILC')
-        if arg.sels!='': extra_args.extend(['--sels', arg.sels])
-        if arg.verbose: extra_args.append('--v')
+    if 'combine' in script:
+        if arg.mc_stats: extra_args.append('--mc-stats')
+        if arg.rescale:  extra_args.append('--rescale')
+        extra_args.extend(['--rebin', str(arg.rebin)])
+        extra_args.extend(['--intLumi', str(arg.intLumi)])
+    cmd = [sys.executable, script_path] + extra_args
 
-    # Use fccanalysis subcommands when available; fall back to python for others
-    cmd = ['fccanalysis', cmds[script], script_path] if script in cmds \
-        else [sys.executable, script_path] + extra_args
-
-    try:
-        # Execute fccanalysis with modified environment and stream output
-        result = subprocess.run(
-            cmd,
-            env=ENV,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
-        # Completion status marker
-        status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
-        msg = f'{status}: [{script}] {cat = } | {ecm = }'
-        length = len(msg) + 2
-        LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
-        return result.returncode
-    finally:
-        # Cleanup: remove temporary configuration file
-        if cfg_file.exists():
-            cfg_file.unlink()
+    result = subprocess.run(
+        cmd,
+        env=ENV,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+    )
+    # Completion status marker
+    status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
+    msg = f'{status}: [{script}] {cat = } | {ecm = }'
+    length = len(msg) + 2
+    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
+    return result.returncode
 
 
 ######################
@@ -172,16 +151,9 @@ def run(cfg_dir: str,
 
 if __name__ == '__main__':
     try:
-        # Nested loops: iterate over energies, channels, and pipeline stages
         for ecm in ecms:
-            if 'process_histogram' in scripts:
-                result = run(loc.RUN, arg.cat, ecm, '', path, 'process_histogram')
-                if result != 0: sys.exit(result)
-            if 'combine' in scripts:
-                for cat in cats:
-                    for sel in sels:
-                        result = run(loc.RUN, cat, ecm, sel, path, 'combine')
-                        if result != 0: sys.exit(result)
+            result = run(loc.RUN, arg.cat, ecm, '', path, 'process_histogram')
+            if result != 0: sys.exit(result)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

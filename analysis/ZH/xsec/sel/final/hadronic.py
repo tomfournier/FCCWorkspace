@@ -1,4 +1,6 @@
-def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False, mW: bool = False) -> str:
+
+
+def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False) -> str:
     cut = ''
     if ecm == 240:
         cut += 'zqq_m > 20 && zqq_m < 140'
@@ -8,10 +10,6 @@ def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False, mW: bool
         cut += ' && zqq_p > 20 && zqq_p < 160'
     else:
         raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
-    # cut += ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    # cut += ' && acolinearity > 0.35'
-    if mW:
-        cut += ' && delta_mWW > 6'
     if miss:
         cut += ' && cosTheta_miss < 0.995'
     if thrust and (ecm == 365):
@@ -144,6 +142,40 @@ histos_qq = {
     'missingMass':         {'name':'missingMass',
                             'title':'m_{miss} [GeV]',
                             'bin':730,'xmin':0,'xmax':365},
+
+    # W1 variables (4 jets algorithm)
+    'W1_m':                {'name':'W1_m',
+                            'title':'m_{W1} [GeV]',
+                            'bin':600,'xmin':0,'xmax':300},
+
+    'W1_p':                {'name':'W1_p',
+                            'title':'p_{W1} [GeV]',
+                            'bin':600,'xmin':0,'xmax':300},
+
+    'W1_theta':            {'name':'W1_theta',
+                            'title':'#theta_{W1}',
+                            'bin':128,'xmin':0,'xmax':3.2},
+
+    'W1_costheta':         {'name':'W1_costheta',
+                            'title':'cos#theta_{W1}',
+                            'bin':1000,'xmin':0,'xmax':1},
+
+    # W2 variables (4 jets algorithm)
+    'W2_m':                {'name':'W2_m',
+                            'title':'m_{W2} [GeV]',
+                            'bin':600,'xmin':0,'xmax':300},
+
+    'W2_p':                {'name':'W2_p',
+                            'title':'p_{W2} [GeV]',
+                            'bin':600,'xmin':0,'xmax':300},
+
+    'W2_theta':            {'name':'W2_theta',
+                            'title':'#theta_{W2}',
+                            'bin':128,'xmin':0,'xmax':3.2},
+
+    'W2_costheta':         {'name':'W2_costheta',
+                            'title':'cos#theta_{W2}',
+                            'bin':1000,'xmin':0,'xmax':1},
 
     # Thrust variables
     'thrust':              {'name':'thrust',
