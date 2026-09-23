@@ -8,6 +8,10 @@ that specialized plot classes can override individual steps later.
 from typing import Any
 from pathlib import Path
 
+from ..logger import get_logger
+
+LOGGER = get_logger(__name__)
+
 
 class HistogramPlot:
     '''Plot one signal process and a collection of background processes.'''
@@ -96,6 +100,7 @@ class HistogramPlot:
 
 
     def style_hist(
+            self,
             hist,
             color: int,
             width: int = 1,
@@ -135,10 +140,10 @@ class HistogramPlot:
             is_signal = process in self.signals
             self.style_hist(
                 hist,
-                color=self.colors[process] if is_signal else ROOT.kBlack,
-                width=3 if is_signal else 1,
-                fill_color=self.colors[process] if not is_signal else None,
-                scale=sig_scale if is_signal else bkg_scale,
+                self.colors[process] if is_signal else ROOT.kBlack,
+                3 if is_signal else 1,
+                self.colors[process] if not is_signal else None,
+                sig_scale if is_signal else bkg_scale,
             )
             label = self.legend[process]
             if is_signal and sig_scale != 1:
@@ -156,8 +161,7 @@ class HistogramPlot:
             if histograms.get(signal) is None
         ]
         if missing_signals:
-            raise RuntimeError(
-                f'Could not load signal histograms: {missing_signals}')
+            LOGGER.warning(f'Could not load signal histograms: {missing_signals}')
         return stack, backgrounds
 
 
@@ -234,32 +238,36 @@ class HistogramPlot:
         if not histograms:
             raise ValueError('At least one histogram is required for ranges')
 
-        x_ranges = [
-            get_xrange(hist, strict=strict, xmin=xmin, xmax=xmax)
-            for hist in histograms
-        ]
-        xMin = min(axis_range[0] for axis_range in x_ranges)
-        xMax = max(axis_range[1] for axis_range in x_ranges)
+        total = get_stack(histograms)
+        xMin, xMax = get_xrange(
+            total, strict, xmin, xmax,
+        )
 
         scale_min = min_scale if min_scale is not None else (0.5 if logY else 1.0)
         scale_max = max_scale if max_scale is not None else (1e4 if logY else 1.5)
         y_ranges = [
             get_yrange(
-                hist, logY, ymin, ymax,
-                scale_min, scale_max,
+                hist, logY, ymin, ymax, scale_min, scale_max,
             )
             for hist in histograms
         ]
         yMin = min(axis_range[0] for axis_range in y_ranges)
-        yMax = max(axis_range[1] for axis_range in y_ranges)
 
-        if stack and backgrounds:
+        if stack:
             stacked_range = get_yrange(
-                get_stack(backgrounds),
-                logY, ymin, ymax,
-                scale_min, scale_max,
+                total, logY, ymin, ymax, scale_min, scale_max,
             )
-            yMax = max(yMax, stacked_range[1])
+            yMax = stacked_range[1]
+        else:
+            y_max_hists = list(histograms[:len(histograms) - len(backgrounds)])
+            if backgrounds:
+                y_max_hists.append(get_stack(backgrounds))
+            yMax = max(
+                get_yrange(
+                    hist, logY, ymin, ymax, scale_min, scale_max,
+                )[1]
+                for hist in y_max_hists
+            )
 
         return xMin, xMax, yMin, yMax
 
@@ -296,7 +304,6 @@ class HistogramPlot:
     def save(
         self,
         canvas: Any,
-        dirName: str,
         outName: str,
         suffix: str,
         format: list[str],
@@ -316,7 +323,7 @@ class HistogramPlot:
             else 'nominal'
         )
         category = 'tot' if 'ZH' in self.signals else 'cat'
-        out = Path(f'{self.outDir}/{dirName}/{base_sel}/{direction}/{category}')
+        out = Path(f'{self.outDir}/{base_sel}/{direction}/{category}')
         out.mkdir(exist_ok=True, parents=True)
 
         finalize_canvas(canvas)
@@ -340,6 +347,11 @@ class HistogramPlot:
         ymax: float | int | None = None,
         rebin: int = 1,
         sig_scale: float = 1.,
+        bkg_scale: float = 1.,
+        xtitle: str = '',
+        ytitle: str = 'Events',
+        scale_min: float | None = None,
+        scale_max: float | None = None,
         strict: bool = True,
         logX: bool = False,
         logY: bool = True,
@@ -358,27 +370,22 @@ class HistogramPlot:
         if ecm  is not None: self.ecm  = ecm
         if lumi is not None: self.lumi = lumi
         if outName == '': outName = self.variable
-        histograms = self.load_histograms(
-            suffix=f'_{self.sel}_histo',
-            rebin=rebin, lazy=lazy,
-        )
+        histograms = self.load_histograms(f'_{self.sel}_histo', rebin, lazy)
         legend_obj = self.define_legend(len(self.processes))
         stack_obj, backgrounds = self.style_histograms(
-            histograms, legend_obj, sig_scale=sig_scale
+            histograms, legend_obj, sig_scale, bkg_scale
         )
         signal_hists = [histograms[signal] for signal in self.signals]
         self.cfg = self.build_config(
             signal_hists, backgrounds,
             xmin, xmax, ymin, ymax,
-            logX, logY,
-            strict=strict,
-            stack=stack,
+            logX, logY, xtitle, ytitle,
+            scale_min, scale_max,
+            strict, stack,
         )
         canvas, _ = self.draw(
-            histograms,
-            stack_obj,
-            backgrounds,
-            legend_obj,
+            histograms, stack_obj,
+            backgrounds, legend_obj,
             stack,
         )
         self.save(canvas, outName, suffix, format, logY, quiet)

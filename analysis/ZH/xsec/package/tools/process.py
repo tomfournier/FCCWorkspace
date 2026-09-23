@@ -66,6 +66,7 @@ WW_SCALE_CACHE = {}
 # Structure: {(proc, suffix, inDir): {hName: ROOT.TH1}}
 HIST_CACHE = {}
 
+
 def _get_procDict(
         procFile: str = 'FCCee_procDict_winter2023_IDEA.json',
         fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts') -> dict:
@@ -93,7 +94,7 @@ def preload_histograms(
     hNames: list[str] = None,
     rebin: int = 1,
     rmww: bool = True
-     ) -> None:
+) -> None:
     '''
     Preload all histograms from files into memory cache.
 
@@ -166,7 +167,8 @@ def preload_histograms(
         for hName in hist_names_to_load:
             h = f.Get(hName)
             if not h:
-                if proc not in not_found: not_found[proc] = []
+                if proc not in not_found:
+                    not_found[proc] = []
                 not_found[proc].append(hName)
                 continue
 
@@ -188,7 +190,8 @@ def preload_histograms(
 
     if not_found:
         for proc, histos in not_found.items():
-            LOGGER.warning(f"Problem for {proc}, Couldn't find {' '.join(histos)}")
+            LOGGER.warning(
+                f"Problem for {proc}, Couldn't find {' '.join(histos)}")
 
     LOGGER.info(f'Preloading complete. Cached {len(HIST_CACHE)} files\n')
 
@@ -214,7 +217,7 @@ def getMetaInfo(
     rmww: bool = False,
     fcc: str = '/cvmfs/fcc.cern.ch/FCCDicts',
     procFile: str = 'FCCee_procDict_winter2023_IDEA.json'
-     ) -> float:
+) -> float:
     '''
     Retrieve metadata information for a process from the process dictionary.
 
@@ -241,15 +244,20 @@ def getMetaInfo(
     val = procDict[proc][info]
     # Remove ee and mumu decay channels for WW processes
     if rmww and 'p8_ee_WW_ecm' in proc and info == 'crossSection':
-        xsec_ee   = getMetaInfo(proc.replace('WW', 'WW_ee'), info=info, rmww=False, fcc=fcc, procFile=procFile)
-        xsec_mumu = getMetaInfo(proc.replace('WW', 'WW_mumu'), info=info, rmww=False, fcc=fcc, procFile=procFile)
-        xsec_tot  = getMetaInfo(proc, info=info, rmww=False, fcc=fcc, procFile=procFile)
-        val       = xsec_tot - xsec_ee - xsec_mumu
+        xsec_ee = getMetaInfo(proc.replace('WW', 'WW_ee'),
+                              info=info, rmww=False, fcc=fcc, procFile=procFile)
+        xsec_mumu = getMetaInfo(proc.replace(
+            'WW', 'WW_mumu'), info=info, rmww=False, fcc=fcc, procFile=procFile)
+        xsec_tot = getMetaInfo(proc, info=info, rmww=False,
+                               fcc=fcc, procFile=procFile)
+        val = xsec_tot - xsec_ee - xsec_mumu
 
     XSEC_CACHE[cache_key] = val
     return val
 
 # ____________________________________
+
+
 def get_hist(
     hName: str,
     proc: str,
@@ -258,7 +266,7 @@ def get_hist(
     suffix: str = '',
     rebin: int = 1,
     proc_scales: dict[str, float] = {}
-     ) -> 'ROOT.TH1':
+) -> 'ROOT.TH1':
     '''
     Retrieve a histogram for a single process from ROOT file.
 
@@ -304,18 +312,19 @@ def get_hist(
 
     # Apply WW cross-section correction if needed
     scale, xsec = 1.0, getMetaInfo(proc, rmww=False)
-    if xsec!=0 and 'p8_ee_WW_ecm' in proc:
-        LOGGER.debug(f'Rescaline {proc} sample to account for leptonic decay removing')
+    if xsec != 0 and 'p8_ee_WW_ecm' in proc:
+        LOGGER.debug(
+            f'Rescaline {proc} sample to account for leptonic decay removing')
         xsec_new = getMetaInfo(proc, rmww=True)
         scale = xsec_new / xsec
 
-    if rebin!=1:
+    if rebin != 1:
         if 'TH2' in h.ClassName():
             h.Rebin2D(rebin)
         else:
             h.Rebin(rebin)
 
-    if scale!=1.0:
+    if scale != 1.0:
         h.Scale(scale)
 
     f.Close()
@@ -324,6 +333,8 @@ def get_hist(
     return h
 
 # ________________________
+
+
 def getHist(
     hName: str,
     procs: str,
@@ -334,7 +345,7 @@ def getHist(
     proc_scale: float = 1.,
     rmww: bool = True,
     use_cache: bool = True,
-     ) -> 'ROOT.TH1':
+) -> 'ROOT.TH1':
     '''
     Retrieve and sum histograms across multiple processes.
 
@@ -380,7 +391,8 @@ def getHist(
                     hist.Add(h)
                 continue
             elif not lazy:
-                LOGGER.warning(f'Histogram {hName} not found in cache for {proc}')
+                LOGGER.warning(
+                    f'Histogram {hName} not found in cache for {proc}')
                 continue
         fInName = os.path.join(inDir, f'{proc}{suffix}.root')
 
@@ -448,23 +460,26 @@ def getHist(
 
     if hist is None:
         msgs = [n+' | at step '+w for n, w in zip(names, where)]
-        LOGGER.warning("Couldn't find histograms for processes\n"+'\n'.join(msgs)+'\nReturning None')
+        LOGGER.warning("Couldn't find histograms for processes\n" +
+                       '\n'.join(msgs)+'\nReturning None')
         return None
 
     # Apply post-processing: rebinning and scaling
-    if rebin!=1:
+    if rebin != 1:
         hist.Rebin(rebin)
 
-    if proc_scale!=1:
+    if proc_scale != 1:
         hist.Scale(proc_scale)
     return hist
 
 # ___________________________
+
+
 def concat(
     h_list: list['ROOT.TH1'],
     hName: str,
     outName: str = ''
-     ) -> 'ROOT.TH1':
+) -> 'ROOT.TH1':
     '''
     Concatenate multiple 1D histograms into a single unrolled 1D histogram.
 
@@ -504,8 +519,10 @@ def concat(
                 h_concat.SetBinError(bin_offset+bin_idx, 1e-5)
                 pass
             else:
-                h_concat.SetBinContent(bin_offset+bin_idx, hist.GetBinContent(bin_idx))
-                h_concat.SetBinError(bin_offset+bin_idx,   hist.GetBinError(bin_idx))
+                h_concat.SetBinContent(
+                    bin_offset+bin_idx, hist.GetBinContent(bin_idx))
+                h_concat.SetBinError(bin_offset+bin_idx,
+                                     hist.GetBinError(bin_idx))
 
         bin_offset += nbins
 
@@ -530,7 +547,8 @@ def unroll(hist, outName: str):
 
         # Create a 1D histogram to hold the unrolled data
         n_bins_1d = n_bins_x * n_bins_y
-        h1 = ROOT.TH1D("h1", "1D Unrolled Histogram", n_bins_1d, 0.5, n_bins_1d + 0.5)
+        h1 = ROOT.TH1D("h1", "1D Unrolled Histogram",
+                       n_bins_1d, 0.5, n_bins_1d + 0.5)
 
         # Loop over all bins in the 2D histogram
         for bin_x in range(1, n_bins_x + 1):  # Bin indexing starts at 1
@@ -543,14 +561,14 @@ def unroll(hist, outName: str):
                 error = hist.GetBinError(bin_x, bin_y)
 
                 # Avoid zero value for the fit
-                if content == 0: content, error = 1e-5, 1e-5
+                if content == 0:
+                    content, error = 1e-5, 1e-5
 
                 # Set the content and error in the 1D histogram
                 h1.SetBinContent(bin_1d, content)
                 h1.SetBinError(bin_1d, error)
         h1.SetName(outName)
         return h1
-
 
     elif "TH3" in hist.ClassName():
         # Get binning information
@@ -560,7 +578,8 @@ def unroll(hist, outName: str):
         nbins1D = nbinsX * nbinsY * nbinsZ
 
         # Create a 1D histogram with the correct number of bins
-        h1 = ROOT.TH1D("h1_unrolled", "Unrolled 3D Histogram", nbins1D, 0, nbins1D)
+        h1 = ROOT.TH1D("h1_unrolled", "Unrolled 3D Histogram",
+                       nbins1D, 0, nbins1D)
 
         # Fill the 1D histogram by unrolling the 3D histogram
         bin1D = 1  # ROOT bins are 1-based
@@ -568,7 +587,7 @@ def unroll(hist, outName: str):
             for y in range(1, nbinsY + 1):
                 for z in range(1, nbinsZ + 1):
                     content = hist.GetBinContent(x, y, z)
-                    error   = hist.GetBinError(x, y, z)  # Retrieve bin error
+                    error = hist.GetBinError(x, y, z)  # Retrieve bin error
                     if content < 0:
                         LOGGER.warning(f'Negative content for {hist.GetName()}:\n'
                                        f'bin ({x}, {y}, {z}) = {content} +/- {error}')
@@ -586,10 +605,10 @@ def unroll(hist, outName: str):
 
 
 def range_hist(
-        hist_original: 'ROOT.TH1',
-        x_min: float | int,
-        x_max: float | int
-         ) -> 'ROOT.TH1':
+    hist_original: 'ROOT.TH1',
+    x_min: float | int,
+    x_max: float | int
+) -> 'ROOT.TH1':
 
     import ROOT
 
@@ -597,14 +616,17 @@ def range_hist(
     bin_min = hist_original.FindBin(x_min)
     bin_max = hist_original.FindBin(x_max)
 
-    hist_selected = ROOT.TH1D(hist_original.GetName()+"new", "", bin_max - bin_min, x_min, x_max)
+    hist_selected = ROOT.TH1D(hist_original.GetName(
+    )+"new", "", bin_max - bin_min, x_min, x_max)
 
     for bin in range(bin_min, bin_max + 1):
         new_bin = bin - bin_min + 1  # Adjust for new histogram bin indexing
         hist_selected.SetBinContent(new_bin, hist_original.GetBinContent(bin))
-        hist_selected.SetBinError(new_bin,   hist_original.GetBinError(bin))  # Preserve errors
+        hist_selected.SetBinError(
+            new_bin,   hist_original.GetBinError(bin))  # Preserve errors
 
-    LOGGER.debug(f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
+    LOGGER.debug(
+        f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
     return hist_selected
 
 
@@ -617,18 +639,19 @@ def _axis_bin_edges(axis, bin_min: int, bin_max: int):
     """
     from array import array
 
-    edges = [axis.GetBinLowEdge(bin_idx) for bin_idx in range(bin_min, bin_max + 2)]
+    edges = [axis.GetBinLowEdge(bin_idx)
+             for bin_idx in range(bin_min, bin_max + 2)]
     return array('d', edges)
 
 
 def range_hist_2d(
-        hist_original: 'ROOT.TH2',
-        x_min: float | int,
-        x_max: float | int,
-        y_min: float | int,
-        y_max: float | int,
-        outName: str = ''
-         ) -> 'ROOT.TH2':
+    hist_original: 'ROOT.TH2',
+    x_min: float | int,
+    x_max: float | int,
+    y_min: float | int,
+    y_max: float | int,
+    outName: str = ''
+) -> 'ROOT.TH2':
     import ROOT
 
     xaxis = hist_original.GetXaxis()
@@ -656,23 +679,26 @@ def range_hist_2d(
         for y_bin in range(y_bin_min, y_bin_max + 1):
             new_x_bin = x_bin - x_bin_min + 1
             new_y_bin = y_bin - y_bin_min + 1
-            hist_selected.SetBinContent(new_x_bin, new_y_bin, hist_original.GetBinContent(x_bin, y_bin))
-            hist_selected.SetBinError(new_x_bin, new_y_bin, hist_original.GetBinError(x_bin, y_bin))
+            hist_selected.SetBinContent(
+                new_x_bin, new_y_bin, hist_original.GetBinContent(x_bin, y_bin))
+            hist_selected.SetBinError(
+                new_x_bin, new_y_bin, hist_original.GetBinError(x_bin, y_bin))
 
-    LOGGER.debug(f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
+    LOGGER.debug(
+        f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
     return hist_selected
 
 
 def range_hist_3d(
-        hist_original: 'ROOT.TH3',
-        x_min: float | int,
-        x_max: float | int,
-        y_min: float | int,
-        y_max: float | int,
-        z_min: float | int,
-        z_max: float | int,
-        outName: str = ''
-         ) -> 'ROOT.TH3':
+    hist_original: 'ROOT.TH3',
+    x_min: float | int,
+    x_max: float | int,
+    y_min: float | int,
+    y_max: float | int,
+    z_min: float | int,
+    z_max: float | int,
+    outName: str = ''
+) -> 'ROOT.TH3':
     import ROOT
 
     xaxis = hist_original.GetXaxis()
@@ -721,13 +747,15 @@ def range_hist_3d(
                     hist_original.GetBinError(x_bin, y_bin, z_bin),
                 )
 
-    LOGGER.debug(f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
+    LOGGER.debug(
+        f'Old histogram integral: {hist_original.Integral()} vs New histogram integral: {hist_selected.Integral()}')
     return hist_selected
+
 
 def stack_hist(
     h_list: list['ROOT.TH3'],
     outName: str = ''
-     ) -> 'ROOT.TH3':
+) -> 'ROOT.TH3':
     '''
     Stack multiple 3D histograms along the z-axis.
 
@@ -764,24 +792,29 @@ def stack_hist(
 
     for idx, hist in enumerate(h_list):
         if hist.GetNbinsX() != x_bins or hist.GetNbinsY() != y_bins:
-            raise ValueError('All histograms passed to stack_hist must have the same x/y binning')
+            raise ValueError(
+                'All histograms passed to stack_hist must have the same x/y binning')
 
         xaxis = hist.GetXaxis()
         yaxis = hist.GetYaxis()
         if xaxis.GetXmin() != ref_xaxis.GetXmin() or xaxis.GetXmax() != ref_xaxis.GetXmax():
-            raise ValueError('All histograms passed to stack_hist must share the same x-axis range')
+            raise ValueError(
+                'All histograms passed to stack_hist must share the same x-axis range')
         if yaxis.GetXmin() != ref_yaxis.GetXmin() or yaxis.GetXmax() != ref_yaxis.GetXmax():
-            raise ValueError('All histograms passed to stack_hist must share the same y-axis range')
+            raise ValueError(
+                'All histograms passed to stack_hist must share the same y-axis range')
 
         zaxis = hist.GetZaxis()
         z_bins = hist.GetNbinsZ()
 
-        hist_z_edges = [zaxis.GetBinLowEdge(bin_idx) for bin_idx in range(1, z_bins + 2)]
+        hist_z_edges = [zaxis.GetBinLowEdge(
+            bin_idx) for bin_idx in range(1, z_bins + 2)]
         if idx == 0:
             z_edges.extend(hist_z_edges)
         else:
             if z_edges and z_edges[-1] != hist_z_edges[0]:
-                raise ValueError('Input histograms must have contiguous z-axis ranges')
+                raise ValueError(
+                    'Input histograms must have contiguous z-axis ranges')
             z_edges.extend(hist_z_edges[1:])
 
         z_offsets.append(current_z_bins)
@@ -828,7 +861,7 @@ def proc_scale(
     proc: str,
     processes: dict[str, list[str]],
     proc_scales: dict[str, float] = {}
-     ) -> 'ROOT.TH1':
+) -> 'ROOT.TH1':
     '''
     Apply process-specific scaling factor to a histogram.
 
@@ -852,18 +885,21 @@ def proc_scale(
 
     # Find process category and apply corresponding scale
     for proc_name, proc_list in processes.items():
-        if proc in proc_list and proc_name!='Rare':
+        if proc in proc_list and proc_name != 'Rare':
             scale = proc_scales.get(proc_name)
             if scale is not None:
                 hist.Scale(scale)
-                LOGGER.info(f'Scaled histogram to ILC scale by a factor of {scale:.3f}')
+                LOGGER.info(
+                    f'Scaled histogram to ILC scale by a factor of {scale:.3f}')
             break
     return hist
 
 # _________________________
+
+
 def get_stack(
     hists: list['ROOT.TH1']
-     ) -> 'ROOT.TH1':
+) -> 'ROOT.TH1':
     '''
     Create a stacked histogram by summing multiple histograms.
 
@@ -892,13 +928,15 @@ def get_stack(
     return hist
 
 # _______________________________________
+
+
 def get_xrange(
     hist: 'ROOT.TH1',
     strict: bool = True,
     xmin: Union[float, int, None] = None,
     xmax: Union[float, int, None] = None
-     ) -> tuple[Union[float, int],
-                Union[float, int]]:
+) -> tuple[Union[float, int],
+           Union[float, int]]:
     '''
     Determine the x-range of a histogram based on bin content and boundaries.
 
@@ -927,10 +965,12 @@ def get_xrange(
     # Check if variable bin width
     if xaxis.IsVariableBinSize():
         # Variable bins: extract edges individually but efficiently
-        edges = np.array([xaxis.GetBinLowEdge(i+1) for i in range(nbins+1)], dtype=np.float64)
+        edges = np.array([xaxis.GetBinLowEdge(i+1)
+                         for i in range(nbins+1)], dtype=np.float64)
     else:
         # Fixed bins: use linspace for maximum speed
-        edges = np.linspace(xaxis.GetXmin(), xaxis.GetXmax(), nbins + 1, dtype=np.float64)
+        edges = np.linspace(xaxis.GetXmin(), xaxis.GetXmax(),
+                            nbins + 1, dtype=np.float64)
 
     # Vectorized filtering
     mask = np.ones(nbins, dtype=bool)
@@ -950,6 +990,8 @@ def get_xrange(
     return float(edges[valid_bins[0]]), float(edges[valid_bins[-1] + 1])
 
 # _______________________________________
+
+
 def get_yrange(
     hist: 'ROOT.TH1',
     logY: bool,
@@ -957,8 +999,8 @@ def get_yrange(
     ymax: Union[float, int, None] = None,
     scale_min: float = 1.,
     scale_max: float = 1.
-     ) -> tuple[Union[float, int],
-                Union[float, int]]:
+) -> tuple[Union[float, int],
+           Union[float, int]]:
     '''
     Determine the y-range of a histogram with optional scaling and log support.
 
@@ -992,11 +1034,15 @@ def get_yrange(
         yMin = float(contents.min()) * scale_min
 
     yMax = float(contents.max()) * scale_max
-    if (ymin is not None) and ymin > yMin: yMin = ymin
-    if (ymax is not None) and ymax < yMax: yMax = ymax
+    if (ymin is not None) and ymin > yMin:
+        yMin = ymin
+    if (ymax is not None) and ymax < yMax:
+        yMax = ymax
     return yMin, yMax
 
 # _______________________________________
+
+
 def get_range(
     h_sigs: list['ROOT.TH1'],
     h_bkgs: list['ROOT.TH1'] = None,
@@ -1009,8 +1055,8 @@ def get_range(
     xmax: Union[float, int, None] = None,
     ymin: Union[float, int, None] = None,
     ymax: Union[float, int, None] = None
-     ) -> tuple[float, float,
-                float, float]:
+) -> tuple[float, float,
+           float, float]:
     '''
     Determine optimal plot range for signal and background histograms combined.
 
@@ -1043,45 +1089,58 @@ def get_range(
     if not hists:
         raise ValueError('get_range requires at least one histogram')
 
-    # Combine the visible ranges of all histograms. This also works for decay
-    # plots, where there are several signals and no background histograms.
-    ranges = [
-        get_xrange(h, strict=strict, xmin=xmin, xmax=xmax)
-        for h in hists
-    ]
-    xMin = min(value[0] for value in ranges)
-    xMax = max(value[1] for value in ranges)
+    # Use the same combined range as the original makePlot implementation.
+    # This also supports signal-only and background-only plots.
+    h_total = get_stack(hists)
+    xMin, xMax = get_xrange(
+        h_total,
+        strict=strict,
+        xmin=xmin,
+        xmax=xmax,
+    )
 
     y_ranges = [
         get_yrange(
-            h,
-            logY=logY,
-            ymin=ymin,
-            ymax=ymax,
-            scale_min=scale_min,
-            scale_max=scale_max,
+            h, logY,
+            ymin, ymax,
+            scale_min,
+            scale_max,
         )
         for h in hists
     ]
     yMin = np.nanmin([value[0] for value in y_ranges])
 
-    if stack and h_bkgs:
+    if stack:
         yMax = get_yrange(
-            get_stack(h_bkgs),
-            logY=logY,
-            ymin=ymin,
-            ymax=ymax,
-            scale_min=scale_min,
-            scale_max=scale_max,
+            h_total,
+            logY,
+            ymin, ymax,
+            scale_min,
+            scale_max,
         )[1]
-        # A signal can be higher than the background stack.
-        yMax = max(yMax, *(value[1] for value in y_ranges))
     else:
-        yMax = max(value[1] for value in y_ranges)
+        # makePlot historically compared signals against the summed
+        # background, rather than against each background separately.
+        y_max_hists = list(h_sigs)
+        if h_bkgs:
+            y_max_hists.append(get_stack(h_bkgs))
+        yMax = max(
+            get_yrange(
+                hist,
+                logY,
+                ymin,
+                ymax,
+                scale_min,
+                scale_max,
+            )[1]
+            for hist in y_max_hists
+        )
 
     return xMin, xMax, yMin, yMax
 
 # _______________________________________
+
+
 def get_range_decay(
     h_sigs: list['ROOT.TH1'],
     logY: bool = False,
@@ -1092,8 +1151,8 @@ def get_range_decay(
     xmax: Union[float, int, None] = None,
     ymin: Union[float, int, None] = None,
     ymax: Union[float, int, None] = None
-     ) -> tuple[float, float,
-                float, float]:
+) -> tuple[float, float,
+           float, float]:
     '''
     Determine optimal plot range for multiple decay mode histograms.
 
@@ -1116,14 +1175,9 @@ def get_range_decay(
         tuple: (xmin, xmax, ymin, ymax) ranges for decay mode visualization.
     '''
     return get_range(
-        h_sigs,
-        [],
-        logY=logY,
-        strict=strict,
-        scale_min=scale_min,
-        scale_max=scale_max,
-        xmin=xmin,
-        xmax=xmax,
-        ymin=ymin,
-        ymax=ymax,
+        h_sigs, [], logY,
+        strict, False,
+        scale_min, scale_max,
+        xmin, xmax,
+        ymin, ymax,
     )

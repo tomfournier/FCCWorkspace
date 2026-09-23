@@ -716,9 +716,9 @@ def makePlot(
 
     cfg = build_cfg(
         sig_hist,
-        logX=logX, logY=logY,
-        xmin=xmin, xmax=xmax,
-        ymin=ymin, ymax=ymax,
+        logX, logY,
+        xmin, xmax,
+        ymin, ymax,
         ecm=ecm, lumi=lumi,
         strict=strict,
         stack=stack,
