@@ -462,17 +462,17 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
 
 
 branch_list_qq =[
-    'leading_e',    'leading_p',    'leading_pT',    'leading_theta',    'leading_costheta',      # Leading jet kinematics
-    'subleading_e', 'subleading_p', 'subleading_pT', 'subleading_theta', 'subleading_costheta',   # Subleading jet kinematics
-    'zqq_e', 'zqq_m', 'zqq_p', 'zqq_pT', 'zqq_theta', 'zqq_costheta',             # Z boson kinematics
-    'zqq_recoil_m',                                                               # Recoil mass (Higgs candidate)
-    'delta_mWW', 'delta_mWW4',                                                    # Distance from W mass (Inclusive and 4 jets clustering)
-    'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',                      # Angular correlation variables
-    'visibleEnergy',                                                              # Visible energy
-    'missingEnergy', 'cosTheta_miss', 'missingMass',                              # Missing energy variables
-    'thrust', 'thrust_costheta',                                                  # Thrust variables
-    'njets', 'best_clustering_idx',                                               # Number of jets and best clustering variable
-    'H',                                                                          # Higgsstrahlungness
-    'W1_m', 'W1_p', 'W1_theta', 'W1_costheta',
-    'W2_m', 'W2_p', 'W2_theta', 'W2_costheta',
+    'leading_p',    'leading_pT',    'leading_costheta',         # Leading jet kinematics
+    'subleading_p', 'subleading_pT', 'subleading_costheta',      # Subleading jet kinematics
+    'zqq_m', 'zqq_p', 'zqq_pT', 'zqq_costheta',                  # Z boson kinematics
+    'zqq_recoil_m',                                              # Recoil mass (Higgs candidate)
+    'delta_mWW4',                                                # Distance from W mass (Inclusive and 4 jets clustering)
+    'acolinearity', 'acoplanarity', 'acopolarity', 'deltaR',     # Angular correlation variables
+    'visibleEnergy',                                             # Visible energy
+    'missingEnergy', 'cosTheta_miss', 'missingMass',             # Missing energy variables
+    'thrust', 'thrust_costheta',                                 # Thrust variables
+    'njets', 'best_clustering_idx',                              # Number of jets and best clustering variable
+    'H',                                                         # Higgsstrahlungness
+    'W1_m', 'W1_p', 'W1_costheta',
+    'W2_m', 'W2_p', 'W2_costheta',
 ]
