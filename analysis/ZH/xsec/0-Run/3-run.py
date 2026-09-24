@@ -111,7 +111,7 @@ def run(cat: str,
         int: Return code from the subprocess.
     '''
     run_uuid = None
-    if arg.batch:
+    if arg.run_batch:
         run_uuid = uuid.uuid4().hex[:8]
         config_name = f'3-run-{run_uuid}.json'
     else:
@@ -132,7 +132,7 @@ def run(cat: str,
     # Set up environment with RUN flag for automated mode detection
     env = os.environ.copy()
     env['RUN'] = '1'
-    if arg.batch:
+    if arg.run_batch:
         env['RUN_UUID'] = run_uuid  # Pass UUID only for batch mode
         # Create a userBatchConfig file that exports the UUID for batch mode
         userBatchConfig = Path(loc.RUN) / 'userBatch.Config'

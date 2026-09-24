@@ -112,7 +112,7 @@ def run(cat: str,
     # Only use UUID for batch mode to avoid race conditions with concurrent submissions
     # For local execution, the standard 1-run.json is fine since it runs sequentially
     run_uuid = None
-    if arg.batch:
+    if arg.run_batch:
         run_uuid = uuid.uuid4().hex[:8]
         config_name = f'1-run-{run_uuid}.json'
     else:
@@ -132,7 +132,7 @@ def run(cat: str,
     # Set up environment with RUN flag for automated mode detection
     env = os.environ.copy()
     env['RUN'] = '1'
-    if arg.batch:
+    if arg.run_batch:
         env['RUN_UUID'] = run_uuid  # Pass UUID only for batch mode
         # Create a userBatchConfig file that exports the UUID for batch jobs
         userBatchConfig = Path(loc.RUN) / 'userBatch.Config'
