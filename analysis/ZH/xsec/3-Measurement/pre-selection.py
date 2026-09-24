@@ -1,33 +1,52 @@
-###########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
-###########################################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
-import os, re, sys
+import os, re, sys, logging
 
 # Add parent directory to path so package and sel modules are found
 # This is necessary for HTCondor batch jobs to find local modules
 script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
+if script_dir not in sys.path: sys.path.insert(0, script_dir)
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser
+parser = create_parser(
+    cat_single=True,
+    batch=True,
+    presel=True,
+    is_final=False,
+    training=True,
+    description='Pre-selection Script'
+)
+cmd_args = globals().get('cmdline_args')
+arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
+arg, _ = parser.parse_known_args(arguments)
+
+LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
+
+
+
+###########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
+###########################################################
+
+
 
 # Load analysis configuration and preselection functions
-from package.userConfig import loc, get_params
-from package.config import get_process_list
+from package.userConfig import loc
+from package.config import (
+    get_process_list,
+    parse_sample_selection,
+    parse_sample_exclusion
+)
 from sel.presel.leptonic import get_systs_list, presel_ll, branch_list_ll
 from sel.presel.hadronic import presel_qq, branch_list_qq
-
-# Load environment to know which configuration to use
-env = os.environ.copy()
-
-# Get UUID from environment (set by 1-run.py), fallback to default if UUID not set
-run_uuid = env.get('RUN_UUID')
-config_name = f'3-run-{run_uuid}.json' if run_uuid else '3-run.json'
-
-# Load analysis configuration from JSON or environment variables
-# cat: decay category (ee, mumu, qq)
-# ecm: center of mass energy (e.g., 240, 365 GeV)
-# test: whether to apply kinematic cuts or not
-cat, ecm, test = get_params(env, config_name, qq_allowed=True)
 
 
 
@@ -35,11 +54,13 @@ cat, ecm, test = get_params(env, config_name, qq_allowed=True)
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
 
-# Output: Preprocessed events for measurement and fit stages
+cat, ecm, test = arg.cat, arg.ecm, arg.test
+
+# Output directory for analysis events (default is local directory)
 if test: outputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
 else:    outputDir = loc.get('EVENTS',      cat, ecm)  # Full event sample
 
-# Custom C++ analysis functions for particle selection and calculations
+# Custom C++ analysis functions for particle selection and kinematic calculations
 includePaths = ['../../../../functions/functions.h',
                 '../../../../functions/functions_hadronic.h']
 
@@ -52,23 +73,26 @@ prodTag = 'FCCee/winter2023/IDEA/'
 procDict = 'FCCee_procDict_winter2023_IDEA.json'
 
 # HTCondor batch system configuration (disabled by default)
-runBatch = True if env.get('RUN_BATCH') else False
-batchQueue = 'longlunch'  # Queue for batch submission (alternatives: 'espresso')
+runBatch   = arg.run_batch           # Submit the job to HTCondor
+batchQueue = arg.job_flavor          # Queue for batch submission
 compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
-
-# User batch configuration: only set in batch mode to export RUN_UUID
-userBatchConfig = env.get('RUN_USER_BATCH_CONFIG', '')
 
 # Parallel processing configuration
 nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
 
 
-##########################
-### DEFINE SAMPLE LIST ###
-##########################
+
+################################
+### SETUP SAMPLES TO PROCESS ###
+################################
 
 # Retrieve all samples for this channel and energy from central configuration
-processList = get_process_list(cat, ecm, batch=runBatch)
+processList = get_process_list(
+    cat, ecm, batch=runBatch,
+    onlysig=arg.only_sig, onlybkg=arg.only_bkg,
+    include=parse_sample_selection(arg.include),
+    exclude=parse_sample_exclusion(arg.exclude)
+)
 
 
 
@@ -90,8 +114,17 @@ class RDFgraph():
 
     # _________________________________________________________________
     # Mandatory: analysers function to define the analysers to process
-    def analysers(df, dataset):
-        '''Apply analysis graph construction to the dataframe.'''
+    def analysers(df, dataset: str):
+        """Apply analysis cuts and compute kinematic variables for the dataframe.
+
+        Args:
+            df: Input RDataFrame from EDM4Hep events
+            dataset: Name of the sample used
+
+        Returns:
+            df: Modified RDataFrame with new kinematic variables and applied selections
+            params: A list of histograms, TParameter or other object writable in a root file
+        """
         dataset = RDFgraph.dataset_name(dataset)
         if cat in ['ee', 'mumu']:
             df, params = presel_ll(df, cat, ecm, dataset, test)
@@ -103,8 +136,12 @@ class RDFgraph():
 
     # _____________________________________________________
     # Mandatory: output function defining branches to save
-    def output():
-        '''Define output branches to save.'''
+    def output() -> list[str]:
+        """Return list of output branches to save from processed events.
+
+        Returns:
+            list: Names of kinematic variables and event properties to output as ROOT branches
+        """
         if cat in ['ee', 'mumu']:
             return sorted(branch_list_ll + get_systs_list(cat))
         elif cat == 'qq':

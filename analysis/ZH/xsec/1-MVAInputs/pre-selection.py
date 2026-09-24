@@ -1,38 +1,58 @@
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
-import os, sys
+import os, sys, logging
 
 # Add parent directory to path so package and sel modules are found
 # This is necessary for HTCondor batch jobs to find local modules
 script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
+if script_dir not in sys.path: sys.path.insert(0, script_dir)
 
-from package.userConfig import loc, get_params
-from package.config import get_process_list
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser
+parser = create_parser(
+    cat_single=True,
+    batch=True,
+    presel=True,
+    is_final=False,
+    training=True,
+    description='Pre-selection Script'
+)
+cmd_args = globals().get('cmdline_args')
+arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
+arg, _ = parser.parse_known_args(arguments)
+
+LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+from package.userConfig import loc
+from package.config import (
+    get_process_list,
+    parse_sample_selection,
+    parse_sample_exclusion,
+)
 from sel.presel.leptonic import training_ll, branch_list_ll
 from sel.presel.hadronic import training_qq, branch_list_qq
-
-# Load environment to know which configuration to use
-env = os.environ.copy()
-
-# Get UUID from environment (set by 1-run.py), fallback to default if UUID not set
-run_uuid = env.get('RUN_UUID')
-config_name = f'1-run-{run_uuid}.json' if run_uuid else '1-run.json'
-
-# Load analysis configuration from JSON or environment variables
-# cat: decay category (ee, mumu, qq)
-# ecm: center of mass energy (e.g., 240, 365 GeV)
-# test: whether to apply kinematic cuts or not
-cat, ecm, test = get_params(env, config_name, qq_allowed=True)
 
 
 
 #############################
 ### SETUP CONFIG SETTINGS ###
 #############################
+
+cat, ecm, test = arg.cat, arg.ecm, arg.test
+LOGGER.info(f'Running the pre-selection for {cat = } | {ecm = } | {test = }')
 
 # Output directory for training events (default is local directory)
 if test: outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
@@ -51,24 +71,29 @@ prodTag = 'FCCee/winter2023_training/IDEA/'
 procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 
 # HTCondor batch system configuration (disabled by default)
-runBatch = True if env.get('RUN_BATCH') else False
-batchQueue = 'longlunch'             # Queue for batch submission (alternatives: 'workday')
-compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
-
-# User batch configuration: only set in batch mode to export RUN_UUID
-userBatchConfig = env.get('RUN_USER_BATCH_CONFIG', '')
+runBatch   = arg.run_batch            # Submit the job to HTCondor
+batchQueue = arg.job_flavor           # Queue for batch submission
+compGroup  = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
 # Parallel processing configuration (default 4)
 nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
+
+if arg.run_batch:
+    LOGGER.info(f'Running script on HTCondor with {nCPUS} CPUs and using {batchQueue} job flavor')
+
 
 
 ################################
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
+# Retrieve all samples for this channel and energy from central configuration
 processList = get_process_list(
     cat, ecm, train=True, batch=runBatch,
-    chunks={'wzp6_gaga_ee_60_ecm365': 1}
+    onlysig=arg.only_sig, onlybkg=arg.only_bkg,
+    include=parse_sample_selection(arg.include),
+    exclude=parse_sample_exclusion(arg.exclude),
+    chunks={'wzp6_gaga_ee_60_ecm365': 1},
 )
 
 
@@ -104,7 +129,7 @@ class RDFanalysis():
         return df
 
     # Define output branches to save from processed events
-    def output():
+    def output() -> list[str]:
         """Return list of output branches to save from processed events.
 
         Returns:

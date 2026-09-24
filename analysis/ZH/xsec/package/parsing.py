@@ -34,7 +34,7 @@ Examples:
         args = parser.parse_args()
 '''
 
-from argparse import ArgumentParser, Namespace, BooleanOptionalAction
+from argparse import ArgumentParser, Namespace, BooleanOptionalAction, _ArgumentGroup
 from collections.abc import Sequence
 
 
@@ -159,7 +159,7 @@ def add_cat_argument(
         choices.append('')
 
     if group is None:
-        group = parser.add_argument_group('General arguments')
+        group: _ArgumentGroup = parser.add_argument_group('General arguments')
 
     # Use metavar to show a concise pattern instead of listing all choices
     metavar = 'CHANNELS' if multi else 'CHANNEL'
@@ -195,7 +195,7 @@ def add_ecm_argument(
             raise TypeError('Either int or str type are supported')
 
     if group is None:
-        group = parser.add_argument_group('General arguments')
+        group: _ArgumentGroup = parser.add_argument_group('General arguments')
 
     metavar = 'ENERGIES' if multi else 'ENERGY'
     help_text = ('Center-of-mass energy in GeV: 240 or 365' +
@@ -219,7 +219,7 @@ def add_sel_argument(
 ) -> None:
     '''Add --sel argument for single selection strategy.'''
     if group is None:
-        group = parser.add_argument_group('General arguments')
+        group: _ArgumentGroup = parser.add_argument_group('General arguments')
     group.add_argument(
         '--sel',
         type=str,
@@ -231,11 +231,11 @@ def add_sel_argument(
 def add_sels_argument(
     parser: ArgumentParser,
     default: str = '',
-    group=None
+    group = None
 ) -> None:
     '''Add --sels argument for multiple selection strategies (batch mode).'''
     if group is None:
-        group = parser.add_argument_group('General arguments')
+        group: _ArgumentGroup = parser.add_argument_group('General arguments')
     group.add_argument(
         '--sels',
         type=str,
@@ -263,8 +263,7 @@ def add_run_argument(
         raise ValueError(f'n_stages must be 2, 3, or 4, got {n_stages}')
 
     if group is None:
-        group: ArgumentParser = parser.add_argument_group(
-            'Execution arguments')
+        group: ArgumentParser = parser.add_argument_group('Execution arguments')
 
     help_text = f'Pipeline stages to execute (1-{n_stages} or combinations separated by dash) (default: {default})'
 
@@ -291,7 +290,7 @@ def add_verbose_argument(
 ) -> None:
     '''Add -v/--verbose argument for debugging output.'''
     if group is None:
-        group = parser.add_argument_group('General arguments')
+        group: _ArgumentGroup = parser.add_argument_group('General arguments')
     group.add_argument(
         '-v', '--verbose',
         action='store_true',
@@ -309,7 +308,7 @@ def add_batch_argument(
         group: ArgumentParser = parser.add_argument_group(
             'Execution arguments')
     group.add_argument(
-        '--batch',
+        '--run-batch',
         action='store_true',
         default=False,
         help='Submit jobs to HTCondor batch system'
@@ -319,6 +318,134 @@ def add_batch_argument(
 # ============================================================== #
 # FEATURE GROUP BUILDERS (higher-level, feature-specific groups) #
 # ============================================================== #
+
+def add_presel_argument(
+        parser: ArgumentParser,
+        is_final: bool = False,
+        training: bool = False,
+        is_plot: bool = False
+         ) -> None:
+    '''Add pre-selection, final-selection, or plotting arguments.'''
+    args = parser.add_argument_group('Selection arguments')
+    args.add_argument(
+        '--test',
+        action=BooleanOptionalAction,
+        default=False,
+        help='Use the cut defined in the pre-selection'
+    )
+    # Temporary argument
+    args.add_argument(
+        '--jan',
+        action='store_true',
+        default=False,
+        help="Use Jan's definition of jets"
+    )
+    if is_final:
+        final_args = parser.add_argument_group('Final-selection arguments')
+        final_args.add_argument(
+            '--do-tree',
+            action='store_true',
+            default=False,
+            help='Save ROOT TTrees in addition to histograms (default: False)'
+        )
+        final_args.add_argument(
+            '--do-sel0',
+            action='store_true',
+            default=False,
+            help="Include 'No cut selection' in cutList"
+        )
+        if not training:
+            final_args.add_argument(
+                '--bdt-sel',
+                type=str,
+                default='',
+                help="BDT selection to use, use nominal selection if '' (default: '')"
+            )
+            final_args.add_argument(
+                '--weight-suffix',
+                type=str,
+                default='weights',
+                help='BDT cut to use for high/low score region separation (default: weights)'
+            )
+            final_args.add_argument(
+                '--hl-include',
+                type=str,
+                default='all',
+                help='Selection to include for high/low separation (default: all)'
+            )
+    if not (is_final or is_plot):
+        presel_args = parser.add_argument_group('Pre-selection arguments')
+        presel_args.add_argument(
+            '--job-flavor',
+            type=str,
+            default='longlunch',
+            choices=['espresso', 'microcentury', 'longlunch',
+                     'workday', 'tomorrow', 'testmatch', 'nextweek'],
+            help='Job flavour for HTCondor (default: longlunch): '
+            'espresso (20 min),'
+            'microcentury (1 h), longlunch (2 h), workday (8 h),'
+            'tomorrow (1 d), testmatch (3 d), nextweek (1 w)'
+        )
+    if is_plot:
+        plot_args = parser.add_argument_group('Plot arguments')
+        plot_args.add_argument(
+            '--variable',
+            type=str,
+            default='all',
+            help='Variables to plot (default: all)'
+        )
+        plot_args.add_argument(
+            '--exclusive-decays',
+            action='store_true',
+            default=False,
+            help='Use wzp6_ee_xxH_Hyy_ecmECM samples instead of wzp6_ee_xxH_ecmECM'
+        )
+        plot_args.add_argument(
+            '--use-rare-bkgs',
+            action='store_true',
+            default=False,
+            help="Include e gamma -> eZ and gaga -> ff processes into 'Rare' background"
+        )
+        plot_args.add_argument(
+            '--formats',
+            type=str,
+            default='png',
+            choices=['png', 'pdf', 'png-pdf'],
+            help='Output file formats (default: png)'
+        )
+        plot_args.add_argument(
+            '--scale-sig',
+            type=float,
+            default=1.,
+            help='Signal scaling in plots (default: 1)'
+        )
+    if not is_plot:
+        sample_args = parser.add_argument_group('Sample-selection arguments')
+        sample_args.add_argument(
+            '--include',
+            type=str,
+            default='',
+            help="Samples to include, separated by ':'; use sample,fraction,chunks for overrides"
+        )
+        sample_args.add_argument(
+            '--exclude',
+            type=str,
+            default='',
+            help="Samples to exclude, separated by ':', or 'all' to exclude every sample"
+        )
+        sample_args.add_argument(
+            '--only-sig',
+            action='store_true',
+            default=False,
+            help='Only do the pre-selection for the signal processes'
+        )
+        sample_args.add_argument(
+            '--only-bkg',
+            action='store_true',
+            default=False,
+            help='Only do the pre-seleciton for the background processes'
+        )
+
 
 def add_bdt_inputs(parser: ArgumentParser) -> None:
     '''Add BDT inputs script specific arguments'''
@@ -781,6 +908,10 @@ def create_parser(
     run_default: str = '2-3',
     add_test: bool = False,
     batch: bool = False,
+    presel: bool = False,
+    is_final: bool = True,
+    training: bool = False,
+    is_presel_plot: bool = False,
     bdt_inputs: bool = False,
     bdt_training: bool = False,
     bdt_eval: bool = False,
@@ -874,6 +1005,8 @@ def create_parser(
         add_batch_argument(parser, group=exec)
 
     # Feature groups
+    if presel:
+        add_presel_argument(parser, is_final, training, is_presel_plot)
     if bdt_inputs:
         add_bdt_inputs(parser)
     if bdt_training:

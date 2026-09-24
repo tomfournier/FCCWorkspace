@@ -1,23 +1,53 @@
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
+
+import sys, logging
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from package.parsing import create_parser
+parser = create_parser(
+    cat_single=True,
+    include_sels=True,
+    presel=True,
+    is_final=True,
+    description='Final-selection Script'
+)
+cmd_args = globals().get('cmdline_args')
+arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
+arg, _ = parser.parse_known_args(arguments)
+
+LOGGER = logging.getLogger('FCCAnalyses.final-selection')
+
+
+
 ##########################################################
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os
-
 # Load analysis configuration and predefined histogram config
-from package.userConfig import loc, get_params
-from package.config import get_process_list
+from package.userConfig import loc
+from package.config import (
+    get_process_list,
+    parse_sample_selection,
+    parse_sample_exclusion
+)
 from sel.final.leptonic import Baseline_cut_ll, histos_ll
 from sel.final.hadronic import Baseline_cut_qq, histos_qq
-
-# Load analysis parameters: decay category, CoM energy, luminosity, test flag
-cat, ecm, lumi, test = get_params(os.environ.copy(), '1-run.json', is_final=True, qq_allowed=True)
 
 
 
 ##############################
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
+
+cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split(''), arg.test
+lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 # Input: Pre-selection ROOT trees and histograms
 if test: inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
@@ -34,9 +64,12 @@ procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 nCPUS = 10  # Number of CPUs for parallel histogram filling
 
 # ROOT output options
-doTree  = True   # Save ROOT TTrees in addition to histograms (for validation/debugging)
-doScale = True   # Scale histograms to integrated luminosity
+doScale = True        # Scale histograms to integrated luminosity
 intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
+
+# Optional outputs (commented out by default)
+# saveJSON = True    # Export results to JSON format
+# saveTabular = True # Generate LaTeX tables
 
 
 
@@ -46,7 +79,12 @@ intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 
 # Samples to process: ZH signal and main background processes
 # These are processed through final selection cuts and histogram filling
-processList = get_process_list(cat, ecm, train=True).keys()
+processList = get_process_list(
+    cat, ecm, train=True,
+    onlysig=arg.only_sig, onlybkg=arg.only_bkg,
+    include=parse_sample_selection(arg.include),
+    exclude=parse_sample_exclusion(arg.exclude)
+).keys()
 
 
 
@@ -57,16 +95,19 @@ processList = get_process_list(cat, ecm, train=True).keys()
 # Selection cuts dictionary for ROOT filtering
 # Keys: selection names appearing in output file names and histograms
 cutList: dict[str, str] = {}
-# if not test: cutList['sel0'] = 'return true;'  # No cuts
+if arg.do_sel0: cutList['sel0_test' if arg.test else 'sel0'] = 'return true;'  # No cuts selection
 if cat in ['ee', 'mumu']:
     if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
     else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
     if test: cutList['test']     = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Test selection     (hadronic channel)
     else:    cutList['Baseline'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Baseline selection (hadronic channel)
-doTree = False if 'sel0' in cutList else doTree  # Do not write TTree if sel0 is in cutList
+cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 
-# Have to redo the final-selection
+# Save ROOT TTrees in addition to histograms (for BDT training)
+doTree = False if 'sel0' in cutList else arg.do_tree  # Do not write TTree if sel0 is in cutList
+
+
 
 #################################
 ### DEFINE HISTOGRAM SETTINGS ###

@@ -36,7 +36,6 @@ from .logger import get_logger
 LOGGER = get_logger(__name__)
 
 
-
 #############################
 ##### VARIABLES FOR BDT #####
 #############################
@@ -56,11 +55,10 @@ input_vars_qq = (
     'zqq_p',        'zqq_costheta',
     'W1_m', 'W1_p', 'W1_costheta',
     'W2_m', 'W2_p', 'W2_costheta',
-    # 'thrust',
-    'thrust_costheta',
+    'thrust',
+    # 'thrust_costheta',
     # 'delta_mWW4'
 )
-
 
 
 ##########################
@@ -68,13 +66,16 @@ input_vars_qq = (
 ##########################
 
 # Standard Z boson decay modes
-Z_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu')
+Z_DECAYS: tuple[str, ...] = (
+    'bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu')
 
 # Standard Higgs boson decay modes
-H_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa')
+H_DECAYS: tuple[str, ...] = (
+    'bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa')
 
 # Higgs decays use to make the fit
-H_DECAYS_FIT: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ_noInv', 'WW', 'Za', 'aa', 'inv')
+H_DECAYS_FIT: tuple[str, ...] = (
+    'bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ_noInv', 'WW', 'Za', 'aa', 'inv')
 
 # Higgs decay modes including invisible decays
 H_DECAYS_WITH_INV: tuple[str, ...] = H_DECAYS + ('inv',)
@@ -88,8 +89,7 @@ QUARKS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq')
 z_decays = Z_DECAYS
 h_decays = H_DECAYS
 H_decays = H_DECAYS_WITH_INV
-quarks   = QUARKS
-
+quarks = QUARKS
 
 
 #######################
@@ -98,6 +98,7 @@ quarks   = QUARKS
 
 # Lazy import of ROOT - only load when colors are accessed
 _ROOT = None
+
 
 def _get_root():
     """Lazily import ROOT.
@@ -117,11 +118,12 @@ def _get_root():
 
 # Lazy-loaded ROOT colors - these are computed on first access
 # ROOT color indices (lazily initialized on first access)
-_ZH_COLOR   = None   # Red for ZH signal
-_WW_COLOR   = None   # Orange for WW background
-_ZZ_COLOR   = None   # Blue for ZZ background
-_ZG_COLOR   = None   # Purple for Z/gamma
+_ZH_COLOR = None   # Red for ZH signal
+_WW_COLOR = None   # Orange for WW background
+_ZZ_COLOR = None   # Blue for ZZ background
+_ZG_COLOR = None   # Purple for Z/gamma
 _RARE_COLOR = None   # Gray for rare processes
+
 
 def _init_colors() -> None:
     """Initialize ROOT color objects on first access.
@@ -132,12 +134,17 @@ def _init_colors() -> None:
     global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR, _TT_COLOR
     if _ZH_COLOR is None:
         root = _get_root()
-        _ZH_COLOR   = root.TColor.GetColor('#e42536')  # Red       for ZH signal
-        _WW_COLOR   = root.TColor.GetColor('#f89c20')  # Orange    for WW background
-        _ZZ_COLOR   = root.TColor.GetColor('#5790fc')  # Blue      for ZZ background
-        _ZG_COLOR   = root.TColor.GetColor('#964a8b')  # Purple    for Z/gamma
-        _RARE_COLOR = root.TColor.GetColor('#9c9ca1')  # Gray      for rare processes
-        _TT_COLOR   = root.TColor.GetColor("#1414ad")  # Dark blue for tt processes
+        _ZH_COLOR = root.TColor.GetColor('#e42536')  # Red       for ZH signal
+        _WW_COLOR = root.TColor.GetColor(
+            '#f89c20')  # Orange    for WW background
+        _ZZ_COLOR = root.TColor.GetColor(
+            '#5790fc')  # Blue      for ZZ background
+        _ZG_COLOR = root.TColor.GetColor('#964a8b')  # Purple    for Z/gamma
+        _RARE_COLOR = root.TColor.GetColor(
+            '#9c9ca1')  # Gray      for rare processes
+        _TT_COLOR = root.TColor.GetColor(
+            "#1414ad")  # Dark blue for tt processes
+
 
 def _get_h_colors_dict() -> dict:
     """Lazy-load h_colors with color constants.
@@ -148,18 +155,19 @@ def _get_h_colors_dict() -> dict:
 
     root = _get_root()
     return {
-        'bb'     : root.kViolet,
-        'cc'     : root.kBlue,
-        'ss'     : root.kRed,
-        'gg'     : root.kGreen+1,
-        'mumu'   : root.kOrange,
-        'tautau' : root.kCyan,
-        'ZZ'     : root.kGray,
-        'WW'     : root.kGray+2,
-        'Za'     : root.kGreen+2,
-        'aa'     : root.kRed+2,
-        'inv'    : root.kBlue+2
+        'bb': root.kViolet,
+        'cc': root.kBlue,
+        'ss': root.kRed,
+        'gg': root.kGreen+1,
+        'mumu': root.kOrange,
+        'tautau': root.kCyan,
+        'ZZ': root.kGray,
+        'WW': root.kGray+2,
+        'Za': root.kGreen+2,
+        'aa': root.kRed+2,
+        'inv': root.kBlue+2
     }
+
 
 def _get_colors_dict() -> dict:
     """Lazy-load colors dictionary with color constants.
@@ -169,24 +177,24 @@ def _get_colors_dict() -> dict:
     """
     _init_colors()
     return {
-        'ZH'       : _ZH_COLOR,
-        'ZeeH'     : _ZH_COLOR,
-        'ZmumuH'   : _ZH_COLOR,
-        'ZqqH'     : _ZH_COLOR,
-        'ZnunuH'   : _ZH_COLOR,
+        'ZH': _ZH_COLOR,
+        'ZeeH': _ZH_COLOR,
+        'ZmumuH': _ZH_COLOR,
+        'ZqqH': _ZH_COLOR,
+        'ZnunuH': _ZH_COLOR,
 
-        'zh'       : _ZH_COLOR,
-        'zeeh'     : _ZH_COLOR,
-        'zmumuh'   : _ZH_COLOR,
-        'zqqh'     : _ZH_COLOR,
-        'znunuh'   : _ZH_COLOR,
+        'zh': _ZH_COLOR,
+        'zeeh': _ZH_COLOR,
+        'zmumuh': _ZH_COLOR,
+        'zqqh': _ZH_COLOR,
+        'znunuh': _ZH_COLOR,
 
-        'WW'       : _WW_COLOR,
-        'ZZ'       : _ZZ_COLOR,
-        'Zgamma'   : _ZG_COLOR,
-        'Zqqgamma' : _ZG_COLOR,
-        'Rare'     : _RARE_COLOR,
-        'tt'       : _TT_COLOR
+        'WW': _WW_COLOR,
+        'ZZ': _ZZ_COLOR,
+        'Zgamma': _ZG_COLOR,
+        'Zqqgamma': _ZG_COLOR,
+        'Rare': _RARE_COLOR,
+        'tt': _TT_COLOR
     }
 
 
@@ -234,7 +242,7 @@ class LazyColorDict(dict):
 # import side-effect free. Callers can still use colors['ZH'] and h_colors['bb']
 # without re-defining anything in each script.
 h_colors = LazyColorDict(_get_h_colors_dict)  # Decay mode   -> ROOT color
-colors   = LazyColorDict(_get_colors_dict)    # Process name -> ROOT color
+colors = LazyColorDict(_get_colors_dict)    # Process name -> ROOT color
 
 # Matplotlib tab colors for different analysis modes by channel (no lazy loading needed)
 modes_color = {
@@ -264,69 +272,68 @@ modes_color = {
 }
 
 
-
 #######################
 ### PROCESSES LABEL ###
 #######################
 
 # ROOT TLatex labels for Z decay modes
 z_labels = {
-    'bb'     : 'Z#rightarrowb#bar{b}',
-    'cc'     : 'Z#rightarrowc#bar{c}',
-    'ss'     : 'Z#rightarrows#bar{s}',
-    'qq'     : 'Z#rightarrowq#bar{q}',
-    'ee'     : 'Z#rightarrowe^{#plus}e^{#minus}',
-    'mumu'   : 'Z#rightarrow#mu^{#plus}#mu^{#minus}',
-    'tautau' : 'Z#rightarrow#tau^{#plus}#tau^{#minus}',
-    'nunu'   : 'Z#rightarrow#nu#bar{#nu}',
+    'bb': 'Z#rightarrowb#bar{b}',
+    'cc': 'Z#rightarrowc#bar{c}',
+    'ss': 'Z#rightarrows#bar{s}',
+    'qq': 'Z#rightarrowq#bar{q}',
+    'ee': 'Z#rightarrowe^{#plus}e^{#minus}',
+    'mumu': 'Z#rightarrow#mu^{#plus}#mu^{#minus}',
+    'tautau': 'Z#rightarrow#tau^{#plus}#tau^{#minus}',
+    'nunu': 'Z#rightarrow#nu#bar{#nu}',
 }
 
 # ROOT TLatex labels for Higgs decay modes
 h_labels = {
-    'bb'     : 'H#rightarrowb#bar{b}',
-    'cc'     : 'H#rightarrowc#bar{c}',
-    'ss'     : 'H#rightarrows#bar{s}',
-    'gg'     : 'H#rightarrowgg',
-    'mumu'   : 'H#rightarrow#mu^{#plus}#mu^{#minus}',
-    'tautau' : 'H#rightarrow#tau^{#plus}#tau^{#minus}',
-    'ZZ'     : 'H#rightarrowZZ*',
-    'WW'     : 'H#rightarrowWW*',
-    'Za'     : 'H#rightarrowZ#gamma',
-    'aa'     : 'H#rightarrow#gamma#gamma',
-    'inv'    : 'H#rightarrowInv'
+    'bb': 'H#rightarrowb#bar{b}',
+    'cc': 'H#rightarrowc#bar{c}',
+    'ss': 'H#rightarrows#bar{s}',
+    'gg': 'H#rightarrowgg',
+    'mumu': 'H#rightarrow#mu^{#plus}#mu^{#minus}',
+    'tautau': 'H#rightarrow#tau^{#plus}#tau^{#minus}',
+    'ZZ': 'H#rightarrowZZ*',
+    'WW': 'H#rightarrowWW*',
+    'Za': 'H#rightarrowZ#gamma',
+    'aa': 'H#rightarrow#gamma#gamma',
+    'inv': 'H#rightarrowInv'
 }
 
 H_labels = {
-    'bb'     : r'$H\to b\bar{b}$',
-    'cc'     : r'$H\to c\bar{c}$',
-    'ss'     : r'$H\to s\bar{s}$',
-    'gg'     : r'$H\to gg$',
-    'mumu'   : r'$H\to \mu^+\mu^-$',
-    'tautau' : r'$H\to \tau^+\tau^-$',
-    'ZZ'     : r'$H\to ZZ^*$',
-    'WW'     : r'$H\to WW^*$',
-    'Za'     : r'$H\to Z\gamma$',
-    'aa'     : r'$H\to \gamma\gamma$',
-    'inv'    : r'$H\to$ Inv'
+    'bb': r'$H\to b\bar{b}$',
+    'cc': r'$H\to c\bar{c}$',
+    'ss': r'$H\to s\bar{s}$',
+    'gg': r'$H\to gg$',
+    'mumu': r'$H\to \mu^+\mu^-$',
+    'tautau': r'$H\to \tau^+\tau^-$',
+    'ZZ': r'$H\to ZZ^*$',
+    'WW': r'$H\to WW^*$',
+    'Za': r'$H\to Z\gamma$',
+    'aa': r'$H\to \gamma\gamma$',
+    'inv': r'$H\to$ Inv'
 }
 
 # ROOT TLatex labels for main physics processes
 labels = {
-    'ZH'     : 'ZH',
-    'ZmumuH' : 'Z(#mu^{+}#mu^{#minus})H',
-    'ZeeH'   : 'Z(e^{+}e^{#minus})H',
-    'ZqqH'   : 'Z(q#bar{q})H',
+    'ZH': 'ZH',
+    'ZmumuH': 'Z(#mu^{+}#mu^{#minus})H',
+    'ZeeH': 'Z(e^{+}e^{#minus})H',
+    'ZqqH': 'Z(q#bar{q})H',
 
-    'zh'     : 'ZH',
-    'zmumuh' : 'Z(#mu^{+}#mu^{#minus})H',
-    'zeeh'   : 'Z(e^{+}e^{#minus})H',
-    'zqqh'   : 'Z(q#bar{q})H',
+    'zh': 'ZH',
+    'zmumuh': 'Z(#mu^{+}#mu^{#minus})H',
+    'zeeh': 'Z(e^{+}e^{#minus})H',
+    'zqqh': 'Z(q#bar{q})H',
 
-    'WW'     : 'W^{+}W^{-}',
-    'ZZ'     : 'ZZ',
-    'Zgamma' : 'Z/#gamma^{*} #rightarrow f#bar{f}+#gamma(#gamma)',
-    'Rare'   : 'Rare',
-    'tt'     : 't#bar{t}'
+    'WW': 'W^{+}W^{-}',
+    'ZZ': 'ZZ',
+    'Zgamma': 'Z/#gamma^{*} #rightarrow f#bar{f}+#gamma(#gamma)',
+    'Rare': 'Rare',
+    'tt': 't#bar{t}'
 }
 
 # LaTeX labels for kinematic variables with units
@@ -482,7 +489,6 @@ process_label = {
 }
 
 
-
 ########################
 ### CONFIG FUNCTIONS ###
 ########################
@@ -501,18 +507,18 @@ def timer(t: float
     dt = time() - t
 
     # Split time into components
-    h, m  = int(dt // 3600), int(dt // 60 % 60),
+    h, m = int(dt // 3600), int(dt // 60 % 60),
     s, ms = int(dt % 60), int((dt % 1) * 1000)
 
     # Build time string with non-zero components
     time_parts = []
-    if h>0:
+    if h > 0:
         time_parts.append(f'{h} h')
-    if m>0:
+    if m > 0:
         time_parts.append(f'{m} min')
-    if s>0:
+    if s > 0:
         time_parts.append(f'{s} s')
-    if ms>0:
+    if ms > 0:
         time_parts.append(f'{ms} ms')
     if not time_parts:
         time_parts.append('0 ms')
@@ -520,22 +526,72 @@ def timer(t: float
     elapsed = f"Elapsed time: {' '.join(time_parts)}"
     lenght = len(elapsed) + 4
 
-    LOGGER.info(f'\n{" CODE ENDED ":=^{lenght}}\n{elapsed:^{lenght}}\n{"="*lenght}\n')
-
+    LOGGER.info(
+        f'\n{" CODE ENDED ":=^{lenght}}\n{elapsed:^{lenght}}\n{"="*lenght}\n')
 
 
 ##########################
 ### PROCESSES FUNCTION ###
 ##########################
 
+def parse_sample_selection(selection: str) -> dict[str, dict[str, float | int]]:
+    '''Parse CLI sample selections into process overrides.
+
+    Entries are separated by ``:``. Each entry is either a sample name, or a
+    sample name followed by its fraction and chunk count:
+    ``sample`` or ``sample,fraction,chunks``.
+    '''
+    if not selection:
+        return {}
+
+    samples = {}
+    for entry in selection.split(':'):
+        entry = entry.strip()
+        if not entry:
+            raise ValueError('Sample selections cannot contain empty entries.')
+
+        fields = entry.split(',')
+        if len(fields) not in (1, 3) or not fields[0]:
+            raise ValueError(
+                f'Invalid sample selection {entry!r}; expected '
+                'sample or sample,fraction,chunks.'
+            )
+
+        sample = fields[0]
+        if len(fields) == 1:
+            samples[sample] = {}
+            continue
+
+        try:
+            fraction = float(fields[1])
+            chunks = int(fields[2])
+        except ValueError as error:
+            raise ValueError(
+                f'Invalid values in sample selection {entry!r}; '
+                'fraction must be a number and chunks an integer.'
+            ) from error
+        if chunks < 1:
+            raise ValueError(f'Chunk count must be at least 1 in {entry!r}.')
+        if fraction > 1 or fraction < 0:
+            raise ValueError('fraction must be between 0 and 1')
+        samples[sample] = {'fraction': fraction, 'chunks': chunks}
+
+    return samples
+
+
+def parse_sample_exclusion(exclusion: str) -> set[str]:
+    '''Parse colon-separated sample names for the exclusion option.'''
+    return {sample.strip() for sample in exclusion.split(':') if sample.strip()}
+
+
 def get_process_dict(
-        procs:    Union[Sequence[str], None] = None,
-        ecm: int = 240,
-        z_decays: Union[Sequence[str], None] = None,
-        h_decays: Union[Sequence[str], None] = None,
-        H_decays: Union[Sequence[str], None] = None,
-        quarks:   Union[Sequence[str], None] = None,
-     ) -> dict[str, tuple[str, ...]]:
+    procs:    Union[Sequence[str], None] = None,
+    ecm: int = 240,
+    z_decays: Union[Sequence[str], None] = None,
+    h_decays: Union[Sequence[str], None] = None,
+    H_decays: Union[Sequence[str], None] = None,
+    quarks:   Union[Sequence[str], None] = None,
+) -> dict[str, tuple[str, ...]]:
     '''Generate process dictionary with optional filtering and custom decay modes.
 
     Simple process builder for creating FCC sample dictionaries.
@@ -558,27 +614,27 @@ def get_process_dict(
         >>> get_process_dict(procs=['ZH', 'WW'], ecm=365)  # Filtered, 365 GeV
         >>> get_process_dict(h_decays=['bb', 'cc'])  # Custom Higgs decays
     '''
-    z_set = Z_DECAYS          if z_decays is None else tuple(z_decays)
-    h_set = H_DECAYS          if h_decays is None else tuple(h_decays)
+    z_set = Z_DECAYS if z_decays is None else tuple(z_decays)
+    h_set = H_DECAYS if h_decays is None else tuple(h_decays)
     H_set = H_DECAYS_WITH_INV if H_decays is None else tuple(H_decays)
-    q_set = QUARKS            if quarks   is None else tuple(quarks)
+    q_set = QUARKS if quarks is None else tuple(quarks)
 
     processes = {
         # All signals for the Z and Higgs exclusive decay
-        'ZH':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in h_set),
+        'ZH':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_set for y in h_set),
 
         # All signals for a specific Z decays and Higgs exclusive decay
-        'ZeeH':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in h_set),
+        'ZeeH':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}' for y in h_set),
         'ZmumuH': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in h_set),
-        'ZqqH':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in h_set),
+        'ZqqH':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in q_set for y in h_set),
 
         # All signals for the Z and Higgs exclusive decay (Include invisible decay)
-        'zh':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in z_set for y in H_set),
+        'zh':     tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_set for y in H_set),
 
         # All signals for a specific Z decays and Higgs exclusive decay (Include invisible decay)
-        'zeeh':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}'   for y in H_set),
+        'zeeh':   tuple(f'wzp6_ee_eeH_H{y}_ecm{ecm}' for y in H_set),
         'zmumuh': tuple(f'wzp6_ee_mumuH_H{y}_ecm{ecm}' for y in H_set),
-        'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}'  for x in q_set for y in H_set),
+        'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in q_set for y in H_set),
 
         # Diboson production e+e- -> VV (V = W or Z)
         'WW':     (f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ecm{ecm}'),
@@ -606,21 +662,21 @@ def get_process_dict(
 
 
 def get_process_list(
-        cat: str,
-        ecm: int,
-        z_decays: tuple[str, ...] = Z_DECAYS,
-        h_decays: tuple[str, ...] = H_DECAYS_ALL,
-        quarks: tuple[str, ...] = QUARKS,
-        train: bool = False,
-        batch: bool = False,
-        onlysig: bool = False,
-        onlybkg: bool = False,
-        frac: dict[str, float] | None = None,
-        chunks: dict[str, int] | None = None,
-        include: dict[str, dict] | None = None,
-        exclude: set[str] | None = None,
-        all_train_sig: bool = True
-         ) -> dict[str, dict[str, float | int]]:
+    cat: str,
+    ecm: int,
+    z_decays: tuple[str, ...] = Z_DECAYS,
+    h_decays: tuple[str, ...] = H_DECAYS_ALL,
+    quarks: tuple[str, ...] = QUARKS,
+    train: bool = False,
+    batch: bool = False,
+    onlysig: bool = False,
+    onlybkg: bool = False,
+    frac: dict[str, float] | None = None,
+    chunks: dict[str, int] | None = None,
+    include: dict[str, dict] | None = None,
+    exclude: set[str] | None = None,
+    all_train_sig: bool = True
+) -> dict[str, dict[str, float | int]]:
     '''Generate analysis-ready process dictionary with signals and backgrounds.
 
     Full-featured process builder for analysis workflows. Combines signal and background
@@ -648,14 +704,15 @@ def get_process_list(
         ValueError: If onlysig and onlybkg are both True.
     '''
     # Initialize optional parameters
-    frac    = frac    or    {}
-    chunks  = chunks  or    {}
-    include = include or    {}
+    frac = frac or {}
+    chunks = chunks or {}
+    include = include or {}
     exclude = exclude or set()
 
     # Validate conflicting options
     if onlysig and onlybkg:
-        raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
+        raise ValueError(
+            'Cannot set both onlysig and onlybkg to True. Choose one.')
 
     if train:
         if cat in ['ee', 'mumu']:
@@ -665,17 +722,22 @@ def get_process_list(
         elif cat == 'qq':
             sigs = [f'wzp6_ee_{x}H_ecm{ecm}' for x in quarks]
             if all_train_sig:
-                sigs += [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays if 'noInv' not in y]
+                sigs += [
+                    f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays if 'noInv' not in y]
         else:
-            raise ValueError(f'{cat} is not a valid category. Use [ee, mumu, qq].')
+            raise ValueError(
+                f'{cat} is not a valid category. Use [ee, mumu, qq].')
     else:
-        sigs = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
+        sigs = [
+            f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
 
     small, middle, big = ((5, 5, 10) if batch else (1, 5, 10)) if train \
         else ((5, 20, 30) if batch else (1, 5, 10))
-    common = {f'p8_ee_ZZ_ecm{ecm}': {'frac': 0.25 if cat == 'qq' else 1, 'nb': middle}}
+    common = {f'p8_ee_ZZ_ecm{ecm}': {
+        'frac': 0.25 if cat == 'qq' else 1, 'nb': middle}}
     if not train or cat == 'qq':
-        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': (0.3 if ecm == 240 else 1) if train else (0.1 if cat == 'qq' else 1), 'nb': big}
+        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': (
+            0.3 if ecm == 240 else 1) if train else (0.1 if cat == 'qq' else 1), 'nb': big}
 
     category_specific: dict[str, dict[str, float | int]] = {
         'ee': {
@@ -717,20 +779,32 @@ def get_process_list(
     # Build signal dict with custom overrides
     process_sig = {
         s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1)}
-        for s in sigs if s not in exclude
+        for s in sigs if (s not in exclude and 'all' not in exclude)
     }
 
     # Build background dict with custom overrides
     process_bkg = {
-        b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb'])}
-        for b, v in bkgs.items() if b not in exclude
+        b: {'fraction': frac.get(b, v['frac']),
+            'chunks': chunks.get(b, v['nb'])}
+        for b, v in bkgs.items() if (b not in exclude and 'all' not in exclude)
     }
 
-    # Apply custom inclusions
-    if 'sig' in include:
-        process_sig = {**process_sig, **include['sig']}
-    if 'bkg' in include:
-        process_bkg = {**process_bkg, **include['bkg']}
+    # Apply custom inclusions. The nested form is retained for programmatic
+    # callers; the flat form is convenient for CLI sample selection.
+    if 'sig' in include or 'bkg' in include:
+        process_sig = {**process_sig, **include.get('sig', {})}
+        process_bkg = {**process_bkg, **include.get('bkg', {})}
+    else:
+        for sample, override in include.items():
+            if sample in sigs:
+                defaults = {'fraction': 1, 'chunks': 1}
+                process_sig[sample] = {**defaults, **override}
+            elif sample in bkgs:
+                defaults = {'fraction': bkgs[sample]
+                            ['frac'], 'chunks': bkgs[sample]['nb']}
+                process_bkg[sample] = {**defaults, **override}
+            else:
+                raise ValueError(f'Cannot classify included sample {sample!r} as signal or background.')
 
     # Return requested subset
     if onlysig:
