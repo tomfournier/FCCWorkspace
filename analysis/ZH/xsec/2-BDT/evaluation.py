@@ -21,13 +21,7 @@ t = time()
 
 from package.parsing import create_parser, parse_args, set_log
 from package.logger import get_logger
-parser = create_parser(
-    cat_single=True,
-    include_sels=True,
-    bdt_eval=True,
-    allow_qq=True,
-    description='BDT Evaluation Script'
-)
+parser = create_parser('2-BDT', 'evaluation')
 arg = parse_args(parser, True)
 set_log(arg)
 

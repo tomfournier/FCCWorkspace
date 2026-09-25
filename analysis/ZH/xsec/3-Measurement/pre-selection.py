@@ -16,14 +16,7 @@ if script_dir not in sys.path: sys.path.insert(0, script_dir)
 ########################
 
 from package.parsing import create_parser
-parser = create_parser(
-    cat_single=True,
-    batch=True,
-    presel=True,
-    is_final=False,
-    training=True,
-    description='Pre-selection Script'
-)
+parser = create_parser('3-Measurement', 'pre-selection')
 cmd_args = globals().get('cmdline_args')
 arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
 arg, _ = parser.parse_known_args(arguments)

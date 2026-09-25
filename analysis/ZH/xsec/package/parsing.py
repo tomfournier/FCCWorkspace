@@ -12,26 +12,11 @@ Core principles:
 - Reduced code duplication through composition
 
 Examples:
-    Basic setup with just core arguments:
+    Script-specific parser:
         from package.parsing import create_parser
-        parser = create_parser(cat_multi=True, ecm_multi=True)
+        parser = create_parser('2-BDT', 'evaluation')
         args = parser.parse_args()
 
-    With BDT evaluation and selection processing:
-        parser = create_parser(
-            cat_multi=True, ecm_multi=True,
-            include_sels=True,           # For batch selection processing
-            bdt_eval=True                # For metric and tree plotting
-        )
-        args = parser.parse_args()
-
-    With optimization and fitting:
-        parser = create_parser(
-            cat_single=True,
-            optimize=True,               # For optimization arguments
-            fit=True, bias=True          # For fitting and bias tests
-        )
-        args = parser.parse_args()
 '''
 
 from argparse import ArgumentParser, Namespace, BooleanOptionalAction, _ArgumentGroup
@@ -52,22 +37,17 @@ def add_cat_argument(
 ) -> None:
     '''Add --cat/--cats argument for final state selection.'''
 
-    if default is None:
-        def_value = 'ee-mumu' if multi else ''
-    else:
-        def_value = default
+    if default is None: def_value = 'ee-mumu' if multi else ''
+    else:               def_value = default
 
     choices = ['ee', 'mumu', 'qq'] if allow_qq else ['ee', 'mumu']
     if multi:
         choices.extend(['ee-mumu', 'mumu-ee'])
         if allow_qq:
-            choices.extend([
-                'ee-qq', 'ee-mumu-qq', 'ee-qq-mumu',
-                'mumu-qq', 'mumu-ee-qq', 'mumu-qq-ee',
-                'qq-ee', 'qq-mumu', 'qq-ee-mumu', 'qq-mumu-ee'
-            ])
-    if allow_empty:
-        choices.append('')
+            choices.extend(['ee-qq', 'ee-mumu-qq', 'ee-qq-mumu',
+                            'mumu-qq', 'mumu-ee-qq', 'mumu-qq-ee',
+                            'qq-ee', 'qq-mumu', 'qq-ee-mumu', 'qq-mumu-ee'])
+    if allow_empty: choices.append('')
 
     if group is None:
         group: _ArgumentGroup = parser.add_argument_group('General arguments')
@@ -126,40 +106,32 @@ def add_ecm_argument(
 def add_sel_argument(
     parser: ArgumentParser,
     default: str = '',
+    multi: bool = False,
     group: str | None = None
 ) -> None:
     '''Add --sel argument for single selection strategy.'''
     if group is None:
         group: _ArgumentGroup = parser.add_argument_group('General arguments')
-    group.add_argument(
-        '--sel',
-        type=str,
-        default=default,
-        help=f'Selection strategy to apply (default: "{default}")'
-    )
-
-
-def add_sels_argument(
-    parser: ArgumentParser,
-    default: str = '',
-    group = None
-) -> None:
-    '''Add --sels argument for multiple selection strategies (batch mode).'''
-    if group is None:
-        group: _ArgumentGroup = parser.add_argument_group('General arguments')
-    group.add_argument(
-        '--sels',
-        type=str,
-        default=default,
-        help='Selections to process (dash-separated for multiple choices) (default: "")'
-    )
+    if multi:
+        group.add_argument(
+            '--sels',
+            type=str,
+            default=default,
+            help=f'Selections strategy to apply (dash-separated for multiple choices) (default: "{default}")'
+        )
+    else:
+        group.add_argument(
+            '--sel',
+            type=str,
+            default=default,
+            help=f'Selection strategy to apply (default: "{default}")'
+        )
 
 
 def add_run_argument(
     parser: ArgumentParser,
     n_stages: int = 3,
     default: str = '2-3',
-    add_test: bool = False,
     group: str | None = None
 ) -> None:
     '''Add --run argument for pipeline stage selection.'''
@@ -186,13 +158,6 @@ def add_run_argument(
         metavar='STAGES',
         help=help_text
     )
-    if add_test:
-        group.add_argument(
-            '--test',
-            action=BooleanOptionalAction,
-            default=True,
-            help='Set test to True for pre-selection'
-        )
 
 
 def add_verbose_argument(
@@ -210,33 +175,21 @@ def add_verbose_argument(
     )
 
 
-def add_batch_argument(
-    parser: ArgumentParser,
-    group: str | None = None
-) -> None:
-    '''Add --batch for HTCondor batch processing.'''
-    if group is None:
-        group: ArgumentParser = parser.add_argument_group(
-            'Execution arguments')
-    group.add_argument(
-        '--run-batch',
-        action='store_true',
-        default=False,
-        help='Submit jobs to HTCondor batch system'
-    )
-
 
 # ============================================================== #
 # FEATURE GROUP BUILDERS (higher-level, feature-specific groups) #
 # ============================================================== #
 
-def add_presel_argument(
-        parser: ArgumentParser,
-        is_final: bool = False,
-        training: bool = False,
-        is_plot: bool = False
-         ) -> None:
-    '''Add pre-selection, final-selection, or plotting arguments.'''
+######################################
+### 1-MVAINPUTS SPECIFIC ARGUMENTS ###
+######################################
+
+#######################
+## GENERAL ARGUMENTS ##
+#######################
+
+def add_selection_args(parser: ArgumentParser) -> None:
+    '''Add selection options shared by MVA and measurement scripts.'''
     args = parser.add_argument_group('Selection arguments')
     args.add_argument(
         '--test',
@@ -251,112 +204,143 @@ def add_presel_argument(
         default=False,
         help="Use Jan's definition of jets"
     )
-    if is_final:
-        final_args = parser.add_argument_group('Final-selection arguments')
-        final_args.add_argument(
-            '--do-tree',
-            action='store_true',
-            default=False,
-            help='Save ROOT TTrees in addition to histograms (default: False)'
-        )
-        final_args.add_argument(
-            '--do-sel0',
-            action='store_true',
-            default=False,
-            help="Include 'No cut selection' in cutList"
-        )
-        if not training:
-            final_args.add_argument(
-                '--bdt-sel',
-                type=str,
-                default='',
-                help="BDT selection to use, use nominal selection if '' (default: '')"
-            )
-            final_args.add_argument(
-                '--weight-suffix',
-                type=str,
-                default='weights',
-                help='BDT cut to use for high/low score region separation (default: weights)'
-            )
-            final_args.add_argument(
-                '--hl-include',
-                type=str,
-                default='all',
-                help='Selection to include for high/low separation (default: all)'
-            )
-    if not (is_final or is_plot):
-        presel_args = parser.add_argument_group('Pre-selection arguments')
-        presel_args.add_argument(
-            '--job-flavor',
+
+
+def add_sample_selection_args(parser: ArgumentParser) -> None:
+    '''Add sample filtering options shared by selection scripts.'''
+    args = parser.add_argument_group('Sample-selection arguments')
+    args.add_argument(
+        '--include',
+        type=str,
+        default='',
+        help="Samples to include, separated by ':'; use sample,fraction,chunks for overrides"
+    )
+    args.add_argument(
+        '--exclude',
+        type=str,
+        default='',
+        help="Samples to exclude, separated by ':', or 'all' to exclude every sample"
+    )
+    args.add_argument(
+        '--only-sig',
+        action='store_true',
+        default=False,
+        help='Only do the pre-selection for the signal processes'
+    )
+    args.add_argument(
+        '--only-bkg',
+        action='store_true',
+        default=False,
+        help='Only do the pre-selection for the background processes'
+    )
+
+
+################################
+## SCRIPTS SPECIFIC ARGUMENTS ##
+################################
+
+# 1-MVAInputs/pre-selection.py specific argument
+def add_preselection_args(parser: ArgumentParser) -> None:
+    '''Add execution options specific to pre-selection scripts.'''
+    args = parser.add_argument_group('Pre-selection arguments')
+    args.add_argument(
+        '--job-flavor',
+        type=str,
+        default='longlunch',
+        choices=['espresso', 'microcentury', 'longlunch',
+                 'workday', 'tomorrow', 'testmatch', 'nextweek'],
+        help='Job flavour for HTCondor (default: longlunch): '
+        'espresso (20 min),'
+        'microcentury (1 h), longlunch (2 h), workday (8 h),'
+        'tomorrow (1 d), testmatch (3 d), nextweek (1 w)'
+    )
+    args.add_argument(
+        '--run-batch',
+        action='store_true',
+        default=False,
+        help='Submit jobs to HTCondor batch system'
+    )
+
+# 1-MVAInputs/final-selection.py specific argument
+def add_final_selection_args(
+        parser: ArgumentParser,
+        training: bool = False
+         ) -> None:
+    '''Add options specific to final-selection scripts.'''
+    args = parser.add_argument_group('Final-selection arguments')
+    args.add_argument(
+        '--do-tree',
+        action='store_true',
+        default=False,
+        help='Save ROOT TTrees in addition to histograms (default: False)'
+    )
+    args.add_argument(
+        '--do-sel0',
+        action='store_true',
+        default=False,
+        help="Include 'No cut selection' in cutList"
+    )
+    if not training:
+        args.add_argument(
+            '--bdt-sel',
             type=str,
-            default='longlunch',
-            choices=['espresso', 'microcentury', 'longlunch',
-                     'workday', 'tomorrow', 'testmatch', 'nextweek'],
-            help='Job flavour for HTCondor (default: longlunch): '
-            'espresso (20 min),'
-            'microcentury (1 h), longlunch (2 h), workday (8 h),'
-            'tomorrow (1 d), testmatch (3 d), nextweek (1 w)'
+            default='',
+            help="BDT selection to use, use nominal selection if '' (default: '')"
         )
-    if is_plot:
-        plot_args = parser.add_argument_group('Plot arguments')
-        plot_args.add_argument(
-            '--variable',
+        args.add_argument(
+            '--weight-suffix',
+            type=str,
+            default='weights',
+            help='BDT cut to use for high/low score region separation (default: weights)'
+        )
+        args.add_argument(
+            '--hl-include',
             type=str,
             default='all',
-            help='Variables to plot (default: all)'
-        )
-        plot_args.add_argument(
-            '--exclusive-decays',
-            action='store_true',
-            default=False,
-            help='Use wzp6_ee_xxH_Hyy_ecmECM samples instead of wzp6_ee_xxH_ecmECM'
-        )
-        plot_args.add_argument(
-            '--use-rare-bkgs',
-            action='store_true',
-            default=False,
-            help="Include e gamma -> eZ and gaga -> ff processes into 'Rare' background"
-        )
-        plot_args.add_argument(
-            '--formats',
-            type=str,
-            default='png',
-            choices=['png', 'pdf', 'png-pdf'],
-            help='Output file formats (default: png)'
-        )
-        plot_args.add_argument(
-            '--scale-sig',
-            type=float,
-            default=1.,
-            help='Signal scaling in plots (default: 1)'
-        )
-    if not is_plot:
-        sample_args = parser.add_argument_group('Sample-selection arguments')
-        sample_args.add_argument(
-            '--include',
-            type=str,
-            default='',
-            help="Samples to include, separated by ':'; use sample,fraction,chunks for overrides"
-        )
-        sample_args.add_argument(
-            '--exclude',
-            type=str,
-            default='',
-            help="Samples to exclude, separated by ':', or 'all' to exclude every sample"
-        )
-        sample_args.add_argument(
-            '--only-sig',
-            action='store_true',
-            default=False,
-            help='Only do the pre-selection for the signal processes'
-        )
-        sample_args.add_argument(
-            '--only-bkg',
-            action='store_true',
-            default=False,
-            help='Only do the pre-seleciton for the background processes'
+            help='Selection to include for high/low separation (default: all)'
         )
 
+# 1-MVAInputs/plots.py specific arguments
+def add_mva_plot_args(parser: ArgumentParser) -> None:
+    '''Add options specific to MVA input plotting.'''
+    args = parser.add_argument_group('Plot arguments')
+    args.add_argument(
+        '--variable',
+        type=str,
+        default='all',
+        help='Variables to plot (default: all)'
+    )
+    args.add_argument(
+        '--exclusive-decays',
+        action='store_true',
+        default=False,
+        help='Use wzp6_ee_xxH_Hyy_ecmECM samples instead of wzp6_ee_xxH_ecmECM'
+    )
+    args.add_argument(
+        '--use-rare-bkgs',
+        action='store_true',
+        default=False,
+        help="Include e gamma -> eZ and gaga -> ff processes into 'Rare' background"
+    )
+    args.add_argument(
+        '--formats',
+        type=str,
+        default='png',
+        choices=['png', 'pdf', 'png-pdf'],
+        help='Output file formats (default: png)'
+    )
+    args.add_argument(
+        '--scale-sig',
+        type=float,
+        default=1.,
+        help='Signal scaling in plots (default: 1)'
+    )
+
+
+
+################################
+### 2-BDT SPECIFIC ARGUMENTS ###
+################################
 
 def add_bdt_inputs(parser: ArgumentParser) -> None:
     '''Add BDT inputs script specific arguments'''
@@ -419,6 +403,11 @@ def add_bdt_eval(parser: ArgumentParser) -> None:
         help='Plot variable distributions for high/low score regions'
     )
 
+
+
+########################################
+### 3-MEASUREMENT SPECIFIC ARGUMENTS ###
+########################################
 
 def add_plots_args(parser: ArgumentParser) -> None:
     '''Add plots arguments (yields, decay, make, scan)'''
@@ -484,56 +473,10 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
     )
 
 
-def add_optimize_args(
-    parser: ArgumentParser,
-    is_plot: bool = False,
-    is_run: bool = False,
-    only_procs: bool = False
-) -> None:
-    '''Add optimization arguments (procs, method, nevents, incr, metric, dist).'''
-    args = parser.add_argument_group('Optimization arguments')
-    args.add_argument(
-        '--procs',
-        type=str,
-        default='',
-        help='Processes to optimize for (comma-separated)'
-    )
-    args.add_argument(
-        '--method',
-        '--methods',
-        type=str,
-        default='mll-pll',
-        choices=['mll', 'pll', 'mll-pll', 'pll-mll'],
-        metavar='METHODS',
-        help="chi2 method to use (default: 'mll-pll')"
-    )
-    if (not is_plot or is_run) and not only_procs:
-        args.add_argument(
-            '--nevents',
-            type=int,
-            default=-1,
-            help='Max events to process (-1: all) (default: -1)'
-        )
-        args.add_argument(
-            '--incr',
-            type=float,
-            default=0.01,
-            help='Parameter increment (default: 0.1)'
-        )
-    if (is_plot or is_run) and not only_procs:
-        parser.add_argument(
-            '--metrics',
-            action=BooleanOptionalAction,
-            default=True,
-            help='Plot the optimisation metrics'
-        )
-        parser.add_argument(
-            '--dist',
-            action=BooleanOptionalAction,
-            default=True,
-            help='Plot the variables distribution'
-        )
 
+####################################
+### 4-COMBINE SPECIFIC ARGUMENTS ###
+####################################
 
 def add_polarization(parser: ArgumentParser) -> None:
     '''Add polarization and luminosity scaling arguments.'''
@@ -585,32 +528,34 @@ def add_combine_args(parser: ArgumentParser) -> None:
     )
 
 
-def add_fit_args(
-    parser: ArgumentParser,
-    bias: bool = False,
-    default_target: str = '',
-    default_pert: float = 1.0,
-    nlo: bool = False
-) -> None:
-    '''Add fit arguments (pert, target, combine, bias, timer, print).'''
+
+################################
+### 5-FIT SPECIFIC ARGUMENTS ###
+################################
+
+#######################
+## GENERAL ARGUMENTS ##
+#######################
+
+def add_fit_args(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('Fit arguments')
     args.add_argument(
-        '--pert',
-        type=float,
-        default=default_pert,
-        help=f'Perturbation/scale factor (default: {default_pert})'
-    )
-    args.add_argument(
-        '--lep',
+        '--lep', '--leptonic',
         action='store_true',
         default=False,
-        help='Combine ee and mumu channel for fit'
+        help='Combine the fit for the ee and mumu channel. Do not use with --combine'
     )
     args.add_argument(
         '--combine', '--comb',
         action='store_true',
         default=False,
-        help='Combine all channels for fit'
+        help='Combine the fit the for all channel (ee, mumu, qq). Do not use with --lep'
+    )
+    args.add_argument(
+        '--timer',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Display elapsed time'
     )
     args.add_argument(
         '--fastscan',
@@ -643,51 +588,32 @@ def add_fit_args(
         help='Rescaled the uncertainties to the nominal luminosity (default False)'
     )
     args.add_argument(
-        '--npoints',
-        type=int,
-        default=200,
-        help='Number of points to make the likelihood scan (default 200)'
+        '--print',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Suppress uncertainty output'
     )
 
-    if not bias:
-        args.add_argument(
-            '--target',
-            type=str,
-            default=default_target,
-            help=f'Target pseudodata (default: "{default_target}")'
-        )
-        args.add_argument(
-            '--bias',
-            action='store_true',
-            default=False,
-            help='Run bias test instead of nominal fit'
-        )
-        args.add_argument(
-            '--timer',
-            action=BooleanOptionalAction,
-            default=True,
-            help='Display elapsed time'
-        )
-        args.add_argument(
-            '--print',
-            action=BooleanOptionalAction,
-            default=True,
-            help='Suppress uncertainty output'
-        )
-    if nlo:
-        args.add_argument(
-            '--model',
-            type=str,
-            default='SMEFT_Cphi_Cbox',
-            help='Model to use for the fit'
-        )
-        args.add_argument(
-            '--points',
-            type=int,
-            default=50,
-            help='Number of points for the likelihood scan (default 50 per parameter)'
-        )
 
+def add_bias_fit_args(parser: ArgumentParser, default_target: str = '') -> None:
+    args = parser.add_argument_group('Fit arguments specific to bias test')
+    args.add_argument(
+        '--target',
+        type=str,
+        default=default_target,
+        help=f'Target pseudodata (default: "{default_target}")'
+    )
+    args.add_argument(
+        '--bias',
+        action='store_true',
+        default=False,
+        help='Run bias test instead of nominal fit'
+    )
+
+
+###############################
+## SCRIPT SPECIFIC ARGUMENTS ##
+###############################
 
 def add_fit_plot_args(
     parser: ArgumentParser,
@@ -716,31 +642,10 @@ def add_fit_plot_args(
         help='Plot 95%% CL'
     )
     args.add_argument(
-        '--bias',
-        action='store_true',
-        help='Do likelyhood scan for bias fit'
-    )
-    args.add_argument(
-        '--target',
-        type=str,
-        default='all',
-        help='Choose the target of the scan for bias test (default: all)'
-    )
-    args.add_argument(
         '--only1',
         action='store_true',
         default=False,
         help='Only compute the scan for one target at a time'
-    )
-    args.add_argument(
-        '--lep',
-        action='store_true',
-        help='Do the likelyhood scan for the leptonic channel'
-    )
-    args.add_argument(
-        '--combine',
-        action='store_true',
-        help='Do the likelyhood scan for all channel'
     )
     args.add_argument(
         '--which',
@@ -749,22 +654,18 @@ def add_fit_plot_args(
         choices=['', 'cat', 'ecm', 'sel', 'decay'],
         help='Choose which parameter to compare'
     )
-    args.add_argument(
-        '--timer',
-        action=BooleanOptionalAction,
-        default=True,
-        help='Print the elapsed time'
-    )
-    args.add_argument(
-        '--toy',
-        action='store_true',
-        help='Fit made with MC toys'
-    )
 
 
-def add_bias_args(parser: ArgumentParser, extra: bool = False) -> None:
+def add_bias_args(parser: ArgumentParser,
+                  default_pert: float = 1.05) -> None:
     '''Add bias test specific arguments (freeze, float, plot_dc).'''
     args = parser.add_argument_group('Bias test arguments')
+    args.add_argument(
+        '--pert',
+        type=float,
+        default=default_pert,
+        help=f'Perturbation/scale factor (default: {default_pert})'
+    )
     args.add_argument(
         '--freeze',
         action='store_true',
@@ -784,167 +685,418 @@ def add_bias_args(parser: ArgumentParser, extra: bool = False) -> None:
         help='Plot datacard contents'
     )
     args.add_argument(
-        '--pseudo',
+        '--plot-pseudo',
         action='store_true',
         default=False,
-        help='Plot the pseudo-ratio distribution'
+        help='Plot the pseudo-data distributions'
     )
 
-    if extra:
-        parser.add_argument(
-            '--extra',
-            nargs='*',
-            default=[],
-            choices=['tot', 'onlyrun', 't'],
-            help='Extra argument for the fit',
-        )
+
+def add_bias_extra_args(parser: ArgumentParser) -> None:
+    '''Add extra options forwarded by the fit pipeline runner.'''
+    parser.add_argument(
+        '--extra',
+        nargs='*',
+        default=[],
+        choices=['tot', 'onlyrun', 't'],
+        help='Extra options for the fit pipeline'
+    )
 
 
-# ============================================================================
-# FACTORY FUNCTIONS - Compose modular builders for specific scripts
-# ============================================================================
+def add_nlo_args(parser: ArgumentParser) -> None:
+    args = parser.add_argument_group('Self-coupling fit specific arguments')
+    args.add_argument(
+        '--model',
+        type=str,
+        default='SMEFT_Cphi_Cbox',
+        help='Model used to parametrize the cross-section (default: SMEFT_Cphi_Cbox)'
+    )
+
+
+
+# ==================================================================#
+# FACTORY FUNCTIONS - Compose modular builders for specific scripts #
+# ==================================================================#
+
+def base_parser(
+        description: str,
+        include_cat: bool = False,
+        cat_multi: bool = False,
+        cat_default: str | None = None,
+        allow_qq: bool = True,
+        allow_empty: bool = False,
+        include_ecm: bool = False,
+        ecm_multi: bool = False,
+        ecm_default: int | str = 240,
+        include_sel: bool = False,
+        sel_multi: bool = False,
+        sel_default: str = '',
+         ) -> ArgumentParser:
+    '''Create the common parser shell used by script-specific builders.'''
+    parser    = ArgumentParser(description=description)
+    general   = parser.add_argument_group('General arguments')
+
+    if include_cat:
+        add_cat_argument(parser, cat_multi, allow_empty, cat_default, allow_qq, general)
+    if include_ecm:
+        add_ecm_argument(parser, ecm_multi, ecm_default, general)
+    add_verbose_argument(parser, general)
+
+    if include_sel:
+        add_sel_argument(parser, sel_default, sel_multi, general)
+    return parser
+
+
+
+##############################
+### PARSER FOR 1-MVAINPUTS ###
+##############################
+
+# Parser for 1-MVAInputs/pre-selection.py
+def mva_preselection_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Pre-selection Script',
+        include_cat=True, include_ecm=True)
+    add_selection_args(parser)
+    add_preselection_args(parser)
+    add_sample_selection_args(parser)
+    return parser
+
+# Parser for 1-MVAInputs/final-selection.py
+def mva_final_selection_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Final-selection Script',
+        include_cat=True, include_ecm=True,
+        include_sel=True, sel_multi=True, sel_default='all')
+    add_selection_args(parser)
+    add_final_selection_args(parser, True)
+    add_sample_selection_args(parser)
+    return parser
+
+# Parser for 1-MVAInputs/plots.py
+def mva_plots_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Plot Script',
+        include_cat=True, include_ecm=True,
+        include_sel=True, sel_multi=True, sel_default='all')
+    add_selection_args(parser)
+    add_mva_plot_args(parser)
+    return parser
+
+
+
+########################
+### PARSER FOR 2-BDT ###
+########################
+
+# Parser for 2-BDT/process_inputs.py
+def bdt_process_input_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'BDT Input Processing Script',
+        include_cat=True, include_ecm=True,
+        include_sel=True, sel_multi=True)
+    add_bdt_inputs(parser)
+    return parser
+
+# Parser for 2-BDT/train_bdt.py
+def bdt_training_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'BDT Training Script',
+        include_cat=True, include_ecm=True,
+        include_sel=True, sel_multi=True)
+    add_bdt_training(parser)
+    return parser
+
+# Parser for 2-BDT/evaluation.py
+def bdt_evaluation_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'BDT Evaluation Script',
+        include_cat=True, include_ecm=True,
+        include_sel=True, sel_multi=True)
+    add_bdt_eval(parser)
+    return parser
+
+
+
+################################
+### PARSER FOR 3-MEASUREMENT ###
+################################
+
+# Parser for 3-Measurement/pre-selection.py
+def measurement_preselection_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Pre-selection Script',
+        include_cat=True, include_ecm=True)
+    add_selection_args(parser)
+    add_preselection_args(parser)
+    add_sample_selection_args(parser)
+    return parser
+
+# Parser for 3-Measurement.final-selection.py
+def measurement_final_selection_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Final-selection Script',
+        include_cat=True, include_ecm=True,
+        include_sel=True, sel_multi=True, sel_default='all')
+    add_selection_args(parser)
+    add_final_selection_args(parser)
+    add_sample_selection_args(parser)
+    return parser
+
+# Parser for 3-Measurement/plots.py
+def measurement_plots_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Measurement Plots Script',
+        include_cat=True, cat_multi=True, include_ecm=True,
+        include_sel=True, sel_multi=True)
+    add_plots_args(parser)
+    return parser
+
+# Parser for 3-Measurement/cutflow.py
+def measurement_cutflow_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Cutflow Script',
+        include_cat=True, cat_multi=True, include_ecm=True,
+        include_sel=True, sel_multi=True)
+    add_cutflow_args(parser)
+    return parser
+
+
+
+############################
+### PARSER FOR 4-COMBINE ###
+############################
+
+# Parser for 4-Combine/process_histogram.py
+def combine_process_histogram_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Histogram Processing Script',
+        include_cat=True, cat_multi=True, include_ecm=True,
+        include_sel=True, sel_multi=True)
+    add_polarization(parser)
+    return parser
+
+# Parser for 4-Combine/combine.py
+def combine_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Datacard making script',
+        include_cat=True, cat_multi=True,
+        include_ecm=True, ecm_multi=True,
+        include_sel=True, sel_multi=True)
+    add_combine_args(parser)
+    return parser
+
+
+
+########################
+### PARSER FOR 5-FIT ###
+########################
+
+# Parser for 5-Fit/fit.py
+def fit_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Fit Script',
+        include_cat=True, allow_empty=True, include_ecm=True,
+        include_sel=True)
+    add_fit_args(parser)
+    add_bias_fit_args(parser)
+    return parser
+
+# Parser for 5-Fit/plots.py
+def fit_plots_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Fit Plots Script',
+        include_cat=True, cat_multi=True, cat_default='', allow_empty=True,
+        include_ecm=True, ecm_multi=True,
+        include_sel=True, sel_multi=True)
+    add_fit_plot_args(parser)
+    return parser
+
+# Parser for 5-Fit.py/make_pseudo.py
+def make_pseudo_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Pseudo-data Script',
+        include_cat=True, allow_empty=True, include_ecm=True,
+        include_sel=True)
+    add_fit_args(parser)
+    add_bias_fit_args(parser, 'bb')
+    add_bias_args(parser, 1)
+    add_polarization(parser)
+    return parser
+
+# Parser for 5-Fit/bias_test.py
+def bias_test_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Bias Test Script',
+        include_cat=True, allow_empty=True, include_ecm=True,
+        include_sel=True)
+    add_fit_args(parser)
+    add_bias_fit_args(parser, 'bb')
+    add_bias_args(parser, 1.05)
+    add_polarization(parser)
+    return parser
+
+
+
+##################################
+### PARSER FOR 6-SELF-COUPLING ###
+##################################
+
+# Parser for 6-Self-coupling/fit.py
+def self_coupling_fit_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Fit Script',
+        include_cat=True, allow_empty=True,
+        include_sel=True)
+    add_fit_args(parser)
+    add_nlo_args(parser)
+    return parser
+
+# Parser for 6-Self-coupling/plots.py
+def self_coupling_plots_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Fit Plots Script',
+        include_cat=True, cat_multi=True, cat_default='', allow_empty=True,
+        include_sel=True, sel_multi=True)
+    add_fit_plot_args(parser)
+    return parser
+
+
+
+########################
+### PARSER FOR 0-RUN ###
+########################
+
+# Parser for 0-Run/1-run.py
+def MVAInputs_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run MVA Inputs pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_sel=True, sel_multi=True)
+    add_run_argument(parser, 3)
+    add_selection_args(parser)
+    add_preselection_args(parser)
+    add_sample_selection_args(parser)
+    add_final_selection_args(parser, training=True)
+    add_mva_plot_args(parser)
+    return parser
+
+# Parser for 0-Run/2-run.py
+def BDT_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run BDT training pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_sel=True, sel_multi=True)
+    add_run_argument(parser, 3)
+    add_bdt_inputs(parser)
+    add_bdt_training(parser)
+    add_bdt_eval(parser)
+    return parser
+
+# Parser for 0-Run/3-run.py
+def Measurement_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run Measurement pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_sel=True, sel_multi=True)
+    add_run_argument(parser, 4)
+    add_selection_args(parser)
+    add_preselection_args(parser)
+    add_plots_args(parser)
+    add_cutflow_args(parser)
+    return parser
+
+# Parser for 0-Run/4-run.py
+def Combine_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run Combine pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_sel=True, sel_multi=True)
+    add_run_argument(parser, 2, default='1-2')
+    add_polarization(parser)
+    add_combine_args(parser)
+    return parser
+
+# Parser for 0-Run/5-run.py
+def Fit_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run Fit pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_sel=True, sel_multi=True)
+    add_run_argument(parser, 2)
+    add_fit_args(parser)
+    add_bias_fit_args(parser, 'bb')
+    add_bias_args(parser)
+    add_bias_extra_args(parser)
+    add_polarization(parser)
+    return parser
+
+# Parser for 0-Run/6-run.py
+def NLO_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run Self-coupling fit pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_sel=True, sel_multi=True)
+    add_fit_args(parser)
+    add_bias_fit_args(parser)
+    add_fit_plot_args(parser)
+    add_nlo_args(parser)
+    return parser
+
+
+
+##############################
+### GLOBAL PARSER FUNCTION ###
+##############################
 
 def create_parser(
-    cat_single: bool = False,
-    cat_multi: bool = False,
-    cat_default: str | None = None,
-    allow_qq: bool = True,
-    ecm_multi: bool = False,
-    ecm_default: int | str | None = None,
-    no_ecm: bool = False,
-    allow_empty: bool = False,
-    include_sel: bool = False,
-    include_sels: bool = False,
-    sel_default: str = '',
-    run_stages: int = 0,
-    run_default: str = '2-3',
-    add_test: bool = False,
-    batch: bool = False,
-    presel: bool = False,
-    is_final: bool = False,
-    training: bool = False,
-    is_presel_plot: bool = False,
-    bdt_inputs: bool = False,
-    bdt_training: bool = False,
-    bdt_eval: bool = False,
-    plots: bool = False,
-    cutflow: bool = False,
-    optimize: bool = False,
-    is_plot: bool = False,
-    is_run: bool = False,
-    only_procs: bool = False,
-    polarization: bool = False,
-    combine: bool = False,
-    fit: bool = False,
-    fit_plot: bool = False,
-    bias: bool = False,
-    bias_extra: bool = False,
-    default_target: str = '',
-    default_pert: float = 1.0,
-    is_nlo: bool = False,
-    do_bias: bool = False,
-    description: str = 'Analysis script'
-) -> ArgumentParser:
-    '''
-    Factory function to compose a custom parser with selected argument groups.
+        directory: str,
+        script: str | None = None,
+        description: str | None = None
+         ) -> ArgumentParser:
+    '''Dispatch to a script parser or aggregate a whole directory parser.'''
+    if script is None:
+        if directory == '1-MVAInputs':   return MVAInputs_parser(description)
+        if directory == '2-BDT':         return BDT_parser(description)
+        if directory == '3-Measurement': return Measurement_parser(description)
+        if directory == '4-Combine':     return Combine_parser(description)
+        if directory == '5-Fit':         return Fit_parser(description)
+        # Need to implement 6-Run.py
+        # if directory == '6-Self-coupling': return NLO_parser(description)
+        raise ValueError(f'Unknown parser directory: {directory}')
 
-    This replaces specific create_*_parser functions by letting you specify
-    exactly which features your script needs. Mix and match argument groups
-    to build flexible parsers for different analysis stages.
+    # 1-MVAInputs directory
+    if directory == '1-MVAInputs':
+        if script == 'pre-selection':   return mva_preselection_parser(description)
+        if script == 'final-selection': return mva_final_selection_parser(description)
+        if script == 'plots':           return mva_plots_parser(description)
 
-    Args:
-        cat_single: Add --cat for single lepton channel (ee, mumu, or qq)
-        cat_multi: Add --cat for multi-channel mode (ee-mumu combinations)
-        cat_default: Default channel value (auto-sets to 'ee-mumu' if cat_multi=True)
-        allow_qq: Include hadronic qq channel in choices (default: True)
-        allow_empty: Allow empty string for --cat (default: False)
-        ecm_multi: Add --ecm for multi-energy mode (240-365 combinations)
-        ecm_default: Default energy value (default: '240' if ecm_multi, else 240)
-        include_sel: Add --sel for single selection strategy
-        include_sels: Add --sels for batch processing multiple selections
-        run_stages: Add --run for pipeline execution (0=none, 2/3/4 stages available)
-        run_default: Default pipeline stages (default: '2-3')
-        add_test: Add --test flag for pre-selection testing
-        batch: Add --batch for HTCondor job submission
-        bdt_eval: Add BDT evaluation arguments (--metric, --tree, --check, --hl)
-        plots: Add plotting arguments (--yields, --decay, --make, --scan)
-        cutflow: Add cutflow argument (--tot for all Z decays)
-        optimize: Add optimization arguments (--procs, --method, --nevents, --incr)
-        is_plot: Context flag for optimization plotting (used internally)
-        is_run: Context flag for optimization running (used internally)
-        only_procs: Only include --procs argument for optimization
-        polarization: Add polarization arguments (--polL, --polR, --ILC)
-        fit: Add fit arguments (--pert, --target, --combine, --bias, --timer, --print)
-        bias: Add bias test arguments (--freeze, --float, --plot_dc); requires fit=True
-        bias_extra: Add --extra argument for bias tests with choices ['tot', 'onlyrun', 't']
-        default_target: Default pseudodata target (default: '')
-        default_pert: Default perturbation scale factor (default: 1.0)
-        description: Parser description shown in help
+    # 2-BDT directory
+    elif directory == '2-BDT':
+        if script == 'process_input': return bdt_process_input_parser(description)
+        if script == 'train_bdt':     return bdt_training_parser(description)
+        if script == 'evaluation':    return bdt_evaluation_parser(description)
 
-    Returns:
-        Configured ArgumentParser ready for parse_args()
+    # 3-Measurement directory
+    elif directory == '3-Measurement':
+        if script == 'pre-selection':   return measurement_preselection_parser(description)
+        if script == 'final-selection': return measurement_final_selection_parser(description)
+        if script == 'plots':           return measurement_plots_parser(description)
+        if script == 'cutflow':         return measurement_cutflow_parser(description)
 
-    Notes:
-        - Arguments are organized into logical groups for clean help output
-        - Selection arguments (--sel, --sels) share a group
-        - Execution arguments (--run, --batch) share a group
-        - Each feature group (BDT, plots, fit, etc.) has its own section
-    '''
-    parser = ArgumentParser(description=description)
+    # 4-Combine directory
+    elif directory == '4-Combine':
+        if script == 'process_histogram': return combine_process_histogram_parser(description)
+        if script == 'combine':           return combine_parser(description)
 
-    # Create argument groups once to avoid duplication in help output
-    general = parser.add_argument_group('General arguments')
-    exec = parser.add_argument_group('Execution arguments')
+    # 5-Fit directory
+    elif directory == '5-Fit':
+        if script == 'fit':         return fit_parser(description)
+        if script == 'plots':       return fit_plots_parser(description)
+        if script == 'make_pseudo': return make_pseudo_parser(description)
+        if script == 'bias_test':   return bias_test_parser(description)
 
-    # Core arguments (share the same groups)
-    if cat_single or cat_multi:
-        add_cat_argument(parser, cat_multi, allow_empty,
-                         cat_default, allow_qq, general)
-    if (ecm_multi or (cat_single or cat_multi)) and not no_ecm:
-        add_ecm_argument(parser, ecm_multi, ecm_default, general)
-    add_verbose_argument(parser, group=general)
+    # 6-Self-coupling directory
+    elif directory == '6-Self-coupling':
+        if script == 'fit':   return self_coupling_fit_parser(description)
+        if script == 'plots': return self_coupling_plots_parser(description)
 
-    # Selection arguments (share the same group)
-    if include_sel and include_sels:
-        raise ValueError("include_sel and include_sels can't be used together, choose one")
-    if include_sel:
-        add_sel_argument(parser, sel_default, general)
-    if include_sels:
-        add_sels_argument(parser, sel_default, general)
+    raise ValueError(f'Unknown parser script: {directory}/{script}')
 
-    # Execution arguments (share the same group)
-    if run_stages > 0:
-        add_run_argument(parser, run_stages, run_default, add_test, exec)
-    if batch:
-        add_batch_argument(parser, group=exec)
-
-    # Feature groups
-    if presel:
-        add_presel_argument(parser, is_final, training, is_presel_plot)
-    if bdt_inputs:
-        add_bdt_inputs(parser)
-    if bdt_training:
-        add_bdt_training(parser)
-    if bdt_eval:
-        add_bdt_eval(parser)
-    if plots:
-        add_plots_args(parser)
-    if cutflow:
-        add_cutflow_args(parser)
-    if optimize:
-        add_optimize_args(parser, is_plot, is_run, only_procs)
-    if polarization:
-        add_polarization(parser)
-    if combine:
-        add_combine_args(parser)
-    if fit:
-        add_fit_args(parser, do_bias, default_target, default_pert, is_nlo)
-    if fit_plot:
-        add_fit_plot_args(parser)
-    if bias and fit:
-        add_bias_args(parser, bias_extra)
-
-    return parser
 
 
 # ==================== #
@@ -981,21 +1133,15 @@ def parse_args(
     return args
 
 
-# Keep legacy convenience function for backwards compatibility
-def include_polarizations(parser: ArgumentParser) -> None:
-    '''Legacy function - use add_polarization() instead.'''
-    add_polarization(parser)
 
-
-# ==================== #
-# LOGGING SETUP        #
-# ==================== #
+# ============= #
+# LOGGING SETUP #
+# ============= #
 
 def set_log(args: Namespace | None) -> None:
     """
     Initialize logging system based on parsed arguments.
 
-    Call this right after parse_args() to configure logging with the verbosity
     level specified by the user (via -v/--verbose flag).
 
     This function should be called ONCE in your main analysis script,
@@ -1030,4 +1176,4 @@ def set_log(args: Namespace | None) -> None:
     verbose = getattr(args, 'verbose', False)
 
     # Initialize logging with the verbose flag
-    setup_logging(verbose=verbose)
+    setup_logging(verbose)

@@ -18,12 +18,7 @@ t = time()
 
 from package.parsing import create_parser, set_log
 from package.logger import get_logger
-parser = create_parser(
-    cat_multi=True,        # Support multiple decay categories
-    include_sels=True,     # Include selection strategy options
-    polarization=True,     # Include polarization/scale options
-    description='Histogram Processing Script'
-)
+parser = create_parser('4-Combine', 'process_histogram')
 arg = parser.parse_args()
 set_log(arg)
 

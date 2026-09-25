@@ -18,13 +18,7 @@ t = time()
 
 from package.parsing import create_parser, parse_args, set_log
 from package.logger import get_logger
-parser = create_parser(
-    cat_multi=True,        # Support multiple decay categories
-    allow_empty=True,      # Allow empty category (for combined fits)
-    include_sel=True,      # Include selection strategy options
-    fit=True,              # Include fit-specific options
-    description='Fit Script'
-)
+parser = create_parser('5-Fit', 'fit')
 arg = parse_args(parser, comb=True)  # Parse with combination support
 set_log(arg)
 

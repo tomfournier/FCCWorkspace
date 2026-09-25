@@ -17,18 +17,7 @@ t = time.time()
 
 from package.parsing import create_parser, parse_args, set_log
 from package.logger import get_logger
-parser = create_parser(
-    cat_single=True,       # Support single decay category
-    allow_empty=True,      # Allow empty category
-    include_sel=True,      # Include selection strategy options
-    fit=True,              # Include fit-specific options
-    bias=True,             # Include bias test options
-    bias_extra=True,       # Include extra bias test parameters
-    polarization=True,     # Include polarization/scale options
-    default_target='bb',   # Default Higgs decay mode
-    default_pert=1.05,     # Default perturbation for bias test
-    do_bias=True           # Remove fit exclusive argument
-)
+parser = create_parser('5-Fit', 'bias_test')
 arg = parse_args(parser, comb=True)
 set_log(arg)
 

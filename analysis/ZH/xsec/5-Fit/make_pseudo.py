@@ -15,16 +15,7 @@ t = time.time()
 
 from package.parsing import ArgumentParser, create_parser, parse_args, set_log
 from package.logger import get_logger
-parser: ArgumentParser = create_parser(
-    cat_single=True,       # Support single decay category
-    allow_empty=True,      # Allow empty category
-    include_sel=True,      # Include selection strategy options
-    fit=True,              # Include fit-specific options
-    bias=True,             # Include bias test options
-    polarization=True,     # Include polarization/scale options
-    target='bb',           # Default Higgs decay mode
-    description='Pseudo-data Script'
-)
+parser: ArgumentParser = create_parser('5-Fit', 'make_pseudo')
 # Use all Z decays for cross-section calculation in pseudo-data generation
 parser.add_argument('--tot', help='Do not consider all Z decays for cross-section', action='store_true')
 

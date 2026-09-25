@@ -14,13 +14,7 @@ t = time.time()
 
 from package.parsing import create_parser, set_log
 from package.logger import get_logger
-parser = create_parser(
-    cat_multi=True,
-    ecm_multi=True,
-    include_sels=True,
-    combine=True,
-    description='Datacard making script'
-)
+parser = create_parser('4-Combine', 'combine')
 arg = parser.parse_args()
 set_log(arg)
 

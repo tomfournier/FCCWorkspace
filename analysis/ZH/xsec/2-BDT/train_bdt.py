@@ -19,13 +19,7 @@ t = time.time()
 
 from package.parsing import create_parser, parse_args, set_log
 from package.logger import get_logger
-parser = create_parser(
-    cat_single=True,
-    include_sels=True,
-    allow_qq=True,
-    bdt_training=True,
-    description='BDT Training Script'
-)
+parser = create_parser('2-BDT', 'train_bdt')
 arg = parse_args(parser, True)
 set_log(arg)
 

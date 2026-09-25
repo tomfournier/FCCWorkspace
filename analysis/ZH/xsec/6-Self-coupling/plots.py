@@ -23,15 +23,7 @@ t = time.time()
 
 from package.parsing import create_parser, parse_args, set_log
 from package.logger import get_logger
-parser = create_parser(
-    cat_multi=True,
-    cat_default='',
-    allow_empty=True,
-    no_ecm=True,
-    include_sels=True,
-    fit_plot=True,
-    description='Fit Plots Script'
-)
+parser = create_parser('6-Self-coupling', 'plots')
 arg = parse_args(parser, False, False)
 set_log(arg)
 

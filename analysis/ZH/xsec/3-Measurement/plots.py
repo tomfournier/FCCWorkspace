@@ -15,12 +15,7 @@ t = time()
 
 from package.parsing import create_parser, set_log
 from package.logger import get_logger
-parser = create_parser(
-    cat_multi=True,        # Support multiple decay categories
-    include_sels=True,     # Include selection strategy options
-    plots=True,            # Include plot output options
-    description='Measurement Plots Script'
-)
+parser = create_parser('3-Measurement', 'plots')
 arg = parser.parse_args()
 set_log(arg)
 

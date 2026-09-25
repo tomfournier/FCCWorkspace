@@ -11,14 +11,7 @@ import sys, logging, ROOT
 ########################
 
 from package.parsing import create_parser
-parser = create_parser(
-    cat_single=True,
-    include_sels=True,
-    sel_default='all',
-    presel=True,
-    is_presel_plot=True,
-    description='Plot Script'
-)
+parser = create_parser('1-MVAInputs', 'plots')
 cmd_args = globals().get('cmdline_args')
 arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
 arg, _ = parser.parse_known_args(arguments)
@@ -63,9 +56,9 @@ collider       = 'FCC-ee'  # Collider identifier
 # Input/output directories and plot configuration
 inputDir       = loc.get('HIST_MVA',  cat, ecm)  # Input histograms from final-selection.py
 outdir         = loc.get('PLOTS_MVA', cat, ecm)  # Output plots directory
-yaxis          = ['lin','log']  # Y-axis scale options (linear and logarithmic)
-stacksig       = ['nostack']    # Signal display mode (nostack = overlaid)
-formats        = arg.formats    # Output file formats (e.g., png, pdf)
+yaxis          = ['lin','log']             # Y-axis scale options (linear and logarithmic)
+stacksig       = ['nostack']               # Signal display mode (nostack = overlaid)
+formats        = arg.formats.split('-')    # Output file formats (e.g., png, pdf)
 
 # Scale factors for signal and background (for visual comparison)
 scaleSig       = (10. if cat=='qq' else 1.) if arg.scale_sig==1 else arg.scale_sig   # Signal scale (1.0 = no scaling)

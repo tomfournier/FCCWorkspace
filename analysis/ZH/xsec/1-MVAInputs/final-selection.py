@@ -11,14 +11,7 @@ import sys, logging
 ########################
 
 from package.parsing import create_parser
-parser = create_parser(
-    cat_single=True,
-    include_sels=True,
-    sel_default='all',
-    presel=True,
-    is_final=True,
-    description='Final-selection Script'
-)
+parser = create_parser('1-MVAInputs', 'final-selection')
 cmd_args = globals().get('cmdline_args')
 arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
 arg, _ = parser.parse_known_args(arguments)
