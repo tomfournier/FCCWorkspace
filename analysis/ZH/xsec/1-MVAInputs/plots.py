@@ -14,8 +14,8 @@ from package.parsing import create_parser
 parser = create_parser(
     cat_single=True,
     include_sels=True,
+    sel_default='all',
     presel=True,
-    is_final=False,
     is_presel_plot=True,
     description='Plot Script'
 )
@@ -44,6 +44,7 @@ from sel.final.hadronic import histos_qq
 ############################
 
 cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.test
+LOGGER.info(f'Using {cat = } | {ecm = } | sels = {arg.sels} | {test = } | jan = {arg.jan}')
 lumi = 10.8 if ecm==240 else (3.12 if ecm ==365 else -1)
 
 # Luminosity and experiment information
@@ -97,7 +98,7 @@ else: variables = arg.variable.split('-')
 # Keys: analysis identifier | Values: list of selection cut names to plot
 # Selection names must match those defined in final-selection.py
 selections: dict[str, list[str]] = {}
-selections['ZH'] = (['test'] if test else ['sel0', 'Baseline']) if 'all' in arg.sels else arg.sels
+selections['ZH'] = (['test'] if test else ['sel0', 'Baseline']) if 'all' in sels else sels
 
 # Additional descriptive labels for each selection cut
 # Displayed below plot titles for clarity
@@ -105,6 +106,9 @@ extralabel = {}
 extralabel['sel0']     = 'No cut'         # Diagnostic: no selection applied
 extralabel['Baseline'] = 'Baseline'       # Standard selection
 extralabel['test']     = 'test'           # Test selection
+for selection in selections['ZH']:
+    if selection not in extralabel:
+        extralabel[selection] = selection
 
 # Process and sample definitions for the analysis
 # Dictionary structure: analysis_name -> {'signal': {...}, 'backgrounds': {...}}
@@ -139,7 +143,7 @@ else:
 # Ensures consistent color scheme across all plots
 colors = {}
 colors['ZH']         = ROOT.kBlack      # Signal from exclusive sample (test)
-colors[f'{cat}H']    = ROOT.kRed        # Signal: bright red
+colors[f'Z{cat}H']   = ROOT.kRed        # Signal: bright red
 colors['WW']         = ROOT.kBlue+1     # WW background: blue
 colors['ZZ']         = ROOT.kGreen+2    # ZZ background: green
 colors[f'Z{cat}']    = ROOT.kCyan       # Z+jets background: cyan
@@ -152,9 +156,9 @@ colors['Rare']       = ROOT.kBlue-8     # Rare: dark blue
 # Maps process names to formatted particle physics notation
 legend = {}
 legend['ZH']       = 'ZH'
-legend['mumuH']    = 'Z(#mu^{+}#mu^{-})H'
-legend['eeH']      = 'Z(e^{+}e^{-})H'
-legend['qqH']      = 'Z(q#bar{q})H'
+legend['ZmumuH']   = 'Z(#mu^{+}#mu^{-})H'
+legend['ZeeH']     = 'Z(e^{+}e^{-})H'
+legend['ZqqH']     = 'Z(q#bar{q})H'
 
 legend['WWmumu']   = 'W^{+}W^{-}[#nu_{#mu}#mu]'
 legend['WWee']     = 'W^{+}W^{-}[#nu_{e}e]'

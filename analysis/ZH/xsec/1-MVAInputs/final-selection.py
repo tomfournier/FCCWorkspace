@@ -14,6 +14,7 @@ from package.parsing import create_parser
 parser = create_parser(
     cat_single=True,
     include_sels=True,
+    sel_default='all',
     presel=True,
     is_final=True,
     description='Final-selection Script'
@@ -46,12 +47,15 @@ from sel.final.hadronic import Baseline_cut_qq, histos_qq
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
 
-cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split(''), arg.test
+cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.test
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
+if test and arg.jan: raise ValueError("--test and --jan can't be used together, choose one")
+LOGGER.info(f'Using {cat = } | {ecm = } | sels = {arg.sels} | {test = } | jan = {arg.jan}')
 
 # Input: Pre-selection ROOT trees and histograms
-if test: inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
-else:    inputDir = loc.get('EVENTS_TRAINING',   cat, ecm)  # Full training sample
+if test:      inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
+elif arg.jan: inputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)  # Jan's samples
+else:         inputDir = loc.get('EVENTS_TRAINING',   cat, ecm)  # Full training sample
 
 # Output: Directory for MVA input histograms
 outputDir = loc.get('HIST_MVA', cat, ecm)
@@ -101,6 +105,12 @@ if cat in ['ee', 'mumu']:
     else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
     if test: cutList['test']     = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Test selection     (hadronic channel)
+    if arg.jan:
+        cutList['jan']  = Baseline_cut_qq(ecm, True)
+        cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
+        cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
+        cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+        cutList['jan4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
     else:    cutList['Baseline'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Baseline selection (hadronic channel)
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 

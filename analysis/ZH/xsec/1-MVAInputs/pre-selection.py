@@ -20,7 +20,6 @@ parser = create_parser(
     cat_single=True,
     batch=True,
     presel=True,
-    is_final=False,
     training=True,
     description='Pre-selection Script'
 )
@@ -55,8 +54,9 @@ cat, ecm, test = arg.cat, arg.ecm, arg.test
 LOGGER.info(f'Running the pre-selection for {cat = } | {ecm = } | {test = }')
 
 # Output directory for training events (default is local directory)
-if test: outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
-else:    outputDir = loc.get('EVENTS_TRAINING',   cat, ecm)
+if test:      outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
+elif arg.jan: outputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)
+else:         outputDir = loc.get('EVENTS_TRAINING',   cat, ecm)
 
 # Custom C++ analysis functions for particle selection and kinematic calculations
 includePaths = ['../../../../functions/functions.h',

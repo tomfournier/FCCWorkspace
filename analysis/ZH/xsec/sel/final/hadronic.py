@@ -34,10 +34,6 @@ custom_hists_qq = {
 histos_qq = {
 
     # Lepton kinematics: leading lepton
-    'leading_e':           {'name':'leading_e',
-                            'title':'E_{jet,leading} [GeV]',
-                            'bin':1000,'xmin':0,'xmax':250},
-
     'leading_p':           {'name':'leading_p',
                             'title':'p_{jet,leading} [GeV]',
                             'bin':1000,'xmin':0,'xmax':250},
@@ -46,19 +42,11 @@ histos_qq = {
                             'title':'p_{T,jet,leading} [GeV]',
                             'bin':1000,'xmin':0,'xmax':250},
 
-    'leading_theta':       {'name':'leading_theta',
-                            'title':'#theta_{jet,leading}',
-                            'bin':128, 'xmin':0, 'xmax':3.2},
-
     'leading_costheta':    {'name':'leading_costheta',
                             'title':'cos#theta_{jet,leading}',
                             'bin':1000,'xmin':-1,'xmax':1},
 
     # Lepton kinematics: subleading lepton
-    'subleading_e':        {'name':'subleading_e',
-                            'title':'E_{jet,subleading} [GeV]',
-                            'bin':800,'xmin':0,'xmax':200},
-
     'subleading_p':        {'name':'subleading_p',
                             'title':'p_{jet,subleading} [GeV]',
                             'bin':800,'xmin':0,'xmax':200},
@@ -66,10 +54,6 @@ histos_qq = {
     'subleading_pT':       {'name':'subleading_pT',
                             'title':'p_{T,subleading} [GeV]',
                             'bin':800,'xmin':0,'xmax':200},
-
-    'subleading_theta':    {'name':'subleading_theta',
-                            'title':'#theta_{jet,subleading}',
-                            'bin':128, 'xmin':0, 'xmax':3.2},
 
     'subleading_costheta': {'name':'subleading_costheta',
                             'title':'cos#theta_{jet,subleading}',
@@ -97,10 +81,6 @@ histos_qq = {
                             'title':'m_{jj} [GeV]',
                             'bin':2000,'xmin':0,'xmax':200},
 
-    'zqq_e':               {'name':'zqq_e',
-                            'title':'E_{jj} [GeV]',
-                            'bin':2500,'xmin':0,'xmax':250},
-
     'zqq_p':               {'name':'zqq_p',
                             'title':'p_{jj} [GeV]',
                             'bin':2500,'xmin':0,'xmax':250},
@@ -108,10 +88,6 @@ histos_qq = {
     'zqq_pT':              {'name':'zqq_pT',
                             'title':'p_{T,jj} [GeV]',
                             'bin':2500,'xmin':0,'xmax':250},
-
-    'zqq_theta':           {'name':'zqq_theta',
-                            'title':'#theta_{jj}',
-                            'bin':128,'xmin':0,'xmax':3.2},
 
     'zqq_costheta':        {'name':'zqq_costheta',
                             'title':'cos#theta_{jj}',
@@ -152,10 +128,6 @@ histos_qq = {
                             'title':'p_{W1} [GeV]',
                             'bin':600,'xmin':0,'xmax':300},
 
-    'W1_theta':            {'name':'W1_theta',
-                            'title':'#theta_{W1}',
-                            'bin':128,'xmin':0,'xmax':3.2},
-
     'W1_costheta':         {'name':'W1_costheta',
                             'title':'cos#theta_{W1}',
                             'bin':1000,'xmin':0,'xmax':1},
@@ -168,10 +140,6 @@ histos_qq = {
     'W2_p':                {'name':'W2_p',
                             'title':'p_{W2} [GeV]',
                             'bin':600,'xmin':0,'xmax':300},
-
-    'W2_theta':            {'name':'W2_theta',
-                            'title':'#theta_{W2}',
-                            'bin':128,'xmin':0,'xmax':3.2},
 
     'W2_costheta':         {'name':'W2_costheta',
                             'title':'cos#theta_{W2}',
@@ -187,10 +155,6 @@ histos_qq = {
                             'bin':1000,'xmin':-1,'xmax':1},
 
     # Distance from WW pair mass
-    'delta_mWW':           {'name':'delta_mWW',
-                            'title':'#Deltam_{WW} [GeV]',
-                            'bin':2000,'xmin':0,'xmax':200},
-
     'delta_mWW4':          {'name':'delta_mWW4',
                             'title':'#Deltam_{WW} (4 jets algo) [GeV]',
                             'bin':2000,'xmin':0,'xmax':200},
