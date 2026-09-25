@@ -35,95 +35,6 @@ Examples:
 '''
 
 from argparse import ArgumentParser, Namespace, BooleanOptionalAction, _ArgumentGroup
-from collections.abc import Sequence
-
-
-def get_argument_metadata(parser: ArgumentParser) -> dict[str, dict]:
-    '''Return metadata for each option registered on a parser.
-
-    The returned dictionary is useful for wrappers and documentation without
-    changing the parser API used by existing scripts.
-    '''
-    metadata = {}
-    for action in parser._actions:
-        if not action.option_strings:
-            continue
-        metadata[action.dest] = {
-            'flags': list(action.option_strings),
-            'choices': list(action.choices) if action.choices is not None else None,
-            'type': action.type,
-            'help': action.help,
-            'default': action.default,
-            'nargs': action.nargs,
-            'const': action.const,
-            'required': action.required,
-            'metavar': action.metavar,
-            'action': type(action).__name__,
-        }
-    return metadata
-
-
-def create_parser_from_parsers(
-    parsers: ArgumentParser | Sequence[ArgumentParser],
-    group_names: str | Sequence[str],
-    description: str | None = None
-) -> ArgumentParser:
-    '''Create a parser by copying arguments from one or more parsers.
-
-    Each source parser is copied into its own argument group. When multiple
-    parsers are provided, ``group_names`` must contain one name per parser.
-    '''
-    if isinstance(parsers, ArgumentParser):
-        source_parsers = [parsers]
-    else:
-        source_parsers = list(parsers)
-
-    if isinstance(group_names, str):
-        source_group_names = [group_names]
-    else:
-        source_group_names = list(group_names)
-
-    if len(source_parsers) != len(source_group_names):
-        raise ValueError('parsers and group_names must have the same length')
-
-    action_names = {
-        '_StoreTrueAction': 'store_true',
-        '_StoreFalseAction': 'store_false',
-        '_StoreConstAction': 'store_const',
-        '_AppendAction': 'append',
-        '_CountAction': 'count',
-        '_SubParsersAction': 'parsers',
-    }
-    parser = ArgumentParser(description=description)
-
-    for source_parser, group_name in zip(source_parsers, source_group_names):
-        group = parser.add_argument_group(group_name)
-        for action in source_parser._actions:
-            if not action.option_strings or action.dest == 'help':
-                continue
-
-            kwargs = {
-                'default':  action.default,
-                'help':     action.help,
-                'type':     action.type,
-                'choices':  action.choices,
-                'nargs':    action.nargs,
-                'const':    action.const,
-                'required': action.required,
-                'metavar':  action.metavar,
-            }
-            kwargs = {key: value for key, value in kwargs.items()
-                      if value is not None}
-
-            action_name = action_names.get(type(action).__name__)
-            if isinstance(action, BooleanOptionalAction):
-                kwargs['action'] = BooleanOptionalAction
-            elif action_name is not None:
-                kwargs['action'] = action_name
-
-            group.add_argument(*action.option_strings, **kwargs)
-
-    return parser
 
 
 
@@ -904,12 +815,13 @@ def create_parser(
     allow_empty: bool = False,
     include_sel: bool = False,
     include_sels: bool = False,
+    sel_default: str = '',
     run_stages: int = 0,
     run_default: str = '2-3',
     add_test: bool = False,
     batch: bool = False,
     presel: bool = False,
-    is_final: bool = True,
+    is_final: bool = False,
     training: bool = False,
     is_presel_plot: bool = False,
     bdt_inputs: bool = False,
@@ -993,10 +905,12 @@ def create_parser(
     add_verbose_argument(parser, group=general)
 
     # Selection arguments (share the same group)
+    if include_sel and include_sels:
+        raise ValueError("include_sel and include_sels can't be used together, choose one")
     if include_sel:
-        add_sel_argument(parser, 'Baseline' if fit or bias else '', general)
+        add_sel_argument(parser, sel_default, general)
     if include_sels:
-        add_sels_argument(parser, default='', group=general)
+        add_sels_argument(parser, sel_default, general)
 
     # Execution arguments (share the same group)
     if run_stages > 0:
