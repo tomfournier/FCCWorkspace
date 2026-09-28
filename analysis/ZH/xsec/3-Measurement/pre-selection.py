@@ -47,7 +47,7 @@ from sel.presel.hadronic import presel_qq, branch_list_qq
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
 
-cat, ecm, test = arg.cat, arg.ecm, arg.test
+cat, ecm, test = arg.cat, arg.ecm, arg.do_test
 
 # Output directory for analysis events (default is local directory)
 if test: outputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset

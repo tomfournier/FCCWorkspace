@@ -49,7 +49,7 @@ from package.config import (
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
 
-cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.test
+cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.do_test
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 # Input: Preprocessed ROOT trees and events from pre-selection

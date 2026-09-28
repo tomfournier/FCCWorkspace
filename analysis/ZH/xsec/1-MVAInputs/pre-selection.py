@@ -44,7 +44,7 @@ from sel.presel.hadronic import training_qq, branch_list_qq
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-cat, ecm, test = arg.cat, arg.ecm, arg.test
+cat, ecm, test = arg.cat, arg.ecm, arg.do_test
 LOGGER.info(f'Running the pre-selection for {cat = } | {ecm = } | {test = }')
 
 # Output directory for training events (default is local directory)

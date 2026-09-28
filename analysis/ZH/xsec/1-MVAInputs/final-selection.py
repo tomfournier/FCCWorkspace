@@ -40,7 +40,7 @@ from sel.final.hadronic import Baseline_cut_qq, histos_qq
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
 
-cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.test
+cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.do_test
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 if test and arg.jan: raise ValueError("--test and --jan can't be used together, choose one")
 LOGGER.info(f'Using {cat = } | {ecm = } | sels = {arg.sels} | {test = } | jan = {arg.jan}')
@@ -97,7 +97,12 @@ if cat in ['ee', 'mumu']:
     if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
     else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
-    if test: cutList['test']     = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Test selection     (hadronic channel)
+    if test:
+        cutList['test']  = Baseline_cut_qq(ecm, True)
+        cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
+        cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
+        cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+        cutList['test4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
     if arg.jan:
         cutList['jan']  = Baseline_cut_qq(ecm, True)
         cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'

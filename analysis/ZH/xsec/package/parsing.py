@@ -192,7 +192,7 @@ def add_selection_args(parser: ArgumentParser) -> None:
     '''Add selection options shared by MVA and measurement scripts.'''
     args = parser.add_argument_group('Selection arguments')
     args.add_argument(
-        '--test',
+        '--do-test',
         action=BooleanOptionalAction,
         default=False,
         help='Use the cut defined in the pre-selection'

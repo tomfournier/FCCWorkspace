@@ -36,7 +36,7 @@ from sel.final.hadronic import histos_qq
 ### GLOBAL PLOT SETTINGS ###
 ############################
 
-cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.test
+cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.do_test
 LOGGER.info(f'Using {cat = } | {ecm = } | sels = {arg.sels} | {test = } | jan = {arg.jan}')
 lumi = 10.8 if ecm==240 else (3.12 if ecm ==365 else -1)
 
