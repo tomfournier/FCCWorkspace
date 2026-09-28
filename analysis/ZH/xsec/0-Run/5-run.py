@@ -15,21 +15,16 @@ Usage:
     python 5-run.py --cat ee-mumu --ecm 240-365   # Multi channel/energy
 '''
 
-##########################################################
-### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
-##########################################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
 import os, sys, time, subprocess
-
-# Load directory path manager and timing utility
-from package.userConfig import loc         # Directory path configuration
-from package.config import timer           # Execution timing utility
 
 # Start execution timer
 t = time.time()
 
-# Reuse environment without copying for each subprocess
-ENV = os.environ  # Use same environment for all subprocesses
+
 
 ########################
 ### ARGUMENT PARSING ###
@@ -37,21 +32,36 @@ ENV = os.environ  # Use same environment for all subprocesses
 
 from package.parsing import create_parser, set_log  # Argument parsing utilities
 from package.logger import get_logger               # Logging setup
-parser = create_parser(
-    cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
-    ecm_multi=True,        # Support multiple energies (--ecm 240-365)
-    include_sels=True,     # Include selection strategy options
-    run_stages=2,          # Fit pipeline has 2 stages: fit + bias_test
-    fit=True,              # Include fit-specific options
-    bias=True,             # Include bias test options
-    bias_extra=True,       # Include extra bias test parameters
-    polarization=True,     # Include polarization/scale options
-    description='Run Fit pipeline'
-)
-arg = parser.parse_args()
+arg = create_parser('5-Fit').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
+
+
+
+##########################################################
+### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
+##########################################################
+
+# Load directory path manager and timing utility
+from package.userConfig import loc  # Directory path configuration
+from package.config import timer    # Execution timing utility
+from package.run import log_msg, update_namespace, get_extra_args
+
+
+
+################################
+### SCRIPT MAP CONFIGURATION ###
+################################
+
+# Map pipeline stage number to analysis script names
+script_map = {
+    '1': 'fit',       # Stage 1: Run nominal fit
+    '2': 'bias_test'  # Stage 2: Run bias test with pseudo-data
+}
+
+# Map to associate script to command (must match script_map values)
+cmds = {v:'python' for v in script_map.values()}
 
 
 
@@ -59,57 +69,16 @@ LOGGER = get_logger(__name__)
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-def parse_channels(cat_arg: str, lep: bool, combine: bool) -> list[str]:
-    '''Return channel list from CLI values.
+# Expand dash-separated channel and energy values into lists.
+cats = arg.cat.split('-')                      # Decay categories: ['ee'] or ['ee', 'mumu']
+ecms = [int(e) for e in arg.ecm.split('-')]  # Energies: [240] or [240, 365]
 
-    If `combine` is requested, include the combined fit channel ('comb').
-    With an empty category string, only 'comb' is used.
+scripts = [script_map[s] for s in arg.run.split('-')]
 
-    Args:
-        cat_arg: Channel argument string (e.g., 'ee', 'ee-mumu')
-        combine: Whether to include combined fit in the list
+# Base path for Fit analysis scripts
+path = f'{loc.ROOT}/5-Fit'
 
-    Returns:
-        List of channel identifiers to process
-    '''
-    cats_local = cat_arg.split('-') if cat_arg else []
-    if lep:     cats_local.append('lep')
-    if combine: cats_local.append('comb')
-    return cats_local
-
-
-def parse_ecms(ecm_arg: str) -> list[int]:
-    '''Return list of center-of-mass energies as integers.
-
-    Args:
-        ecm_arg: Energy argument string (e.g., '240', '240-365')
-
-    Returns:
-        List of CoM energies as integers
-    '''
-    return [int(e) for e in ecm_arg.split('-')]
-
-
-# Parse channel configuration and center-of-mass energies
-cats = parse_channels(arg.cat, arg.lep, arg.combine)  # Includes 'comb' if --combine specified
-ecms = parse_ecms(arg.ecm)                                        # Convert to list of integers
-
-# Selection strategies to process (from command-line or defaults)
-if arg.sels == '':
-    sels = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'test']  # Default selections
-else:
-    sels = arg.sels.split('-')  # Parse from command-line
-
-
-# Map pipeline stage identifiers to script names
-SCRIPT_MAP = {
-    '1': 'fit',        # Stage 1: Run nominal fit
-    '2': 'bias_test'   # Stage 2: Run bias test with pseudo-data
-}
-scripts = [SCRIPT_MAP[s] for s in arg.run.split('-')]
-
-# Base directory for fit scripts
-BASE_PATH = f'{loc.ROOT}/5-Fit'
+ENV = os.environ.copy()
 
 
 
@@ -117,58 +86,35 @@ BASE_PATH = f'{loc.ROOT}/5-Fit'
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cat: str, ecm: int, sel: str, script: str) -> int:
-    '''Execute one fit stage with streaming output and clear markers.
+def main(cat: str, ecm: int, script: str) -> int:
+    '''Execute one fit stage and stream its output.
 
-    Builds command-line arguments for the selected stage and forwards
-    execution to the target script while piping stdout/stderr to the
-    terminal in real-time.
+    Builds the downstream command from the selected parser configuration,
+    overrides the current channel and energy, and forwards the resulting
+    arguments to the fccanalysis subprocess while piping stdout and stderr
+    to the terminal.
 
     Args:
-        cat: Channel identifier ('ee', 'mumu', 'comb')
-        ecm: Center-of-mass energy in GeV (240, 365)
-        sel: Selection name (e.g., 'Baseline_sep')
-        script: Stage name ('fit', 'bias_test')
+        cat (str): Lepton channel identifier ('ee', 'mumu' or 'qq').
+        ecm (int): Center-of-mass energy in GeV (240 or 365).
+        script (str): Stage script name ('pre-selection', 'final-selection', or 'plots').
 
     Returns:
-        Return code from the subprocess for error handling.
+        int: Return code from the subprocess.
     '''
-    script_path = f'{BASE_PATH}/{script}.py'
 
-    # Display execution header with clear identification
-    msg = f'▶ STARTING: [{script}] {cat = } | {ecm = } | {sel = }'
-    length = len(msg) + 2
-    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
+    # Log the stage context before launching the subprocess.
+    log_msg('▶ STARTING', script, cat=cat, ecm=ecm)
 
-    # Build base arguments common to all stages
-    cmd = [sys.executable, script_path, '--ecm', str(ecm), '--sel', sel]
+    # Forward only arguments supported by the selected downstream parser.
+    stage_args = update_namespace(arg, cat=cat, ecm=ecm)
+    extra_args = get_extra_args(stage_args, {'directory': '5-Fit', 'script': script})
+    result = subprocess.run(cmds[script].split() + [f'{path}/{script}.py'] + extra_args,
+                            env=ENV, stdout=sys.stdout, stderr=sys.stderr)
 
-    # Add channel or combine flag
-    if cat == 'lep':
-        cmd.append('--lep')
-    elif cat == 'comb':
-        cmd.append('--comb')
-    else:
-        cmd.extend(['--cat', cat])
-
-    # Append stage-specific arguments
-    if script == 'fit':
-        cmd.append('--no-timer')
-        if arg.print: cmd.append('--print')
-    elif script == 'bias_test':
-        cmd.extend(['--pert', str(arg.pert)])
-        if arg.extra:
-            cmd.extend(['--extra'] + arg.extra)
-
-    # Execute with real-time streaming to terminal
-    result = subprocess.run(cmd, env=ENV, stdout=sys.stdout,
-                            stderr=sys.stderr)
-
-    # Completion status marker
+    # Log completion status without changing the subprocess return code.
     status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
-    msg = f'{status}: [{script}] {cat = } | {ecm = } | {sel = }'
-    length = len(msg) + 2
-    LOGGER.info('=' * length + '\n' + msg.center(length) + '\n' + '=' * length)
+    log_msg(status, script, cat=cat, ecm=ecm)
 
     return result.returncode
 
@@ -179,12 +125,11 @@ def run(cat: str, ecm: int, sel: str, script: str) -> int:
 
 if __name__ == '__main__':
     try:
-        for sel in sels:
-            for script in scripts:
-                for ecm in ecms:
-                    for cat in cats:
-                        result = run(cat, ecm, sel, script)
-                        if result != 0: sys.exit(result)
+        for ecm in ecms:
+            for cat in cats:
+                for script in scripts:
+                    result = main(cat, ecm, script)
+                    if result != 0: sys.exit(result)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:
