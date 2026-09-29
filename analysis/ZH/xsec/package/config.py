@@ -350,7 +350,7 @@ vars_xlabel_ll = {
     'subleading_theta': r'$\theta_{\ell,subleading}$',
     'subleading_phi':   r'$\phi_{\ell,subleading}$',
 
-    'acolinearity':     r'$\Delta\alpha_{\ell^{+}\ell^{-}}$',
+    'acolinearity':     r'$\pi - \Delta\alpha_{\ell^{+}\ell^{-}}$',
     'acoplanarity':     r'$\pi - \Delta\phi_{\ell^{+}\ell^{-}}$',
     'acopolarity':      r'$\Delta\theta_{\ell^{+}\ell^{-}}$',
     'deltaR':           r'$\Delta R$',
@@ -393,7 +393,7 @@ vars_xlabel_qq = {
     'subleading_costheta':   r'$\cos\theta_{jet,subleading}$',
     'subleading_phi':        r'$\phi_{jet,subleading}$',
 
-    'acolinearity':          r'$\Delta\alpha_{jj}$',
+    'acolinearity':          r'$\pi - \Delta\alpha_{jj}$',
     'acoplanarity':          r'$\pi - \Delta\phi_{jj}$',
     'acopolarity':           r'$\Delta\theta_{jj}$',
     'deltaR':                r'$\Delta R$',
