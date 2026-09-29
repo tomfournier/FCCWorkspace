@@ -131,11 +131,11 @@ def Z_kinematics(df: 'ROOT.ROOT.RDataFrame',
         recoil mass (zll_recoil_m).
     """
     # Z boson kinematics
-    df = df.Define('zll_e',     'FCCAnalyses::ReconstructedParticle::get_e(zll)[0]')
-    df = df.Define('zll_m',     'FCCAnalyses::ReconstructedParticle::get_mass(zll)[0]')
-    df = df.Define('zll_p',     'FCCAnalyses::ReconstructedParticle::get_p(zll)[0]')
-    df = df.Define('zll_pT',    'FCCAnalyses::ReconstructedParticle::get_pt(zll)[0]')
-    df = df.Define('zll_theta', 'FCCAnalyses::ReconstructedParticle::get_theta(zll)[0]')
+    df = df.Define('zll_m',        'FCCAnalyses::ReconstructedParticle::get_mass(zll)[0]')
+    df = df.Define('zll_p',        'FCCAnalyses::ReconstructedParticle::get_p(zll)[0]')
+    df = df.Define('zll_pT',       'FCCAnalyses::ReconstructedParticle::get_pt(zll)[0]')
+    df = df.Define('zll_theta',    'FCCAnalyses::ReconstructedParticle::get_theta(zll)[0]')
+    df = df.Define('zll_costheta', 'std::cos(zll_theta)')
 
     # Recoil mass: invariant mass of system recoiling against Z (Higgs candidate)
     df = df.Define('zll_recoil',  f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll)')
@@ -160,24 +160,22 @@ def lead_sublead_properties(df: 'ROOT.ROOT.RDataFrame'
         leading_p, leading_pT, leading_theta, leading_phi and subleading equivalents.
     """
     # Individual Z lepton kinematics with leading/subleading ordering by momentum
-    df = df.Define('zll_leps_e',       'FCCAnalyses::ReconstructedParticle::get_e(zll_leps)')
-    df = df.Define('zll_leps_p',       'FCCAnalyses::ReconstructedParticle::get_p(zll_leps)')
-    df = df.Define('zll_leps_pT',      'FCCAnalyses::ReconstructedParticle::get_pt(zll_leps)')
-    df = df.Define('zll_leps_theta',   'FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)')
+    df = df.Define('zll_leps_p',        'FCCAnalyses::ReconstructedParticle::get_p(zll_leps)')
+    df = df.Define('zll_leps_pT',       'FCCAnalyses::ReconstructedParticle::get_pt(zll_leps)')
+    df = df.Define('zll_leps_theta',    'FCCAnalyses::ReconstructedParticle::get_theta(zll_leps)')
+    df = df.Define('zll_leps_costheta', 'std::cos(zll_leps_theta)')
     # Identify which lepton has higher momentum
     df = df.Define('leading_p_idx',    '(zll_leps_p[0] > zll_leps_p[1]) ? 0 : 1')
     df = df.Define('subleading_p_idx', '(zll_leps_p[0] > zll_leps_p[1]) ? 1 : 0')
 
     # Extract leading/subleading properties
-    df = df.Define('leading_e',        'zll_leps_e[leading_p_idx]')
     df = df.Define('leading_p',        'zll_leps_p[leading_p_idx]')
     df = df.Define('leading_pT',       'zll_leps_pT[leading_p_idx]')
-    df = df.Define('leading_theta',    'zll_leps_theta[leading_p_idx]')
+    df = df.Define('leading_costheta', 'zll_leps_costheta[leading_p_idx]')
 
-    df = df.Define('subleading_e',     'zll_leps_e[subleading_p_idx]')
-    df = df.Define('subleading_p',     'zll_leps_p[subleading_p_idx]')
-    df = df.Define('subleading_pT',    'zll_leps_pT[subleading_p_idx]')
-    df = df.Define('subleading_theta', 'zll_leps_theta[subleading_p_idx]')
+    df = df.Define('subleading_p',        'zll_leps_p[subleading_p_idx]')
+    df = df.Define('subleading_pT',       'zll_leps_pT[subleading_p_idx]')
+    df = df.Define('subleading_costheta', 'zll_leps_costheta[subleading_p_idx]')
     return df
 
 
@@ -449,14 +447,14 @@ def presel_ll(df: 'ROOT.ROOT.RDataFrame',
 
 branch_list_ll = [
     # Lepton kinematics (leading and subleading)
-    'leading_e',    'leading_p',    'leading_pT',    'leading_theta',
-    'subleading_e', 'subleading_p', 'subleading_pT', 'subleading_theta',
+    'leading_p',    'leading_pT',    'leading_costheta',
+    'subleading_p', 'subleading_pT', 'subleading_costheta',
 
     # Angular correlation
     'acolinearity', 'acopolarity', 'acoplanarity', 'deltaR',
 
     # Z boson kinematics
-    'zll_e', 'zll_m', 'zll_p', 'zll_pT', 'zll_theta',
+    'zll_m', 'zll_p', 'zll_pT', 'zll_costheta',
 
     # Recoil mass (Higgs candidate)
     'zll_recoil_m',
