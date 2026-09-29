@@ -50,8 +50,7 @@ from package.func.bdt import (
 cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
 
 # Selection strategies for BDT training (from command-line or defaults)
-if arg.sels=='': sels = ['Baseline']          # Default selections if not specified
-else:            sels = arg.sels.split('-')   # Parse selection names from command-line
+sels = ['Baseline'] if not arg.sels else arg.sels.split('-')
 
 # Process modes for training (signal and major backgrounds)
 # Must match modes defined in process_input.py
@@ -103,10 +102,7 @@ config = configs['lep'] if cat in ['ee', 'mumu'] else configs['had']
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(sels: list[str],
-        modes: list[str],
-        config: dict[str, str],
-        ) -> None:
+def main() -> None:
     """Train XGBoost BDT models for each selection strategy.
 
     Loads preprocessed training data, trains BDT classifiers with early stopping,
@@ -177,7 +173,7 @@ def run(sels: list[str],
 if __name__=='__main__':
     try:
         # Run BDT training pipeline
-        run(sels, modes, config)
+        main()
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

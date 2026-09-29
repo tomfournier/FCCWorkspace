@@ -73,10 +73,9 @@ inDir = loc.get('HIST_MVA', cat, ecm)  # Input directory with MVA histograms
 input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
 # Selection strategies to process (from command-line or defaults)
-if arg.sels=='':
-    sels = ['Baseline']          # Default selections if not specified
-else:
-    sels = arg.sels.split('-')   # Parse selection names from command-line
+sels = ['Baseline'] if not arg.sels else arg.sels.split('-')
+
+sig = f'Z{cat}H'
 
 # Process modes for BDT training (signal and all major background processes)
 modes = {
@@ -106,30 +105,12 @@ procDict_name = 'FCCee_procDict_winter2023_training_IDEA.json'
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(
-    inDir: str,
-    sels: list[str],
-    modes: dict[str, list[str]],
-    vars: list[str],
-    sig: str,
-    procDict_name: str,
-     ) -> None:
+def main() -> None:
     """Process MVA input histograms and prepare balanced BDT training data.
 
     This function loads histograms produced by final-selection.py, calculates
     event efficiencies, applies signal/background labels, and creates balanced
     training/validation datasets for BDT training.
-
-    Args:
-        inDir: Directory containing input histograms from final-selection.py
-        sels: List of selection strategies to process
-        modes: Dictionary mapping each mode to its list of process identifiers
-        vars: List of input variables for BDT training
-        sig: Signal process name (e.g., 'ZeeH' or 'ZmumuH')
-        procDict_name: Path to process dictionary with cross-sections
-
-    Returns:
-        None (writes preprocessed dataframes to pickle files in MVA_INPUTS directories)
     """
 
     # Load process dictionary and map sample names
@@ -173,7 +154,7 @@ def run(
                 files = get_paths(proc, inDir, f'_{sel}')
 
                 # Load data from TTrees and calculate survival efficiency
-                df_proc, eff_proc[proc], N_procs[proc] = counts_and_effs(files, vars, only_eff=False)
+                df_proc, eff_proc[proc], N_procs[proc] = counts_and_effs(files, input_vars, only_eff=False)
                 N_events[mode] += N_procs[proc]
                 selected_events += df_proc.shape[0]
 
@@ -206,10 +187,7 @@ def run(
             LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}')
             if df[mode].shape[0] == 0:
                 continue
-            df[mode] = df_split_data(
-                df[mode], N_BDT_inputs,
-                mode, lumi, 0.5
-            )
+            df[mode] = df_split_data(df[mode], N_BDT_inputs, mode, lumi, 0.5)
 
         good_modes = apply_balanced_training_weights(df, modes, sig)
 
@@ -225,7 +203,7 @@ def run(
 if __name__=='__main__':
     try:
         # Run preprocessing pipeline and prepare BDT inputs
-        run(inDir, sels, modes, input_vars, f'Z{cat}H', procDict_name)
+        main()
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:
