@@ -971,6 +971,7 @@ def self_coupling_plots_parser(description: str | None = None) -> ArgumentParser
 def MVAInputs_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(description or 'Run MVA Inputs pipeline',
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
                          include_sel=True, sel_multi=True)
     add_run_argument(parser, 3)
     add_selection_args(parser)
@@ -984,6 +985,7 @@ def MVAInputs_parser(description: str | None = None) -> ArgumentParser:
 def BDT_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(description or 'Run BDT training pipeline',
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
                          include_sel=True, sel_multi=True)
     add_run_argument(parser, 3)
     add_bdt_inputs(parser)
@@ -995,6 +997,7 @@ def BDT_parser(description: str | None = None) -> ArgumentParser:
 def Measurement_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(description or 'Run Measurement pipeline',
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
                          include_sel=True, sel_multi=True)
     add_run_argument(parser, 4)
     add_selection_args(parser)
@@ -1007,6 +1010,7 @@ def Measurement_parser(description: str | None = None) -> ArgumentParser:
 def Combine_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(description or 'Run Combine pipeline',
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
                          include_sel=True, sel_multi=True)
     add_run_argument(parser, 2, default='1-2')
     add_polarization(parser)
@@ -1017,6 +1021,7 @@ def Combine_parser(description: str | None = None) -> ArgumentParser:
 def Fit_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(description or 'Run Fit pipeline',
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
                          include_sel=True, sel_multi=True)
     add_run_argument(parser, 2)
     add_fit_args(parser)
@@ -1030,6 +1035,7 @@ def Fit_parser(description: str | None = None) -> ArgumentParser:
 def NLO_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(description or 'Run Self-coupling fit pipeline',
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
                          include_sel=True, sel_multi=True)
     add_fit_args(parser)
     add_bias_fit_args(parser)
