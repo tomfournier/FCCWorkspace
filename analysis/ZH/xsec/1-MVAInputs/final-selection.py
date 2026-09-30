@@ -65,8 +65,8 @@ doScale = True        # Scale histograms to integrated luminosity
 intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 
 # Optional outputs (commented out by default)
-# saveJSON = True    # Export results to JSON format
-# saveTabular = True # Generate LaTeX tables
+# saveJSON    = True  # Export results to JSON format
+# saveTabular = True  # Generate LaTeX tables
 
 
 
@@ -103,13 +103,13 @@ elif cat == 'qq':
         cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
         cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
         cutList['test4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-    if arg.jan:
+    elif arg.jan:
         cutList['jan']  = Baseline_cut_qq(ecm, True)
         cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
         cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
         cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
         cutList['jan4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-    else:    cutList['Baseline'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Baseline selection (hadronic channel)
+    else: cutList['Baseline'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Baseline selection (hadronic channel)
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 
 # Save ROOT TTrees in addition to histograms (for BDT training)

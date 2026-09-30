@@ -53,8 +53,10 @@ cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.do_test
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 # Input: Preprocessed ROOT trees and events from pre-selection
-if test: inputDir  = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
-else:    inputDir  = loc.get('EVENTS',      cat, ecm)  # Full event sample
+if test:      inputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
+elif arg.jan: inputDir = loc.get('EVENTS_JAN',  cat, ecm)  # Jan's samples
+else:         inputDir = loc.get('EVENTS',      cat, ecm)  # Full event samples
+
 
 # Output: Directory for measurement histograms (used by measurement/fit stages)
 outputDir = loc.get('HIST_PREPROCESSED', cat, ecm)
@@ -71,8 +73,8 @@ doScale = True        # Scale histograms to integrated luminosity
 intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 
 # Optional outputs (commented out by default)
-# saveJSON = True    # Export results to JSON format
-# saveTabular = True # Generate LaTeX tables
+# saveJSON    = True  # Export results to JSON format
+# saveTabular = True  # Generate LaTeX tables
 
 
 
@@ -95,6 +97,7 @@ processList = event(samples, inputDir)
 # Define BDT score from trained model and apply BDT cut
 if test: loc_BDT = loc.get('BDT', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'test')
 else:    loc_BDT = loc.get('BDT', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'Baseline')
+LOGGER.info(f'Using BDT from {loc_BDT}')
 defineList, bdt_cut = def_bdt(loc_BDT, weight_suffix=f'_{arg.weight_suffix}')
 
 
@@ -104,37 +107,40 @@ defineList, bdt_cut = def_bdt(loc_BDT, weight_suffix=f'_{arg.weight_suffix}')
 #######################
 
 Baseline = Baseline_cut_ll(ecm) if cat in ['ee', 'mumu'] else Baseline_cut_qq(ecm)
+Baseline_miss = Baseline + ' && cosTheta_miss < ' + ('0.98' if cat in ['ee', 'mumu'] else '0.995')
 
 # Selection cut dictionary (key = selection name used in outputs)
 cutList: dict[str, str] = {}
 if arg.do_sel0: cutList['sel0_test' if arg.test else 'sel0'] = 'return true;'  # No cuts selection
 
 if cat in ['ee', 'mumu']:
-    if test:
-        cutList['test'] = Baseline
-    else:
-        Baseline_miss = Baseline + ' && cosTheta_miss < 0.98'
-        E_vis, theta_miss = 100 if ecm == 240 else 171, 0.99
+    if test: cutList['test'] = Baseline
+    else:    E_vis, theta_miss = 100 if ecm == 240 else 171, 0.99
 elif cat == 'qq':
-    Baseline_miss = Baseline_cut_qq(ecm, True)
-    Baseline_old  = Baseline_miss + ' && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
     if test:
-        cutList['test']   = Baseline_miss
-        cutList['test1']  = Baseline_old
-        cutList['test2']  = Baseline_old + ' && delta_mWW4 > 6'
-        cutList['test3']  = Baseline_old + ' && delta_mWW4 > 9'
+        cutList['test']  = Baseline_cut_qq(ecm, True)
+        cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
+        cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
+        cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+        cutList['test4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+    elif arg.jan:
+        cutList['jan']  = Baseline_cut_qq(ecm, True)
+        cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
+        cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
+        cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+        cutList['jan4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
     else:
         E_vis, theta_miss = 120 if ecm == 240 else 175, 0.995
 else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
-if not test:
+if not (test or arg.jan):
     cutList.update({
         'Baseline':      Baseline,
         'Baseline_miss': Baseline_miss,
         'Baseline_sep':  Baseline + f' && ((visibleEnergy > {E_vis}) || (visibleEnergy < {E_vis} && cosTheta_miss < {theta_miss}))',
-        'Baseline_vis':  Baseline + f' && visibleEnergy > {E_vis}',
-        'Baseline_inv':  Baseline + f' && visibleEnergy < {E_vis}',
+        'Baseline_vis':  Baseline + f' &&   visibleEnergy > {E_vis}',
+        'Baseline_inv':  Baseline + f' &&   visibleEnergy < {E_vis}',
     })
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 
@@ -142,7 +148,7 @@ cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in
 
 # List of selections to split into high/low BDT score regions
 hl_default = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'Baseline_vis', 'Baseline_inv', 'test']
-hl_sels    = list(cutList.keys()) if arg.hl_include=='all' else hl_default + arg.hl_include.split('-')
+hl_sels    = list(cutList.keys()) if arg.hl_sels=='all' else hl_default + arg.hl_sels.split('-')
 
 # Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, hl_sels)
