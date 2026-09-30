@@ -142,16 +142,16 @@ if __name__ == '__main__':
             if ('pre-selection' in scripts) or ('final-selection' in scripts):
                 for cat in cats:
                     for script in scripts:
-                        result = main(cat, ecm, path, script)
+                        result = main(cat, ecm, script)
                         if result != 0: sys.exit(result)
 
             # BATCH info for plots
             if is_there_plots:
-                result = main(arg.cat, ecm, path, 'plots')
+                result = main(arg.cat, ecm, 'plots')
                 if result != 0: sys.exit(result)
             # BATCH info for cutflow
             if is_there_cutflow:
-                result = main(arg.cat, ecm, path, 'cutflow')
+                result = main(arg.cat, ecm, 'cutflow')
                 if result != 0: sys.exit(result)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
