@@ -246,10 +246,10 @@ def add_preselection_args(parser: ArgumentParser) -> None:
     args.add_argument(
         '--job-flavor',
         type=str,
-        default='longlunch',
+        default='workday',
         choices=['espresso', 'microcentury', 'longlunch',
                  'workday', 'tomorrow', 'testmatch', 'nextweek'],
-        help='Job flavour for HTCondor (default: longlunch): '
+        help='Job flavour for HTCondor (default: workday): '
         'espresso (20 min),'
         'microcentury (1 h), longlunch (2 h), workday (8 h),'
         'tomorrow (1 d), testmatch (3 d), nextweek (1 w)'
@@ -294,7 +294,7 @@ def add_final_selection_args(
             help='BDT cut to use for high/low score region separation (default: weights)'
         )
         args.add_argument(
-            '--hl-include',
+            '--hl-sels',
             type=str,
             default='all',
             help='Selection to include for high/low separation (default: all)'
@@ -972,7 +972,7 @@ def MVAInputs_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(description or 'Run MVA Inputs pipeline',
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
                          include_ecm=True, ecm_multi=True,
-                         include_sel=True, sel_multi=True)
+                         include_sel=True, sel_multi=True, sel_default='all')
     add_run_argument(parser, 3)
     add_selection_args(parser)
     add_preselection_args(parser)
@@ -998,10 +998,11 @@ def Measurement_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(description or 'Run Measurement pipeline',
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
                          include_ecm=True, ecm_multi=True,
-                         include_sel=True, sel_multi=True)
+                         include_sel=True, sel_multi=True, sel_default='all')
     add_run_argument(parser, 4)
     add_selection_args(parser)
     add_preselection_args(parser)
+    add_final_selection_args(parser)
     add_plots_args(parser)
     add_cutflow_args(parser)
     return parser
