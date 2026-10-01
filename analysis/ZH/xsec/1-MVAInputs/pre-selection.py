@@ -48,9 +48,9 @@ cat, ecm, test = arg.cat, arg.ecm, arg.do_test
 LOGGER.info(f'Running the pre-selection for {cat = } | {ecm = } | {test = }')
 
 # Output directory for training events (default is local directory)
-if test:      outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)
-elif arg.jan: outputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)
-else:         outputDir = loc.get('EVENTS_TRAINING',   cat, ecm)
+if   test:    outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
+elif arg.jan: outputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)  # Jan's samples
+else:         outputDir = loc.get('EVENTS_TRAINING',   cat, ecm)  # Full event samples
 
 # Custom C++ analysis functions for particle selection and kinematic calculations
 includePaths = ['../../../../functions/functions.h',

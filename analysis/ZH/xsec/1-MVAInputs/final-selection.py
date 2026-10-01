@@ -46,7 +46,7 @@ if test and arg.jan: raise ValueError("--test and --jan can't be used together, 
 LOGGER.info(f'Using {cat = } | {ecm = } | sels = {arg.sels} | {test = } | jan = {arg.jan}')
 
 # Input: Pre-selection ROOT trees and histograms
-if test:      inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
+if   test:    inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
 elif arg.jan: inputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)  # Jan's samples
 else:         inputDir = loc.get('EVENTS_TRAINING',   cat, ecm)  # Full training sample
 

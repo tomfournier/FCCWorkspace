@@ -50,8 +50,9 @@ from sel.presel.hadronic import presel_qq, branch_list_qq
 cat, ecm, test = arg.cat, arg.ecm, arg.do_test
 
 # Output directory for analysis events (default is local directory)
-if test: outputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
-else:    outputDir = loc.get('EVENTS',      cat, ecm)  # Full event sample
+if   test:    outputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
+elif arg.jan: outputDir = loc.get('EVENTS_JAN',  cat, ecm)  # Jan's samples
+else:         outputDir = loc.get('EVENTS',      cat, ecm)  # Full event samples
 
 # Custom C++ analysis functions for particle selection and kinematic calculations
 includePaths = ['../../../../functions/functions.h',
