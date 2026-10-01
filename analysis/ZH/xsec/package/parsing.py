@@ -1002,6 +1002,7 @@ def Measurement_parser(description: str | None = None) -> ArgumentParser:
     add_run_argument(parser, 4)
     add_selection_args(parser)
     add_preselection_args(parser)
+    add_sample_selection_args(parser)
     add_final_selection_args(parser)
     add_plots_args(parser)
     add_cutflow_args(parser)
