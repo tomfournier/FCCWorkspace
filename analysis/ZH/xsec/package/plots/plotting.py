@@ -44,7 +44,7 @@ Lazy Imports:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-from typing import Union, TYPE_CHECKING
+from typing import Any, Union, TYPE_CHECKING
 
 from package.func.bias import getMetaInfo
 from package.plots.root.helper import build_cfg
@@ -590,6 +590,68 @@ def significance(
         format=format
     )
     plt.close()
+
+
+
+def makePlot_bis(
+        variable: str,
+        inputDir: str,
+        outputDir: str,
+        selection: str,
+        plots: dict[str, dict[str, list[str]]],
+        colors: dict[str, Any],
+        legend: dict[str, Any],
+        ecm: int = 240,
+        lumi: float = 10.8,
+        xmin: float | int | None = None,
+        xmax: float | int | None = None,
+        ymin: float | int | None = None,
+        ymax: float | int | None = None,
+        logX: bool = False,
+        logY: bool = False,
+        xtitle: str = '',
+        ytitle: str = 'Events',
+        xlabels: list[str] = [],
+        outName: str = '',
+        suffix: str = '',
+        sig_scale: float = 1.,
+        bkg_scale: float = 1.,
+        scale_min: float | None = None,
+        scale_max: float | None = None,
+        rebin: int = 1,
+        file_formats: list[str] = ['png'],
+        stack: bool = False,
+        strict: bool = True,
+        lazy: bool = True,
+        quiet: bool = True
+)-> None:
+
+    from .plots import HistogramPlot
+
+    histoplot = HistogramPlot(variable, selection,
+                              inputDir, outputDir,
+                              plots, colors, legend, ecm, lumi)
+
+    legend = histoplot.define_legend(len(plots['signals']) + len[plots['backgrounds']])
+    all_hists = histoplot.load_histograms(f'_{selection}_histo', rebin, lazy)
+    stack_hist, sig_hists, bkg_hists = histoplot.style_histograms(
+        all_hists, legend, sig_scale, bkg_scale)
+
+    histoplot.cfg = histoplot.build_config(
+        sig_hists, bkg_hists,
+        xmin, xmax, ymin, ymax, logX, logY,
+        xtitle, ytitle, scale_min, scale_max,
+        strict, stack)
+
+    canvas, _ = histoplot.draw(
+        all_hists, stack_hist, bkg_hists,
+        legend, stack, xlabels)
+
+    outName = variable if not outName else outName
+    histoplot.save(canvas, outName, suffix, file_formats, logY, quiet)
+    canvas.close()
+
+
 
 # ________________________________________
 def makePlot(

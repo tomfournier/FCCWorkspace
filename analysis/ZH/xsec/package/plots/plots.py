@@ -19,9 +19,9 @@ class HistogramPlot:
     def __init__(
         self,
         variable: str,
+        sel: str,
         inDir: str,
         outDir: str,
-        sel: str,
         plots: dict[str, dict[str, list[str]]],
         colors: dict[str, Any],
         legend: dict[str, str],
@@ -131,7 +131,7 @@ class HistogramPlot:
         import ROOT
 
         stack = ROOT.THStack('stack', 'stack')
-        backgrounds = []
+        signals, backgrounds = [], []
         for process in self.processes:
             hist = histograms.get(process)
             if hist is None:
@@ -152,7 +152,9 @@ class HistogramPlot:
                 label += f' (#times {int(bkg_scale)})'
             legend_obj.AddEntry(hist, label, 'L' if is_signal else 'F')
 
-            if not is_signal:
+            if is_signal:
+                signals.append(hist)
+            else:
                 stack.Add(hist)
                 backgrounds.append(hist)
 
@@ -162,7 +164,7 @@ class HistogramPlot:
         ]
         if missing_signals:
             LOGGER.warning(f'Could not load signal histograms: {missing_signals}')
-        return stack, backgrounds
+        return stack, signals, backgrounds
 
 
     def build_config(
@@ -203,7 +205,7 @@ class HistogramPlot:
         if   'MeV' in xTitle: unit = 'MeV'
         elif 'GeV' in xTitle: unit = 'GeV'
         elif 'TeV' in xTitle: unit = 'TeV'
-        else: unit = ''
+        else:                 unit = ''
 
         if bwidth.is_integer():
             ytitle += f' / {bwidth} {unit}'
@@ -239,35 +241,21 @@ class HistogramPlot:
             raise ValueError('At least one histogram is required for ranges')
 
         total = get_stack(histograms)
-        xMin, xMax = get_xrange(
-            total, strict, xmin, xmax,
-        )
+        xMin, xMax = get_xrange(total, strict, xmin, xmax)
 
         scale_min = min_scale if min_scale is not None else (0.5 if logY else 1.0)
         scale_max = max_scale if max_scale is not None else (1e4 if logY else 1.5)
-        y_ranges = [
-            get_yrange(
-                hist, logY, ymin, ymax, scale_min, scale_max,
-            )
-            for hist in histograms
-        ]
+
+        y_ranges = [get_yrange(hist, logY, ymin, ymax, scale_min, scale_max) for hist in histograms]
         yMin = min(axis_range[0] for axis_range in y_ranges)
 
         if stack:
-            stacked_range = get_yrange(
-                total, logY, ymin, ymax, scale_min, scale_max,
-            )
+            stacked_range = get_yrange(total, logY, ymin, ymax, scale_min, scale_max)
             yMax = stacked_range[1]
         else:
             y_max_hists = list(histograms[:len(histograms) - len(backgrounds)])
-            if backgrounds:
-                y_max_hists.append(get_stack(backgrounds))
-            yMax = max(
-                get_yrange(
-                    hist, logY, ymin, ymax, scale_min, scale_max,
-                )[1]
-                for hist in y_max_hists
-            )
+            if backgrounds: y_max_hists.append(get_stack(backgrounds))
+            yMax = max(get_yrange(hist, logY, ymin, ymax, scale_min, scale_max)[1] for hist in y_max_hists)
 
         return xMin, xMax, yMin, yMax
 
@@ -279,6 +267,7 @@ class HistogramPlot:
         backgrounds: list[Any],
         legend_obj: Any,
         stack_signals: bool = False,
+        xlabels: list[str] = []
     ) -> tuple[Any, Any]:
 
         '''Draw the configured histograms on a standard ROOT canvas.'''
@@ -287,6 +276,13 @@ class HistogramPlot:
 
         plotter.cfg = self.cfg
         canvas, dummy = plotter.canvas(), plotter.dummy()
+
+        if len(xlabels) > 0:
+            dummy.GetXaxis().SetLabelSize(0.8 * dummy.GetXaxis().GetLabelSize())
+            dummy.GetXaxis().SetLabelOffsett(1.3 * dummy.GetXaxis().GetLabelOffset())
+            for i, label in enumerate(xlabels): dummy.GetXaxis().SetBinLabel(i+1, label)
+            dummy.GetXaxis.LabelsOption('u')
+
         dummy.Draw('HIST')
         if stack_signals:
             for signal in self.signals:
@@ -352,6 +348,7 @@ class HistogramPlot:
         ytitle: str = 'Events',
         scale_min: float | None = None,
         scale_max: float | None = None,
+        xlabels: list[str] = [],
         strict: bool = True,
         logX: bool = False,
         logY: bool = True,
@@ -386,7 +383,7 @@ class HistogramPlot:
         canvas, _ = self.draw(
             histograms, stack_obj,
             backgrounds, legend_obj,
-            stack,
+            stack, xlabels
         )
         self.save(canvas, outName, suffix, format, logY, quiet)
         canvas.Close()
