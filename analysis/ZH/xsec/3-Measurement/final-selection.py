@@ -117,20 +117,19 @@ if cat in ['ee', 'mumu']:
     if test: cutList['test'] = Baseline
     else:    E_vis, theta_miss = 100 if ecm == 240 else 171, 0.99
 elif cat == 'qq':
-    if test:
-        cutList['test']  = Baseline_cut_qq(ecm, True)
-        cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
-        cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
-        cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-        cutList['test4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-    elif arg.jan:
-        cutList['jan']  = Baseline_cut_qq(ecm, True)
-        cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
-        cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
-        cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-        cutList['jan4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-    else:
-        E_vis, theta_miss = 120 if ecm == 240 else 175, 0.995
+    cutList['test']  = Baseline_cut_qq(ecm, True)
+    cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
+    cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
+    cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+    cutList['test4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+
+    cutList['jan']  = Baseline_cut_qq(ecm, True)
+    cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
+    cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
+    cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+    cutList['jan4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+
+    E_vis, theta_miss = 120 if ecm == 240 else 175, 0.995
 else:
     raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
