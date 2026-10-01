@@ -69,6 +69,8 @@ LOGGER.debug('Modules loaded')
 
 # Analysis parameters from command-line arguments
 cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
+lumi = 10.8 if ecm == 240 else (3.12 if ecm == 365 else -1)
+
 inDir = loc.get('HIST_MVA', cat, ecm)  # Input directory with MVA histograms
 input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
@@ -99,6 +101,11 @@ if (cat == 'qq') and (ecm == 365):
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
 procDict_name = 'FCCee_procDict_winter2023_training_IDEA.json'
 
+# Set uniform reweighting fraction for all processes
+# (can be adjusted to emphasize specific backgrounds)
+# Choose frac = 1 if not provided
+frac = {}
+
 
 
 ##########################
@@ -124,16 +131,9 @@ def main() -> None:
         for proc in procs:
             proc_xsec[proc] = procDict[proc]['crossSection']
 
-    # Set uniform reweighting fraction for all processes
-    # (can be adjusted to emphasize specific backgrounds)
-    frac = {mode: 1.0 if mode==sig else 1.0 for mode in modes}
-    # frac[sig] = 1/8 if cat=='qq' else 1.0
-    # if cat == 'qq': frac[f'Z{cat}'] = 1/10
-
     for sel in sels:
         # Output directory for preprocessed pickle files
         outDir = loc.get('MVA_INPUTS', cat, ecm, sel)
-        lumi = 10.8 if ecm == 240 else (3.12 if ecm == 365 else -1)
 
         # Initialize storage containers for each process
         eff, eff_proc, N_procs, N_events = {}, {}, {}, {m:0 for m in modes}
