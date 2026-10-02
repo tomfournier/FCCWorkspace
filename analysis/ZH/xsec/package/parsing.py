@@ -349,13 +349,19 @@ def add_bdt_inputs(parser: ArgumentParser) -> None:
         '--all-inputs',
         action=BooleanOptionalAction,
         default=True,
-        help='Use all the events in each mode for the training (default True)'
+        help='Use all the events in each mode for the training (default: True)'
     )
     args.add_argument(
         '--n-max',
         type=int,
         default=1_000_000,
-        help='Maximum number of events per mode (default 1,000,000)'
+        help='Maximum number of events per mode (default: 1,000,000)'
+    )
+    args.add_argument(
+        '--test-size',
+        type=float,
+        default=0.5,
+        help='Validation/Training splitting fraction (default: 0.5)'
     )
 
 def add_bdt_training(parser: ArgumentParser) -> None:
@@ -364,13 +370,13 @@ def add_bdt_training(parser: ArgumentParser) -> None:
         '--use-weights',
         action='store_true',
         default=False,
-        help='Use event weighting for BDT training (default False)'
+        help='Use event weighting for BDT training (default: False)'
     )
     args.add_argument(
         '--weight-name',
         type=str,
         default='train_weight',
-        help="Name of the weight used for the BDT training (default 'train_weight')"
+        help="Name of the weight used for the BDT training (default: 'train_weight')"
     )
 
 
@@ -506,13 +512,13 @@ def add_combine_args(parser: ArgumentParser) -> None:
         '--mc-stats',
         action='store_true',
         default=False,
-        help='Include MC statistical uncertainties (default False)'
+        help='Include MC statistical uncertainties (default: False)'
     )
     parser.add_argument(
         '--rebin',
         type=int,
         default=1,
-        help='Histogram rebinning factor (default 1)'
+        help='Histogram rebinning factor (default: 1)'
     )
     parser.add_argument(
         '--intLumi',
@@ -524,7 +530,7 @@ def add_combine_args(parser: ArgumentParser) -> None:
         '--rescale',
         default=False,
         action='store_true',
-        help='Rescale the histograms to 1 ab-1 (default False)'
+        help='Rescale the histograms to 1 ab-1 (default: False)'
     )
 
 
@@ -582,10 +588,16 @@ def add_fit_args(parser: ArgumentParser) -> None:
         help='Do a fast likelihood scan for the second fit'
     )
     args.add_argument(
+        '--npoints',
+        type=int,
+        default=400,
+        help='Number of points to do for the likelihood scan (default: 400)'
+    )
+    args.add_argument(
         '--rescaled',
         default=False,
         action='store_true',
-        help='Rescaled the uncertainties to the nominal luminosity (default False)'
+        help='Rescaled the uncertainties to the nominal luminosity (default: False)'
     )
     args.add_argument(
         '--print',
@@ -640,6 +652,42 @@ def add_fit_plot_args(
         '--sig2',
         action='store_true',
         help='Plot 95%% CL'
+    )
+    args.add_argument(
+        '--lep', '--leptonic',
+        action='store_true',
+        default=False,
+        help='Plot the combined leptonic fit'
+    )
+    args.add_argument(
+        '--combine', '--comb',
+        action='store_true',
+        default=False,
+        help='Plot the combined fit'
+    )
+    args.add_argument(
+        '--bias',
+        action='store_true',
+        default=False,
+        help='Plot bias-test likelihood scans'
+    )
+    args.add_argument(
+        '--target',
+        type=str,
+        default='all',
+        help='Bias-test target to plot (default: all)'
+    )
+    args.add_argument(
+        '--timer',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Display elapsed time'
+    )
+    args.add_argument(
+        '--toy',
+        action='store_true',
+        default=False,
+        help='Plot toy-fit results'
     )
     args.add_argument(
         '--only1',
@@ -794,7 +842,7 @@ def bdt_process_input_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'BDT Input Processing Script',
         include_cat=True, include_ecm=True,
-        include_sel=True, sel_multi=True)
+        include_sel=True, sel_multi=True, sel_default='Baseline')
     add_bdt_inputs(parser)
     return parser
 
@@ -803,7 +851,7 @@ def bdt_training_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'BDT Training Script',
         include_cat=True, include_ecm=True,
-        include_sel=True, sel_multi=True)
+        include_sel=True, sel_multi=True, sel_default='Baseline')
     add_bdt_training(parser)
     return parser
 
@@ -812,7 +860,7 @@ def bdt_evaluation_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'BDT Evaluation Script',
         include_cat=True, include_ecm=True,
-        include_sel=True, sel_multi=True)
+        include_sel=True, sel_multi=True, sel_default='Baseline')
     add_bdt_eval(parser)
     return parser
 
@@ -848,7 +896,7 @@ def measurement_plots_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'Measurement Plots Script',
         include_cat=True, cat_multi=True, include_ecm=True,
-        include_sel=True, sel_multi=True)
+        include_sel=True, sel_multi=True, sel_default='Baseline')
     add_plots_args(parser)
     return parser
 
@@ -857,7 +905,7 @@ def measurement_cutflow_parser(description: str | None = None) -> ArgumentParser
     parser = base_parser(
         description or 'Cutflow Script',
         include_cat=True, cat_multi=True, include_ecm=True,
-        include_sel=True, sel_multi=True)
+        include_sel=True, sel_multi=True, sel_default='Baseline')
     add_cutflow_args(parser)
     return parser
 
@@ -872,7 +920,7 @@ def combine_process_histogram_parser(description: str | None = None) -> Argument
     parser = base_parser(
         description or 'Histogram Processing Script',
         include_cat=True, cat_multi=True, include_ecm=True,
-        include_sel=True, sel_multi=True)
+        include_sel=True, sel_multi=True, sel_default='Baseline')
     add_polarization(parser)
     return parser
 

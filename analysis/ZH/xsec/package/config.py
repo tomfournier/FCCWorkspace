@@ -637,8 +637,7 @@ def get_process_dict(
         'zqqh':   tuple(f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in q_set for y in H_set),
 
         # Diboson production e+e- -> VV (V = W or Z)
-        'WW':     (f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}', f'p8_ee_WW_ecm{ecm}'),
-        # 'WW':     (f'p8_ee_WW_ecm{ecm}',),
+        'WW':     (f'p8_ee_WW_ecm{ecm}', f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}'),
         'ZZ':     (f'p8_ee_ZZ_ecm{ecm}',),
 
         # 2 fermion production e+e- -> ff
@@ -659,6 +658,37 @@ def get_process_dict(
     if procs:
         return {proc: processes[proc] for proc in procs if proc in processes}
     return processes
+
+
+def get_bdt_modes(cat: str, ecm: int) -> dict[str, list[str]]:
+    '''Generate the signal and background samples used by the BDT.
+
+    Args:
+        cat: Analysis category ('ee', 'mumu', or 'qq').
+        ecm: Center-of-mass energy in GeV.
+
+    Returns:
+        Dictionary mapping BDT mode names to FCC sample names.
+    '''
+    if cat not in {'ee', 'mumu', 'qq'}:
+        raise ValueError(f'{cat = } is not a valid category. Use [ee, mumu, qq].')
+
+    signal_samples = ([
+        f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in {'ee', 'mumu'} else [f'wzp6_ee_{quark}H_H{decay}_ecm{ecm}'
+                                                                   for quark in QUARKS for decay in H_DECAYS])
+
+    modes = {}
+    modes[f'Z{cat}H'] = signal_samples
+    modes[f'WW{cat}'] = [f'p8_ee_WW_ecm{ecm}' if cat == 'qq' else f'p8_ee_WW_{cat}_ecm{ecm}']
+    modes['ZZ']       = [f'p8_ee_ZZ_ecm{ecm}']
+    modes[f'Z{cat}']  = [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat == 'ee' else f'wzp6_ee_{cat}_ecm{ecm}']
+    modes[f'egamma_{cat}'] = [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}']
+    modes[f'gammae_{cat}'] = [f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}']
+
+    if cat != 'qq':          modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']
+    if cat == 'qq' and ecm == 365: modes['ttbar'] = ['wzp6_ee_WbWb_ecm365']
+
+    return modes
 
 
 def get_process_list(

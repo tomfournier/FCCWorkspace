@@ -885,12 +885,11 @@ def proc_scale(
 
     # Find process category and apply corresponding scale
     for proc_name, proc_list in processes.items():
-        if proc in proc_list and proc_name != 'Rare':
+        if proc in proc_list:
             scale = proc_scales.get(proc_name)
             if scale is not None:
                 hist.Scale(scale)
-                LOGGER.info(
-                    f'Scaled histogram to ILC scale by a factor of {scale:.3f}')
+                LOGGER.info(f'Scaled histogram to ILC scale by a factor of {scale:.3f}')
             break
     return hist
 

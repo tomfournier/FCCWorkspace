@@ -266,7 +266,7 @@ def log_loss(
                  best_iteration, locx, locy, suffix, dpi, format)
 
 # _______________________________
-def classification_error(
+def error(
     results: dict,
     x_axis: 'np.ndarray',
     label: str,
@@ -362,7 +362,7 @@ def plot_roc_curve(
             color=color, linestyle=linestyle, linewidth=4)
 
 # ______________________________
-def roc(
+def roc_curve(
     df: 'pd.DataFrame',
     label: str,
     outDir: str,

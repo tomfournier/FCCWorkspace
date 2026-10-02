@@ -90,7 +90,7 @@ def datacard_root(
     hists, hists_asimov = [], {}
     proc_dict = sig_procs | bkg_procs
 
-    def get_hist(proc_list: list[str], name: str, scales: dict[str, float | int] = {}):
+    def get_hist(proc_list: list[str], name: str, cat: str, scales: dict[str, float | int] = {}, asimov: bool = False):
         if isinstance(proc_list, str):
             proc_list = [proc_list]
 
@@ -107,6 +107,7 @@ def datacard_root(
             scale = scales.get(proc, 1)
             if scale != 1:
                 hist.Scale(scale)
+                if not asimov: LOGGER.info(f'Rescaling {proc} for category {cat} by {scale:.3f}')
             if result is None:
                 result = hist
             else:
@@ -121,10 +122,10 @@ def datacard_root(
     for procName, procList in proc_dict.items():
         for i, cat in enumerate(categories):
             if only_asimov:
-                hist        = get_hist(procList, hNames[i], {})
-                hist_asimov = get_hist(procList, hNames[i], scales)
+                hist        = get_hist(procList, hNames[i], cat, {})
+                hist_asimov = get_hist(procList, hNames[i], cat, scales, True)
             else:
-                hist        = get_hist(procList, hNames[i], scales)
+                hist        = get_hist(procList, hNames[i], cat, scales)
                 hist_asimov = hist.Clone()
                 hist_asimov.SetDirectory(0)
             hist.SetName(f'{cat}_{procName}')
@@ -169,7 +170,9 @@ def datacard_root(
 
             for i, cat in enumerate(categories):
                 for proc, proc_sources in target_sources.items():
-                    variation = get_hist(proc_sources, hNames[i] + f'_{systName}{direction}', scales)
+                    variation = get_hist(proc_sources,
+                                         hNames[i] + f'_{systName}{direction}',
+                                         cat, scales)
                     hist = variation.Clone(f'{cat}_{proc}_{systName}{direction}')
                     hist.SetDirectory(0)
                     hists.append(hist)
