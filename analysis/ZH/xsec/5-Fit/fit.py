@@ -34,6 +34,7 @@ LOGGER = get_logger(__name__)
 from package.userConfig import loc, PathObj
 loc.set_default_type(Path)
 from package.config import timer  # Timing utility
+from package.run import get_extra_args, update_namespace
 from package.func.fit import (
     check_log,
     get_results,
@@ -216,14 +217,18 @@ def do_fit(
 
 if __name__=='__main__':
     try:
+        if not arg.sel:
+            raise ValueError('No selection was defined, choose a selection to fit')
         # Execute the fitting pipeline
         ret = do_fit(dr, ws, env)
         if ret != 0: exit(ret)
 
-        cmd = ['python', 'plots.py', '--ecm', str(arg.ecm),
-               '--sels', str(arg.sel), '--no-timer', '--sig2']
-        cmd += ['--lep'] if arg.lep else (['--comb'] if arg.combine else ['--cat', arg.cat])
-        cmd += ['--bias', '--only1', '--target', arg.target] if arg.bias else []
+        plot_args = update_namespace(
+            arg, cat=None if (arg.lep or arg.combine) else arg.cat,
+            ecm=str(arg.ecm), sels=arg.sel,
+            sig2=True, only1=arg.bias, timer=False)
+        cmd = ['python', 'plots.py'] + get_extra_args(
+            plot_args, {'directory': '5-Fit', 'script': 'plots'})
 
         run_cmd(cmd, None, Path(__file__).parent, env)
 
