@@ -72,6 +72,7 @@ cmds = {v:'python' for v in script_map.values()}
 # Expand dash-separated channel and energy values into lists.
 cats = arg.cat.split('-')                      # Decay categories: ['ee'] or ['ee', 'mumu']
 ecms = [int(e) for e in arg.ecm.split('-')]  # Energies: [240] or [240, 365]
+sels = arg.sels.split('-')                     # Selections: ['Baseline'] or ['Baseline', 'test']
 
 scripts = [script_map[s] for s in arg.run.split('-')]
 
@@ -86,7 +87,7 @@ ENV = os.environ.copy()
 ### EXECUTION FUNCTION ###
 ##########################
 
-def main(cat: str, ecm: int, script: str) -> int:
+def main(cat: str, ecm: int, sel: str, script: str) -> int:
     '''Execute one fit stage and stream its output.
 
     Builds the downstream command from the selected parser configuration,
@@ -104,10 +105,10 @@ def main(cat: str, ecm: int, script: str) -> int:
     '''
 
     # Log the stage context before launching the subprocess.
-    log_msg('▶ STARTING', script, cat=cat, ecm=ecm)
+    log_msg('▶ STARTING', script, cat=cat, ecm=ecm, sels=sel)
 
     # Forward only arguments supported by the selected downstream parser.
-    stage_args = update_namespace(arg, cat=cat, ecm=ecm)
+    stage_args = update_namespace(arg, cat=cat, ecm=ecm, sel=sel)
     extra_args = get_extra_args(stage_args, {'directory': '5-Fit', 'script': script})
     result = subprocess.run(cmds[script].split() + [f'{path}/{script}.py'] + extra_args,
                             env=ENV, stdout=sys.stdout, stderr=sys.stderr)
@@ -127,9 +128,10 @@ if __name__ == '__main__':
     try:
         for ecm in ecms:
             for cat in cats:
-                for script in scripts:
-                    result = main(cat, ecm, script)
-                    if result != 0: sys.exit(result)
+                for sel in sels:
+                    for script in scripts:
+                        result = main(cat, ecm, sel, script)
+                        if result != 0: sys.exit(result)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

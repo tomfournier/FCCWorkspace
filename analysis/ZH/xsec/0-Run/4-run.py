@@ -126,8 +126,9 @@ def main(cat: str, ecm: int, script: str) -> None:
 if __name__ == '__main__':
     try:
         for ecm in ecms:
-            result = main(arg.cat, ecm, path)
-            if result != 0: sys.exit(result)
+            for script in scripts:
+                result = main(arg.cat, ecm, script)
+                if result != 0: sys.exit(result)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:
