@@ -90,13 +90,9 @@ def main():
             hist_names = hist_names_dict['had' if cat=='qq' else 'lep']
 
             # Define systematic uncertainties
-            systs = {
-                f'{proc}_norm':{
-                    'type':'lnN',     # Log-normal uncertainty
-                    'value':1.01,     # 1% normalization uncertainty
-                    'procs':[proc]}   # Apply to this process
-                for proc in bkg_procs.keys()
-            }
+            # (1% log-normal normalization, uncorrelated)
+            systs = {f'{proc}_norm':{'type':'lnN', 'value':1.01, 'procs':[proc]}
+                     for proc in bkg_procs.keys()}
             systs_procs = {}
             for sel in sels:
                 inputDir  = loc.get('HIST_PROCESSED',   cat, ecm, sel)
