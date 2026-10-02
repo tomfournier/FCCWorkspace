@@ -51,24 +51,18 @@ from package.tools.process import (       # Histogram utilities
 #############################
 
 # Decay categories to process (from command-line: cat1-cat2 format)
-cats, ecm = arg.cat.split('-'), arg.ecm
-
-# Selection strategies to process (from command-line or defaults)
-if arg.sels=='':
-    sels = ['Baseline']  # Default selections
-else:
-    sels = arg.sels.split('-')  # Parse from command-line
+cats, ecm, sels = arg.cat.split('-'), arg.ecm, arg.sels.split('-')
 
 # Define cross-section scaling factors based on polarization or luminosity
 # Used to rescale histograms to match different beam configurations
-if arg.ILC:  # ILC configuration (note: change fit to ASIMOV mode -t -1)
+if arg.ILC:        # ILC configuration
     procs_scales = {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}
-elif arg.polL:  # Left-handed polarization
+elif arg.polL:     # Left-handed polarization
     procs_scales = {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263}
-elif arg.polR:  # Right-handed polarization
+elif arg.polR:     # Right-handed polarization
     procs_scales = {'ZH': 1.047, 'WW': 0.219, 'ZZ': 1.011, 'Zgamma': 1.018}
-else:
-    procs_scales  = {}  # No scaling
+else:              # No scaling
+    procs_scales = {}
 if procs_scales!={}:
     LOGGER.info('Rescaling histograms to alternative cross-sections')
 

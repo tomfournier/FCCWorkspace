@@ -85,8 +85,7 @@ intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 # Samples to process: ZH signal and main background processes
 # These are processed through final selection cuts and histogram filling
 samples = get_process_list(
-    cat, ecm,
-    onlysig=arg.only_sig, onlybkg=arg.only_bkg,
+    cat, ecm, onlysig=arg.only_sig, onlybkg=arg.only_bkg,
     include=parse_sample_selection(arg.include),
     exclude=parse_sample_exclusion(arg.exclude)
 ).keys()
@@ -123,11 +122,11 @@ elif cat == 'qq':
     cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
     cutList['test4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
 
-    cutList['jan']  = Baseline_cut_qq(ecm, True)
-    cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
-    cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
-    cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-    cutList['jan4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+    cutList['Jan']  = Baseline_cut_qq(ecm, True)
+    cutList['Jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
+    cutList['Jan2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
+    cutList['Jan3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+    cutList['Jan4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
 
     E_vis, theta_miss = 120 if ecm == 240 else 175, 0.995
 else:
@@ -169,5 +168,5 @@ if cat == 'qq':
     histoList['zqq_m_recoil_m_mva_low']       = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(50, 100, 150), (100, 40, 140), (1, 0, bdt_cut)]}
     histoList['zqq_m_recoil_m_tot_mva_high']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(150, 50, 200), (100, 40, 140), (1, bdt_cut, 1)]}
     histoList['zqq_m_recoil_m_tot_mva_low']   = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(150, 50, 200), (100, 40, 140), (1, 0, bdt_cut)]}
-    histoList['zqq_m_recoil_m_full_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(350, 0, 350),  (180, 20, 200), (1, bdt_cut, 1)]}
-    histoList['zqq_m_recoil_m_full_mva_low']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(350, 0, 350),  (180, 20, 200), (1, 0, bdt_cut)]}
+    histoList['zqq_m_recoil_m_full_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(350,  0, 350), (180, 20, 200), (1, bdt_cut, 1)]}
+    histoList['zqq_m_recoil_m_full_mva_low']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(350,  0, 350), (180, 20, 200), (1, 0, bdt_cut)]}

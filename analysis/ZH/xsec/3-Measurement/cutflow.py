@@ -50,15 +50,9 @@ from package.plots.cutflow import (
 ############################
 
 # Decay categories to analyze (from command-line: cat1-cat2 format)
-cats, ecm = arg.cat.split('-'), arg.ecm
+cats, ecm, sels = arg.cat.split('-'), arg.ecm, arg.sels.split('-')
 # Integrated luminosity [ab^-1]
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
-
-# Selection strategies to analyze (from command-line or defaults)
-if arg.sels == '':
-    sels = ['Baseline']  # Default selection
-else:
-    sels = arg.sels.split('-')  # Parse from command-line
 
 
 

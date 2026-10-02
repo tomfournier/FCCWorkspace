@@ -55,12 +55,9 @@ from package.tools.process import (
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-cats, ecm = arg.cat.split('-'), arg.ecm
+cats, ecm, sels = arg.cat.split('-'), arg.ecm, arg.sels.split('-')
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
-# Selection strategies to plot
-if arg.sels=='': sels = ['Baseline']
-else:            sels = arg.sels.split('-')
 if arg.hl:
     sels = high_low_sels(sels, arg.hlsel.split('-') + arg.hl_include.split('-'))
 
