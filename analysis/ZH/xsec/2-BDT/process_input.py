@@ -37,9 +37,9 @@ LOGGER.debug('Loading custom modules')
 from package.userConfig import loc
 from package.config import (
     timer,                      # Performance timing utility
+    get_bdt_modes,              # Build BDT signal and background samples
     input_vars_ll,              # List of variables for BDT training (hadronic channel)
     input_vars_qq,              # List of variables for BDT training (hadronic channel)
-    quarks, h_decays
 )
 
 # File I/O and process dictionary utilities
@@ -68,34 +68,17 @@ LOGGER.debug('Modules loaded')
 #############################
 
 # Analysis parameters from command-line arguments
-cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
+cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
 lumi = 10.8 if ecm == 240 else (3.12 if ecm == 365 else -1)
 
-inDir = loc.get('HIST_MVA', cat, ecm)  # Input directory with MVA histograms
+inputdir = loc.get('HIST_MVA', cat, ecm)  # Input directory with MVA histograms
 input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
-# Selection strategies to process (from command-line or defaults)
-sels = ['Baseline'] if not arg.sels else arg.sels.split('-')
-
-sig = f'Z{cat}H'
-
 # Process modes for BDT training (signal and all major background processes)
-modes = {
-    f'Z{cat}H':      [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else    # Signal: ZH production
-                     [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays],
-    'ZZ':            [f'p8_ee_ZZ_ecm{ecm}'],                             # Background: diboson ZZ
-    f'Z{cat}':       [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'     # Background: Z+jets
-                      else f'wzp6_ee_{cat}_ecm{ecm}'],
-    f'WW{cat}':      [f'p8_ee_WW_ecm{ecm}' if cat == 'qq'                # Background: diboson WW
-                      else f'p8_ee_WW_{cat}_ecm{ecm}'],
-    f'gammae_{cat}': [f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
-    f'egamma_{cat}': [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
-}
-if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
-    modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']             # Background: diphoton
+modes = get_bdt_modes(cat, ecm)
 
-if (cat == 'qq') and (ecm == 365):
-    modes['ttbar'] = ['wzp6_ee_WbWb_ecm365']
+# Signal mode
+sig = f'Z{cat}H'
 
 # Process dictionary with cross-sections and normalization info
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
@@ -133,7 +116,7 @@ def main() -> None:
 
     for sel in sels:
         # Output directory for preprocessed pickle files
-        outDir = loc.get('MVA_INPUTS', cat, ecm, sel)
+        outputdir = loc.get('MVA_INPUTS', cat, ecm, sel)
 
         # Initialize storage containers for each process
         eff, eff_proc, N_procs, N_events = {}, {}, {}, {m:0 for m in modes}
@@ -151,11 +134,11 @@ def main() -> None:
             df_mode: dict[str, pd.DataFrame] = {}
             selected_events = 0
             for proc in procs:
-                files = get_paths(proc, inDir, f'_{sel}')
+                files = get_paths(proc, inputdir, f'_{sel}')
 
                 # Load data from TTrees and calculate survival efficiency
                 df_proc, eff_proc[proc], N_procs[proc] = counts_and_effs(files, input_vars, only_eff=False)
-                N_events[mode] += N_procs[proc]
+                N_events[mode]  += N_procs[proc]
                 selected_events += df_proc.shape[0]
 
                 # Add signal/background classification and event weights
@@ -163,8 +146,7 @@ def main() -> None:
                 df_mode[proc] = df_proc
 
             if selected_events == 0:
-                df[mode] = pd.DataFrame()
-                eff[mode] = 0.0
+                df[mode], eff[mode] = pd.DataFrame(), 0.0
                 LOGGER.info(f'Number of events in {mode:<{lenght}} = {N_events[mode]:,}\n'
                             f'      Efficiency of {mode:<{lenght}} = {eff[mode]*100:.3}%')
                 continue
@@ -182,18 +164,17 @@ def main() -> None:
         N_BDT_inputs = BDT_input_numbers(df, modes, sig, eff, xsec, frac, arg.all_inputs, arg.n_max)
 
         LOGGER.debug('Printing BDT inputs number for the different modes')
-        # Split data into training (50%) and validation (50%) sets per process
+        # Split data into training/validation sets per process
         for mode in modes:
             LOGGER.info(f'Number of BDT inputs for {mode:<{lenght}} = {N_BDT_inputs[mode]:,}')
-            if df[mode].shape[0] == 0:
-                continue
-            df[mode] = df_split_data(df[mode], N_BDT_inputs, mode, lumi, 0.5)
+            if df[mode].shape[0] == 0: continue
+            df[mode] = df_split_data(df[mode], N_BDT_inputs, mode, lumi, arg.test_size)
 
         good_modes = apply_balanced_training_weights(df, modes, sig)
 
         # Merge all processes and save to single pickle file for BDT training
         dfsum = pd.concat([df[mode] for mode in good_modes])
-        to_pkl(dfsum, input_vars, outDir)
+        to_pkl(dfsum, input_vars, outputdir)
 
 
 ######################

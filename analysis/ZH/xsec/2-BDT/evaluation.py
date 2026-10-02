@@ -43,7 +43,7 @@ from package.config import (
     modes_label, modes_color,        # Plot styling for processes
     vars_label_ll, vars_xlabel_ll,   # Variable naming for plots (leptonic channel)
     vars_label_qq, vars_xlabel_qq,   # Variable naming for plots (hadronic channel)
-    quarks, h_decays
+    get_bdt_modes                    # Build BDT signal and background samples
 )
 
 # Import data handling utilities
@@ -51,10 +51,10 @@ from package.tools.utils import load_data
 
 # Import BDT model utilities
 from package.func.bdt import (
-    load_model,                    # Load trained XGBoost model
-    get_metrics,                   # Extract training curves from model
-    print_stats,                   # Display event statistics
-    evaluate_bdt                   # Apply BDT to data and compute scores
+    load_model,    # Load trained XGBoost model
+    get_metrics,   # Extract training curves from model
+    print_stats,   # Display event statistics
+    evaluate_bdt   # Apply BDT to data and compute scores
 )
 
 
@@ -64,33 +64,12 @@ from package.func.bdt import (
 #############################
 
 # Analysis parameters from command-line arguments
-cat, ecm = arg.cat, arg.ecm  # Decay category and center-of-mass energy
-vars_label  = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq
-vars_xlabel = vars_xlabel_ll if cat in ['ee', 'mumu'] else vars_xlabel_qq
-
-# Selection strategies to evaluate (from command-line or defaults)
-if arg.sels=='':
-    sels = ['Baseline']          # Default selections if not specified
-else:
-    sels = arg.sels.split('-')   # Parse selection names from command-line
+cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
+vars_label     = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq
+vars_xlabel    = vars_xlabel_ll if cat in ['ee', 'mumu'] else vars_xlabel_qq
 
 # Process modes for BDT training (signal and all major background processes)
-modes = {
-    f'Z{cat}H':      [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else             # Signal: ZH production
-                     [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays],
-    f'WW{cat}':      [f'p8_ee_WW_ecm{ecm}' if cat == 'qq'                # Background: diboson WW
-                      else f'p8_ee_WW_{cat}_ecm{ecm}'],
-    'ZZ':            [f'p8_ee_ZZ_ecm{ecm}'],                             # Background: diboson ZZ
-    f'Z{cat}':       [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee'     # Background: Z+jets
-                      else f'wzp6_ee_{cat}_ecm{ecm}'],
-    f'gammae_{cat}': [f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
-    f'egamma_{cat}': [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}'],                # Background: radiative Z
-}
-if (cat != 'qq') and not ((cat == 'ee') and ecm == 365):
-    modes[f'gaga_{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']             # Background: diphoton
-
-if (cat == 'qq') and (ecm == 365):
-    modes['ttbar'] = ['wzp6_ee_WbWb_ecm365']
+modes = get_bdt_modes(cat, ecm)
 
 
 
@@ -98,16 +77,14 @@ if (cat == 'qq') and (ecm == 365):
 ### PLOTTING FUNCTION ###
 #########################
 
-def plot_metrics(df: 'pd.DataFrame',
-                 bdt: 'xgb.XGBClassifier',
-                 vars: list[str],
-                 results: dict[str,
-                               dict[str,
-                                    list[float]]],
-                 x_axis: 'np.ndarray',
-                 modes: list[str],
-                 cat: str,
-                 outDir: PathObj) -> None:
+def plot_metrics(
+        df: 'pd.DataFrame',
+        bdt: 'xgb.XGBClassifier',
+        results: dict[str, dict[str, list[float]]],
+        x_axis: 'np.ndarray',
+        modes: list[str],
+        cat: str,
+        outputdir: PathObj) -> None:
     """Generate comprehensive BDT evaluation plots and performance metrics.
 
     Creates multiple categories of plots:
@@ -125,10 +102,10 @@ def plot_metrics(df: 'pd.DataFrame',
         x_axis: Array of boosting rounds for plotting curves
         modes: List of process names for legends
         cat: Decay category (for plot labeling)
-        outDir: Output directory for plots
+        outputdir: Output directory for plots
 
     Returns:
-        None (writes plots to outDir)
+        None (writes plots to outputdir)
     """
 
     # Set LaTeX labels for final state particles
@@ -138,81 +115,77 @@ def plot_metrics(df: 'pd.DataFrame',
     else: raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
     # Create output directory
-    outDir.mkdir(exist_ok=True, parents=True)
+    outputdir.mkdir(exist_ok=True, parents=True)
 
     if arg.metric:
         # Lazily import plotting functions for model performance
         from package.plots.eval import (
-            log_loss,                  # Training/validation loss curves
-            classification_error,      # Error rate vs boosting rounds
-            AUC,                       # ROC AUC vs boosting rounds
-            roc,                       # ROC curve (sensitivity vs false positive rate)
-            bdt_score,                 # BDT score distribution
-            mva_score,                 # BDT score per process
-            importance,                # Feature importance ranking
-            significance,              # Signal significance vs BDT cut
-            efficiency                 # Selection efficiency curves
+            log_loss,       # Training/validation loss curves
+            error,          # Error rate vs boosting rounds
+            AUC,            # ROC AUC vs boosting rounds
+            roc_curve,      # ROC curve (sensitivity vs false positive rate)
+            bdt_score,      # BDT score distribution
+            mva_score,      # BDT score per process
+            importance,     # Feature importance ranking
+            significance,   # Signal significance vs BDT cut
+            efficiency      # Selection efficiency curves
         )
 
         LOGGER.info('Plotting the metrics for the BDT\n')
 
         # Generate training performance plots
         # These show how well the BDT is learning over iterations
-        log_loss(results, x_axis, label, outDir, best_iteration, format=plot_file)
-        classification_error(results, x_axis, label, outDir, best_iteration, format=plot_file)
-        AUC(results, x_axis, label, outDir, best_iteration, format=plot_file)
+        log_loss(results, x_axis, label, outputdir, best_iteration, format=plot_file)
+        error(results, x_axis, label, outputdir, best_iteration, format=plot_file)
+        AUC(results, x_axis, label, outputdir, best_iteration, format=plot_file)
 
         # Generate model response plots
         # These show the BDT discrimination power
-        roc(df, label, outDir, format=plot_file)
-        bdt_score(df, label, outDir, format=plot_file, unity=False, nbins=200)
-        mva_score(df, label, outDir, modes, modes_label, modes_color, format=plot_file, unity=False, nbins=200)
+        roc_curve(df, label, outputdir, format=plot_file)
+        bdt_score(df, label, outputdir, format=plot_file, unity=True, nbins=200, yscale='linear', suffix='_lin')
+        bdt_score(df, label, outputdir, format=plot_file, unity=True, nbins=200, yscale='log',    suffix='_log')
+        mva_score(df, label, outputdir, modes, modes_label, modes_color, format=plot_file, unity=False, nbins=200)
 
         # Generate feature and performance analysis plots
         # These show which variables are most important and signal purity
-        importance(bdt, vars, vars_label, label, outDir, format=plot_file)
-        significance(df, label, outDir, inBDT, format=plot_file, weight='weights', suffix='_weights')
-        significance(df, label, outDir, inBDT, format=plot_file, weight='norm_weight', suffix='_norm_weight')
-        efficiency(df, modes, modes_label, modes_color, label, outDir, incr=1e-3, format=plot_file)
+        importance(bdt, input_vars, vars_label, label, outputdir, format=plot_file)
+        significance(df, label, outputdir, loc_BDT, format=plot_file, weight='weights',       suffix='_weights')
+        significance(df, label, outputdir, loc_BDT, format=plot_file, weight='train_weights', suffix='_train_weights')
+        significance(df, label, outputdir, loc_BDT, format=plot_file, weight='norm_weight',   suffix='_norm_weight')
+        efficiency(df, modes, modes_label, modes_color, label, outputdir, incr=1e-3, format=plot_file)
 
     if arg.tree:
         # Generate visualizations of individual decision trees in the BDT
         from package.plots.eval import tree_plot
         LOGGER.info('Plotting the different decision trees in the BDT')
-        tree_plot(bdt, inBDT, outDir, epochs, 20, format=plot_file)
+        tree_plot(bdt, loc_BDT, outputdir, epochs, 20, format=plot_file)
 
     # Check input variable distributions for anomalies
     if arg.check:
         from package.plots.eval import hist_check
         LOGGER.info('Plotting histograms for input variables')
-        for var in vars:
+        for var in input_vars:
             LOGGER.info(f'Plotting histogram for {var}')
             # Create plots with both linear and logarithmic y-axes
             for yscale, suffix in [('linear', '_lin'), ('log', '_log')]:
-                hist_check(
-                    df, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                    yscale=yscale, suffix=suffix, format=plot_file, strict=True
-                )
+                hist_check(df, label, outputdir, modes, modes_label, modes_color, var, vars_xlabel[var],
+                           yscale=yscale, suffix=suffix, format=plot_file)
 
     # Optionally generate distributions in high/low BDT score regions
     if arg.hl:
         import numpy as np
         from package.plots.eval import hist_check
         LOGGER.info('Plotting histograms for input variables in high/low BDT score regions')
-        bdt_cut = np.loadtxt(f'{inBDT}/BDT_cut_weights.txt')
+        bdt_cut = np.loadtxt(f'{loc_BDT}/BDT_cut_weights.txt')
         df_high = df.query(f'BDTscore > {bdt_cut}')  # Signal-enriched region
         df_low  = df.query(f'BDTscore < {bdt_cut}')  # Background-enriched region
-        for var in vars:
+        for var in input_vars:
             LOGGER.info(f'Plotting histogram for {var}')
             for yscale, suffix in [('linear', '_lin'), ('log', '_log')]:
-                hist_check(
-                    df_high, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                    yscale=yscale, suff='high', suffix=suffix, format=plot_file, strict=True
-                )
-                hist_check(
-                    df_low, label, outDir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                    yscale=yscale, suff='low', suffix=suffix, format=plot_file, strict=True
-                )
+                hist_check(df_high, label, outputdir, modes, modes_label, modes_color, var, vars_xlabel[var],
+                           yscale=yscale, suff='high', suffix=suffix, format=plot_file)
+                hist_check(df_low, label, outputdir, modes, modes_label, modes_color, var, vars_xlabel[var],
+                           yscale=yscale, suff='low', suffix=suffix, format=plot_file)
 
 
 ######################
@@ -223,22 +196,20 @@ if __name__=='__main__':
     try:
         # Evaluate trained BDT models for each selection strategy
         for sel in sels:
-            # Input: Preprocessed data and trained BDT model
-            inDir  = loc.get('MVA_INPUTS',  cat, ecm, sel)
-            inBDT  = loc.get('BDT',         cat, ecm, sel)
-            # Output: Evaluation plots
-            outDir = loc.get('PLOTS_BDT',   cat, ecm, sel)
-            # Histograms for reference
-            data_path = loc.get('HIST_MVA', cat, ecm, sel)
+            inputdir  = loc.get('MVA_INPUTS',  cat, ecm, sel)
+            outputdir = loc.get('PLOTS_BDT',   cat, ecm, sel)
+            loc_BDT   = loc.get('BDT',         cat, ecm, sel)
 
             # Load preprocessed evaluation data
             LOGGER.info(f'Getting DataFrame from {sel}')
-            df, input_vars = load_data(inDir)
+            df, input_vars = load_data(inputdir)
+
+            LOGGER.info(f'Using {", ".join(input_vars)}')
             print_stats(df, modes)
 
             # Load trained XGBoost model
             LOGGER.debug('Loading trained BDT model')
-            bdt = load_model(inBDT)
+            bdt = load_model(loc_BDT)
 
             # Apply BDT to data to compute classification scores
             LOGGER.debug('Evaluating BDT on data')
@@ -250,7 +221,7 @@ if __name__=='__main__':
             results, epochs, x_axis, best_iteration = get_metrics(bdt)
 
             # Generate all evaluation plots and performance metrics
-            plot_metrics(df, bdt, input_vars, results, x_axis, modes, cat, outDir)
+            plot_metrics(df, bdt, results, x_axis, modes, cat, outputdir)
 
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt

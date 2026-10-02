@@ -633,7 +633,7 @@ def get_metrics(
     import numpy as np
 
     results = bdt.evals_result()
-    epochs = len(results['validation_0']['error'])
+    epochs = len(results['validation_0']['logloss'])
     # X-axis values for epoch numbering
     x_axis = np.arange(0, epochs, 1)
     # Best iteration from early stopping or total epochs
@@ -733,6 +733,7 @@ def def_bdt(
     # Get the BDT inputs from the .root file
     tlist = uproot.open(f'{loc_bdt}/xgb_bdt.root')['variables']
     var_list = ', (float)'.join([str(x) for x in tlist])
+    LOGGER.info(f'Using {var_list.replace("(float)", "")}')
 
     # Define feature vector if not already present
     if MVAVec not in defineList:
