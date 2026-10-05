@@ -57,7 +57,7 @@ bkg_procs_dict = {
 
 hist_names_dict = {
     'lep': ['zll_recoil_m_fit_high', 'zll_recoil_m_fit_low'],
-    'had': ['zqq_m_recoil_m_mva_fit_high_1D', 'zqq_m_recoil_m_mva_fit_low_1D']
+    'had': ['zqq_m_recoil_m_full_mva_fit_high_1D', 'zqq_m_recoil_m_full_mva_fit_low_1D']
 }
 # Category identifier
 cats_template: dict[str, list[str]] = {
