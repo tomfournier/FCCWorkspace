@@ -100,15 +100,8 @@ elif cat == 'qq':
     if test:
         cutList['test']  = Baseline_cut_qq(ecm, True)
         cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
-        cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
-        cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-        cutList['test4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-    elif arg.jan:
-        cutList['jan']  = Baseline_cut_qq(ecm, True)
-        cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
-        cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35'
-        cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
-        cutList['jan4'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6 && acolinearity > 0.35 && zqq_costheta < 0.85 && zqq_costheta > -0.85'
+        cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 5'
+        cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 9'
     else: cutList['Baseline'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Baseline selection (hadronic channel)
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 

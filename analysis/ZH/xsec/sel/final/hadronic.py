@@ -1,19 +1,24 @@
 
 
-def Baseline_cut_qq(ecm: int, miss: bool = False, thrust: bool = False) -> str:
+def Baseline_cut_qq(ecm: int, miss: bool = False) -> str:
+    # c.o.m energy dependent cut
+    m_dw, m_up = (20, 140) if ecm==240 else ((60, 200) if ecm==365 else (None, None))
+    p_dw, p_up = (20,  90) if ecm==240 else ((60, 160) if ecm==365 else (None, None))
+    if None in [m_dw, m_up, p_dw, p_up]:
+        raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
+
     cut = ''
-    if ecm == 240:
-        cut += 'zqq_m > 20 && zqq_m < 140'
-        cut += ' && zqq_p > 20 && zqq_p < 90'
-    elif ecm == 365:
-        cut += 'zqq_m > 60 && zqq_m < 200'
-        cut += ' && zqq_p > 20 && zqq_p < 160'
-    else:
-        raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
-    if miss:
-        cut += ' && cosTheta_miss < 0.995'
-    if thrust and (ecm == 365):
-        cut += ' && thrust < 0.85'
+    # Di-jet mass cut
+    cut += f'zqq_m > {m_dw} && zqq_m < {m_up}'
+
+    # Di-jet momentum cut
+    cut += f'zqq_p > {p_dw} && zqq_p < {p_up}'
+
+    # Di-jet polar angle cut
+    cut += 'zqq_costheta > -0.9 && zqq_costheta < 0.9'
+
+    # Missing energy polar angle cut (optional)
+    if miss: cut += ' && cosTheta_miss < 0.995'
 
     return cut
 
