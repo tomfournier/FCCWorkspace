@@ -419,6 +419,12 @@ def add_plots_args(parser: ArgumentParser) -> None:
     '''Add plots arguments (yields, decay, make, scan)'''
     args = parser.add_argument_group('Plots arguments')
     args.add_argument(
+        '--variables',
+        type=str,
+        default='all',
+        help='Variables to plot (default: all)'
+    )
+    args.add_argument(
         '--yields',
         action=BooleanOptionalAction,
         default=True,

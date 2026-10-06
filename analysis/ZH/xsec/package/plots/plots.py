@@ -27,6 +27,7 @@ class HistogramPlot:
         legend: dict[str, str],
         ecm: int = 240,
         lumi: float = 10.8,
+        tot: bool = False
     ) -> None:
 
         self.variable = variable
@@ -38,10 +39,11 @@ class HistogramPlot:
         self.legend   = legend
         self.ecm      = ecm
         self.lumi     = lumi
+        self.tot      = tot
 
         if not plots:
             raise ValueError('HistogramPlot requires a non-empty plots mapping')
-        self.sig_processes = plots.get('signal', {})
+        self.sig_processes = plots.get('signals', {})
         self.bkg_processes = plots.get('backgrounds', {})
         self.signals     = list(self.sig_processes)
         self.backgrounds = list(self.bkg_processes)
@@ -53,6 +55,7 @@ class HistogramPlot:
         suffix: str,
         rebin: int = 1,
         lazy: bool = True,
+        normalize: bool = False
     ) -> dict[str, Any]:
 
         '''Load one histogram for each configured process.'''
@@ -61,12 +64,15 @@ class HistogramPlot:
 
         process_map = dict(self.bkg_processes)
         process_map.update(self.sig_processes)
-        return load_hists(
-            process_map,
-            self.variable,
-            self.inDir,
-            suffix, rebin, lazy,
-        )
+
+        raw_hists =  load_hists(process_map, self.variable,
+                                self.inDir, suffix, rebin, lazy)
+        if normalize:
+            for k, h in raw_hists.items():
+                integral = h.Integral()
+                norm = 1.0 / integral if integral>0 else 1
+                raw_hists[k].Scale(norm)
+        return raw_hists
 
 
     def define_legend(
@@ -113,7 +119,7 @@ class HistogramPlot:
         hist.SetLineWidth(width)
         hist.SetLineStyle(style)
         if fill_color is not None:
-            hist.SetFilleColor(fill_color)
+            hist.SetFillColor(fill_color)
         if scale != 1.:
             hist.Scale(scale)
 
@@ -141,9 +147,9 @@ class HistogramPlot:
             self.style_hist(
                 hist,
                 self.colors[process] if is_signal else ROOT.kBlack,
-                3 if is_signal else 1,
-                self.colors[process] if not is_signal else None,
+                3 if is_signal else 1, 1,
                 sig_scale if is_signal else bkg_scale,
+                self.colors[process] if not is_signal else None,
             )
             label = self.legend[process]
             if is_signal and sig_scale != 1:
@@ -263,7 +269,7 @@ class HistogramPlot:
     def draw(
         self,
         histograms: dict[str, Any],
-        stack: Any,
+        stack: Any | None,
         backgrounds: list[Any],
         legend_obj: Any,
         stack_signals: bool = False,
@@ -275,19 +281,25 @@ class HistogramPlot:
         from .root import plotter
 
         plotter.cfg = self.cfg
-        canvas, dummy = plotter.canvas(), plotter.dummy()
+        canvas, dummy = plotter.canvas(), plotter.dummy(1 if not xlabels else len(xlabels))
 
         if len(xlabels) > 0:
             dummy.GetXaxis().SetLabelSize(0.8 * dummy.GetXaxis().GetLabelSize())
-            dummy.GetXaxis().SetLabelOffsett(1.3 * dummy.GetXaxis().GetLabelOffset())
+            dummy.GetXaxis().SetLabelOffset(1.3 * dummy.GetXaxis().GetLabelOffset())
             for i, label in enumerate(xlabels): dummy.GetXaxis().SetBinLabel(i+1, label)
-            dummy.GetXaxis.LabelsOption('u')
+            # dummy.GetXaxis.LabelsOption('u')
 
         dummy.Draw('HIST')
         if stack_signals:
-            for signal in self.signals:
-                stack.Add(histograms[signal])
-            stack.Draw('HIST SAME')
+            if stack is None:
+                LOGGER.warning('No stack was provided while stack = True. '
+                               'Just plotting the signal')
+                for signal in self.signals:
+                    histograms[signal].Draw('HIST SAME')
+            else:
+                for signal in self.signals:
+                    stack.Add(histograms[signal])
+                stack.Draw('HIST SAME')
         else:
             if backgrounds:
                 stack.Draw('HIST SAME')
@@ -318,16 +330,14 @@ class HistogramPlot:
             else 'low' if '_low' in self.sel
             else 'nominal'
         )
-        category = 'tot' if 'ZH' in self.signals else 'cat'
+        category = 'tot' if self.tot else 'cat'
         out = Path(f'{self.outDir}/{base_sel}/{direction}/{category}')
         out.mkdir(exist_ok=True, parents=True)
 
         finalize_canvas(canvas)
-        save_plot(
-            canvas, out, outName,
-            ('_log' if logY else '_lin') + suffix,
-            format, quiet,
-        )
+        save_plot(canvas, out, outName,
+                  ('_log' if logY else '_lin') + suffix,
+                  format, quiet)
 
 
     def plot(

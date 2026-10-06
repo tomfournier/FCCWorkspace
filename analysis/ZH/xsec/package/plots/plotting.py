@@ -44,6 +44,8 @@ Lazy Imports:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
+from inspect import Parameter, signature
+from re import search
 from typing import Any, Union, TYPE_CHECKING
 
 from package.func.bias import getMetaInfo
@@ -55,10 +57,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import ROOT
 
-from ..config import (
-    h_colors,
-    h_labels,
-)
+from ..config import h_labels
 from ..tools.utils import mkdir
 from ..logger import get_logger
 
@@ -78,6 +77,10 @@ PLT_STYLE_SET = False
 ########################
 ### HELPER FUNCTIONS ###
 ########################
+
+def _label_parts(label: str) -> tuple[str, str]:
+    match = search(r'\s*\[([^]]+)\]\s*$', label)
+    return (label[:match.start()], match.group(1)) if match else (label, '')
 
 def _ensure_plt_style() -> None:
     '''Initialize matplotlib styling once to avoid repeated setup calls.
@@ -110,13 +113,11 @@ def _parse_selection_dir(
     return f'{outDir}/{subdir}/{base_sel}/{direction}'
 
 def _extract_nested_args(
-    var_args: dict,
+    var_args: dict[str, dict | float | int | str],
     ecm: int,
-    sel: str
-     ) -> dict[str,
-               Union[float,
-                     int,
-                     str]]:
+    sel: str,
+    function
+     ) -> dict[str, float | int | str]:
     '''Navigate nested args structure to extract parameters for given ecm and sel.
 
     Supports flexible hierarchical nesting with wildcard selection matching:
@@ -134,6 +135,7 @@ def _extract_nested_args(
         var_args (dict): The args dictionary for a specific variable.
         ecm (int): Center-of-mass energy in GeV.
         sel (str): Selection criteria identifier to match.
+        function: Plotting function whose parameters define valid option keys.
 
     Returns:
         dict: Copy of matched parameters dict, or empty dict if no match found.
@@ -142,16 +144,11 @@ def _extract_nested_args(
     current = var_args
 
     # Try to navigate by ecm (as integer key) if present
-    if ecm in current:
-        current = current[ecm]
+    if ecm in current: current = current[ecm]
 
     # Try to find matching sel pattern in current level
-    # Look for string keys that could be selection patterns
-    param_keys = {
-        'xmin', 'xmax', 'ymin', 'ymax', 'rebin', 'which', 'sel',
-        'ecm', 'lumi', 'suffix', 'outName', 'format', 'strict',
-        'logX', 'logY', 'stack', 'sig_scale', 'lazy', 'tot'
-    }
+    # Function parameters identify option keys; all other string keys are patterns.
+    param_keys = set(signature(function).parameters)
 
     for key in current.keys():
         if isinstance(key, str) and key not in param_keys:
@@ -200,6 +197,27 @@ def _extract_nested_args(
     # Return empty dict if no parameters found
     return {}
 
+def decay_plots(process: str, ecm: int) -> dict[str, dict[str, tuple[str, ...]]]:
+    from ..config import get_process_dict, H_decays
+    return {'signals': {decay: get_process_dict([process], ecm, h_decays=[decay])[process]
+                        for decay in H_decays}}
+
+
+def plot_configs(ecm: int, cat: str) -> dict[str, dict[str, dict[str, tuple[str, ...]]]]:
+    from ..config import get_process_dict
+    backgrounds = get_process_dict(['WW', 'ZZ', 'Zgamma', 'Rare'] +
+                                   (['tt'] if cat == 'qq' and ecm == 365 else []), ecm)
+    category = {'signals': get_process_dict([f'Z{cat}H'], ecm),
+                'backgrounds': backgrounds}
+    total = {'signals': get_process_dict(['ZH'], ecm),
+             'backgrounds': backgrounds}
+    return {
+        'category': category,
+        'total':    total,
+        'decay':       decay_plots(f'Z{cat}H', ecm),
+        'total_decay': decay_plots('ZH', ecm),
+    }
+
 
 
 ######################
@@ -209,15 +227,11 @@ def _extract_nested_args(
 # ___________________________________________
 def get_args(
     var: str,
-    sel: str,
-    cat: str,
-    ecm: int,
-    lumi: float,
-    args: dict[str,
-               dict[str,
-                    Union[str, float, int]]]
-     ) -> dict[str,
-               Union[str, float, int]]:
+    function,
+    args: dict[str, dict[str, Union[str, float, int]]],
+    context: dict[str, Any] | None = None,
+    **overrides: Any
+     ) -> dict[str, Any]:
     '''Extract and merge plotting arguments for variable/selection with defaults.
 
     Retrieves user-provided plotting options, applies selection and energy filters,
@@ -251,152 +265,43 @@ def get_args(
         dict[str, Union[str, float, int]]: Complete plotting config with all keys populated.
     '''
 
-    # Use helper function to navigate nested structure
-    arg = _extract_nested_args(args[var], ecm, sel) if var in args else {}
+    context = {**(context or {}), **overrides}
+    sel, ecm, lumi = context['sel'], context['ecm'], context['lumi']
+    parameters = signature(function).parameters
+    raw = _extract_nested_args(args[var], ecm, sel, function) if var in args else {}
+    defaults = {name: parameter.default
+                for name, parameter in parameters.items()
+                if parameter.default is not Parameter.empty}
 
-    if 'which' in arg:
-        if arg['which']=='both':
-            del arg['which']
-        elif arg['which']=='make':
-            del arg['which']
-        elif arg['which']=='decay':
-            arg = {}
-        else:
-            LOGGER.warning("Wrong value given to 'which', acting as if 'both' were given")
+    which = raw.get('which', 'both')
+    mode = 'decay' if function is PlotDecays else 'make'
+    if which not in ('both', mode): raw = {}
+    if which not in ('both', 'make', 'decay'):
+        LOGGER.warning("Wrong value given to 'which', acting as 'both'")
 
+    if 'sel' in raw:
+        match = raw['sel']
+        if match != sel and match.replace('*', '') not in sel: raw = {}
+    if 'ecm' in raw:
+        if raw['ecm'] != ecm: raw = {}
+        else: raw.pop('ecm')
 
-    if 'sel' in arg:
-        if '*' in arg['sel']:
-            if arg['sel'].replace('*', '') not in sel:
-                arg = {}
-            else:
-                del arg['sel']
-        elif arg['sel']!=sel:
-            arg = {}
-        else:
-            del arg['sel']
+    if 'format' in raw and 'file_formats' in parameters:
+        raw['file_formats'] = raw['format']
+    if 'file_formats' in raw and 'format' in parameters:
+        raw['format'] = raw['file_formats']
 
-    if 'ecm' in arg and arg['ecm']==ecm:
-        del arg['ecm']
-    elif 'ecm' in arg and arg['ecm']!=ecm:
-        arg = {}
-    else:
-        pass
+    result = defaults.copy()
+    result.update({name: raw[name]     for name in defaults   if name in raw})
+    result.update({name: context[name] for name in parameters if name in context})
+    if 'ecm'      in parameters: result['ecm']      = ecm
+    if 'lumi'     in parameters: result['lumi']     = lumi
+    if 'sel'      in parameters: result['sel']      = sel
+    if 'variable' in parameters: result['variable'] = var
+    if function is makePlot and 'sig_scale' not in raw:
+        result['sig_scale'] = 1. if context.get('cat') in ('ee', 'mumu') else 10.
+    return result
 
-    for key in ['xmin', 'xmax', 'ymin', 'ymax']:
-        arg.setdefault(key, None)
-
-    arg.setdefault('rebin', 1)
-    arg.setdefault('ecm',  ecm)
-    arg.setdefault('lumi', lumi)
-
-    arg.setdefault('suffix',  '')
-    arg.setdefault('outName', '')
-    arg.setdefault('format', ['png'])
-
-    arg.setdefault('strict', True)
-    arg.setdefault('logX',   False)
-
-    arg.setdefault('stack',  False)
-    if cat in ['ee', 'mumu']:
-        arg.setdefault('sig_scale', 1.)
-    elif cat == 'qq':
-        arg.setdefault('sig_scale', 10)
-    else:
-        raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
-
-
-    return arg
-
-# ___________________________________________
-def args_decay(
-    var: str,
-    sel: str,
-    ecm: int,
-    lumi: float,
-    args: dict[str,
-               dict[str,
-                    Union[str, float, int]]]
-     ) -> dict[str,
-               Union[str, float, int]]:
-    '''Extract decay-mode plotting arguments for variable/selection with defaults.
-
-    Similar to `get_args()` but filters out 'make' mode arguments (keeps 'both' and 'decay').
-    This function is used when generating decay-specific plots that should not include
-    'make' (stacked yield) plots.
-
-    Hierarchical Lookup:
-    - args[var] = {...params...}  # Direct parameters
-    - args[var][ecm] = {...params...}  # By center-of-mass energy
-    - args[var][ecm][sel_pattern] = {...params...}  # By energy and selection
-    - args[var][sel_pattern] = {...params...}  # By selection only
-
-    Selection Patterns:
-    - Exact match: sel == pattern
-    - Wildcard: 'Baseline*' matches 'Baseline', 'Baseline_high', 'Baseline_low'
-    - Pipe-separated: 'Baseline_sep|Baseline_high' matches either pattern
-
-    Filter Keys (same as get_args):
-    - 'which' (str): 'both', 'decay' — 'make' is rejected and args cleared
-    - 'sel' (str): Selection filter; '*' wildcard supported
-    - 'ecm' (int): Energy filter; non-matching args cleared
-
-    Args:
-        var (str): Variable name to retrieve arguments for.
-        sel (str): Selection criteria identifier.
-        ecm (int): Center-of-mass energy in GeV.
-        lumi (float): Integrated luminosity in ab^-1.
-        args (dict[str, dict[str, Union[str, float, int]]]): Nested dictionary of plotting arguments.
-
-    Returns:
-        dict[str, str | float | int]: Complete decay-plot config with all keys populated.
-    '''
-
-    # Use helper function to navigate nested structure
-    arg = _extract_nested_args(args[var], ecm, sel) if var in args else {}
-    if 'which' in arg:
-        if arg['which']=='both':
-            del arg['which']
-        elif arg['which']=='make':
-            arg = {}
-        elif arg['which']=='decay':
-            del arg['which']
-        else:
-            LOGGER.warning("Wrong value given to 'which', acting as if 'both' were given")
-
-    if 'sel' in arg:
-        if '*' in arg['sel']:
-            if arg['sel'].replace('*', '') not in sel:
-                arg = {}
-            else:
-                del arg['sel']
-        elif arg['sel']!=sel:
-            arg = {}
-        else:
-            del arg['sel']
-
-    if 'ecm' in arg and arg['ecm']==ecm:
-        del arg['ecm']
-    elif 'ecm' in arg and arg['ecm']!=ecm:
-        arg = {}
-    else:
-        pass
-
-    for key in ['xmin', 'xmax', 'ymin', 'ymax']:
-        arg.setdefault(key, None)
-
-    arg.setdefault('rebin', 1)
-    arg.setdefault('ecm',  ecm)
-    arg.setdefault('lumi', lumi)
-
-    arg.setdefault('suffix',  '')
-    arg.setdefault('outName', '')
-    arg.setdefault('format', ['png'])
-
-    arg.setdefault('strict', True)
-    arg.setdefault('logX',   False)
-
-    return arg
 
 # ________________________________________
 def significance(
@@ -404,10 +309,8 @@ def significance(
     inDir: str,
     outDir: str,
     sel: str,
-    procs: list[str],
-    processes: dict[str, list[str]],
-    vars_label: dict[str, str],
-    vars_xlabel: dict[str, str],
+    plots: dict[str, dict[str, list[str]]],
+    var_labels: dict[str, str],
     locx: str = 'right',
     locy: str = 'top',
     xMin: Union[float, int, None] = None,
@@ -459,14 +362,18 @@ def significance(
     if outName=='': outName = variable
     suff  = f'_{sel}_histo'
 
+    sig_procs = list(plots['signals'])
+    if len(sig_procs) != 1:
+        raise ValueError('Only support one signal process')
+    sig = sig_procs[0]
     h_sig = getHist(variable,
-                    processes[procs[0]], inDir,
+                    plots['signals'][sig], inDir,
                     suffix=suff, rebin=rebin)
     sig_tot = h_sig.Integral()
 
     bkgs_procs = []
-    for bkg in procs[1:]:
-        bkgs_procs.extend(processes[bkg])
+    for bkg in plots['backgrounds'].keys():
+        bkgs_procs.extend(plots['backgrounds'][bkg])
 
     h_bkg = getHist(variable, bkgs_procs, inDir,
                     suffix=suff, rebin=rebin, lazy=lazy)
@@ -488,10 +395,8 @@ def significance(
         centers = np.linspace(xaxis.GetXmin(), xaxis.GetXmax(), nbins + 1, dtype=np.float64)
 
     mask = np.ones(nbins+1, dtype=bool)
-    if xMin is not None:
-        mask &= (centers >= xMin)
-    if xMax is not None:
-        mask &= (centers <= xMax)
+    if xMin is not None: mask &= (centers >= xMin)
+    if xMax is not None: mask &= (centers <= xMax)
 
     # Compute cumulative sums from either left or right depending on reverse flag.
     if reverse:
@@ -517,43 +422,21 @@ def significance(
     fig, ax1 = plt.subplots()
 
     ax2 = ax1.twinx()
-    ax2.plot(
-        x, l, color='red',
-        linewidth=3,
-        label='Signal efficiency'
-    )
-    ax1.scatter(
-        x, y, color='blue',
-        marker='o',
-        label='Significance'
-    )
-    ax1.scatter(
-        max_x, max_y, color='red',
-        marker='*', s=150
-    )
+    ax2.plot(x, l, color='red', linewidth=3,
+             label='Signal efficiency')
+    ax1.scatter(x, y, color='blue', marker='o',
+                label='Significance')
+    ax1.scatter(max_x, max_y, color='red',
+                marker='*', s=150)
 
-    ax1.axvline(
-        max_x, color='black',
-        alpha=0.8, linewidth=1
-    )
-    ax1.axhline(
-        max_y, color='blue',
-        alpha=0.8, linewidth=1
-    )
-    ax2.axhline(
-        max_l, color='red',
-        alpha=0.8, linewidth=1
-    )
+    ax1.axvline(max_x, color='black', alpha=0.8, linewidth=1)
+    ax1.axhline(max_y, color='blue',  alpha=0.8, linewidth=1)
+    ax2.axhline(max_l, color='red',   alpha=0.8, linewidth=1)
 
     ax1.set_xlim(min(x), max(x))
-    if variable=='H':
-        GeV = ' GeV$^{2}$'
-    elif 'GeV' in vars_xlabel[variable]:
-        GeV = ' GeV'
-    else:
-        GeV = ''
+    label, unit = _label_parts(var_labels[variable])
 
-    set_labels(ax1, vars_xlabel[variable], 'Significance', left=' ', locx=locx, locy=locy)
+    set_labels(ax1, var_labels[variable], 'Significance', left=' ', locx=locx, locy=locy)
     ax1.tick_params(axis='y', labelcolor='blue')
     ax1.yaxis.label.set_color('blue')
 
@@ -563,44 +446,27 @@ def significance(
     ax2.grid(False, axis='y')
 
     if reverse:
-        ax1.set_title(
-            rf'Max: {vars_label[variable]} $<$ {max_x:.2f}{GeV}, '
-            rf'Significance = {max_y:.2f}, '
-            rf'Signal eff = {max_l*100:.1f} \%'
-        )
+        ax1.set_title(rf'Max: {label} $<$ {max_x:.2f} {unit}, '
+                      rf'Significance = {max_y:.2f}, Signal eff = {max_l*100:.1f} \%')
     else:
-        ax1.set_title(
-            rf'Max: {vars_label[variable]} $>$ {max_x:.2f}{GeV}, '
-            rf'Significance = {max_y:.2f}, '
-            rf'Signal eff = {max_l*100:.1f} \%'
-        )
+        ax1.set_title(rf'Max: {label} $>$ {max_x:.2f} {unit}, '
+                      rf'Significance = {max_y:.2f}, Signal eff = {max_l*100:.1f} \%')
     fig.tight_layout()
 
-    s = sel.replace('_high', '').replace('_low', '')
-    if '_high' in sel: d = 'high'
-    elif '_low' in sel: d = 'low'
-    else: d = 'nominal'
-    out = f'{outDir}/significance/{s}/{d}'
+    out = _parse_selection_dir(sel, outDir, 'significance')
     mkdir(out)
 
     suffix = '_reverse' if reverse else ''
-    savefigs(
-        fig, out, outName,
-        suffix=suffix,
-        format=format
-    )
+    savefigs(fig, out, outName, suffix, format)
     plt.close()
 
 
-
-def makePlot_bis(
+def makePlot(
         variable: str,
-        inputDir: str,
-        outputDir: str,
-        selection: str,
+        inDir: str,
+        outDir: str,
+        sel: str,
         plots: dict[str, dict[str, list[str]]],
-        colors: dict[str, Any],
-        legend: dict[str, Any],
         ecm: int = 240,
         lumi: float = 10.8,
         xmin: float | int | None = None,
@@ -623,217 +489,60 @@ def makePlot_bis(
         stack: bool = False,
         strict: bool = True,
         lazy: bool = True,
+        tot: bool = False,
         quiet: bool = True
 )-> None:
 
     from .plots import HistogramPlot
+    from ..config import colors, legend
 
-    histoplot = HistogramPlot(variable, selection,
-                              inputDir, outputDir,
-                              plots, colors, legend, ecm, lumi)
+    histoplot = HistogramPlot(variable, sel, inDir, outDir,
+                              plots, colors, legend, ecm, lumi, tot)
 
-    legend = histoplot.define_legend(len(plots['signals']) + len[plots['backgrounds']])
-    all_hists = histoplot.load_histograms(f'_{selection}_histo', rebin, lazy)
+    legend = histoplot.define_legend(len(plots['signals']) + len(plots['backgrounds']))
+    all_hists = histoplot.load_histograms(f'_{sel}_histo', rebin, lazy)
     stack_hist, sig_hists, bkg_hists = histoplot.style_histograms(
         all_hists, legend, sig_scale, bkg_scale)
 
-    histoplot.cfg = histoplot.build_config(
-        sig_hists, bkg_hists,
-        xmin, xmax, ymin, ymax, logX, logY,
-        xtitle, ytitle, scale_min, scale_max,
-        strict, stack)
+    histoplot.cfg = histoplot.build_config(sig_hists, bkg_hists,
+                                           xmin, xmax, ymin, ymax, logX, logY,
+                                           xtitle, ytitle, scale_min, scale_max, strict, stack)
 
-    canvas, _ = histoplot.draw(
-        all_hists, stack_hist, bkg_hists,
-        legend, stack, xlabels)
+    canvas, _ = histoplot.draw(all_hists, stack_hist, bkg_hists,
+                               legend, stack, xlabels)
 
     outName = variable if not outName else outName
     histoplot.save(canvas, outName, suffix, file_formats, logY, quiet)
-    canvas.close()
-
-
-
-# ________________________________________
-def makePlot(
-    variable: str,
-    inDir: str,
-    outDir: str,
-    sel: str,
-    procs: list[str],
-    processes: dict[str, list[str]],
-    colors: dict[str, str],
-    legend: dict[str, str],
-    ecm: int = 240,
-    lumi: float = 10.8,
-    suffix: str = '',
-    outName: str = '',
-    format: list[str] = ['png'],
-    xmin: Union[float, int, None] = None,
-    xmax: Union[float, int, None] = None,
-    ymin: Union[float, int, None] = None,
-    ymax: Union[float, int, None] = None,
-    rebin: int = 1,
-    sig_scale: float = 1.,
-    strict: bool = True,
-    logX: bool = False,
-    logY: bool = True,
-    stack: bool = False,
-    lazy: bool = True,
-    quiet: bool = False
-     ) -> None:
-    '''Draw signal/background histograms with optional background stacking.
-
-    Loads and styles histograms, applies rebinning and scaling, and renders
-    with ROOT graphics backend. Supports both overlaid and stacked display modes.
-
-    Drawing Order (non-stacked):
-    - Background histograms (filled, drawn first)
-    - Signal histogram (line, drawn last for visibility)
-
-    Drawing Order (stacked):
-    - Background stack (filled)
-    - Signal histogram added to stack (line style)
-
-    Args:
-        variable (str): Variable name to plot.
-        inDir (str): Path to input histogram files.
-        outDir (str): Path for output plots.
-        sel (str): Selection tag for organization.
-        procs (list[str]): Process names; first is signal, rest are backgrounds.
-        processes (dict[str, list[str]]): Process name to sample/file mapping.
-        colors (dict[str, str]): Process name to ROOT color code mapping.
-        legend (dict[str, str]): Process name to legend label mapping.
-        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
-        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
-        suffix (str, optional): Filename suffix. Defaults to ''.
-        outName (str, optional): Base output filename (default: variable). Defaults to ''.
-        format (list[str], optional): Image formats ['png', 'pdf']. Defaults to ['png'].
-        xmin (float | int | None, optional): X-axis range lower limit. Defaults to None.
-        xmax (float | int | None, optional): X-axis range upper limit. Defaults to None.
-        ymin (float | int | None, optional): Y-axis range lower limit. Defaults to None.
-        ymax (float | int | None, optional): Y-axis range upper limit. Defaults to None.
-        rebin (int, optional): Histogram rebinning factor. Defaults to 1.
-        sig_scale (float, optional): Signal scale factor for visibility. Defaults to 1.0.
-        strict (bool, optional): Strict axis range enforcement. Defaults to True.
-        logX (bool, optional): Use logarithmic X-axis. Defaults to False.
-        logY (bool, optional): Use logarithmic Y-axis. Defaults to True.
-        stack (bool, optional): Stack backgrounds; signal overlaid if True. Defaults to False.
-        lazy (bool, optional): Use lazy histogram loading. Defaults to True.
-    '''
-
-    # Lazy-load ROOT and helpers
-    import ROOT
-    ROOT.gROOT.SetBatch(True)
-    ROOT.gStyle.SetOptStat(0)
-    ROOT.gStyle.SetOptTitle(0)
-
-    from .root import plotter
-    from .root.plotter import finalize_canvas
-    from .root.helper import (
-        mk_legend, load_hists, build_cfg, style_hist, save_plot
-    )
-
-    if outName == '': outName = variable
-    suff = f'_{sel}_histo'
-
-    Processes = {k:v for k, v in processes.items() if k in procs}
-
-    leg = mk_legend(len(procs))
-    raw_hists = load_hists(
-        Processes,
-        variable,
-        inDir,
-        suffix=suff,
-        rebin=rebin,
-        lazy=lazy
-    )
-
-    # Extract signal histogram and initialize background stack.
-    sig_key = procs[0]
-    sig_hist = raw_hists.get(sig_key)
-
-    st, bkgs = ROOT.THStack(), []
-    st.SetName('stack')
-
-    # Style histograms in-place without cloning for faster execution
-    for proc in procs:
-        hist = raw_hists.get(proc)
-        if not hist:
-            continue
-
-        is_sig = proc == sig_key
-        scale = f' (#times {int(sig_scale)})' if is_sig and sig_scale!=1 else ''
-        style_hist(
-            hist,
-            color=colors[proc] if is_sig else ROOT.kBlack,
-            width=3 if is_sig else 1,
-            fill_color=colors[proc] if not is_sig else None,
-            scale=sig_scale if is_sig else 1.
-        )
-        leg.AddEntry(hist, legend[proc]+scale, 'L' if is_sig else 'F')
-
-        if not is_sig:
-            st.Add(hist)
-            bkgs.append(hist)
-
-    cfg = build_cfg(
-        sig_hist,
-        logX, logY,
-        xmin, xmax,
-        ymin, ymax,
-        ecm=ecm, lumi=lumi,
-        strict=strict,
-        stack=stack,
-        hists=bkgs
-    )
-
-    plotter.cfg = cfg
-    canvas, dummy = plotter.canvas(), plotter.dummy()
-    dummy.Draw('HIST')
-    if stack:
-        st.Add(sig_hist)
-        st.Draw('HIST SAME')
-    else:
-        if bkgs:
-            st.Draw('HIST SAME')
-        sig_hist.Draw('HIST SAME')
-    leg.Draw('SAME')
-
-    finalize_canvas(canvas)
-    base = _parse_selection_dir(sel, outDir, 'makePlot')
-    linlog = '_log' if logY else '_lin'
-    out = f'{base}/tot' if procs[0] == 'ZH' else f'{base}/cat'
-    save_plot(canvas, out, outName, linlog+suffix, format, quiet)
-
-    # Explicitly delete objects to free memory faster
     canvas.Close()
-    del canvas, dummy, leg, st
 
 
-# ________________________________________
 def PlotDecays(
     variable: str,
     inDir: str,
     outDir: str,
     sel: str,
-    z_decays: list[str],
-    h_decays: list[str],
+    plots: dict[str, dict[str, list[str]]],
     ecm: int = 240,
     lumi: float = 10.8,
-    rebin: int = 1,
-    outName: str = '',
-    suffix: str = '',
-    format: list[str] = ['png'],
     xmin: Union[float, int, None] = None,
     xmax: Union[float, int, None] = None,
     ymin: Union[float, int, None] = None,
     ymax: Union[float, int, None] = None,
     logX: bool = False,
     logY: bool = False,
-    lazy: bool = True,
+    xtitle: str = '',
+    ytitle: str = 'Unit Area',
+    xlabels: list[str] = [],
+    outName: str = '',
+    suffix: str = '',
+    scale_min: float | None = None,
+    scale_max: float | None = None,
+    rebin: int = 1,
+    file_formats: list[str] = ['png'],
     strict: bool = True,
+    lazy: bool = True,
     tot: bool = False,
-    quiet: bool = False
+    quiet: bool = True
      ) -> None:
     '''Plot Higgs decay modes with unit-integral normalization for shape comparison.
 
@@ -865,83 +574,27 @@ def PlotDecays(
         tot (bool, optional): Save to 'tot' subdir if True, 'cat' subdir if False. Defaults to False.
     '''
 
-    # Lazy-load ROOT and helpers
-    import ROOT
-    ROOT.gROOT.SetBatch(True)
-    ROOT.gStyle.SetOptStat(0)
-    ROOT.gStyle.SetOptTitle(0)
+    from .plots import HistogramPlot
+    from ..config import h_colors as colors, h_labels as legend
 
-    from .root import plotter
-    from ..tools.process import get_range_decay
-    from .root.plotter import finalize_canvas
-    from .root.helper import (
-        mk_legend, load_hists, build_cfg, style_hist, save_plot
-    )
+    histoplot = HistogramPlot(variable, sel, inDir, outDir,
+                              plots, colors, legend, ecm, lumi, tot)
 
-    if outName == '': outName = variable
-    suff = f'_{sel}_histo'
+    legend = histoplot.define_legend(len(plots['signals']), 4,
+                                     0.2, 0.925, 0.95, 0.925)
+    all_hists = histoplot.load_histograms(f'_{sel}_histo', rebin, lazy, True)
+    _, hists, _ = histoplot.style_histograms(all_hists, legend)
 
-    sigs = {
-        h: [f'wzp6_ee_{z}H_H{h}_ecm{ecm}' for z in z_decays]
-        for h in h_decays
-    }
+    histoplot.cfg = histoplot.build_config(hists, [],
+                                           xmin, xmax, ymin, ymax, logX, logY,
+                                           xtitle, ytitle, scale_min, scale_max, strict)
 
-    raw_hists = load_hists(
-        sigs, variable, inDir, suff, rebin=rebin, lazy=lazy
-    )
-    hists = {
-        h_decay: hist.Clone(f'{h_decay}_{variable}')
-        for h_decay, hist in raw_hists.items() if hist
-    }
-    leg = mk_legend(
-        len(sigs),
-        columns=4,
-        x1=0.2,  y1=0.925,
-        x2=0.95, y2=0.925
-    )
+    canvas, _ = histoplot.draw(all_hists, None, [],
+                               legend, False, xlabels)
 
-    # Normalize each decay mode histogram to unity for shape comparison.
-    for h_decay, hist in hists.items():
-        integral = hist.Integral()
-        norm = 1.0 / integral if integral>0 else 1.0
-        style_hist(
-            hist,
-            h_colors[h_decay],
-            width=2,
-            scale=norm
-        )
-        leg.AddEntry(hist, h_labels[h_decay], 'L')
-
-    ref_hist = next(iter(hists.values()))
-    cfg = build_cfg(
-        ref_hist,
-        logX=logX, logY=logY,
-        xmin=xmin, xmax=xmax,
-        ymin=ymin, ymax=ymax,
-        ecm=ecm, lumi=lumi,
-        strict=strict,
-        ytitle='Unit Area',
-        hists=list(hists.values()),
-        range_func=get_range_decay,
-        decay=True
-    )
-
-    plotter.cfg = cfg
-    canvas, dummy = plotter.canvas(), plotter.dummy(1)
-    dummy.Draw('HIST')
-
-    for hist in hists.values(): hist.Draw('SAME HIST')
-    leg.Draw('SAME')
-
-    base = _parse_selection_dir(sel, outDir, 'higgsDecays')
-    out = f'{base}/tot' if tot else f'{base}/cat'
-    linlog = '_log' if logY else '_lin'
-    finalize_canvas(canvas)
-    save_plot(canvas, out, outName, linlog+suffix, format, quiet)
-
-    # Explicitly delete objects to free memory faster
+    outName = variable if not outName else outName
+    histoplot.save(canvas, outName, suffix, file_formats, logY, quiet)
     canvas.Close()
-    del canvas, dummy, leg
 
 
 # _______________________________
@@ -950,8 +603,6 @@ def AAAyields(
     inDir: str,
     outDir: str,
     plots: dict[str, list[str]],
-    legend: dict[str, str],
-    colors: dict[str, str],
     cat: str, sel: str,
     ecm: int = 240,
     lumi: float = 10.8,
@@ -1001,98 +652,62 @@ def AAAyields(
         raise ValueError(f'{cat} value is not supported')
 
     # Lazy-load ROOT, numpy and helpers
-    import numpy as np
-    import ROOT
+    import numpy as np, ROOT
     ROOT.gROOT.SetBatch(True)
     ROOT.gStyle.SetOptStat(0)
     ROOT.gStyle.SetOptTitle(0)
 
+    from ..config import colors, legend
     from .root import plotter
     from ..tools.process import getHist
     from .root.helper import (
-        mk_legend, style_hist, savecanvas, draw_latex, configure_axis
+        mk_legend, style_hist,
+        savecanvas, draw_latex,
+        configure_axis
     )
 
     suffix = f'_{sel}_histo'
 
-    signal      = plots['signal']
+    signals     = plots['signals']
     backgrounds = plots['backgrounds']
 
-    leg = mk_legend(
-        len(signal)+len(backgrounds),
-        x1=0.6, y1=0.86, x2=0.9, y2=0.88,
-        text_font=42)
+    leg = mk_legend(len(signals)+len(backgrounds),
+                    x1=0.6, y1=0.86, x2=0.9, y2=0.88, text_font=42)
 
     yields = {}
-    for s in signal:
-        hist = getHist(
-            hName,
-            signal[s], inDir,
-            suffix=suffix, lazy=lazy,
-            use_cache=False
-        )
+    for s in signals:
+        hist = getHist(hName, signals[s], inDir,
+                       suffix, lazy=lazy, use_cache=False)
         integral = hist.Integral()
         entries  = hist.GetEntries()
 
-        style_hist(
-            hist,
-            color=colors[s],
-            scale=scale_sig,
-            width=4
-        )
+        style_hist(hist, colors[s], 4, 1, scale_sig)
         leg.AddEntry(hist, legend[s], 'L')
-        yields[s] = [
-            legend[s],
-            integral * scale_sig,
-            entries
-        ]
+        yields[s] = [legend[s], integral * scale_sig, entries]
 
     for b in backgrounds:
-        hist = getHist(
-            hName,
-            backgrounds[b], inDir,
-            suffix=suffix, lazy=lazy,
-            use_cache=False
-        )
+        hist = getHist(hName, backgrounds[b], inDir,
+                       suffix, lazy=lazy, use_cache=False)
         if hist is None:
             LOGGER.warning(f"Couldn't find histograms for {b}")
         integral = hist.Integral()
         entries  = hist.GetEntries()
 
-        style_hist(
-            hist,
-            color=ROOT.kBlack,
-            fill_color=colors[b],
-            scale=scale_bkg
-        )
+        style_hist(hist, ROOT.kBlack, 1, 1,
+                   scale_bkg, colors[b])
         leg.AddEntry(hist, legend[b], 'F')
 
-        yields[b] = [
-            legend[b],
-            integral * scale_bkg,
-            entries
-        ]
+        yields[b] = [legend[b], integral * scale_bkg, entries]
 
-    canvas = plotter.canvas(
-        top=None, bottom=None,
-        left=0.14, right=0.08,
-        batch=True, yields=True
-    )
+    canvas = plotter.canvas(top=None, bottom=None, left=0.14,
+                            right=0.08, batch=True, yields=True)
 
     dummyh = ROOT.TH1F('', '', 1, 0, 1)
     dummyh.SetStats(0)
-    configure_axis(
-        dummyh.GetXaxis(),
-        '', 0, 1,
-        label_offset=999,
-        label_size=0
-    )
-    configure_axis(
-        dummyh.GetYaxis(),
-        '', 0, 1,
-        label_offset=999,
-        label_size=0
-    )
+    configure_axis(dummyh.GetXaxis(), '', 0, 1,
+                   label_offset=999, label_size=0)
+    configure_axis(dummyh.GetYaxis(), '', 0, 1,
+                   label_offset=999, label_size=0)
     dummyh.Draw('AH')
     leg.Draw()
 
@@ -1110,7 +725,7 @@ def AAAyields(
     draw_latex(latex, sqrt)
 
     # Compute total signal and background for significance calculation.
-    s_tot = int(sum([yields[s][1] for s in signal]))
+    s_tot = int(sum([yields[s][1] for s in signals]))
     b_tot = int(sum([yields[b][1] for b in backgrounds]))
     # Compile analysis metadata for LaTeX rendering.
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -1119,12 +734,9 @@ def AAAyields(
         ('#bf{#it{L = '+f'{lumi}'+' ab^{#minus1}}}', 0.18, 0.78, 0.035),
         ('#bf{#it{' + ana_tex + '}}', 0.18, 0.73, 0.04),
         ('#bf{#it{' + sel + '}}', 0.18, 0.68, 0.025),
-        ('#bf{#it{Signal Scaling = ' + f'{scale_sig:.3g}'
-            '}}', 0.18, 0.62, 0.04),
-        ('#bf{#it{Background Scaling = '
-         f'{scale_bkg:.3g}' + '}}', 0.18, 0.57, 0.04),
-        ('#bf{#it{Significance = ' +
-         f'{z:.3f}' + '}}', 0.18, 0.52, 0.04),
+        ('#bf{#it{Signal Scaling = ' + f'{scale_sig:.3g}' + '}}', 0.18, 0.62, 0.04),
+        ('#bf{#it{Background Scaling = ' + f'{scale_bkg:.3g}' + '}}', 0.18, 0.57, 0.04),
+        ('#bf{#it{Significance = ' + f'{z:.3f}' + '}}', 0.18, 0.52, 0.04),
         ('#bf{#it{Process}}', 0.18, 0.45, 0.035),
         ('#bf{#it{Yields}}', 0.5, 0.45, 0.035),
         ('#bf{#it{Raw MC}}', 0.75, 0.45, 0.035),
@@ -1410,7 +1022,7 @@ def Efficiency(
 
     lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
-    efficiency, efficiency_err = get_efficiency(hName, inDir, ecm, z_decays, h_decays, suffix, invert)
+    efficiency, efficiency_err = get_efficiency(hName, inDir, ecm, z_decays, h_decays, f'_{sel}_histo', invert)
     eff, eff_err = list(efficiency.values()), list(efficiency_err.values())
     eff_avg     = sum(eff) / len(eff)
     eff_avg_err = (sum(err**2 for err in eff_err))**0.5 / len(eff_err)

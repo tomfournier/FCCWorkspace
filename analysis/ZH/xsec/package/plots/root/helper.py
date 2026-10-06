@@ -376,8 +376,6 @@ def load_hists(
         for proc, proc_list in processes.items()}
 
 # ___________________________________________
-
-
 def axis_limits(
     cfg: dict[str,
               Union[str, float, int, bool]],
