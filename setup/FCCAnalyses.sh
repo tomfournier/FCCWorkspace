@@ -17,6 +17,14 @@ source ./setup.sh
 
 ARG="$1"
 
+# Add analysis folders for python to detect custom modules
+export PYTHONPATH=$WORKSPACE_DIR/python:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis/ZH:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis/ZH/xsec:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis/ZH/mass:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis/ZH/others:$PYTHONPATH
+
 
 
 #########################

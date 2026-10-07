@@ -7,6 +7,7 @@
 # Set LOCAL_DIR to FCCWorkspace
 export ROOTDIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 export LOCAL_DIR="$(dirname "$ROOTDIR")"
+WORKSPACE_DIR="$LOCAL_DIR"
 cd "$LOCAL_DIR"
 
 LCG_RELEASE=LCG_106 # includes ROOT 6.32, like CMSSW_14_1_0_pre4
@@ -20,6 +21,14 @@ source $LCG_PATH/bin/thisroot.sh
 cd HiggsAnalysis/CombinedLimit
 
 ARG="$1"
+
+# Add analysis folders for python to detect custom modules
+export PYTHONPATH=$WORKSPACE_DIR/python:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis/ZH:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis/ZH/xsec:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis/ZH/mass:$PYTHONPATH
+export PYTHONPATH=$WORKSPACE_DIR/analysis/ZH/others:$PYTHONPATH
 
 
 
@@ -82,9 +91,6 @@ fi
 export PATH=$PWD/build/bin:$PATH
 export LD_LIBRARY_PATH=$PWD/build/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=$PWD/build/python:$PYTHONPATH
-
-# Add xsec/ folder for python to detect package/ 
-export PYTHONPATH=$LOCAL_DIR/analysis/ZH/xsec:$PYTHONPATH
 
 cd ../../
 
