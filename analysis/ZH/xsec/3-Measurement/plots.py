@@ -88,7 +88,7 @@ def main() -> None:
                      for process in processes]
 
         variables = VARIABLES['lep' if cat in ['ee', 'mumu'] else 'had']
-        variables = arg.variables.split('-') if 'all' in arg.variables else variables
+        variables = variables if 'all' in arg.variables else arg.variables.split('-')
 
         var_labels = vars_label_ll if cat in ['ee', 'mumu'] else vars_label_qq
 
