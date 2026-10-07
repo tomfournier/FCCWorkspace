@@ -4,18 +4,7 @@ This repository contains the analysis code for measuring the $e^+e^- \to ZH$ cro
 
 ## Overview
 
-The analysis workflow follows a sequential pipeline consisting of five main stages, plus optional study pipelines:
-
-**Main Analysis Pipeline:**
-1. **[1-MVAInputs](1-MVAInputs/README.md)** — Event selection and kinematic variable preparation for BDT training
-2. **[2-BDT](2-BDT/README.md)** — XGBoost classifier training for signal/background discrimination  
-3. **[3-Measurement](3-Measurement/README.md)** — Physics measurement with BDT-based event classification
-4. **[4-Combine](4-Combine/README.md)** — Statistical datacard preparation for RooFit/Combine fitting
-5. **[5-Fit](5-Fit/README.md)** — Maximum likelihood fits to extract cross-section and bias testing
-
-**Study Pipelines:**
-- **[a-FSR](a-FSR/README.md)** — Final State Radiation optimization studies
-- **[b-Optimization](b-Optimization/README.md)** — BDT hyperparameter optimization
+The analysis workflow follows a sequential pipeline consisting of six main stages:
 
 ## Project Structure
 
@@ -23,31 +12,30 @@ The analysis workflow follows a sequential pipeline consisting of five main stag
 
 Each stage is contained in its own directory with a dedicated README:
 
-- **`0-Run/`** — Wrapper orchestration scripts (`1-run.py` through `5-run.py`, plus `a-run.py` and `b-run.py` for study pipelines). These automate batch execution across channels and energies. Execute these scripts from the xsec/ directory.
+- **`0-Run/`** — Wrapper orchestration scripts (`1-run.py` through `5-run.py`). These automate sequential execution across channels and energies. Execute these scripts from the xsec/ directory.
 
 - **`1-MVAInputs/`** — Selects events from raw simulation and prepares kinematic variables for BDT training. Produces histograms of distributions for all processes (signal and backgrounds).
 
-- **`2-BDT/`** — Trains XGBoost models to distinguish ZH signal from backgrounds using 9 kinematic features. Evaluates model performance and determines optimal selection thresholds.
+- **`2-BDT/`** — Trains XGBoost models to distinguish ZH signal from backgrounds using kinematic features. Evaluates model performance and determines optimal selection thresholds.
 
 - **`3-Measurement/`** — Applies BDT classification to measurement samples and generates histograms of the Higgs recoil mass across signal-like and background-like regions.
 
-- **`4-Combine/`** — Processes histograms and generates RooFit/Combine-compatible datacards with systematic uncertainties for statistical fitting.
+- **`4-Combine/`** — Processes histograms and generates Combine-compatible datacards with systematic uncertainties for statistical fitting.
 
 - **`5-Fit/`** — Performs maximum likelihood fits to extract the ZH cross-section. Validates fitting procedures through bias tests using pseudo-experiments.
 
-- **`a-FSR/`** — Final State Radiation optimization studies (optional advanced analysis)
-
-- **`b-Optimization/`** — BDT hyperparameter optimization studies (optional advanced analysis)
+- **`6-Self-coupling`** - Performs maximum likelihood fits and SMEFT models to extract the Higgs self-coupling precision
 
 ### Core Components
 
 - **`package/`** — Central Python module providing configuration, utilities, and analysis functions used across all stages. Key components:
   - `config.py` — Physics constants, process definitions, and color palettes
-  - `userConfig.py` — Path templates and global parameters (luminosity, energies)
-  - `parsing.py` — Unified command-line argument parsing
   - `logger.py` — Logging configuration
-  - `plots/` — Visualization utilities (cutflow, BDT evaluation, histogram plots)
+  - `parsing.py` — Unified command-line argument parsing
+  - `userConfig.py` — Path templates and global parameters (luminosity, energies)
+  - `run.py` - Utilities for `0-Run/` folder scripts
   - `func/` — Analysis functions (BDT training/evaluation, bias testing)
+  - `plots/` — Visualization utilities (cutflow, BDT evaluation, histogram plots)
   - `tools/` — Data processing (ROOT I/O, histogram manipulation)
   
   See [package/README.md](package/README.md) for detailed documentation.
@@ -65,27 +53,7 @@ Each stage is contained in its own directory with a dedicated README:
 ### Prerequisites
 
 - FCC software stack with FCCAnalysis framework (for stages 1-4)
-- Python 3.7+ with: ROOT, pandas, scikit-learn, xgboost, matplotlib, numpy
 - RooFit/Combine tools (for stage 5 statistical fitting, optional)
-
-### Quick Start
-
-For a quick test to verify the analysis is working:
-
-```bash
-cd xsec/
-
-# Test stage 1 (pre-selection only, for a single channel)
-python 0-Run/1-run.py --cat ee --ecm 240 --run 1
-
-# Test stage 2 (BDT training)
-python 0-Run/2-run.py --cat ee --ecm 240
-
-# Test stage 3 (measurement)
-python 0-Run/3-run.py --cat ee --ecm 240 --run 1-2
-```
-
-This will create sample outputs in the `output/` directory. For the full analysis, run all stages across both channels and energies as shown in the next section.
 
 ### Software Frameworks
 
@@ -99,11 +67,10 @@ RooFit and Combine are the statistical analysis tools used for maximum likelihoo
 If you encounter version incompatibility issues between FCCAnalyses and RooFit/Combine, consider:
 - Running stages 1-4 in one environment (FCCAnalyses)
 - Running stage 5 in a separate terminal with a different Python environment (RooFit/Combine)
-- Using environment management tools (conda/venv) to isolate dependencies
 
 ### Running the Analysis
 
-All scripts must be executed from the **xsec/** directory. The analysis is orchestrated through wrapper scripts in the `0-Run/` directory that automate batch execution across channels and energies:
+All scripts must be executed from the **xsec/** directory. The analysis is orchestrated through wrapper scripts in the `0-Run/` directory that automate sequential execution across channels and energies:
 
 ```bash
 cd xsec/
@@ -223,16 +190,18 @@ output/
 │   └── measurement/{ecm}/{cat}/     # Physics measurement plots
 │
 └── tmp/                             # Temporary files (config JSON, process dicts)
+```
 
 **Key outputs by analysis stage:**
 
 | Stage | Input | Main Output | Purpose |
-|-------|-------|---|---------|
+|-------|-------|-------------|---------|
 | **1-MVAInputs** | Raw simulation (EDM4Hep) | Event trees, kinematic histograms | Prepare data for BDT training |
 | **2-BDT** | MVA input histograms | Trained XGBoost model, feature importance | Train signal/background classifier |
 | **3-Measurement** | Raw simulation + trained BDT model | Recoil mass histograms (signal/background regions) | Measure physics distributions |
 | **4-Combine** | Measurement histograms | RooFit/Combine datacards with uncertainties | Prepare input for statistical fitting |
 | **5-Fit** | Combine datacards | Signal strengths, cross-section, bias estimates | Extract cross-section and validate fits |
+| 6-Self-coupling | Combine datacards | SMEFT coefficient precision, Higgs self-coupling | Extract Higgs self-coupling precision |
 
 The `output/` directory is listed in `.gitignore` and will not be tracked by git. Regenerate outputs by re-running the analysis stages.
 
@@ -254,44 +223,31 @@ The `test/` directory is configured in `.gitignore` and will not be tracked by g
 The analysis is organized into logical components:
 
 - **`package/config.py`** — Physics constants (masses, decay modes), process definitions, color palettes, kinematic variable names
-- **`package/userConfig.py`** — Path templates and global parameters (luminosity, channel names, data fractions)
-- **`package/parsing.py`** — Unified command-line argument parsing used by all scripts
 - **`package/logger.py`** — Logging setup and configuration
-- **`sel/presel/`** — Pre-selection functions (lepton kinematics, event filters)
-- **`sel/final/`** — Final selection and histogram definitions (binning, variable mapping)
-- **`package/func/bdt.py`** — BDT training, evaluation, and model I/O
+- **`package/parsing.py`** — Unified command-line argument parsing used by all scripts
+- **`package/userConfig.py`** — Path templates and global parameters (luminosity, channel names, data fractions)
+- **`package/func/`** — Utilities for the different stages of the analysis (BDT training, fit, bias test, self-coupling models)
 - **`package/plots/`** — Visualization utilities (cutflow plots, evaluation metrics, histogram plots)
 - **`package/tools/`** — Data processing utilities (ROOT I/O, histogram manipulation, significance calculations)
+- **`sel/presel/`** — Pre-selection functions (lepton kinematics, event filters)
+- **`sel/final/`** — Final selection and histogram definitions (binning, variable mapping)
 
 See [package/README.md](package/README.md) and [sel/presel/README.md](sel/presel/README.md) for detailed documentation.
-
-## Documentation
-
-Detailed information for each analysis stage and component:
-
-- **[1-MVAInputs/README.md](1-MVAInputs/README.md)** — Event selection, variable computation, histogram generation
-- **[2-BDT/README.md](2-BDT/README.md)** — BDT training procedure, hyperparameters, evaluation metrics
-- **[3-Measurement/README.md](3-Measurement/README.md)** — Physics selection cuts, BDT application, control regions
-- **[4-Combine/README.md](4-Combine/README.md)** — Datacard structure, systematic uncertainties, process definitions
-- **[5-Fit/README.md](5-Fit/README.md)** — Fitting methodology, bias test procedures, result extraction
-- **[a-FSR/README.md](a-FSR/README.md)** — Final State Radiation optimization studies
-- **[b-Optimization/README.md](b-Optimization/README.md)** — BDT hyperparameter optimization
-- **[package/README.md](package/README.md)** — Configuration modules, utilities, function reference
-- **[sel/presel/README.md](sel/presel/README.md)** — Event selection functions and physics cuts
 
 ## Physics Process
 
 This analysis measures the cross-section for Higgs-strahlung production at $e^+e^-$ colliders:
 
-$$e^+e^- \to Z(\to \ell^+\ell^-) H(\to \text{all})$$
+$$e^+e^- \to Z(\to f\bar{f}) H(\to \text{all})$$
 
-where $\ell \in \{e, \mu\}$. The measurement uses:
+where $f \in \{e, \mu, q\}$. The measurement uses:
 
-- **Reconstruction:** Identify $Z$ candidates from dilepton pairs with mass $m_Z \approx 91$ GeV
+- **Reconstruction:** Identify $Z$ candidates from dilepton/jet pairs with mass $m_Z \approx 91$ GeV
 - **Higgs tagging:** Use Higgs recoil mass as primary observable ($m_{\text{recoil}} \approx 125$ GeV)
 - **Background suppression:** Apply XGBoost multivariate selection to increase signal purity
 - **Systematic treatment:** Include background normalization uncertainties in statistical framework
-- **Statistical extraction:** Use maximum likelihood fitting to extract signal strength ($\mu$)
+- **Statistical extraction:** Use maximum likelihood fitting to extract signal strength ($\mu$) and its precision
+- **Higgs self-coupling extraction** Parametrize the cross-section by using SMEFT models to extract the Higgs self-coupling and its precision
 
 ## Troubleshooting
 
@@ -316,14 +272,14 @@ where $\ell \in \{e, \mu\}$. The measurement uses:
 - Look at log files for error messages
 
 **Environment incompatibility (Stage 5):**
-- If running stage 5 fails due to environment conflicts, try running it in a separate terminal with a different Python environment
-- Alternatively, see if RooFit is available in your current FCCAnalyses environment
+- If running stage 5 fails due to environment conflicts, try running it in a separate terminal with the CombinedLimit environment
+
 
 ## Authors & References
 
 This analysis is part of the FCC physics program for precision Higgs measurements. 
-It was written by Tom Fournier with help from Ang Li for stages 1-MVAInput and 2-BDT, and from Jan Eysermans for the remaining stages. There was also a contribution from Amaury Lhoste in the early development of the repository.
+It was written by Tom Fournier with help from Ang Li for stages 1-MVAInput and 2-BDT, and from Jan Eysermans for the remaining stages. There was also a contribution from Amaury Lhoste for the improvement of the BDT training.
 
 ---
 
-**Last updated:** May 2026
+**Last updated:** October 2026

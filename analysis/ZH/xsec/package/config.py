@@ -66,16 +66,13 @@ input_vars_qq = (
 ##########################
 
 # Standard Z boson decay modes
-Z_DECAYS: tuple[str, ...] = (
-    'bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu')
+Z_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu')
 
 # Standard Higgs boson decay modes
-H_DECAYS: tuple[str, ...] = (
-    'bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa')
+H_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa')
 
 # Higgs decays use to make the fit
-H_DECAYS_FIT: tuple[str, ...] = (
-    'bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ_noInv', 'WW', 'Za', 'aa', 'inv')
+H_DECAYS_FIT: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ_noInv', 'WW', 'Za', 'aa', 'inv')
 
 # Higgs decay modes including invisible decays
 H_DECAYS_WITH_INV: tuple[str, ...] = H_DECAYS + ('inv',)
@@ -134,12 +131,12 @@ def _init_colors() -> None:
     global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR, _TT_COLOR
     if _ZH_COLOR is None:
         root = _get_root()
-        _ZH_COLOR = root.TColor.GetColor('#e42536')    # Red       for ZH signal
-        _WW_COLOR = root.TColor.GetColor('#f89c20')    # Orange    for WW background
-        _ZZ_COLOR = root.TColor.GetColor('#5790fc')    # Blue      for ZZ background
-        _ZG_COLOR = root.TColor.GetColor('#964a8b')    # Purple    for Z/gamma
-        _RARE_COLOR = root.TColor.GetColor('#9c9ca1')  # Gray      for rare processes
-        _TT_COLOR = root.TColor.GetColor("#1414ad")    # Dark blue for tt processes
+        _ZH_COLOR   = root.TColor.GetColor('#e42536')    # Red       for ZH signal
+        _WW_COLOR   = root.TColor.GetColor('#f89c20')    # Orange    for WW background
+        _ZZ_COLOR   = root.TColor.GetColor('#5790fc')    # Blue      for ZZ background
+        _ZG_COLOR   = root.TColor.GetColor('#964a8b')    # Purple    for Z/gamma
+        _RARE_COLOR = root.TColor.GetColor('#9c9ca1')    # Gray      for rare processes
+        _TT_COLOR   = root.TColor.GetColor("#1414ad")    # Dark blue for tt processes
 
 
 def _get_h_colors_dict() -> dict:

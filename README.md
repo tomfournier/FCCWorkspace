@@ -227,3 +227,12 @@ Last but not least, Git Graph is an extension you can use to view the history of
 Normally you should be able to setup and run this repository with the instructions given earlier. If you have any idea to improve the repository or the instructions given here, don't hesitate to contact me.
 
 For more details on how to run the analysis, refer to the corresponding `README.md` files in the relevant folders. If you do not find them clear enough, feel free to improve them or contact me with suggestions or questions.
+
+## Authors & References
+
+This analysis is part of the FCC physics program for precision Higgs measurements. 
+It was written by Tom Fournier with the help from Ang Li and Jan Eysermans (see [Introduction](#Introduction)). There was also a contribution from Amaury Lhoste for the improvement of the ZH cross-section analysis.
+
+---
+
+**Last updated:** October 2026
