@@ -13,8 +13,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('3-Measurement', 'plots')
 arg = parser.parse_args()
 set_log(arg)
@@ -28,22 +28,22 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory paths and process configurations
-from package.userConfig import loc
-from package.config import (
+from zh_xsec.userConfig import loc
+from zh_xsec.config import (
     timer,              # Timing utility
     z_decays,           # Z boson decay modes
     H_decays,           # Higgs decay modes
     vars_label_ll,
     vars_label_qq
 )
-from package.tools.utils import high_low_sels  # High/low control region helpers
-from sel.final.leptonic import histos_ll, custom_hists_ll
-from sel.final.hadronic import histos_qq, custom_hists_qq
-from package.plots.plotting import (
+from zh_xsec.tools.utils import high_low_sels  # High/low control region helpers
+from sel_xsec.final.leptonic import histos_ll, custom_hists_ll
+from sel_xsec.final.hadronic import histos_qq, custom_hists_qq
+from zh_xsec.plots.plotting import (
     AAAyields, Efficiency, PlotDecays, get_args, makePlot,
     plot_configs, significance
 )
-from package.tools.process import (
+from zh_xsec.tools.process import (
     preload_histograms,     # Preload histogram cache for performance
     clear_histogram_cache   # Clear cache when done
 )
@@ -113,7 +113,7 @@ def main() -> None:
 
             # Generate yields plots unless skipped
             if arg.yields:
-                from package.config import quarks, z_labels, h_labels
+                from zh_xsec.config import quarks, z_labels, h_labels
 
                 yield_args = plot_kwargs('acolinearity', AAAyields, hName='acolinearity')
                 for total, config in [(False, plots['category']), (True, plots['total'])]:

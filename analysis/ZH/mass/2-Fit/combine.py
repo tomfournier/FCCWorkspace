@@ -7,7 +7,7 @@ import os, json
 from pathlib import Path
 
 # Load userConfig
-from package.userConfig import (
+from zh_mass.userConfig import (
     loc, event
 )
 

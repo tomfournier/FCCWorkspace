@@ -10,7 +10,7 @@ import sys, logging
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from zh_xsec.parsing import create_parser
 parser = create_parser('1-MVAInputs', 'final-selection')
 cmd_args = globals().get('cmdline_args')
 arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
@@ -25,14 +25,14 @@ LOGGER = logging.getLogger('FCCAnalyses.final-selection')
 ##########################################################
 
 # Load analysis configuration and predefined histogram config
-from package.userConfig import loc
-from package.config import (
+from zh_xsec.userConfig import loc
+from zh_xsec.config import (
     get_process_list,
     parse_sample_selection,
     parse_sample_exclusion
 )
-from sel.final.leptonic import Baseline_cut_ll, histos_ll
-from sel.final.hadronic import Baseline_cut_qq, histos_qq
+from sel_xsec.final.leptonic import Baseline_cut_ll, histos_ll
+from sel_xsec.final.hadronic import Baseline_cut_qq, histos_qq
 
 
 

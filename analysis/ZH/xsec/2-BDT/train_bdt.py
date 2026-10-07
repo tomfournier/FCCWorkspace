@@ -6,7 +6,7 @@ import time
 
 import pandas as pd
 
-from package.tools.utils import load_data
+from zh_xsec.tools.utils import load_data
 
 # Start timer for performance tracking
 t = time.time()
@@ -17,8 +17,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, parse_args, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('2-BDT', 'train_bdt')
 arg = parse_args(parser, True)
 set_log(arg)
@@ -31,12 +31,12 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-from package.userConfig import loc  # Directory management utilities
-from package.config import (
+from zh_xsec.userConfig import loc  # Directory management utilities
+from zh_xsec.config import (
     timer,          # Performance timing utility
     get_bdt_modes   # Build BDT signal and background samples
 )
-from package.func.bdt import (
+from zh_xsec.func.bdt import (
     print_stats,    # Display event counts per process
     split_data,     # Create train/validation split
     train_model,    # Train XGBoost classifier

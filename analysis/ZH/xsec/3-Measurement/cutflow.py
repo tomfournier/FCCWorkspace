@@ -13,8 +13,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('3-Measurement', 'cutflow')
 arg = parser.parse_args()
 set_log(arg)
@@ -28,17 +28,17 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory paths and cutflow analysis functions
-from package.userConfig import loc
-from sel.final.leptonic import histos_ll
-from sel.final.hadronic import histos_qq
-from package.config import (
+from zh_xsec.userConfig import loc
+from sel_xsec.final.leptonic import histos_ll
+from sel_xsec.final.hadronic import histos_qq
+from zh_xsec.config import (
     timer,                # Timing utility
     get_process_dict,     # Build process definitions
     z_decays,             # Z boson decay modes
     H_decays,             # Higgs decay modes
     colors, labels        # Process styling for plots
 )
-from package.plots.cutflow import (
+from zh_xsec.plots.cutflow import (
     get_cutflow,            # Calculate event counts per cut
     branches_from_cuts      # Get branches needed for each cut
 )

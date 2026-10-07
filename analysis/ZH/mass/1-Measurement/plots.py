@@ -13,8 +13,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from zh_mass.parsing import create_parser, set_log
+from zh_mass.logger import get_logger
 parser = create_parser(
     cat_multi=True,        # Support multiple decay categories
     include_sels=True,     # Include selection strategy options
@@ -33,14 +33,14 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory paths and process configurations
-from package.userConfig import loc
-from package.config import (
+from zh_mass.userConfig import loc
+from zh_mass.config import (
     timer,              # Timing utility
     mk_processes,       # Build process definitions
     colors, labels,      # Plot styling
 )
-from sel.final import histo_list
-from package.tools.process import (
+from sel_mass.final import histo_list
+from zh_mass.tools.process import (
     preload_histograms,     # Preload histogram cache for performance
     clear_histogram_cache   # Clear cache when done
 )
@@ -128,7 +128,7 @@ def run(
 
             # Generate yields plots unless skipped
             if arg.yields:
-                from package.plots.plotting import AAAyields
+                from zh_mass.plots.plotting import AAAyields
                 histo = 'zll_p'
                 AAAyields(histo, inDir, outDir, plots,     legend, colors, cat, sel, ecm=ecm, lumi=lumi, tot=False)
                 AAAyields(histo, inDir, outDir, plots_tot, legend, colors, cat, sel, ecm=ecm, lumi=lumi, tot=True)
@@ -140,7 +140,7 @@ def run(
 
                     # Generate significance scan plots if requested
                     if arg.scan:
-                        from package.plots.plotting import significance
+                        from zh_mass.plots.plotting import significance
                         for reverse in [True, False]:
                             significance(
                                 var, inDir, outDir,
@@ -150,7 +150,7 @@ def run(
 
                     # Generate standard distribution plots unless skipped
                     if arg.make:
-                        from package.plots.plotting import get_args, makePlot
+                        from zh_mass.plots.plotting import get_args, makePlot
                         kwarg = get_args(var, sel, cat, ecm, lumi, args)
                         # Signal vs background plots (linear and log scale)
                         for logY in [False, True]:

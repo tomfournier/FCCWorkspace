@@ -21,8 +21,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, parse_args, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('5-Fit', 'plots')
 arg = parse_args(parser, False, False)
 set_log(arg)
@@ -35,10 +35,10 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
 ###########################################################
 
-from package.userConfig import loc
+from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
-from package.config import timer, H_decays, H_labels
-from package.func.fit import plot_1d_scans, params_label
+from zh_xsec.config import timer, H_decays, H_labels
+from zh_xsec.func.fit import plot_1d_scans, params_label
 
 
 
@@ -75,8 +75,8 @@ def main():
                     outDir = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
                 else:
                     outDir = loc.get('BIAS_RESULT', cat, ecm, sel)
-                fIn = f'higgsCombineXsec_{target}.MultiDimFit.mH125.123456.root' if arg.toy \
-                    else f'higgsCombineXsec_{target}.MultiDimFit.mH125.root'
+                fIn = f'higgsCombinezh_xsec_{target}.MultiDimFit.mH125.123456.root' if arg.toy \
+                    else f'higgsCombinezh_xsec_{target}.MultiDimFit.mH125.root'
                 scan   = (inDir / fIn,
                           H_labels.get(target, target),
                           colors[i % len(colors)])
@@ -93,8 +93,8 @@ def main():
             for cat, ecm, sel in [(c, e, s) for c in cats for e in ecms for s in sels]:
                 inDir  = loc.get('NOMINAL_WS',     cat, ecm, sel)
                 outDir = loc.get('NOMINAL_RESULT', cat, ecm, sel)
-                fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
-                    else 'higgsCombineXsec.MultiDimFit.mH125.root'
+                fIn = 'higgsCombinezh_xsec.MultiDimFit.mH125.123456.root' if arg.toy \
+                    else 'higgsCombinezh_xsec.MultiDimFit.mH125.root'
                 scan = (inDir / fIn, "Observed", colors[0])
                 plot_1d_scans([scan],
                               outDir, arg.param,
@@ -122,8 +122,8 @@ def main():
                     param.insert(insert_pos, var_val)
 
                     inDir = loc.get('NOMINAL_WS', *param)
-                    fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
-                        else 'higgsCombineXsec.MultiDimFit.mH125.root'
+                    fIn = 'higgsCombinezh_xsec.MultiDimFit.mH125.123456.root' if arg.toy \
+                        else 'higgsCombinezh_xsec.MultiDimFit.mH125.root'
                     scan  = (inDir / fIn,
                              str(var_val),
                              colors[i % len(colors)])

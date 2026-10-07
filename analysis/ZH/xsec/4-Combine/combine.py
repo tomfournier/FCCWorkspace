@@ -12,8 +12,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('4-Combine', 'combine')
 arg = parser.parse_args()
 set_log(arg)
@@ -27,9 +27,9 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load user configuration and event utilities
-from package.userConfig import loc
-from package.config import H_DECAYS_FIT, get_process_dict, timer
-from package.func.combine import do_combine
+from zh_xsec.userConfig import loc
+from zh_xsec.config import H_DECAYS_FIT, get_process_dict, timer
+from zh_xsec.func.combine import do_combine
 
 
 

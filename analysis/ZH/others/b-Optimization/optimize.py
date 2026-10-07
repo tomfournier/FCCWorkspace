@@ -29,8 +29,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_others.parsing import create_parser, parse_args, set_log
+from zh_others.logger import get_logger
 parser = create_parser(
     cat_single=True,
     optimize=True,
@@ -47,10 +47,10 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-from package.userConfig import loc
+from zh_others.userConfig import loc
 loc.set_default_type('Path')
-from package.config import timer
-from package.func.optimization import Optimizer
+from zh_others.config import timer
+from zh_others.func.optimization import Optimizer
 
 
 

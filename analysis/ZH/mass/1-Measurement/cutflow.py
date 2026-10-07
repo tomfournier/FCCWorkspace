@@ -13,8 +13,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from zh_mass.parsing import create_parser, set_log
+from zh_mass.logger import get_logger
 parser = create_parser(
     cat_multi=True,
     include_sels=True,
@@ -32,13 +32,13 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-from package.userConfig import loc
-from sel.final import histo_list
-from package.config import (
+from zh_mass.userConfig import loc
+from sel_mass.final import histo_list
+from zh_mass.config import (
     timer, mk_processes,
     colors, labels
 )
-from package.plots.cutflow import (
+from zh_mass.plots.cutflow import (
     get_cutflow,
     branches_from_cuts
 )

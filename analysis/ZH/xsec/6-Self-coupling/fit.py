@@ -16,8 +16,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from xsec.parsing import create_parser, parse_args, set_log
+from xsec.logger import get_logger
 parser = create_parser('6-Self-coupling', 'fit')
 arg = parse_args(parser, comb=True)  # Parse with combination support
 set_log(arg)
@@ -31,17 +31,17 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory path manager and utilities
-from package.userConfig import loc, PathObj
+from xsec.userConfig import loc, PathObj
 loc.set_default_type(Path)
-from package.config import timer  # Timing utility
-from package.func.fit import (
+from xsec.config import timer  # Timing utility
+from xsec.func.fit import (
     res_saving,
     run_cmd,
     get_results,
     get_grid_number,
     convert_to_kappa
 )
-from package.func.self_coupling import get_parameters
+from xsec.func.self_coupling import get_parameters
 
 
 
@@ -131,7 +131,7 @@ def do_fit(
     cmd_dc = ['combineCards.py', f'low={dc_240}', f'high={dc_365}']
 
     cmd_t2w = ['text2workspace.py', dc_nom, '-v', '2', '-P',
-               f'package.func.self_coupling:{arg.model}',
+               f'xsec.func.self_coupling:{arg.model}',
                '--X-allow-no-signal', '--X-allow-no-background',
                '--for-fits', '--no-wrappers',
                '-m', '125', '-o', ws_file]

@@ -2,7 +2,7 @@ import math
 
 from abc import ABCMeta, abstractmethod
 
-from HiggsAnalysis.CombinedLimit.PhysicsModel import (  # type:ignore
+from HiggsAnalysis.CombinedLimit.PhysicsModel import (
     PhysicsModel as CombinedPhysicsModel,
     PhysicsModelBase as CombinedPhysicsModelBase,
 )

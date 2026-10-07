@@ -16,8 +16,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('4-Combine', 'process_histogram')
 arg = parser.parse_args()
 set_log(arg)
@@ -31,15 +31,15 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory paths and histogram processing utilities
-from package.userConfig import loc
-from package.config import (
+from zh_xsec.userConfig import loc
+from zh_xsec.config import (
     timer,              # Timing utility
     get_process_dict,   # Build process definitions
     get_process_list,
     H_decays            # Higgs decay modes
 )
-from package.tools.utils import mkdir     # Directory creation
-from package.tools.process import (       # Histogram utilities
+from zh_xsec.tools.utils import mkdir     # Directory creation
+from zh_xsec.tools.process import (       # Histogram utilities
     get_hist, concat,
     unroll, stack_hist
 )

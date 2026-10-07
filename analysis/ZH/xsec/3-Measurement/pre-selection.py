@@ -4,7 +4,7 @@
 
 import os, re, sys, logging
 
-# Add parent directory to path so package and sel modules are found
+# Add parent directory to path so zh_xsec and sel modules are found
 # This is necessary for HTCondor batch jobs to find local modules
 script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if script_dir not in sys.path: sys.path.insert(0, script_dir)
@@ -15,7 +15,7 @@ if script_dir not in sys.path: sys.path.insert(0, script_dir)
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from zh_xsec.parsing import create_parser
 parser = create_parser('3-Measurement', 'pre-selection')
 cmd_args = globals().get('cmdline_args')
 arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
@@ -32,14 +32,14 @@ LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
 
 
 # Load analysis configuration and preselection functions
-from package.userConfig import loc
-from package.config import (
+from zh_xsec.userConfig import loc
+from zh_xsec.config import (
     get_process_list,
     parse_sample_selection,
     parse_sample_exclusion
 )
-from sel.presel.leptonic import get_systs_list, presel_ll, branch_list_ll
-from sel.presel.hadronic import presel_qq, branch_list_qq
+from sel_xsec.presel.leptonic import get_systs_list, presel_ll, branch_list_ll
+from sel_xsec.presel.hadronic import presel_qq, branch_list_qq
 
 
 

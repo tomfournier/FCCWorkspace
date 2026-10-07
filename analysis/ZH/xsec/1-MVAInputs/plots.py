@@ -10,7 +10,7 @@ import sys, logging, ROOT
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from zh_xsec.parsing import create_parser
 parser = create_parser('1-MVAInputs', 'plots')
 cmd_args = globals().get('cmdline_args')
 arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
@@ -25,10 +25,10 @@ LOGGER = logging.getLogger('FCCAnalyses.plots')
 ##########################################################
 
 # Load plot configuration, directory paths, and output settings
-from package.config import quarks, h_decays
-from package.userConfig import loc
-from sel.final.leptonic import histos_ll
-from sel.final.hadronic import histos_qq
+from zh_xsec.config import quarks, h_decays
+from zh_xsec.userConfig import loc
+from sel_xsec.final.leptonic import histos_ll
+from sel_xsec.final.hadronic import histos_qq
 
 
 

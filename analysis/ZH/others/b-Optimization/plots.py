@@ -28,8 +28,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_others.parsing import create_parser, parse_args, set_log
+from zh_others.logger import get_logger
 parser = create_parser(
     cat_single=True,
     optimize=True,
@@ -48,11 +48,11 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Import configuration paths and plot settings
-from package.userConfig import loc, plot_file
+from zh_others.userConfig import loc, plot_file
 loc.set_default_type('Path')
 # Import utilities and plotting configurations
-from package.config import timer, process_label
-from package.plots.optimization import (
+from zh_others.config import timer, process_label
+from zh_others.plots.optimization import (
     load_results,
     extract_arrays,
     efficiency,

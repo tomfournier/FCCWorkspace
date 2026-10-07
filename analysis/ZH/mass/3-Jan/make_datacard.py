@@ -14,8 +14,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_mass.parsing import create_parser, parse_args, set_log
+from zh_mass.logger import get_logger
 parser = create_parser(
     cat_single=True,
     include_sel=True,
@@ -34,10 +34,10 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import package.plots.root.plotter as plotter
-from package.tools.process import getHist
-from package.config import timer
-from package.userConfig import loc
+import zh_mass.plots.root.plotter as plotter
+from zh_mass.tools.process import getHist
+from zh_mass.config import timer
+from zh_mass.userConfig import loc
 loc.set_default_type('Path')
 
 from definitions import (
@@ -49,7 +49,7 @@ from definitions import (
     make_systematic_fit_vars,
     systematic_hist_suffix
 )
-from package.plots.fit import (
+from zh_mass.plots.fit import (
     fit_plot,
     plot_signal,
     plot_syst_dist,
@@ -57,7 +57,7 @@ from package.plots.fit import (
     plot_decomposition,
     plot_fit_with_pull
 )
-from package.func.fit import (
+from zh_mass.func.fit import (
     get_hist,
     build_background_pdf,
     build_pdf_from_spec,

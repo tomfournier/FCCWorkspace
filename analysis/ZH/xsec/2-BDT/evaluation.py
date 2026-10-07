@@ -19,8 +19,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, parse_args, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('2-BDT', 'evaluation')
 arg = parse_args(parser, True)
 set_log(arg)
@@ -34,11 +34,11 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Import plot configuration and directory paths
-from package.userConfig import loc, PathObj, plot_file
+from zh_xsec.userConfig import loc, PathObj, plot_file
 loc.set_default_type(PathObj)
 
 # Import configuration utilities and labels paremeters
-from package.config import (
+from zh_xsec.config import (
     timer,                           # Utility function
     modes_label, modes_color,        # Plot styling for processes
     vars_label_ll, vars_xlabel_ll,   # Variable naming for plots (leptonic channel)
@@ -47,10 +47,10 @@ from package.config import (
 )
 
 # Import data handling utilities
-from package.tools.utils import load_data
+from zh_xsec.tools.utils import load_data
 
 # Import BDT model utilities
-from package.func.bdt import (
+from zh_xsec.func.bdt import (
     load_model,    # Load trained XGBoost model
     get_metrics,   # Extract training curves from model
     print_stats,   # Display event statistics
@@ -119,7 +119,7 @@ def plot_metrics(
 
     if arg.metric:
         # Lazily import plotting functions for model performance
-        from package.plots.eval import (
+        from zh_xsec.plots.eval import (
             log_loss,       # Training/validation loss curves
             error,          # Error rate vs boosting rounds
             AUC,            # ROC AUC vs boosting rounds
@@ -156,13 +156,13 @@ def plot_metrics(
 
     if arg.tree:
         # Generate visualizations of individual decision trees in the BDT
-        from package.plots.eval import tree_plot
+        from zh_xsec.plots.eval import tree_plot
         LOGGER.info('Plotting the different decision trees in the BDT')
         tree_plot(bdt, loc_BDT, outputdir, epochs, 20, format=plot_file)
 
     # Check input variable distributions for anomalies
     if arg.check:
-        from package.plots.eval import hist_check
+        from zh_xsec.plots.eval import hist_check
         LOGGER.info('Plotting histograms for input variables')
         for var in input_vars:
             LOGGER.info(f'Plotting histogram for {var}')
@@ -174,7 +174,7 @@ def plot_metrics(
     # Optionally generate distributions in high/low BDT score regions
     if arg.hl:
         import numpy as np
-        from package.plots.eval import hist_check
+        from zh_xsec.plots.eval import hist_check
         LOGGER.info('Plotting histograms for input variables in high/low BDT score regions')
         bdt_cut = np.loadtxt(f'{loc_BDT}/BDT_cut_weights.txt')
         df_high = df.query(f'BDTscore > {bdt_cut}')  # Signal-enriched region

@@ -10,7 +10,7 @@ import sys, logging
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from zh_xsec.parsing import create_parser
 parser = create_parser('3-Measurement', 'final-selection')
 cmd_args = globals().get('cmdline_args')
 arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
@@ -25,19 +25,19 @@ LOGGER = logging.getLogger('FCCAnalyses.final-selection')
 ##########################################################
 
 # Load configuration and measurement selection functions
-from package.userConfig import loc, event
-from package.func.bdt   import def_bdt, make_high_low  # BDT score binning utilities
-from sel.final.leptonic import (
+from zh_xsec.userConfig import loc, event
+from zh_xsec.func.bdt   import def_bdt, make_high_low  # BDT score binning utilities
+from sel_xsec.final.leptonic import (
     Baseline_cut_ll,  # Baseline cut definition      (leptonic channel)
     histos_ll,        # Histogram definitions        (leptonic channel)
     custom_hists_ll   # Custom histogram definitions (leptonic channel)
 )
-from sel.final.hadronic import (
+from sel_xsec.final.hadronic import (
     Baseline_cut_qq,  # Baseline cut definition      (hadronic channel)
     histos_qq,        # Histogram definitions        (hadronic channel)
     custom_hists_qq   # Custom histogram definitions (hadronic channel)
 )
-from package.config import (
+from zh_xsec.config import (
     get_process_list,
     parse_sample_selection,
     parse_sample_exclusion

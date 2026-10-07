@@ -12,7 +12,7 @@ The analysis workflow follows a sequential pipeline consisting of six main stage
 
 Each stage is contained in its own directory with a dedicated README:
 
-- **`0-Run/`** — Wrapper orchestration scripts (`1-run.py` through `5-run.py`). These automate sequential execution across channels and energies. Execute these scripts from the xsec/ directory.
+- **`0-Run/`** — Wrapper orchestration scripts (`1-run.py` through `5-run.py`). These automate sequential execution across channels and energies. Execute these scripts from the xsec/ directory (not to confuse with the xsec/ module).
 
 - **`1-MVAInputs/`** — Selects events from raw simulation and prepares kinematic variables for BDT training. Produces histograms of distributions for all processes (signal and backgrounds).
 
@@ -28,7 +28,7 @@ Each stage is contained in its own directory with a dedicated README:
 
 ### Core Components
 
-- **`package/`** — Central Python module providing configuration, utilities, and analysis functions used across all stages. Key components:
+- **`xsec/`** — Central Python module providing configuration, utilities, and analysis functions used across all stages. Key components:
   - `config.py` — Physics constants, process definitions, and color palettes
   - `logger.py` — Logging configuration
   - `parsing.py` — Unified command-line argument parsing
@@ -38,13 +38,13 @@ Each stage is contained in its own directory with a dedicated README:
   - `plots/` — Visualization utilities (cutflow, BDT evaluation, histogram plots)
   - `tools/` — Data processing (ROOT I/O, histogram manipulation)
   
-  See [package/README.md](package/README.md) for detailed documentation.
+  See [xsec/README.md](xsec/README.md) for detailed documentation.
 
-- **`sel/`** — Event selection functions applied throughout the pipeline:
-  - `sel/presel/` — Pre-selection functions (lepton/quark selection, kinematic cuts)
-  - `sel/final/` — Final selection functions (histogram definitions, variable computation)
+- **`sel_xsec/`** — Event selection functions applied throughout the pipeline:
+  - `sel_xsec/presel/` — Pre-selection functions (lepton/quark selection, kinematic cuts)
+  - `sel_xsec/final/` — Final selection functions (histogram definitions, variable computation)
   
-  See [sel/presel/README.md](sel/presel/README.md) for selection documentation.
+  See [sel_xsec/presel/README.md](sel_xsec/presel/README.md) for selection documentation.
 
 - **`output/`** — Auto-generated directory containing all analysis outputs (see [Output Structure](#output-structure) below)
 
@@ -222,17 +222,17 @@ The `test/` directory is configured in `.gitignore` and will not be tracked by g
 
 The analysis is organized into logical components:
 
-- **`package/config.py`** — Physics constants (masses, decay modes), process definitions, color palettes, kinematic variable names
-- **`package/logger.py`** — Logging setup and configuration
-- **`package/parsing.py`** — Unified command-line argument parsing used by all scripts
-- **`package/userConfig.py`** — Path templates and global parameters (luminosity, channel names, data fractions)
-- **`package/func/`** — Utilities for the different stages of the analysis (BDT training, fit, bias test, self-coupling models)
-- **`package/plots/`** — Visualization utilities (cutflow plots, evaluation metrics, histogram plots)
-- **`package/tools/`** — Data processing utilities (ROOT I/O, histogram manipulation, significance calculations)
-- **`sel/presel/`** — Pre-selection functions (lepton kinematics, event filters)
-- **`sel/final/`** — Final selection and histogram definitions (binning, variable mapping)
+- **`xsec/config.py`** — Physics constants (masses, decay modes), process definitions, color palettes, kinematic variable names
+- **`xsec/logger.py`** — Logging setup and configuration
+- **`xsec/parsing.py`** — Unified command-line argument parsing used by all scripts
+- **`xsec/userConfig.py`** — Path templates and global parameters (luminosity, channel names, data fractions)
+- **`xsec/func/`** — Utilities for the different stages of the analysis (BDT training, fit, bias test, self-coupling models)
+- **`xsec/plots/`** — Visualization utilities (cutflow plots, evaluation metrics, histogram plots)
+- **`xsec/tools/`** — Data processing utilities (ROOT I/O, histogram manipulation, significance calculations)
+- **`sel_xsec/presel/`** — Pre-selection functions (lepton kinematics, event filters)
+- **`sel_xsec/final/`** — Final selection and histogram definitions (binning, variable mapping)
 
-See [package/README.md](package/README.md) and [sel/presel/README.md](sel/presel/README.md) for detailed documentation.
+See [xsec/README.md](xsec/README.md) and [sel_xsec/presel/README.md](sel_xsec/presel/README.md) for detailed documentation.
 
 ## Physics Process
 
@@ -253,9 +253,9 @@ where $f \in \{e, \mu, q\}$. The measurement uses:
 
 ### Common Issues
 
-**Import errors for `package` module:**
+**Import errors for `xsec` module:**
 - Make sure you're running scripts from the `xsec/` directory, not from subdirectories
-- Verify `package/__init__.py` exists
+- Verify `xsec/__init__.py` exists
 
 **Script not found errors:**
 - Double-check the path: use `0-Run/1-run.py` (not `run/1-run.py`)

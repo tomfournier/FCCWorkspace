@@ -33,9 +33,9 @@ CATEGORY_LABELS = {
 ### ARGUMENT PARSING ###
 ########################
 
-from package.config import timer
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_mass.config import timer
+from zh_mass.parsing import create_parser, parse_args, set_log
+from zh_mass.logger import get_logger
 parser = create_parser(
     cat_single=True,
     include_sel=True,
@@ -54,15 +54,15 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-from package.userConfig import loc
+from zh_mass.userConfig import loc
 loc.set_default_type('Path')
 
-from package.func.fit import (
+from zh_mass.func.fit import (
     breakDown,
     combineCards,
     run_mass_pipeline
 )
-from package.plots.fit import (
+from zh_mass.plots.fit import (
     plot_mass_multiple as plotMultiple,
 )
 

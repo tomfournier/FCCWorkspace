@@ -21,8 +21,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from xsec.parsing import create_parser, parse_args, set_log
+from xsec.logger import get_logger
 parser = create_parser('6-Self-coupling', 'plots')
 arg = parse_args(parser, False, False)
 set_log(arg)
@@ -35,10 +35,10 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
 ###########################################################
 
-from package.userConfig import loc
+from xsec.userConfig import loc
 loc.set_default_type(Path)
-from package.config import timer
-from package.func.fit import plot_1d_scans, plot_2d_scans, params_label
+from xsec.config import timer
+from xsec.func.fit import plot_1d_scans, plot_2d_scans, params_label
 
 
 

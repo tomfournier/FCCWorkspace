@@ -19,7 +19,7 @@ The analysis pipeline consists of five main stages (plus two optional study pipe
 
 ## Usage
 
-All scripts must be executed from the **xsec/** root folder to properly locate the `package/` module:
+All scripts must be executed from the **xsec/** root folder to properly locate the `zh_others/` module:
 
 ```bash
 cd /path/to/xsec/
@@ -313,12 +313,12 @@ Each script generates outputs in the `output/` directory under the workspace roo
 
 ## Environment Setup
 
-Scripts import configuration and utilities from the `package/` module:
+Scripts import configuration and utilities from the `zh_others/` module:
 
-- **[package/config.py](../package/config.py)** – Analysis parameters and timing utilities
-- **[package/userConfig.py](../package/userConfig.py)** – Directory paths (`loc.ROOT`, etc.)
-- **[package/parsing.py](../package/parsing.py)** – Argument parsing and configuration handling
-- **[package/logger.py](../package/logger.py)** – Logging and terminal output formatting
+- **[zh_others/config.py](../zh_others/config.py)** – Analysis parameters and timing utilities
+- **[zh_others/userConfig.py](../zh_others/userConfig.py)** – Directory paths (`loc.ROOT`, etc.)
+- **[zh_others/parsing.py](../zh_others/parsing.py)** – Argument parsing and configuration handling
+- **[zh_others/logger.py](../zh_others/logger.py)** – Logging and terminal output formatting
 
 ## Help & Troubleshooting
 
@@ -331,6 +331,6 @@ python 1-run.py --help  # Shows all available arguments
 Common issues:
 
 - **"Stage dependencies" errors**: Run stages in order (1, then 2, then 3, etc.) unless outputs already exist
-- **"RUN='1' not detected"**: The scripts should automatically set this flag; check `package/parsing.py` if issues persist
+- **"RUN='1' not detected"**: The scripts should automatically set this flag; check `zh_others/parsing.py` if issues persist
 - **Missing outputs**: Check that the parent stage completed successfully (look for ✓ COMPLETED marker)
 - **Environment issues**: Some stages may require different Python environments; use separate terminal if needed

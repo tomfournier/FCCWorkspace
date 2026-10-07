@@ -2,12 +2,13 @@
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-import os, sys, logging
+from pathlib import Path
+import sys, logging
 
-# Add parent directory to path so package and sel modules are found
+# Add parent directory to path so zh_xsec and sel modules are found
 # This is necessary for HTCondor batch jobs to find local modules
-script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if script_dir not in sys.path: sys.path.insert(0, script_dir)
+# script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# if script_dir not in sys.path: sys.path.insert(0, script_dir)
 
 
 
@@ -15,7 +16,7 @@ if script_dir not in sys.path: sys.path.insert(0, script_dir)
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser
+from zh_xsec.parsing import create_parser
 parser = create_parser('1-MVAInputs', 'pre-selection')
 cmd_args = globals().get('cmdline_args')
 arguments = cmd_args['unknown'] if cmd_args is not None else sys.argv[1:]
@@ -29,14 +30,14 @@ LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-from package.userConfig import loc
-from package.config import (
+from zh_xsec.userConfig import loc
+from zh_xsec.config import (
     get_process_list,
     parse_sample_selection,
     parse_sample_exclusion,
 )
-from sel.presel.leptonic import training_ll, branch_list_ll
-from sel.presel.hadronic import training_qq, branch_list_qq
+from sel_xsec.presel.leptonic import training_ll, branch_list_ll
+from sel_xsec.presel.hadronic import training_qq, branch_list_qq
 
 
 
@@ -68,6 +69,10 @@ procDict = 'FCCee_procDict_winter2023_training_IDEA.json'
 runBatch   = arg.run_batch            # Submit the job to HTCondor
 batchQueue = arg.job_flavor           # Queue for batch submission
 compGroup  = 'group_u_FCC.local_gen'  # Computing account for resource allocation
+
+# To make HTCondor execute userBatchConfig.sh
+# This will make HTCondor detect FCCWorkspace/python and custom modules in analysis/**
+userBatchConfig = str(Path(__file__).resolve().parents[4] / 'userBatchConfig.sh')
 
 # Parallel processing configuration (default 4)
 nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)

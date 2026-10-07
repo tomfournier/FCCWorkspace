@@ -23,9 +23,9 @@ Usage:
 import os, sys, json, time, subprocess
 
 # Load directory path manager and utilities
-from package.userConfig import loc, PathObj  # Directory path configuration
+from zh_mass.userConfig import loc, PathObj  # Directory path configuration
 loc.set_default_type('Path')
-from package.config import timer             # Execution timing utility
+from zh_mass.config import timer             # Execution timing utility
 
 # Start execution timer
 t = time.time()
@@ -39,8 +39,8 @@ ENV['RUN'] = '1'  # Flag for automated mode
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log  # Argument parsing utilities
-from package.logger import get_logger               # Logging setup
+from zh_mass.parsing import create_parser, set_log  # Argument parsing utilities
+from zh_mass.logger import get_logger               # Logging setup
 parser = create_parser(
     cat_multi=True,        # Support multiple decay categories (--cat ee-mumu)
     ecm_multi=True,        # Support multiple energies (--ecm 240-365)

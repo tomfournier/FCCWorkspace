@@ -17,8 +17,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, parse_args, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('2-BDT', 'process_input')
 arg = parse_args(parser, True)
 set_log(arg)
@@ -34,8 +34,8 @@ LOGGER = get_logger(__name__)
 LOGGER.debug('Loading custom modules')
 
 # Configuration and directory management
-from package.userConfig import loc
-from package.config import (
+from zh_xsec.userConfig import loc
+from zh_xsec.config import (
     timer,                      # Performance timing utility
     get_bdt_modes,              # Build BDT signal and background samples
     input_vars_ll,              # List of variables for BDT training (hadronic channel)
@@ -43,14 +43,14 @@ from package.config import (
 )
 
 # File I/O and process dictionary utilities
-from package.tools.utils import (
+from zh_xsec.tools.utils import (
     get_paths,                  # Find histogram files for each process
     to_pkl,                     # Save dataframes to pickle format
     get_procDict,               # Load process metadata
 )
 
 # BDT data preparation functions
-from package.func.bdt import (
+from zh_xsec.func.bdt import (
     counts_and_effs,            # Calculate event counts and efficiencies
     additional_info,            # Add signal/background labels and weights
     BDT_input_numbers,          # Determine optimal training set sizes

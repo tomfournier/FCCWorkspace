@@ -11,8 +11,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_mass.parsing import create_parser, parse_args, set_log
+from zh_mass.logger import get_logger
 parser = create_parser(
     cat_single=True,
     include_sel=True,
@@ -30,14 +30,14 @@ LOGGER = get_logger(__name__)
 ## IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 #########################################################
 
-from package.config import param_config, timer
-from package.userConfig import loc
+from zh_mass.config import param_config, timer
+from zh_mass.userConfig import loc
 loc.set_default_type('Path')
 
 from definitions import SIGNAL_MODELS, make_var_dict
 
-from package.func.fit import build_params_from_spec, build_pdf_from_spec, get_hist
-from package.plots.fit import plot_decomposition, plot_fit, plot_fit_all
+from zh_mass.func.fit import build_params_from_spec, build_pdf_from_spec, get_hist
+from zh_mass.plots.fit import plot_decomposition, plot_fit, plot_fit_all
 
 
 

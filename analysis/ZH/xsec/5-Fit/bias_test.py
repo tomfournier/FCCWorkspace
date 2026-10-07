@@ -15,8 +15,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, parse_args, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('5-Fit', 'bias_test')
 arg = parse_args(parser, comb=True)
 set_log(arg)
@@ -30,22 +30,22 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory configuration and analysis utilities
-from package.userConfig import loc
-from package.config import (
+from zh_xsec.userConfig import loc
+from zh_xsec.config import (
     timer,              # Timing utility
     get_process_dict,   # Build process definitions
     z_decays,           # Z boson decay modes
     h_decays,           # Higgs decay modes (visible)
     H_decays,           # Higgs decay modes (all)
 )
-from package.plots.plotting import Bias, PseudoRatio          # Plotting utilities
-from package.tools.utils import mkdir                         # Directory creation
-from package.tools.process import (                           # Process utilities
+from zh_xsec.plots.plotting import Bias, PseudoRatio          # Plotting utilities
+from zh_xsec.tools.utils import mkdir                         # Directory creation
+from zh_xsec.tools.process import (                           # Process utilities
     preload_histograms,                                       # Cache histograms
     clear_histogram_cache,
     getMetaInfo
 )
-from package.func.bias import pseudo_datacard                 # Bias test utilities
+from zh_xsec.func.bias import pseudo_datacard                 # Bias test utilities
 
 
 
@@ -97,7 +97,7 @@ h_inDir    = loc.get('HIST_PROCESSED',  cat, ecm, sel)
 ########################
 
 def _setup_cache() -> None:
-    # Preload histograms and xsec caches once to minimize repeated I/O
+    # Preload histograms and zh_xsec caches once to minimize repeated I/O
     # Determine processed histogram directory
 
     # Flatten actual sample names for caching
@@ -110,7 +110,7 @@ def _setup_cache() -> None:
     LOGGER.debug('Preloading histograms and cross-section before bias loop')
     preload_histograms(samples, h_inDir, hNames=hNames, rmww=True)
 
-    # Warm up xsec cache for both rmww variants to avoid repeated computations in downstream calls
+    # Warm up zh_xsec cache for both rmww variants to avoid repeated computations in downstream calls
     for s in samples:
         _ = getMetaInfo(s, rmww=False)
         _ = getMetaInfo(s, rmww=True)

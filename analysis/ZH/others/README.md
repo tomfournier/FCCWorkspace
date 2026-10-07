@@ -1,1 +1,1 @@
-Need to update the READMEs and `package/`
+Need to update the READMEs and `zh_others/`

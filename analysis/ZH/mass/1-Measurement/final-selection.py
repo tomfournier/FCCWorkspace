@@ -5,11 +5,11 @@
 import os
 
 # Load configuration and measurement selection functions
-from package.userConfig import (
+from zh_mass.userConfig import (
     loc, event, get_params
 )
-from sel.final import Baseline_cut, histo_list    # Histogram definitions
-from package.config import get_process_list
+from sel_mass.final import Baseline_cut, histo_list    # Histogram definitions
+from zh_mass.config import get_process_list
 
 # Load analysis parameters: decay category, CoM energy, luminosity, test flag
 cat, ecm, lumi, test = get_params(os.environ.copy(), '1-run.json', is_final=True)

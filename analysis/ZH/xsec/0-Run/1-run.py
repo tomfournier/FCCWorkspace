@@ -32,8 +32,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, set_log  # Argument parsing utilities
-from package.logger import get_logger               # Logging setup
+from zh_xsec.parsing import create_parser, set_log  # Argument parsing utilities
+from zh_xsec.logger import get_logger               # Logging setup
 arg = create_parser('1-MVAInputs').parse_args()
 set_log(arg)
 
@@ -46,9 +46,9 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory path manager and timing utility
-from package.userConfig import loc  # Directory path configuration
-from package.config import timer    # Execution timing utility
-from package.run import log_msg, update_namespace, get_extra_args
+from zh_xsec.userConfig import loc  # Directory path configuration
+from zh_xsec.config import timer    # Execution timing utility
+from zh_xsec.run import log_msg, update_namespace, get_extra_args
 
 
 

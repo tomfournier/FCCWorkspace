@@ -16,8 +16,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import create_parser, parse_args, set_log
+from zh_xsec.logger import get_logger
 parser = create_parser('5-Fit', 'fit')
 arg = parse_args(parser, comb=True)  # Parse with combination support
 set_log(arg)
@@ -31,11 +31,11 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory path manager and utilities
-from package.userConfig import loc, PathObj
+from zh_xsec.userConfig import loc, PathObj
 loc.set_default_type(Path)
-from package.config import timer  # Timing utility
-from package.run import get_extra_args, update_namespace
-from package.func.fit import (
+from zh_xsec.config import timer  # Timing utility
+from zh_xsec.run import get_extra_args, update_namespace
+from zh_xsec.func.fit import (
     check_log,
     get_results,
     res_saving,
@@ -103,7 +103,7 @@ dcs = loc.get('COMBINE', '', arg.ecm, arg.sel)  # Combined datacard location
 # Define full file paths for workspace, logs, and results
 ws_file   = ws  / f'ws{tar}.root'                                   # Workspace file (workspace.root or workspace_bb.root)
 diag_file = ws  / f'higgsCombineDiag{tar}.MultiDimFit.mH125.root'   # Diagnostic fit file
-fit_file  = ws  / f'higgsCombineXsec{tar}.MultiDimFit.mH125.root'   # Likekihood scan file
+fit_file  = ws  / f'higgsCombinezh_xsec{tar}.MultiDimFit.mH125.root'   # Likekihood scan file
 
 log_t2w   = log / f'log_text2workspace{tar}.txt'    # Text2workspace log
 log_fscan = log / f'log_fastscan{tar}.txt'          # Scan results log (scan results)
@@ -161,7 +161,7 @@ def do_fit(
     cmd_fastscan = ['combineTools.py', '-M', 'FastScan', '-w', str(ws_file)+':w']
 
     cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2',
-               '--expectSignal=1', '-n', f'Xsec{tar}', '-w', 'w', '--snapshotName', 'MultiDimFit',
+               '--expectSignal=1', '-n', f'zh_xsec{tar}', '-w', 'w', '--snapshotName', 'MultiDimFit',
                '--rMin', '0.9', '--rMax', '1.1', '--alignEdges', '1', '--squareDistPoiStep',
                '--algo', 'grid', '--points', str(arg.npoints), '--skipInitialFit']
     cmd_fit += ['--fastScan'] if arg.fast_scan else []

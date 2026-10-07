@@ -4,16 +4,16 @@
 
 import os, sys
 
-# Add parent directory to path so package and sel modules are found
+# Add parent directory to path so zh_mass and sel modules are found
 # This is necessary for HTCondor batch jobs to find local modules
 script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 # Load analysis configuration and preselection functions
-from package.userConfig import loc, get_params
-from package.config import get_process_list
-from sel.presel import presel, branch_list
+from zh_mass.userConfig import loc, get_params
+from zh_mass.config import get_process_list
+from sel_mass.presel import presel, branch_list
 
 # Load environment to know which configuration to use
 env = os.environ.copy()

@@ -5,12 +5,12 @@
 import os
 
 # Import user configuration paths and parameters
-from package.config import get_process_list, quarks
-from sel.presel.optimization.chi2 import (
+from zh_others.config import get_process_list, quarks
+from sel_others.chi2 import (
     optimize_ll, optimize_qq,
     branch_list_ll, branch_list_qq
 )
-from package.userConfig import (
+from zh_others.userConfig import (
     loc, get_params
 )
 

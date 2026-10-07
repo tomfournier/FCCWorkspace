@@ -13,8 +13,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from package.parsing import ArgumentParser, create_parser, parse_args, set_log
-from package.logger import get_logger
+from zh_xsec.parsing import ArgumentParser, create_parser, parse_args, set_log
+from zh_xsec.logger import get_logger
 parser: ArgumentParser = create_parser('5-Fit', 'make_pseudo')
 # Use all Z decays for cross-section calculation in pseudo-data generation
 parser.add_argument('--tot', help='Do not consider all Z decays for cross-section', action='store_true')
@@ -38,15 +38,15 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory configuration and process definitions
-from package.userConfig import loc
-from package.config import (
+from zh_xsec.userConfig import loc
+from zh_xsec.config import (
     timer,              # Timing utility
     get_process_dict,   # Build process definitions
     z_decays,           # Z boson decay modes
     h_decays,           # Higgs decay modes (visible only)
     H_decays            # Higgs decay modes (all including invisible)
 )
-from package.func.bias import pseudo_datacard  # Pseudo-datacard generation utilities
+from zh_xsec.func.bias import pseudo_datacard  # Pseudo-datacard generation utilities
 
 
 

@@ -273,7 +273,7 @@ def build_datacard_signal_pdf(
         use_syst: bool = True,
          ):
 
-    from package.func.fit import build_pdf_from_spec
+    from zh_mass.func.fit import build_pdf_from_spec
 
     params = build_datacard_signal_params(workspace, signal_name, flavor, ecm, use_syst)
     return build_pdf_from_spec(recoilmass, params, 1.0, '', SIGNAL_MODELS[signal_name], extended=False)[0]

@@ -5,12 +5,12 @@
 import os
 
 # Import user configuration paths and parameters
-from package.config import get_process_list, quarks
-from sel.presel.optimization.fsr import (
+from zh_others.config import get_process_list, quarks
+from sel_others.fsr import (
     fsr_recovery,
     branch_list
 )
-from package.userConfig import (
+from zh_others.userConfig import (
     loc, get_params
 )
 
