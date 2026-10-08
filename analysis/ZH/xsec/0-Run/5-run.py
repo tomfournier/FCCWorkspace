@@ -47,7 +47,7 @@ LOGGER = get_logger(__name__)
 # Load directory path manager and timing utility
 from zh_xsec.userConfig import loc  # Directory path configuration
 from utilities import timer    # Execution timing utility
-from zh_xsec.run import log_msg, update_namespace, get_extra_args
+from run import log_msg, update_namespace, get_extra_args
 
 
 
@@ -110,7 +110,8 @@ def main(cat: str, ecm: int, sel: str, script: str) -> int:
 
     # Forward only arguments supported by the selected downstream parser.
     stage_args = update_namespace(arg, cat=cat, ecm=ecm, sel=sel)
-    extra_args = get_extra_args(stage_args, {'directory': '5-Fit', 'script': script})
+    parser = {'directory': '5-Fit', 'script': script}
+    extra_args = get_extra_args(stage_args, parser, create_parser)
     result = subprocess.run(cmds[script].split() + [f'{path}/{script}.py'] + extra_args,
                             env=ENV, stdout=sys.stdout, stderr=sys.stderr)
 

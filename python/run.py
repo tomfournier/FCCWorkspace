@@ -2,7 +2,6 @@
 from argparse import ArgumentParser, Namespace, BooleanOptionalAction
 from typing import Mapping, Sequence
 
-from .parsing import create_parser
 from logger import get_logger
 
 LOGGER = get_logger('__name__')
@@ -101,7 +100,7 @@ def get_argument_metadata(parser: ArgumentParser) -> dict[str, dict]:
     return metadata
 
 
-def get_extra_args(args: Namespace, parser: ArgumentParser | Mapping[str, object]) -> list[str]:
+def get_extra_args(args: Namespace, parser: ArgumentParser | Mapping[str, object], function) -> list[str]:
     '''Build command-line arguments accepted by ``parser`` from ``args``.
 
     Regular options are forwarded with their current value. ``store_true``
@@ -110,7 +109,7 @@ def get_extra_args(args: Namespace, parser: ArgumentParser | Mapping[str, object
     either ``--name`` or ``--no-name`` as appropriate.
     '''
     if isinstance(parser, Mapping):
-        parser = create_parser(**parser)
+        parser = function(**parser)
 
     extra_args = []
     metadata = get_argument_metadata(parser)
