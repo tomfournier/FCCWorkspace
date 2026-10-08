@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     import ROOT
 
 from constants import h_labels
-from ..tools.utils import mkdir
+from tools.utils import mkdir
 from logger import get_logger
 
 LOGGER = get_logger(__name__)

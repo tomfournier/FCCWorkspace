@@ -56,7 +56,7 @@ import ROOT
 from functools import lru_cache
 from typing import Union
 
-from ...tools.utils import mkdir
+from tools.utils import mkdir
 from ...tools.process import getHist, get_range
 
 from logger import get_logger

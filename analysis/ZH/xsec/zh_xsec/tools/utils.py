@@ -23,122 +23,15 @@ from __future__ import annotations
 
 import os
 
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import pandas as pd
 
 from logger import get_logger
-
 LOGGER = get_logger(__name__)
 
-# __________________
-def get_paths(
-    proc: str,
-    path: str,
-    suffix: str = ''
-     ) -> list[str]:
-    '''
-    Retrieve ROOT file paths based on mode and suffix.
 
-    Args:
-        mode (str): The mode key to filter paths.
-        path (str): Base directory path to search.
-        modes (dict): Mapping of mode names to directory patterns.
-        suffix (str, optional): File suffix to append. Defaults to ''.
-
-    Returns:
-        list: Matching ROOT file paths.
-    '''
-    from glob import glob
-
-    # Construct full path from base path and mode pattern
-    fpath = os.path.join(path, proc + suffix)
-    if os.path.exists(fpath+'.root'):
-        return [fpath+'.root']
-    elif os.path.exists(fpath):
-        return glob(f'{fpath}/*')
-    else:
-        LOGGER.error(f'{fpath} not found')
-        exit(1)
-
-
-# __________________________
-def get_df(
-    filename: str,
-    branches: list[str] = []
-     ) -> pd.DataFrame:
-    '''
-    Load a DataFrame from a ROOT file.
-
-    Args:
-        filename (str): Path to the ROOT file.
-        branches (list[str], optional): Specific branches to load. If empty, loads all. Defaults to [].
-
-    Returns:
-        pd.DataFrame: DataFrame containing the 'events' tree data.
-    '''
-    import pandas as pd
-    from uproot import open
-
-    with open(filename) as file:
-        tree = file['events']
-        # Return empty DataFrame if tree has no entries
-        if tree.num_entries == 0:
-            return pd.DataFrame()
-        # Load specific branches or all branches
-        if branches:
-            return tree.arrays(branches, library='pd')
-        return tree.arrays(library='pd')
-
-# ____________________________
-def mkdir(mydir: str) -> None:
-    '''
-    Create a directory if it does not exist.
-
-    Args:
-        mydir (str): The directory path to create.
-    '''
-
-    os.makedirs(mydir, exist_ok=True)
-
-
-# __________________________________________
-def get_procDict(
-    procFile: str,
-    fcc_path: str = '/cvmfs/fcc.cern.ch/FCCDicts'
-     ) -> dict[str, dict[str, float]]:
-    '''
-    Load process dictionary from a JSON file.
-
-    Args:
-        procFile (str): Name of the process dictionary file.
-        fcc (str, optional): Base directory for FCC dictionaries. Defaults to '/cvmfs/fcc.cern.ch/FCCDicts'.
-
-    Returns:
-        dict: Process dictionary with cross-section and other metadata.
-
-    Raises:
-        FileNotFoundError: If the process dictionary file is not found.
-    '''
-
-    import json
-
-    # Check environment variable for FCC dictionaries directory
-    env = os.getenv('FCCDICTSDIR')
-    base_dir = env.split(':')[0] if env else fcc_path
-    proc_path = os.path.join(base_dir, procFile)
-
-    if not os.path.isfile(proc_path):
-        LOGGER.error(f'No procDict found: {proc_path}')
-        exit(1)
-
-    with open(proc_path, 'r') as f:
-        procDict = json.load(f)
-    return procDict
-
-
-# ________________________________________
 def update_keys(
     procDict: dict[str, dict[str, float]],
     modes: dict[str, list[str]]
@@ -165,9 +58,8 @@ def update_keys(
     return updated_dict
 
 
-# ________________________
 def get_xsec(
-    modes: list[str],
+    modes: dict[str, list[str]],
     training: bool = True
      ) -> dict[str, float]:
     '''
@@ -180,12 +72,11 @@ def get_xsec(
     Returns:
         dict: Dictionary mapping modes to their cross-section values.
     '''
+    from tools.utils import get_procDict
 
     # Select appropriate process dictionary based on training flag
-    if training:
-        procFile = 'FCCee_procDict_winter2023_training_IDEA.json'
-    else:
-        procFile = 'FCCee_procDict_winter2023_IDEA.json'
+    procFile = 'FCCee_procDict_winter2023{}_IDEA.json'.format(
+        '_training' if training else '')
 
     proc_dict = get_procDict(procFile)
     procDict  = update_keys(proc_dict, modes)
@@ -197,8 +88,7 @@ def get_xsec(
     return xsec
 
 
-# ________________________________
-def load_data(
+def data_from_pkl(
     inDir: str,
     filename: str = 'preprocessed'
      ) -> tuple[pd.DataFrame, list[str]]:
@@ -216,15 +106,14 @@ def load_data(
 
     # Construct pickle file path and load
     fpath = os.path.join(inDir, filename+'.pkl')
-    data = pickle.load(open(fpath, 'rb'))
+    data  = pickle.load(open(fpath, 'rb'))
     df, input_vars = data['data'], data['variables']
     LOGGER.info('Training variable used for the training\n' +
                 ', '.join(input_vars) + '\n')
     return df, input_vars
 
 
-# ________________________________
-def to_pkl(
+def data_to_pkl(
     df: pd.DataFrame,
     input_vars: list[str],
     path: str,
@@ -239,179 +128,15 @@ def to_pkl(
         filename (str, optional): Filename without extension. Defaults to 'preprocessed'.
     '''
     import pickle
+    from tools.utils import mkdir
 
     mkdir(path)
-    save = {
-        'data': df,
-        'variables': input_vars
-    }
+    save  = {'data': df, 'variables': input_vars}
     fpath = os.path.join(path, filename+'.pkl')
     pickle.dump(save, open(fpath, 'wb'))
     LOGGER.info(f'Preprocessed saved {fpath}')
 
 
-# _________________
-def dump_json(
-    arg: dict,
-    file: str,
-    indent: int = 4
-     ) -> None:
-    '''
-    Dump a dictionary to a JSON file.
-
-    Args:
-        arg (dict): Dictionary to save.
-        file (str): Output file path.
-        indent (int, optional): JSON indentation level. Defaults to 4.
-    '''
-    import json
-
-    with open(file, mode='w', encoding='utf-8') as fOut:
-        json.dump(arg, fOut, indent=indent)
-
-# _____________
-def load_json(
-    file: str
-     ) -> dict:
-    '''
-    Load a dictionary from a JSON file.
-
-    Args:
-        file (str): Path to JSON file.
-
-    Returns:
-        dict: Loaded dictionary.
-    '''
-    import json
-
-    with open(file, mode='r',
-              encoding='utf-8') as fIn:
-        arg = json.load(fIn)
-    return arg
-
-
-# ______________
-def Z0(
-    S: float,
-    B: float
-     ) -> float:
-    '''
-    Calculate significance using the Z0 method.
-
-    Args:
-        S (float): Signal value.
-        B (float): Background value.
-
-    Returns:
-        float: Calculated significance (NaN if B <= 0).
-    '''
-    import numpy as np
-
-    if B<=0:
-        return np.nan
-    return np.sqrt(2*((S + B)*np.log(1 + S/B) - S))
-
-
-# ______________
-def Zmu(
-    S: float,
-    B: float
-     ) -> float:
-    '''
-    Calculate significance using the Zmu method.
-
-    Args:
-        S (float): Signal value.
-        B (float): Background value.
-
-    Returns:
-        float: Calculated significance (NaN if B <= 0).
-    '''
-    import numpy as np
-
-    if B<=0:
-        return np.nan
-    return np.sqrt(2*(S - B*np.log(1 + S/B)))
-
-
-# ______________
-def Z(
-    S: float,
-    B: float
-     ) -> float:
-    '''
-    Calculate significance using the Z method (simple S/sqrt(S+B)).
-
-    Args:
-        S (float): Signal value.
-        B (float): Background value.
-
-    Returns:
-        float: Calculated significance (0.0 if both S and B are <= 0, NaN if B < 0).
-    '''
-    import numpy as np
-
-    if B<0:
-        return np.nan
-    if S<=0 and B<=0:
-        return 0.0
-    return S/np.sqrt(S + B)
-
-
-# _________________________________________________
-def Significance(
-        df_s: pd.DataFrame,
-        df_b: pd.DataFrame,
-        column: str = 'BDTscore',
-        weight: str = 'norm_weight',
-        func: Callable[[float, float], float] = Z0,
-        score_range: tuple[float, float] = (0, 1),
-        nbins: int = 50) -> pd.DataFrame:
-    '''Calculate significance from signal and background DataFrames.
-
-    Optimized for speed: vectorized numpy operations, single pass binning.
-
-    Args:
-        df_s (pd.DataFrame): DataFrame containing signal data.
-        df_b (pd.DataFrame): DataFrame containing background data.
-        column (str, optional): Column name for scoring. Defaults to 'BDTscore'.
-        weight (str, optional): Column name for event weights. Defaults to 'norm_weight'.
-        func (Callable, optional): Function to calculate significance. Defaults to Z0.
-        score_range (tuple, optional): Score range (min, max) for binning. Defaults to (0, 1).
-        nbins (int, optional): Number of histogram bins. Defaults to 50.
-
-    Returns:
-        pd.DataFrame: DataFrame with columns ['S', 'B', 'Z'] for signal, background, and significance at each bin edge.
-    '''
-    import numpy as np
-    import pandas as pd
-
-    # Extract values and weights as numpy arrays (no intermediate copies)
-    s_vals, s_w = df_s[column].values, df_s[weight].values
-    b_vals, b_w = df_b[column].values, df_b[weight].values
-
-    S0, B0 = s_w.sum(), b_w.sum()
-    LOGGER.debug(f'Initial:   S0 = {S0:.2f}, B0 = {B0:.2f}')
-    LOGGER.debug(f'Inclusive: Z  = {func(S0, B0):.2f}')
-
-    # Bin data once and compute cumulative sums
-    edges = np.linspace(*score_range, nbins + 1)
-    hist_s, _ = np.histogram(s_vals, bins=edges, weights=s_w)
-    hist_b, _ = np.histogram(b_vals, bins=edges, weights=b_w)
-
-    # Cumulative sums from high to low score (avoid loop)
-    S_cum = np.cumsum(hist_s[::-1])[::-1]
-    B_cum = np.cumsum(hist_b[::-1])[::-1]
-
-    # Vectorized significance calculation
-    Z_vals = np.array([func(Si, Bi) for Si, Bi in zip(S_cum, B_cum)])
-
-    return pd.DataFrame(
-        data={'S': S_cum, 'B': B_cum, 'Z': Z_vals},
-        index=edges[:-1]
-    )
-
-# __________________________
 def high_low_sels(
     sels: list[str],
     list_hl: str | list[str]

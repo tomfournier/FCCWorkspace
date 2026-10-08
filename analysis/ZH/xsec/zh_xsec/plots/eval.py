@@ -59,7 +59,7 @@ from .python.plotter import (
     set_labels,
     savefigs
 )
-from ..tools.utils import (
+from tools.utils import (
     mkdir, Z,
     Significance
 )

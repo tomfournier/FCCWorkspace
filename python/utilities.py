@@ -59,35 +59,3 @@ class LazyColorDict(dict):
     def values(self):
         self._ensure()
         return super().values()
-
-
-def timer(t: float) -> None:
-    '''Log formatted elapsed time since provided timestamp.
-
-    Calculates and logs elapsed time in human-readable format (hours, minutes,
-    seconds, milliseconds) with formatted header and footer separators.
-
-    Args:
-        t: Starting timestamp from time.time().
-    '''
-    import time
-    dt = time.time() - t
-
-    # Split time into components
-    h, m = int(dt // 3600), int(dt // 60 % 60),
-    s, ms = int(dt % 60), int((dt % 1) * 1000)
-
-    # Build time string with non-zero components
-    time_parts = []
-    if h  > 0: time_parts.append(f'{h} h')
-    if m  > 0: time_parts.append(f'{m} min')
-    if s  > 0: time_parts.append(f'{s} s')
-    if ms > 0: time_parts.append(f'{ms} ms')
-    if not time_parts:
-        time_parts.append('0 ms')
-
-    elapsed = f"Elapsed time: {' '.join(time_parts)}"
-    lenght = len(elapsed) + 4
-
-    LOGGER.info(f'\n{" CODE ENDED ":=^{lenght}}\n{elapsed:^{lenght}}\n{"="*lenght}\n')
-    return None

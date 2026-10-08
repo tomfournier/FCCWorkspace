@@ -57,7 +57,7 @@ Lazy Imports:
 
 # To remove numpy warning
 from logger import get_logger
-from ..tools.utils import mkdir
+from tools.utils import mkdir
 from typing import overload, TYPE_CHECKING
 import warnings
 warnings.filterwarnings('ignore', message='The value of the smallest subnormal for')

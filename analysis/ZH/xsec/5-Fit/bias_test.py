@@ -37,7 +37,7 @@ from constants import (
     h_decays,           # Higgs decay modes (visible)
     H_decays,           # Higgs decay modes (all)
 )
-from utilities import timer
+from tools.utils import timer
 from samples import get_process_dict
 from zh_xsec.plots.plotting import Bias, PseudoRatio          # Plotting utilities
 from zh_xsec.tools.utils import mkdir                         # Directory creation

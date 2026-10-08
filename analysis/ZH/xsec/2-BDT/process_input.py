@@ -41,14 +41,11 @@ from zh_xsec.userConfig import (
     input_vars_qq,              # List of variables for BDT training (hadronic channel)
 )
 from samples import get_bdt_modes
-from utilities import timer
+from tools.utils import timer
 
 # File I/O and process dictionary utilities
-from zh_xsec.tools.utils import (
-    get_paths,                  # Find histogram files for each process
-    to_pkl,                     # Save dataframes to pickle format
-    get_procDict,               # Load process metadata
-)
+from zh_xsec.tools.utils import data_to_pkl
+from tools.utils import get_paths, get_procDict
 
 # BDT data preparation functions
 from zh_xsec.func.bdt import (
@@ -175,7 +172,7 @@ def main() -> None:
 
         # Merge all processes and save to single pickle file for BDT training
         dfsum = pd.concat([df[mode] for mode in good_modes])
-        to_pkl(dfsum, input_vars, outputdir)
+        data_to_pkl(dfsum, input_vars, outputdir)
 
 
 ######################

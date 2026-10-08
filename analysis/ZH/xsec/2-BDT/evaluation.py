@@ -45,11 +45,11 @@ from constants import (
     vars_label_ll,
     vars_label_qq
 )
-from utilities import timer
+from tools.utils import timer
 from samples import get_bdt_modes
 
 # Import data handling utilities
-from zh_xsec.tools.utils import load_data
+from zh_xsec.tools.utils import data_from_pkl
 
 # Import BDT model utilities
 from zh_xsec.func.bdt import (
@@ -203,7 +203,7 @@ if __name__=='__main__':
 
             # Load preprocessed evaluation data
             LOGGER.info(f'Getting DataFrame from {sel}')
-            df, input_vars = load_data(inputdir)
+            df, input_vars = data_from_pkl(inputdir)
 
             LOGGER.info(f'Using {", ".join(input_vars)}')
             print_stats(df, modes)

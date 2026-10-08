@@ -41,7 +41,7 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     import numpy as np
 
-from ..tools.utils import get_df, mkdir
+from tools.utils import get_df, mkdir
 from ..tools.process import get_range_decay, getMetaInfo
 from constants import h_colors, h_labels
 from logger import get_logger

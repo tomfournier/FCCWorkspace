@@ -33,7 +33,7 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 from zh_xsec.userConfig import loc  # Directory management utilities
-from utilities import timer
+from tools.utils import timer
 from samples import get_bdt_modes
 from zh_xsec.func.bdt import (
     print_stats,    # Display event counts per process

@@ -30,7 +30,7 @@ LOGGER = get_logger(__name__)
 
 # Load directory paths and process configurations
 from zh_xsec.userConfig import loc
-from utilities import timer
+from tools.utils import timer
 from constants import (
     z_decays,           # Z boson decay modes
     H_decays,           # Higgs decay modes

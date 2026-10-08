@@ -31,7 +31,7 @@ LOGGER = get_logger(__name__)
 from zh_xsec.userConfig import loc
 from constants import H_DECAYS_FIT
 from samples import get_process_dict
-from utilities import timer
+from tools.utils import timer
 from zh_xsec.func.combine import do_combine
 
 

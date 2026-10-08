@@ -35,7 +35,7 @@ LOGGER = get_logger(__name__)
 from path import PathObj
 from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
-from utilities import timer  # Timing utility
+from tools.utils import timer  # Timing utility
 from zh_xsec.func.fit import (
     res_saving,
     run_cmd,

@@ -50,7 +50,7 @@ from .helper import (
     setup_latex,
     savecanvas
 )
-from ...tools.utils import mkdir
+from tools.utils import mkdir
 
 
 

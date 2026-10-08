@@ -49,7 +49,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import hist, ROOT
 
-from ..tools.utils import mkdir
+from tools.utils import mkdir
 from ..tools.process import getMetaInfo, getHist
 from logger import get_logger
 

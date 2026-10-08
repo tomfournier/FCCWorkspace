@@ -37,9 +37,8 @@ from samples import (
     get_process_dict,   # Build process definitions
     get_process_list
 )
-from utilities import timer      # Timing utility
+from tools.utils import timer, mkdir
 from constants import H_decays   # Higgs decay modes
-from zh_xsec.tools.utils import mkdir     # Directory creation
 from zh_xsec.tools.process import (       # Histogram utilities
     get_hist, concat,
     unroll, stack_hist

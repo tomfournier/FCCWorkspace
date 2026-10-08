@@ -60,7 +60,7 @@ import os, json, copy, uproot
 from functools import lru_cache
 from glob import glob
 
-from ...tools.utils import mkdir
+from tools.utils import mkdir
 from logger import get_logger
 
 LOGGER = get_logger(__name__)

@@ -38,7 +38,7 @@ LOGGER = get_logger(__name__)
 
 from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
-from utilities import timer
+from tools.utils import timer
 from zh_xsec.func.fit import plot_1d_scans, plot_2d_scans, params_label
 
 

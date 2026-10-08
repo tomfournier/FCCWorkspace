@@ -32,7 +32,7 @@ LOGGER = get_logger(__name__)
 from zh_xsec.userConfig import loc
 from sel_xsec.final.leptonic import histos_ll
 from sel_xsec.final.hadronic import histos_qq
-from utilities import timer
+from tools.utils import timer
 from samples import get_process_dict
 from constants import (
     z_decays,             # Z boson decay modes

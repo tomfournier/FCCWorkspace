@@ -47,7 +47,7 @@ LOGGER = get_logger(__name__)
 
 # Load directory path manager and utilities
 from zh_xsec.userConfig import loc           # Directory path configuration
-from utilities import timer             # Execution timing utility
+from tools.utils import timer             # Execution timing utility
 from run import log_msg, update_namespace, get_extra_args
 
 
