@@ -48,9 +48,9 @@ from inspect import Parameter, signature
 from re import search
 from typing import Any, Union, TYPE_CHECKING
 
-from package.func.bias import getMetaInfo
-from package.plots.root.helper import build_cfg
-from package.tools.process import get_range_decay, getHist
+from ..func.bias import getMetaInfo
+from .root.helper import build_cfg
+from ..tools.process import get_range_decay, getHist
 
 if TYPE_CHECKING:
     import numpy as np
@@ -59,7 +59,7 @@ if TYPE_CHECKING:
 
 from ..config import h_labels
 from ..tools.utils import mkdir
-from ..logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 

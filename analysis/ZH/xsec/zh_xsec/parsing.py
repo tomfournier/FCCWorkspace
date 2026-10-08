@@ -1232,7 +1232,7 @@ def set_log(args: Namespace | None) -> None:
         LOGGER = get_logger(__name__)
         LOGGER.info('Analysis starting')
     """
-    from package.logger import setup_logging
+    from logger import setup_logging
 
     # Check if args has verbose flag
     verbose = getattr(args, 'verbose', False)

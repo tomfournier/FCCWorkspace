@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
 
 from .utils import get_procDict
-from ..logger import get_logger
+from logger import get_logger
 from ..config import _get_root
 
 LOGGER = get_logger(__name__)

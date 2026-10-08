@@ -31,7 +31,7 @@ Usage:
 from time import time
 from typing import Sequence, Union
 
-from .logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 

@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
 from ..tools.utils import mkdir
 from ..tools.process import getMetaInfo, getHist
-from ..logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 

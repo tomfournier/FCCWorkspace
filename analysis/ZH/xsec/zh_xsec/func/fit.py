@@ -14,7 +14,7 @@ from scipy.interpolate import UnivariateSpline
 from uuid import uuid4
 from datetime import datetime
 
-from ..logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -25,13 +25,13 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
 ###########################################################
 
-from package.userConfig import plot_file, PathObj
-from package.plots.python.plotter import (
+from path import PathObj
+from ..plots.python.plotter import (
     set_plt_style,
     set_labels,
     savefigs
 )
-from package.func.self_coupling import (
+from ..func.self_coupling import (
     kappa_from_SMEFT,
     kappa_precision
 )
@@ -556,7 +556,8 @@ def plot_1d_scans(
         suffix: str = '',
         right: str = '',
         sig2: bool = False,
-        other_params: list[str] = []
+        other_params: list[str] = [],
+        plot_file: list[str] = ['png']
          ) -> None:
     """
     Plot multiple 1D likelihood scans on the same figure.
@@ -737,7 +738,8 @@ def plot_2d_scans(
         suffix: str = '',
         right: str = '',
         sig2: bool = False,
-        cmap: str = 'plasma'
+        cmap: str = 'plasma',
+        plot_file: list[str] = ['png']
          ) -> None:
     """
     Plot one or more 2D likelihood scans on the same figure.

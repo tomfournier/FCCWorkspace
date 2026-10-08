@@ -28,7 +28,7 @@ from typing import Callable, TYPE_CHECKING
 if TYPE_CHECKING:
     import pandas as pd
 
-from ..logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 

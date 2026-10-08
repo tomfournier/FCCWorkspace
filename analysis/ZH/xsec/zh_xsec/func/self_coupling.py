@@ -7,7 +7,7 @@ from HiggsAnalysis.CombinedLimit.PhysicsModel import (
     PhysicsModelBase as CombinedPhysicsModelBase,
 )
 
-from ..logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 

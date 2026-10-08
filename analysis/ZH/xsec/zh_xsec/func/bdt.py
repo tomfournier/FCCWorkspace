@@ -56,7 +56,7 @@ Lazy Imports:
 ####################################
 
 # To remove numpy warning
-from ..logger import get_logger
+from logger import get_logger
 from ..tools.utils import mkdir
 from typing import overload, TYPE_CHECKING
 import warnings

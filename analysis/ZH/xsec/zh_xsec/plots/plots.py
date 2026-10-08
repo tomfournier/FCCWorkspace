@@ -8,7 +8,7 @@ that specialized plot classes can override individual steps later.
 from typing import Any
 from pathlib import Path
 
-from ..logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 

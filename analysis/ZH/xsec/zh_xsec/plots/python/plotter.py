@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import matplotlib.pyplot as plt
 
-from ...logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 

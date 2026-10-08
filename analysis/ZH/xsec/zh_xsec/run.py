@@ -3,7 +3,7 @@ from argparse import ArgumentParser, Namespace, BooleanOptionalAction
 from typing import Mapping, Sequence
 
 from .parsing import create_parser
-from .logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger('__name__')
 

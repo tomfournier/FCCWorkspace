@@ -5,32 +5,56 @@ This module provides a unified logging system for all analysis and package modul
 It ensures consistent log formatting and verbosity across the entire analysis pipeline.
 
 Usage in analysis scripts:
-    from package.logger import setup_logging, get_logger
 
-    # In your main script (e.g., 2-BDT/train_bdt.py)
-    setup_logging(verbose=args.verbose)
-    LOGGER = get_logger(__name__)
+```python
+from package.logger import setup_logging, get_logger
 
-    # Now use LOGGER throughout your script
-    LOGGER.debug('This only appears with -v flag')
-    LOGGER.info('This always appears')
-    LOGGER.warning('Warning message')
-    LOGGER.error('Error message')
+# In your main script (e.g., 2-BDT/train_bdt.py)
+setup_logging(verbose=args.verbose)
+LOGGER = get_logger(__name__)
+
+# Now use LOGGER throughout your script
+LOGGER.debug('This only appears with -v flag')
+LOGGER.info('This always appears')
+LOGGER.warning('Warning message')
+LOGGER.error('Error message')
+```
 
 Usage in package modules:
-    from package.logger import get_logger
 
-    # In your module (e.g., package/func/bdt.py)
-    LOGGER = get_logger(__name__)
+```python
+from package.logger import get_logger
 
-    # Use LOGGER just like in analysis scripts
-    LOGGER.debug('Debugging this function')
-    LOGGER.info('Processing complete')
+# In your module (e.g., package/func/bdt.py)
+LOGGER = get_logger(__name__)
+
+# Use LOGGER just like in analysis scripts
+LOGGER.debug('Debugging this function')
+LOGGER.info('Processing complete')
+```
 """
 
-import logging
-import sys
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
+import sys, logging
+
+
+
+####################################
+### NEW LOGGING LEVEL DEFINITION ###
+####################################
+
+TRACE = 5
+"""Logging level used for the most detailed diagnostic messages."""
+logging.addLevelName(TRACE, 'TRACE')
+
+
+
+#########################
+### LOGGER DEFINITION ###
+#########################
 
 # Custom formatter similar to FCCAnalyses
 class MultiLineFormatter(logging.Formatter):
@@ -44,11 +68,9 @@ class MultiLineFormatter(logging.Formatter):
     def get_header_length(self, record):
         """Calculate the length of the log message header."""
         return len(super().format(logging.LogRecord(
-            name=record.name,
-            level=record.levelno,
-            pathname=record.pathname,
-            lineno=record.lineno,
-            msg='', args=(), exc_info=None
+            record.name, record.levelno,
+            record.pathname, record.lineno,
+            '', (), None
         )))
 
     def format(self, record):
@@ -62,7 +84,7 @@ class MultiLineFormatter(logging.Formatter):
 _logging_configured = False
 
 
-def setup_logging(verbose: bool = False, logger_name: str = 'FCCAnalysis') -> None:
+def setup_logging(verbose: int | bool = 0, logger_name: str = 'FCCAnalysis') -> None:
     """
     Configure the root logging system for all analysis scripts and modules.
 
@@ -71,9 +93,10 @@ def setup_logging(verbose: bool = False, logger_name: str = 'FCCAnalysis') -> No
 
     Parameters
     ----------
-    verbose : bool, optional
-        If True, set logging level to DEBUG (show all messages including debug).
-        If False, set to INFO (show only info/warning/error). Default: False
+    verbose : int or bool, optional
+        Verbosity count: 0 shows INFO and above, 1 enables DEBUG, 2 enables
+        TRACE, and 3 or more enables every logging level. A boolean is accepted
+        for compatibility, where True is equivalent to 1. Default: 0
     logger_name : str, optional
         Name of the root logger. Default: 'FCCAnalysis'
 
@@ -103,25 +126,19 @@ def setup_logging(verbose: bool = False, logger_name: str = 'FCCAnalysis') -> No
     """
     global _logging_configured
 
-    if _logging_configured:
-        # Prevent reconfiguration (logging should be set up only once)
-        return
+    # Prevent reconfiguration (logging should be set up only once)
+    if _logging_configured: return
 
     # Get the root logger with our chosen name
     root_logger = logging.getLogger(logger_name)
 
-    # Set the logging level based on verbose flag
-    if verbose:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
+    verbosity_levels = {0: logging.INFO, 1: logging.DEBUG, 2: TRACE}
+    level = verbosity_levels.get(int(verbose), logging.NOTSET)
 
     root_logger.setLevel(level)
 
     # Create formatter with the custom multi-line formatter
-    formatter = MultiLineFormatter(
-        fmt='[%(levelname)s]: %(message)s'
-    )
+    formatter = MultiLineFormatter(fmt='[%(levelname)s]: %(message)s')
 
     # Create and configure stream handler (console output)
     stream_handler = logging.StreamHandler(sys.stdout)
@@ -187,11 +204,9 @@ def get_logger(name: str, logger_root: str = 'FCCAnalysis') -> logging.Logger:
             LOGGER.info('Model training complete')
     """
     # Handle __main__ case - convert to a meaningful name
-    if name == '__main__':
-        logger_name = logger_root
-    else:
-        # Create hierarchical logger name: FCCAnalysis.package.func.bdt
-        logger_name = f'{logger_root}.{name}'
+    if name == '__main__': logger_name = logger_root
+    # Create hierarchical logger name: FCCAnalysis.package.func.bdt
+    else: logger_name = f'{logger_root}.{name}'
 
     return logging.getLogger(logger_name)
 

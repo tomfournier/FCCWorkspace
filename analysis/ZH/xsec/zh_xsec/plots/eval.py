@@ -63,7 +63,7 @@ from ..tools.utils import (
     mkdir, Z,
     Significance
 )
-from ..logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 
