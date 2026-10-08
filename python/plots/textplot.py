@@ -23,20 +23,20 @@ class TextPlot:
 		self.out_dir = out_dir
 		self.selection = selection
 		self.output_subdir = output_subdir
-		self.ecm = ecm
+		self.ecm  = ecm
 		self.lumi = lumi
 		self.column_positions = tuple(column_positions)
 		self.canvas_size = canvas_size
 
+
 	def output_dir(self) -> Path:
 		'''Return the nominal/high/low directory for the configured selection.'''
 		base_selection = self.selection.replace('_high', '').replace('_low', '')
-		direction = (
-			'high' if '_high' in self.selection
-			else 'low' if '_low' in self.selection
-			else 'nominal'
-		)
+		direction = ('high' if '_high' in self.selection
+		             else 'low' if '_low' in self.selection
+					 else 'nominal')
 		return Path(self.out_dir) / self.output_subdir / base_selection / direction
+
 
 	def load_yields(
 		self,
@@ -69,12 +69,12 @@ class TextPlot:
 			group = 'signals' if process in plots.get('signals', {}) else 'backgrounds'
 			scale = signal_scale if group == 'signals' else background_scale
 			process_hist = getHist(h_name, plots[group][process], in_dir,
-								   suffix, lazy=lazy, use_cache=False)
+			                       suffix, lazy=lazy, use_cache=False)
 			if process_hist is None:
 				continue
 
 			integral = process_hist.Integral() * scale
-			entries = process_hist.GetEntries()
+			entries  = process_hist.GetEntries()
 			process_hist.SetLineColor(colors[process] if group == 'signals' else ROOT.kBlack)
 			process_hist.SetLineWidth(4 if group == 'signals' else 1)
 			process_hist.SetLineStyle(1)
@@ -91,6 +91,7 @@ class TextPlot:
 				background_total += integral
 
 		return rows, legend, signal_total, background_total
+
 
 	def draw(
 		self,
@@ -119,24 +120,20 @@ class TextPlot:
 		dummy = ROOT.TH1F(f'{out_name}_dummy', '', 1, 0, 1)
 		dummy.SetStats(0)
 		plotter.configure_axis(dummy.GetXaxis(), '', 0, 1,
-							   label_offset=999, label_size=0)
+		                       label_offset=999, label_size=0)
 		plotter.configure_axis(dummy.GetYaxis(), '', 0, 1,
-							   label_offset=999, label_size=0)
+		                       label_offset=999, label_size=0)
 		dummy.Draw('AH')
 		if legend is not None:
 			legend.Draw()
 
 		text_data = list(metadata)
-		text_data.extend(
-			(f'#bf{{#it{{{header}}}}}', self.column_positions[index], 0.45, 0.035)
-			for index, header in enumerate(headers)
-		)
+		text_data.extend((f'#bf{{#it{{{header}}}}}', self.column_positions[index], 0.45, 0.035)
+		                 for index, header in enumerate(headers))
 		for row_index, row in enumerate(rows):
 			y = 0.4 - row_index * 0.05
-			text_data.extend(
-				(f'#bf{{#it{{{value}}}}}', self.column_positions[index], y, 0.035)
-				for index, value in enumerate(row)
-			)
+			text_data.extend((f'#bf{{#it{{{value}}}}}', self.column_positions[index], y, 0.035)
+			                 for index, value in enumerate(row))
 		latex = setup_latex(0.035, 12)
 		draw_latex(latex, text_data)
 

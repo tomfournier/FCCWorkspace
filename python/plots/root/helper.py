@@ -52,7 +52,7 @@ Usage:
 
 import ROOT
 
-from typing import Union
+from typing import Any, Union
 
 from logger import get_logger
 LOGGER = get_logger(__name__)
@@ -107,12 +107,41 @@ def make_cfg(
     return cfg
 
 
+def define_legend(
+        num_entries: int,
+        columns: int = 1,
+        x1: float = 0.55,
+        y1: float = 0.99,
+        x2: float = 0.99,
+        y2: float = 0.90,
+        border_size: int = 0,
+        fill_style: int = 0,
+        text_size: float = 0.03,
+        set_margin: float = 0.2,
+        text_font: int = -1
+) -> Any:
+    '''Create the legend used by the plot.'''
+
+    import ROOT
+    leg = ROOT.TLegend(x1, y1 - num_entries * 0.06 / columns, x2, y2)
+
+    if text_font != -1:
+        leg.SetTextFont(text_font)
+    leg.SetBorderSize(border_size)
+    leg.SetFillStyle(fill_style)
+    leg.SetTextSize(text_size)
+    leg.SetMargin(set_margin)
+    leg.SetNColumns(columns)
+
+    return leg
+
+
 def setup_latex(
     text_size: float,
     text_align: int,
     text_color: Union[int, ROOT.TColor] = 1,
     text_font: int = 42
-    ) -> ROOT.TLatex:
+) -> ROOT.TLatex:
 
     '''Create TLatex object for text annotations.
 

@@ -189,7 +189,6 @@ def _col_from_file(
 ### MAIN FUNCTIONS ###
 ######################
 
-# _____________________
 def find_sample_files(
     inDir: str,
     sample: str
@@ -228,7 +227,7 @@ def find_sample_files(
 
     return result
 
-# _______________________________
+
 def get_processed(
     files: list[str] | str,
     arg: str = 'eventsProcessed'
@@ -247,7 +246,7 @@ def get_processed(
     return int(sum(_key_from_file(os.fspath(f), arg)
                    for f in files))
 
-# ____________________
+
 def get_cut(
     files: list[str],
     cut_name: str
@@ -270,7 +269,7 @@ def get_cut(
     return int(sum(_cut_from_file(os.fspath(f), cut_name)
                    for f in files))
 
-# ____________________________________
+
 def getcut(
     df: 'pd.DataFrame',
     filter: str,
@@ -300,7 +299,7 @@ def getcut(
     # Return count of True values in combined mask
     return int(mask.sum()), mask
 
-# ________________________________________
+
 def get_count(
     df: 'pd.DataFrame' | None,
     df_mask: 'np.ndarray' | None,
@@ -343,7 +342,7 @@ def get_count(
         LOGGER.warning("Couldn't compute the count for this cut")
         return 0, df_mask
 
-# ___________________
+
 def is_there_events(
     proc: str,
     path: str = '',
@@ -383,12 +382,9 @@ def is_there_events(
         LOGGER.error(f'Could not find ROOT file for {proc}')
         quit()
 
-# _________________________________
+
 def dump_json(
-    flow: dict[str,
-               dict[str,
-                    dict[str,
-                         float]]],
+    flow: dict[str, dict[str, dict[str, float]]],
     outDir: str,
     outName: str,
     hist: bool = False,
@@ -422,12 +418,9 @@ def dump_json(
     with open(f'{outDir}/{outName}.json', 'w') as fOut:
         json.dump(dictio, fOut, indent=4)
 
-# _______________________________________________________
+
 def get_flow(
-    events: dict[str,
-                 dict[str,
-                      float | int | dict[str,
-                                         float | str]]],
+    events: dict[str, dict[str, float | int | dict[str, float | str]]],
     procs: list[str],
     processes: dict[str, str],
     cuts: dict[str, dict[str, str]],
@@ -439,10 +432,7 @@ def get_flow(
     outName: str = 'flow',
     suffix: str = '',
     save_hist: bool = False
-     ) -> dict[str,
-               dict[str,
-                    'ROOT.TH1' | dict[str,
-                                      float]]]:
+     ) -> dict[str, dict[str, 'ROOT.TH1' | dict[str, float]]]:
     '''Build event flow histograms and cutflow data aggregated by process.
 
     Accumulates cut yields and errors across all samples for each physics process.
@@ -511,7 +501,7 @@ def get_flow(
                 h.Write()
     return flow
 
-# _______________________________________________________
+
 def get_flow_decay(
     events: dict[str,
                  dict[str,
@@ -588,7 +578,7 @@ def get_flow_decay(
         dump_json(flow, loc, outName+_sel+suffix, hist=True, procs=h_decays)
     return flow
 
-# _______________________________________________________
+
 def get_flows(
     procs: list[str],
     processes: dict[str, list[str]],

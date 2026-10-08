@@ -46,14 +46,9 @@ Lazy Imports:
 
 from inspect import Parameter, signature
 from re import search
-from typing import Any, Union, TYPE_CHECKING
+from typing import Any, Union
 
 from ..tools.process import getHist
-
-if TYPE_CHECKING:
-    import numpy as np
-    import pandas as pd
-    import ROOT
 
 from constants import h_labels
 from tools.utils import mkdir
@@ -777,5 +772,259 @@ def Efficiency(
 
     plot.save_text(plot.output_dir(), outName,
                    'Eff', '.2f', '.2f')
+
+    return None
+
+
+
+def write_table(
+    file_path: str,
+    file_name: str,
+    headers: list[str],
+    rows: list[list[str]],
+    first_col_width: int = 10,
+    other_col_width: int = 25,
+    header_sep: bool = True,
+    footer_lines: list[str] | None = None,
+    file_type: str = 'txt'
+) -> None:
+    '''Write a formatted aligned ASCII table to file.
+
+    Creates nicely aligned columns with configurable widths and optional header separator
+    and footer lines. Useful for exporting analysis summary tables.
+
+    Format:
+    - Column 0 (narrow): Cut step names, decay channels, etc.
+    - Columns 1+: Data values, uncertainties, statistics.
+    - Rows shorter than header count are padded with empty strings.
+    - Header separator: dashed line below headers if header_sep=True.
+
+    Args:
+        file_path (str): Output directory path (created if missing).
+        file_name (str): Base file name (without extension).
+        headers (list[str]): Column header strings.
+        rows (list[list[str]]): List of table rows; shorter rows automatically padded.
+        first_col_width (int, optional): Width of first column in characters. Defaults to 10.
+        other_col_width (int, optional): Width of other columns in characters. Defaults to 25.
+        header_sep (bool, optional): If True, add dashed line below headers. Defaults to True.
+        footer_lines (list[str] | None, optional): Optional lines appended after table. Defaults to None.
+        file_type (str, optional): File extension (e.g., 'txt', 'dat'). Defaults to 'txt'.
+    '''
+    mkdir(file_path)
+    ncols = len(headers)
+    # Set column widths: narrower for first column, equal for others
+    widths = [first_col_width] + [other_col_width] * (ncols - 1)
+
+    # Create format string for aligned columns
+    fmt = '{:<%d} ' % widths[0] + ' '.join(['{:<%d}' % w for w in widths[1:]])
+    with open(f'{file_path}/{file_name}.{file_type}', 'w') as f:
+        # Write headers
+        f.write(fmt.format(*headers) + '\n')
+        if header_sep:
+            # Write separator line with dashes
+            sep = ['-' * widths[0]] + ['-' * w for w in widths[1:]]
+            f.write(fmt.format(*sep) + '\n')
+        # Write data rows, padding if necessary
+        for row in rows:
+            row_fixed = [str(r) for r in row] + [''] * (ncols - len(row))
+            f.write(fmt.format(*row_fixed) + '\n')
+        # Append optional footer lines
+        if footer_lines:
+            f.write('\n')
+            for line in footer_lines:
+                f.write(str(line) + '\n')
+
+    return None
+
+
+def CutFlow(
+    flow: dict[str, dict[str, Any | dict[str, float]]],
+    outDir: str,
+    cat: str,
+    sel: str,
+    procs: list[str],
+    colors: dict[str, dict[str, int]],
+    legend: dict[str, dict[str, str]],
+    cuts: dict[str, dict[str, str]],
+    labels: dict[str, dict[str, str]],
+    ecm: int = 240,
+    lumi: float = 10.8,
+    outName: str = 'cutFlow',
+    format: list[str] = ['png'],
+    suffix: str = '',
+    sig_scale: float = 1.0,
+    yMin: float | None = None,
+    yMax: float | None = None,
+    tot: bool = False,
+    quiet: bool = False,
+) -> None:
+    '''Render cutflow histogram with stacked backgrounds, signal overlay, and significance.
+
+    Produces a stacked histogram showing event yields across sequential cut steps,
+    with optional signal scaling. Overlays a histogram outline for total background
+    and marks signal with scaled line style. Computes and exports significance
+    (S/√(S+B)) and yields with Poisson uncertainties.
+
+    Drawing Order:
+    1. Frame (dummy histogram for axis setup)
+    2. Background stack (filled)
+    3. Total background outline (black line)
+    4. Signal histogram (scaled, line style)
+    5. Legend
+
+    Yields Table Columns: Cut, Significance, Process1_yield±error, Process2_yield±error, ...
+
+    Args:
+        flow (dict[str, dict[str, ROOT.TH1 | dict[str, float]]]): Histograms and metadata indexed by process name.
+        outDir (str): Base directory for output plots and tables.
+        cat (str): Detector channel ('ee' for electron or 'mumu' for muon).
+        sel (str): Selection identifier for retrieving cut definitions and labels.
+        procs (list[str]): Process names in order [signal, background1, background2, ...].
+        colors (dict[str, dict[str, ROOT.TColor]]): ROOT color mappings nested by channel and process.
+        legend (dict[str, dict[str, str]]): Human-readable legend labels nested by channel and process.
+        cuts (dict[str, dict[str, str]]): Cut expression definitions per selection (sel -> dict[cut_name -> expression]).
+        labels (dict[str, dict[str, str]]): Axis labels per cut step (sel -> dict[cut_index -> label]).
+        ecm (int, optional): Beam energy in GeV. Defaults to 240.
+        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
+        outName (str, optional): Output file stem. Defaults to 'cutFlow'.
+        format (list[str], optional): Image formats (e.g., ['png', 'pdf']). Defaults to ['png'].
+        suffix (str, optional): String appended to file names. Defaults to ''.
+        sig_scale (float, optional): Multiplicative factor for signal visibility. Defaults to 1.0.
+        yMin (float, optional): Log-scale Y-axis minimum. Defaults to 1e4.
+        yMax (float, optional): Log-scale Y-axis maximum. Defaults to 1e10.
+    '''
+
+    from ..plots.histoplot import CutFlowPlot
+
+    plots = {
+        'signals': {procs[0]: []},
+        'backgrounds': {process: [] for process in procs[1:]},
+    }
+    cutflow = CutFlowPlot(
+        flow, outDir, cat, sel, plots,
+        colors, legend, ecm, lumi, tot
+    )
+    prepared = cutflow.prepare(sig_scale)
+    leg = cutflow.define_legend(sig_scale)
+    _, rows = cutflow.draw(prepared, leg, labels[sel],
+                           yMin, yMax, outName,
+                           format, suffix, quiet)
+
+    # Export yields table to file
+    write_table(str(cutflow.output_dir()), outName+suffix,
+                ['Cut', 'Significance'] + procs, rows,
+                10, 25)
+
+    return None
+
+
+def CutFlowDecays(
+    flow: dict[str,
+               dict[str, Any |
+                    dict[str, float]]],
+    outDir: str,
+    cat: str,
+    sel: str,
+    h_decays: list[str],
+    cuts: dict[str, dict[str, str]],
+    labels: dict[str, dict[str, str]],
+    suffix: str = '',
+    ecm: int = 240,
+    lumi: float = 10.8,
+    outName: str = 'cutFlow_decays',
+    format: list[str] = ['png'],
+    yMin: float | int = 0,
+    yMax: float | int = 150,
+    tot: bool = False,
+) -> None:
+    '''Plot selection efficiencies across Higgs decay modes as normalized curves.
+
+    Renders efficiency curves (normalized to first cut as 100%) for each Higgs decay
+    channel overlaid on a single plot. Computes average efficiency, spreads (min/max),
+    and generates detailed tables of efficiency values and uncertainties.
+
+    Drawing Elements:
+    - Efficiency curves per decay mode (colored lines)
+    - Average efficiency line (gray)
+    - Uncertainty band around average (shaded region)
+    - Statistics box with average ± uncertainty and min/max spreads
+
+    Args:
+        flow (dict[str, dict[str, ROOT.TH1 | dict[str, float]]]): Histograms indexed by decay channel.
+        outDir (str): Base directory for outputs (plots and tables).
+        cat (str): Detector channel ('ee' for electron or 'mumu' for muon).
+        sel (str): Selection identifier for cut definitions and labels.
+        h_decays (list[str]): Higgs decay mode identifiers to plot (e.g., ['bb', 'WW', 'tau']).
+        cuts (dict[str, dict[str, str]]): Cut expression definitions per selection.
+        labels (dict[str, dict[str, str]]): Axis labels corresponding to each cut step.
+        suffix (str, optional): String appended to file names. Defaults to ''.
+        ecm (int, optional): Beam energy in GeV. Defaults to 240.
+        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
+        outName (str, optional): Output file stem. Defaults to 'cutFlow_decays'.
+        format (list[str], optional): Image formats (e.g., ['png', 'pdf']). Defaults to ['png'].
+        yMin (float | int, optional): Linear Y-axis minimum (efficiency %). Defaults to 0.
+        yMax (float | int, optional): Linear Y-axis maximum (efficiency %). Defaults to 150.
+    '''
+
+    import numpy as np
+    from plots.histoplot import CutFlowPlot
+    from constants import h_colors
+
+    # Store original yields and prepare efficiency arrays
+    hists, hist_yield = [], []
+    nbins = len(cuts[sel])
+    eff_final, eff_final_err = [], []
+
+    contents, errors = [], []
+    for h_decay in h_decays:
+        h_sig = flow[h_decay]['hist'][0]
+        # Clone unscaled histogram for yield table
+        hist_yield.append(h_sig.Clone(f'yield_{h_decay}'))
+        # Normalize to first bin (efficiency in %)
+        h_sig.Scale(100. / h_sig.GetBinContent(1))
+        hists.append(h_sig)
+
+        # Extract final bin efficiency and uncertainty
+        eff_final.append(float(h_sig.GetBinContent(nbins)))
+        eff_final_err.append(float(h_sig.GetBinError(nbins)))
+
+        # Store normalized content and error arrays
+        contents.append(np.fromiter((
+            float(h_sig.GetBinContent(i+1)) for i in range(nbins)), dtype=float))
+        errors.append(np.fromiter((
+            float(h_sig.GetBinError(i+1)) for i in range(nbins)), dtype=float))
+
+    # Compute average efficiency across decay channels
+    hist_tot = hists[0].Clone('h_tot')
+    for hist in hists[1:]:
+        hist_tot.Add(hist)
+    hist_tot.Scale(1.0 / len(h_decays))
+    eff_avg = hist_tot.GetBinContent(nbins)
+    eff_avg_err = hist_tot.GetBinError(nbins)
+    # Min/max spreads relative to average
+    eff_min, eff_max = eff_avg-min(eff_final), max(eff_final)-eff_avg
+
+    plots = {'signals': {decay: [] for decay in h_decays}, 'backgrounds': {}}
+    flow_plot = CutFlowPlot(flow, outDir, cat, sel, plots,
+                            h_colors, h_labels, ecm, lumi, tot)
+    prepared = flow_plot.prepare()
+    legend   = flow_plot.define_legend()
+    labels_ordered = [labels[sel][key] for key in sorted(labels[sel])]
+    flow_plot.draw(prepared, legend, labels_ordered, yMin, yMax,
+                   outName, format, suffix,
+                   curve_stats=(eff_avg, eff_avg_err, eff_min, eff_max))
+    out = str(flow_plot.output_dir())
+
+    # Build yield table from original (non-scaled) histograms
+    rows = []
+    for i in range(nbins):
+        row = [f'Cut {i}']
+        for j in range(len(hist_yield)):
+            yield_, err = contents[j][i], errors[j][i]
+            row.append('%.2e +/- %.2e' % (yield_, err))
+        rows.append(row)
+    write_table(out, outName+suffix,
+                ('Cut',) + h_decays, rows,
+                10, 25)
 
     return None
