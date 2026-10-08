@@ -31,7 +31,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_xsec.parsing import create_parser, set_log  # Argument parsing utilities
+from parsing import set_log
+from zh_xsec.parsing import create_parser
 from logger import get_logger               # Logging setup
 arg = create_parser('4-Combine').parse_args()
 set_log(arg)

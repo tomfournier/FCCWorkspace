@@ -16,7 +16,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_xsec.parsing import create_parser, set_log
+from parsing import set_log
+from zh_xsec.parsing import create_parser
 from logger import get_logger
 parser = create_parser('4-Combine', 'process_histogram')
 arg = parser.parse_args()

@@ -13,7 +13,8 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_xsec.parsing import ArgumentParser, create_parser, parse_args, set_log
+from parsing import set_log, parse_args, ArgumentParser
+from zh_xsec.parsing import create_parser
 from logger import get_logger
 parser: ArgumentParser = create_parser('5-Fit', 'make_pseudo')
 # Use all Z decays for cross-section calculation in pseudo-data generation
