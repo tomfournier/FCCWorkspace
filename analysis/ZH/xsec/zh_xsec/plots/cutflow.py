@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 
 from ..tools.utils import get_df, mkdir
 from ..tools.process import get_range_decay, getMetaInfo
-from ..config import h_colors, h_labels
+from constants import h_colors, h_labels
 from logger import get_logger
 
 LOGGER = get_logger(__name__)

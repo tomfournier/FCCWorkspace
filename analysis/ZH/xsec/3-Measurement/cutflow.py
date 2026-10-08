@@ -14,7 +14,7 @@ t = time()
 ########################
 
 from zh_xsec.parsing import create_parser, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('3-Measurement', 'cutflow')
 arg = parser.parse_args()
 set_log(arg)
@@ -31,12 +31,12 @@ LOGGER = get_logger(__name__)
 from zh_xsec.userConfig import loc
 from sel_xsec.final.leptonic import histos_ll
 from sel_xsec.final.hadronic import histos_qq
-from zh_xsec.config import (
-    timer,                # Timing utility
-    get_process_dict,     # Build process definitions
+from utilities import timer
+from samples import get_process_dict
+from constants import (
     z_decays,             # Z boson decay modes
     H_decays,             # Higgs decay modes
-    colors, labels        # Process styling for plots
+    colors, legend        # Process styling for plots
 )
 from zh_xsec.plots.cutflow import (
     get_cutflow,            # Calculate event counts per cut
@@ -234,7 +234,7 @@ def run(cats: list[str],
 if __name__=='__main__':
     try:
         # Run cutflow analysis for all categories and selections
-        run(cats, sels, get_process_dict(ecm=ecm), colors, labels)
+        run(cats, sels, get_process_dict(ecm=ecm), colors, legend)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

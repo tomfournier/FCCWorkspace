@@ -17,7 +17,7 @@ t = time()
 ########################
 
 from zh_xsec.parsing import create_parser, parse_args, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('5-Fit', 'fit')
 arg = parse_args(parser, comb=True)  # Parse with combination support
 set_log(arg)
@@ -31,9 +31,10 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory path manager and utilities
-from zh_xsec.userConfig import loc, PathObj
+from path import PathObj
+from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
-from zh_xsec.config import timer  # Timing utility
+from utilities import timer  # Timing utility
 from zh_xsec.run import get_extra_args, update_namespace
 from zh_xsec.func.fit import (
     check_log,

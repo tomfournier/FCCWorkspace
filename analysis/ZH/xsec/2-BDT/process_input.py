@@ -18,7 +18,7 @@ t = time.time()
 ########################
 
 from zh_xsec.parsing import create_parser, parse_args, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('2-BDT', 'process_input')
 arg = parse_args(parser, True)
 set_log(arg)
@@ -35,12 +35,12 @@ LOGGER.debug('Loading custom modules')
 
 # Configuration and directory management
 from zh_xsec.userConfig import loc
-from zh_xsec.config import (
-    timer,                      # Performance timing utility
-    get_bdt_modes,              # Build BDT signal and background samples
+from zh_xsec.userConfig import (
     input_vars_ll,              # List of variables for BDT training (hadronic channel)
     input_vars_qq,              # List of variables for BDT training (hadronic channel)
 )
+from samples import get_bdt_modes
+from utilities import timer
 
 # File I/O and process dictionary utilities
 from zh_xsec.tools.utils import (

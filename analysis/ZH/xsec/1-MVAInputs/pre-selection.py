@@ -31,7 +31,7 @@ LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
 ##########################################################
 
 from zh_xsec.userConfig import loc
-from zh_xsec.config import (
+from samples import (
     get_process_list,
     parse_sample_selection,
     parse_sample_exclusion,

@@ -33,6 +33,37 @@ from logger import get_logger
 LOGGER = get_logger(__name__)
 
 
+
+##################
+### PARAMETERS ###
+##################
+
+# Tuple of kinematic variables used as input features for BDT training
+input_vars_ll = (
+    'leading_p',    'leading_theta',
+    'subleading_p', 'subleading_theta',
+    'acolinearity', 'acoplanarity',
+    'zll_m', 'zll_p', 'zll_theta'
+)
+
+input_vars_qq = (
+    'leading_p',    'leading_costheta',
+    'subleading_p', 'subleading_costheta',
+    'acolinearity', 'acoplanarity',
+    'zqq_p',        'zqq_costheta',
+    'W1_m', 'W1_p', 'W1_costheta',
+    'W2_m', 'W2_p', 'W2_costheta',
+    'thrust',
+    # 'thrust_costheta',
+    # 'delta_mWW4'
+)
+
+
+
+#########################
+### LOCATION OF FILES ###
+#########################
+
 repo = str(Path(__file__).parent.parent.resolve())
 
 # Templates as LocPath strings with placeholders: cat, ecm, sel

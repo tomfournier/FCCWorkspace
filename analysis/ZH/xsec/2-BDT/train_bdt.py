@@ -18,7 +18,7 @@ t = time.time()
 ########################
 
 from zh_xsec.parsing import create_parser, parse_args, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('2-BDT', 'train_bdt')
 arg = parse_args(parser, True)
 set_log(arg)
@@ -32,10 +32,8 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 from zh_xsec.userConfig import loc  # Directory management utilities
-from zh_xsec.config import (
-    timer,          # Performance timing utility
-    get_bdt_modes   # Build BDT signal and background samples
-)
+from utilities import timer
+from samples import get_bdt_modes
 from zh_xsec.func.bdt import (
     print_stats,    # Display event counts per process
     split_data,     # Create train/validation split

@@ -26,7 +26,7 @@ LOGGER = logging.getLogger('FCCAnalyses.final-selection')
 
 # Load analysis configuration and predefined histogram config
 from zh_xsec.userConfig import loc
-from zh_xsec.config import (
+from samples import (
     get_process_list,
     parse_sample_selection,
     parse_sample_exclusion

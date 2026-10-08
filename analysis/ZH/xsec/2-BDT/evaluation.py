@@ -20,7 +20,7 @@ t = time()
 ########################
 
 from zh_xsec.parsing import create_parser, parse_args, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('2-BDT', 'evaluation')
 arg = parse_args(parser, True)
 set_log(arg)
@@ -34,17 +34,18 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Import plot configuration and directory paths
-from zh_xsec.userConfig import loc, PathObj, plot_file
+from zh_xsec.userConfig import loc
+from path import PathObj
 loc.set_default_type(PathObj)
 
 # Import configuration utilities and labels paremeters
-from zh_xsec.config import (
-    timer,                           # Utility function
+from constants import (
     modes_label, modes_color,        # Plot styling for processes
-    vars_label_ll, vars_xlabel_ll,   # Variable naming for plots (leptonic channel)
-    vars_label_qq, vars_xlabel_qq,   # Variable naming for plots (hadronic channel)
-    get_bdt_modes                    # Build BDT signal and background samples
+    vars_label_ll,
+    vars_label_qq
 )
+from utilities import timer
+from samples import get_bdt_modes
 
 # Import data handling utilities
 from zh_xsec.tools.utils import load_data
@@ -66,7 +67,6 @@ from zh_xsec.func.bdt import (
 # Analysis parameters from command-line arguments
 cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
 vars_label     = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq
-vars_xlabel    = vars_xlabel_ll if cat in ['ee', 'mumu'] else vars_xlabel_qq
 
 # Process modes for BDT training (signal and all major background processes)
 modes = get_bdt_modes(cat, ecm)
@@ -135,30 +135,30 @@ def plot_metrics(
 
         # Generate training performance plots
         # These show how well the BDT is learning over iterations
-        log_loss(results, x_axis, label, outputdir, best_iteration, format=plot_file)
-        error(results, x_axis, label, outputdir, best_iteration, format=plot_file)
-        AUC(results, x_axis, label, outputdir, best_iteration, format=plot_file)
+        log_loss(results, x_axis, label, outputdir, best_iteration, format=arg.formats)
+        error(results, x_axis, label, outputdir, best_iteration, format=arg.formats)
+        AUC(results, x_axis, label, outputdir, best_iteration, format=arg.formats)
 
         # Generate model response plots
         # These show the BDT discrimination power
-        roc_curve(df, label, outputdir, format=plot_file)
-        bdt_score(df, label, outputdir, format=plot_file, unity=True, nbins=200, yscale='linear', suffix='_lin')
-        bdt_score(df, label, outputdir, format=plot_file, unity=True, nbins=200, yscale='log',    suffix='_log')
-        mva_score(df, label, outputdir, modes, modes_label, modes_color, format=plot_file, unity=False, nbins=200)
+        roc_curve(df, label, outputdir, format=arg.formats)
+        bdt_score(df, label, outputdir, format=arg.formats, unity=True, nbins=200, yscale='linear', suffix='_lin')
+        bdt_score(df, label, outputdir, format=arg.formats, unity=True, nbins=200, yscale='log',    suffix='_log')
+        mva_score(df, label, outputdir, modes, modes_label, modes_color, format=arg.formats, unity=False, nbins=200)
 
         # Generate feature and performance analysis plots
         # These show which variables are most important and signal purity
-        importance(bdt, input_vars, vars_label, label, outputdir, format=plot_file)
-        significance(df, label, outputdir, loc_BDT, format=plot_file, weight='weights',       suffix='_weights')
-        significance(df, label, outputdir, loc_BDT, format=plot_file, weight='train_weights', suffix='_train_weights')
-        significance(df, label, outputdir, loc_BDT, format=plot_file, weight='norm_weight',   suffix='_norm_weight')
-        efficiency(df, modes, modes_label, modes_color, label, outputdir, incr=1e-3, format=plot_file)
+        importance(bdt, input_vars, vars_label, label, outputdir, format=arg.formats)
+        significance(df, label, outputdir, loc_BDT, format=arg.formats, weight='weights',       suffix='_weights')
+        significance(df, label, outputdir, loc_BDT, format=arg.formats, weight='train_weights', suffix='_train_weights')
+        significance(df, label, outputdir, loc_BDT, format=arg.formats, weight='norm_weight',   suffix='_norm_weight')
+        efficiency(df, modes, modes_label, modes_color, label, outputdir, incr=1e-3, format=arg.formats)
 
     if arg.tree:
         # Generate visualizations of individual decision trees in the BDT
         from zh_xsec.plots.eval import tree_plot
         LOGGER.info('Plotting the different decision trees in the BDT')
-        tree_plot(bdt, loc_BDT, outputdir, epochs, 20, format=plot_file)
+        tree_plot(bdt, loc_BDT, outputdir, epochs, 20, format=arg.formats)
 
     # Check input variable distributions for anomalies
     if arg.check:
@@ -168,8 +168,8 @@ def plot_metrics(
             LOGGER.info(f'Plotting histogram for {var}')
             # Create plots with both linear and logarithmic y-axes
             for yscale, suffix in [('linear', '_lin'), ('log', '_log')]:
-                hist_check(df, label, outputdir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                           yscale=yscale, suffix=suffix, format=plot_file)
+                hist_check(df, label, outputdir, modes, modes_label, modes_color, var, vars_label[var],
+                           yscale=yscale, suffix=suffix, format=arg.formats)
 
     # Optionally generate distributions in high/low BDT score regions
     if arg.hl:
@@ -182,10 +182,10 @@ def plot_metrics(
         for var in input_vars:
             LOGGER.info(f'Plotting histogram for {var}')
             for yscale, suffix in [('linear', '_lin'), ('log', '_log')]:
-                hist_check(df_high, label, outputdir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                           yscale=yscale, suff='high', suffix=suffix, format=plot_file)
-                hist_check(df_low, label, outputdir, modes, modes_label, modes_color, var, vars_xlabel[var],
-                           yscale=yscale, suff='low', suffix=suffix, format=plot_file)
+                hist_check(df_high, label, outputdir, modes, modes_label, modes_color, var, vars_label[var],
+                           yscale=yscale, suff='high', suffix=suffix, format=arg.formats)
+                hist_check(df_low, label, outputdir, modes, modes_label, modes_color, var, vars_label[var],
+                           yscale=yscale, suff='low', suffix=suffix, format=arg.formats)
 
 
 ######################

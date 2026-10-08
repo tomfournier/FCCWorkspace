@@ -16,8 +16,8 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from xsec.parsing import create_parser, parse_args, set_log
-from xsec.logger import get_logger
+from zh_xsec.parsing import create_parser, parse_args, set_log
+from logger import get_logger
 parser = create_parser('6-Self-coupling', 'fit')
 arg = parse_args(parser, comb=True)  # Parse with combination support
 set_log(arg)
@@ -31,17 +31,18 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory path manager and utilities
-from xsec.userConfig import loc, PathObj
+from path import PathObj
+from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
-from xsec.config import timer  # Timing utility
-from xsec.func.fit import (
+from utilities import timer  # Timing utility
+from zh_xsec.func.fit import (
     res_saving,
     run_cmd,
     get_results,
     get_grid_number,
     convert_to_kappa
 )
-from xsec.func.self_coupling import get_parameters
+from zh_xsec.func.self_coupling import get_parameters
 
 
 

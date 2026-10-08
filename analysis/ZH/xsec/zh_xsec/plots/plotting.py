@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import ROOT
 
-from ..config import h_labels
+from constants import h_labels
 from ..tools.utils import mkdir
 from logger import get_logger
 
@@ -198,13 +198,14 @@ def _extract_nested_args(
     return {}
 
 def decay_plots(process: str, ecm: int) -> dict[str, dict[str, tuple[str, ...]]]:
-    from ..config import get_process_dict, H_decays
+    from samples import get_process_dict
+    from constants import H_decays
     return {'signals': {decay: get_process_dict([process], ecm, h_decays=[decay])[process]
                         for decay in H_decays}}
 
 
 def plot_configs(ecm: int, cat: str) -> dict[str, dict[str, dict[str, tuple[str, ...]]]]:
-    from ..config import get_process_dict
+    from samples import get_process_dict
     backgrounds = get_process_dict(['WW', 'ZZ', 'Zgamma', 'Rare'] +
                                    (['tt'] if cat == 'qq' and ecm == 365 else []), ecm)
     category = {'signals': get_process_dict([f'Z{cat}H'], ecm),
@@ -494,7 +495,7 @@ def makePlot(
 )-> None:
 
     from .plots import HistogramPlot
-    from ..config import colors, legend
+    from constants import colors, legend
 
     histoplot = HistogramPlot(variable, sel, inDir, outDir,
                               plots, colors, legend, ecm, lumi, tot)
@@ -575,7 +576,7 @@ def PlotDecays(
     '''
 
     from .plots import HistogramPlot
-    from ..config import h_colors as colors, h_labels as legend
+    from constants import h_colors as colors, h_labels as legend
 
     histoplot = HistogramPlot(variable, sel, inDir, outDir,
                               plots, colors, legend, ecm, lumi, tot)
@@ -657,7 +658,7 @@ def AAAyields(
     ROOT.gStyle.SetOptStat(0)
     ROOT.gStyle.SetOptTitle(0)
 
-    from ..config import colors, legend
+    from constants import colors, legend
     from .root import plotter
     from ..tools.process import getHist
     from .root.helper import (

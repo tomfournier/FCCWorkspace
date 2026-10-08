@@ -13,7 +13,7 @@ t = time.time()
 ########################
 
 from zh_xsec.parsing import create_parser, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('4-Combine', 'combine')
 arg = parser.parse_args()
 set_log(arg)
@@ -28,7 +28,9 @@ LOGGER = get_logger(__name__)
 
 # Load user configuration and event utilities
 from zh_xsec.userConfig import loc
-from zh_xsec.config import H_DECAYS_FIT, get_process_dict, timer
+from constants import H_DECAYS_FIT
+from samples import get_process_dict
+from utilities import timer
 from zh_xsec.func.combine import do_combine
 
 

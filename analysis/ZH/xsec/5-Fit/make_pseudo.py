@@ -14,7 +14,7 @@ t = time.time()
 ########################
 
 from zh_xsec.parsing import ArgumentParser, create_parser, parse_args, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser: ArgumentParser = create_parser('5-Fit', 'make_pseudo')
 # Use all Z decays for cross-section calculation in pseudo-data generation
 parser.add_argument('--tot', help='Do not consider all Z decays for cross-section', action='store_true')
@@ -39,9 +39,9 @@ LOGGER = get_logger(__name__)
 
 # Load directory configuration and process definitions
 from zh_xsec.userConfig import loc
-from zh_xsec.config import (
-    timer,              # Timing utility
-    get_process_dict,   # Build process definitions
+from utilities import timer
+from samples import get_process_dict
+from constants import (
     z_decays,           # Z boson decay modes
     h_decays,           # Higgs decay modes (visible only)
     H_decays            # Higgs decay modes (all including invisible)

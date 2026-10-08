@@ -16,7 +16,7 @@ t = time.time()
 ########################
 
 from zh_xsec.parsing import create_parser, parse_args, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('5-Fit', 'bias_test')
 arg = parse_args(parser, comb=True)
 set_log(arg)
@@ -31,13 +31,13 @@ LOGGER = get_logger(__name__)
 
 # Load directory configuration and analysis utilities
 from zh_xsec.userConfig import loc
-from zh_xsec.config import (
-    timer,              # Timing utility
-    get_process_dict,   # Build process definitions
+from constants import (
     z_decays,           # Z boson decay modes
     h_decays,           # Higgs decay modes (visible)
     H_decays,           # Higgs decay modes (all)
 )
+from utilities import timer
+from samples import get_process_dict
 from zh_xsec.plots.plotting import Bias, PseudoRatio          # Plotting utilities
 from zh_xsec.tools.utils import mkdir                         # Directory creation
 from zh_xsec.tools.process import (                           # Process utilities

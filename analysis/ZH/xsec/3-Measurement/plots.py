@@ -14,7 +14,7 @@ t = time()
 ########################
 
 from zh_xsec.parsing import create_parser, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('3-Measurement', 'plots')
 arg = parser.parse_args()
 set_log(arg)
@@ -29,8 +29,8 @@ LOGGER = get_logger(__name__)
 
 # Load directory paths and process configurations
 from zh_xsec.userConfig import loc
-from zh_xsec.config import (
-    timer,              # Timing utility
+from utilities import timer
+from constants import (
     z_decays,           # Z boson decay modes
     H_decays,           # Higgs decay modes
     vars_label_ll,
@@ -113,7 +113,7 @@ def main() -> None:
 
             # Generate yields plots unless skipped
             if arg.yields:
-                from zh_xsec.config import quarks, z_labels, h_labels
+                from constants import quarks, z_labels, h_labels
 
                 yield_args = plot_kwargs('acolinearity', AAAyields, hName='acolinearity')
                 for total, config in [(False, plots['category']), (True, plots['total'])]:

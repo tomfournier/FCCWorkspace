@@ -37,7 +37,7 @@ from sel_xsec.final.hadronic import (
     histos_qq,        # Histogram definitions        (hadronic channel)
     custom_hists_qq   # Custom histogram definitions (hadronic channel)
 )
-from zh_xsec.config import (
+from samples import (
     get_process_list,
     parse_sample_selection,
     parse_sample_exclusion

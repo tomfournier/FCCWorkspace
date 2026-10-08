@@ -22,7 +22,7 @@ t = time.time()
 ########################
 
 from zh_xsec.parsing import create_parser, parse_args, set_log
-from zh_xsec.logger import get_logger
+from logger import get_logger
 parser = create_parser('5-Fit', 'plots')
 arg = parse_args(parser, False, False)
 set_log(arg)
@@ -37,7 +37,8 @@ LOGGER = get_logger(__name__)
 
 from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
-from zh_xsec.config import timer, H_decays, H_labels
+from utilities import timer
+from constants import H_decays, H_labels
 from zh_xsec.func.fit import plot_1d_scans, params_label
 
 
