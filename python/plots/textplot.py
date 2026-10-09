@@ -9,34 +9,31 @@ class TextPlot:
 
 	def __init__(
 		self,
-		out_dir: str,
+		outputdir: str,
+		output_subdir: str,
 		selection: str,
-		output_subdir: str = 'yield',
 		ecm: int = 240,
 		lumi: float = 10.8,
-		column_positions: Sequence[float] = (0.18, 0.5, 0.75),
+		column_positions: Sequence[float] = (0.065, 0.35, 0.7),
 		canvas_size: tuple[int, int] = (1000, 1000),
 	) -> None:
 		if len(column_positions) == 0:
 			raise ValueError('TextPlot requires at least one column position')
 
-		self.out_dir = out_dir
-		self.selection = selection
+		self.outputdir     = outputdir
 		self.output_subdir = output_subdir
+		self.selection = selection
 		self.ecm  = ecm
 		self.lumi = lumi
 		self.column_positions = tuple(column_positions)
 		self.canvas_size = canvas_size
 
-
 	def output_dir(self) -> Path:
 		'''Return the nominal/high/low directory for the configured selection.'''
 		base_selection = self.selection.replace('_high', '').replace('_low', '')
-		direction = ('high' if '_high' in self.selection
-		             else 'low' if '_low' in self.selection
+		direction = ('high' if '_high' in self.selection else 'low' if '_low' in self.selection
 					 else 'nominal')
-		return Path(self.out_dir) / self.output_subdir / base_selection / direction
-
+		return Path(self.outputdir) / self.output_subdir / base_selection / direction
 
 	def load_yields(
 		self,
@@ -54,8 +51,8 @@ class TextPlot:
 		from tools.process import getHist
 
 		suffix = f'_{self.selection}_histo'
-		processes = [*plots.get('signals', {}), *plots.get('backgrounds', {})]
-		legend = ROOT.TLegend(0.6, 0.86 - len(processes) * 0.06, 0.9, 0.88)
+		procs = [*plots.get('signals', {}), *plots.get('backgrounds', {})]
+		legend = ROOT.TLegend(0.7, 0.9 - len(procs) * 0.06, 0.97, 0.92)
 		legend.SetBorderSize(0)
 		legend.SetFillStyle(0)
 		legend.SetTextFont(42)
@@ -63,34 +60,31 @@ class TextPlot:
 		legend.SetMargin(0.2)
 
 		rows = []
-		signal_total = 0.
-		background_total = 0.
-		for process in processes:
-			group = 'signals' if process in plots.get('signals', {}) else 'backgrounds'
+		sig_tot, bkg_tot = 0, 0
+		for proc in procs:
+			group = 'signals' if proc in plots.get('signals', {}) else 'backgrounds'
 			scale = signal_scale if group == 'signals' else background_scale
-			process_hist = getHist(h_name, plots[group][process], in_dir,
-			                       suffix, lazy=lazy, use_cache=False)
-			if process_hist is None:
+			proc_hist = getHist(h_name, plots[group][proc], in_dir,
+			                    suffix, lazy=lazy, use_cache=False)
+			if proc_hist is None:
 				continue
 
-			integral = process_hist.Integral() * scale
-			entries  = process_hist.GetEntries()
-			process_hist.SetLineColor(colors[process] if group == 'signals' else ROOT.kBlack)
-			process_hist.SetLineWidth(4 if group == 'signals' else 1)
-			process_hist.SetLineStyle(1)
+			integral = proc_hist.Integral() * scale
+			entries  = proc_hist.GetEntries()
+			proc_hist.SetLineColor(colors[proc] if group == 'signals' else ROOT.kBlack)
+			proc_hist.SetLineWidth(4 if group == 'signals' else 1)
+			proc_hist.SetLineStyle(1)
 			if group == 'backgrounds':
-				process_hist.SetFillColor(colors[process])
+				proc_hist.SetFillColor(colors[proc])
 			if scale != 1.:
-				process_hist.Scale(scale)
-			legend.AddEntry(process_hist, labels[process], 'L' if group == 'signals' else 'F')
+				proc_hist.Scale(scale)
+			legend.AddEntry(proc_hist, labels[proc], 'L' if group == 'signals' else 'F')
 
-			rows.append((labels[process], integral, entries))
-			if group == 'signals':
-				signal_total += integral
-			else:
-				background_total += integral
+			rows.append((labels[proc], integral, entries))
+			if group == 'signals': sig_tot += integral
+			else:                  bkg_tot += integral
 
-		return rows, legend, signal_total, background_total
+		return rows, legend, sig_tot, bkg_tot
 
 
 	def draw(
@@ -114,25 +108,24 @@ class TextPlot:
 		if any(len(row) != len(headers) for row in rows):
 			raise ValueError('every row must have one value per header')
 
-		canvas = plotter.canvas(
-			*self.canvas_size, top=0., bottom=0., left=0.14, right=0.08
-		)
+		canvas = plotter.canvas(*self.canvas_size, top=0.08, bottom=0.05, left=0.05, right=0.05)
 		dummy = ROOT.TH1F(f'{out_name}_dummy', '', 1, 0, 1)
 		dummy.SetStats(0)
 		plotter.configure_axis(dummy.GetXaxis(), '', 0, 1,
 		                       label_offset=999, label_size=0)
 		plotter.configure_axis(dummy.GetYaxis(), '', 0, 1,
 		                       label_offset=999, label_size=0)
+		dummy.GetXaxis().SetTickLength(0)
+		dummy.GetYaxis().SetTickLength(0)
 		dummy.Draw('AH')
-		if legend is not None:
-			legend.Draw()
+		if legend is not None: legend.Draw()
 
 		text_data = list(metadata)
-		text_data.extend((f'#bf{{#it{{{header}}}}}', self.column_positions[index], 0.45, 0.035)
+		text_data.extend((f'#bf{{#it{{{header}}}}}', self.column_positions[index], 0.5, 0.045)
 		                 for index, header in enumerate(headers))
 		for row_index, row in enumerate(rows):
-			y = 0.4 - row_index * 0.05
-			text_data.extend((f'#bf{{#it{{{value}}}}}', self.column_positions[index], y, 0.035)
+			y = 0.445 - row_index * 0.05
+			text_data.extend((f'#it{{{value}}}', self.column_positions[index], y, 0.035)
 			                 for index, value in enumerate(row))
 		latex = setup_latex(0.035, 12)
 		draw_latex(latex, text_data)

@@ -48,8 +48,6 @@ from inspect import Parameter, signature
 from re import search
 from typing import Any, Union
 
-from ..tools.process import getHist
-
 from constants import h_labels
 from tools.utils import mkdir
 from logger import get_logger
@@ -348,7 +346,7 @@ def significance(
     import numpy as np
     import matplotlib.pyplot as plt
     from .python.plotter import set_labels, savefigs
-    from ..tools.process import getHist
+    from tools.process import getHist
 
     _ensure_plt_style()
 
@@ -576,7 +574,7 @@ def PlotDecays(
 
     legend = histoplot.define_legend(len(plots['signals']), 4,
                                      0.2, 0.925, 0.95, 0.925)
-    all_hists = histoplot.load_histograms(f'_{sel}_histo', rebin, lazy, True)
+    all_hists   = histoplot.load_histograms(f'_{sel}_histo', rebin, lazy, True)
     _, hists, _ = histoplot.style_histograms(all_hists, legend)
 
     histoplot.cfg = histoplot.build_config(hists, [],
@@ -658,19 +656,17 @@ def AAAyields(
         significance = s_tot / (s_tot + b_tot)**0.5 if s_tot > 0 and b_tot > 0 else 0
 
     metadata = [
-        ('#bf{FCC-ee} #scale[0.7]{#it{Simulation}}', 0.9, 0.92, 0.04),
-        (f'#bf{{#it{{#sqrt{{s}} = {ecm} GeV}}}}', 0.18, 0.83, 0.04),
-        (f'#bf{{#it{{L = {lumi} ab^{{#minus1}}}}}}', 0.18, 0.78, 0.035),
-        (f'#bf{{#it{{{ana_tex}}}}}', 0.18, 0.73, 0.04),
-        (f'#bf{{#it{{{sel}}}}}', 0.18, 0.68, 0.025),
-        (f'#bf{{#it{{Signal Scaling = {scale_sig:.3g}}}}}', 0.18, 0.62, 0.04),
-        (f'#bf{{#it{{Background Scaling = {scale_bkg:.3g}}}}}', 0.18, 0.57, 0.04),
-        (f'#bf{{#it{{Significance = {significance:.3f}}}}}', 0.18, 0.52, 0.04),
+        ('#bf{FCC-ee} #scale[0.7]{#it{Simulation}}', 0.05, 0.95, 0.05),
+        (f'#it{{#sqrt{{s}} = {ecm} GeV}}', 0.065, 0.88, 0.04),
+        (f'#it{{L = {lumi} ab^{{#minus1}}}}', 0.065, 0.83, 0.035),
+        (f'#it{{{ana_tex}}}', 0.065, 0.78, 0.04),
+        (f'#it{{{sel}}}', 0.065, 0.73, 0.025),
+        (f'#it{{Signal Scaling = {scale_sig:.3g}}}', 0.065, 0.67, 0.04),
+        (f'#it{{Background Scaling = {scale_bkg:.3g}}}', 0.065, 0.62, 0.04),
+        (f'#it{{Significance = {significance:.3f}}}', 0.065, 0.57, 0.04),
     ]
-    formatted_rows = [
-        (label, f'{integral:,.0f}', f'{entries:,.0f}')
-        for label, integral, entries in rows
-    ]
+    formatted_rows = [(label, f'{integral:,.0f}', f'{entries:,.0f}')
+                      for label, integral, entries in rows]
     textplot.draw(formatted_rows, metadata, outName, legend=leg,
                   file_formats=format, quiet=quiet,
                   suffix='_tot' if tot else '')
@@ -687,31 +683,28 @@ def get_efficiency(
          ):
 
     import os, uproot
-    from tools.process import getMetaInfo
+    from tools.process import getMetaInfo, getHist
 
-    signal_groups = ([[f'wzp6_ee_{z}H_H{h}_ecm{ecm}' for h in h_decays] for z in z_decays] if invert else
-                     [[f'wzp6_ee_{z}H_H{h}_ecm{ecm}' for z in z_decays] for h in h_decays])
+    sig_groups = ([[f'wzp6_ee_{z}H_H{h}_ecm{ecm}' for h in h_decays] for z in z_decays] if invert else
+                  [[f'wzp6_ee_{z}H_H{h}_ecm{ecm}' for z in z_decays] for h in h_decays])
     lumi = {240: 10.8e6, 365: 3.12e6}.get(ecm, -1)
-    efficiencies, uncertainties = {}, {}
+    effs, errs = {}, {}
 
-    for decay, signals in zip(h_decays, signal_groups):
-        processed = sum(
-            uproot.open(f'{inDir}/{signal}{suffix}.root')['eventsProcessed'].value
-            for signal in signals if os.path.exists(f'{inDir}/{signal}{suffix}.root'))
-        total = sum(getMetaInfo(signal, rmww=True) for signal in signals) * lumi
-        total_error = total / processed**0.5
+    for decay, sigs in zip(h_decays, sig_groups):
+        processed = sum(uproot.open(f'{inDir}/{sig}{suffix}.root')['eventsProcessed'].value
+                        for sig in sigs if os.path.exists(f'{inDir}/{sig}{suffix}.root'))
+        total = sum(getMetaInfo(signal, rmww=True) for signal in sigs) * lumi
+        tot_err = total / processed**0.5
 
-        histogram = getHist(hName, signals, inDir, suffix)
-        selected, entries = histogram.Integral(), histogram.GetEntries()
-        selected_error = entries**0.5 * total / processed
-        efficiency = 100 * selected / total
+        histogram = getHist(hName, sigs, inDir, suffix)
+        sel, entries = histogram.Integral(), histogram.GetEntries()
+        sel_err = entries**0.5 * total / processed
+        eff = 100 * sel / total
 
-        efficiencies[decay]  = efficiency
-        uncertainties[decay] = efficiency * (
-            (total_error / total)**2 + ((selected_error / selected)**2
-                                        if selected > 0 else 0))**0.5
+        effs[decay] = eff
+        errs[decay] = eff * ((tot_err / total)**2 + ((sel_err / sel)**2 if sel > 0 else 0))**0.5
 
-    return efficiencies, uncertainties
+    return effs, errs
 
 
 def Efficiency(
@@ -757,8 +750,8 @@ def Efficiency(
 
     efficiency, efficiency_err = get_efficiency(hName, inDir, ecm, z_decays, h_decays, f'_{sel}_histo', invert)
     eff, eff_err = list(efficiency.values()), list(efficiency_err.values())
-    eff_avg     = sum(eff) / len(eff)
-    eff_avg_err = (sum(err**2 for err in eff_err))**0.5 / len(eff_err)
+    eff_avg      = sum(eff) / len(eff)
+    eff_avg_err  = (sum(err**2 for err in eff_err))**0.5 / len(eff_err)
     eff_min, eff_max = eff_avg - min(eff), max(eff) - eff_avg
 
     decays = z_decays if invert else h_decays
@@ -775,8 +768,8 @@ def Efficiency(
 
     return None
 
-
-
+# TO DO
+# Integrate it to CutFlowPlot and PullPlot
 def write_table(
     file_path: str,
     file_name: str,
@@ -842,7 +835,7 @@ def CutFlow(
     outDir: str,
     cat: str,
     sel: str,
-    procs: list[str],
+    plots: dict[str, dict[str, dict[str, list[str]]]],
     colors: dict[str, dict[str, int]],
     legend: dict[str, dict[str, str]],
     cuts: dict[str, dict[str, str]],
@@ -896,10 +889,6 @@ def CutFlow(
 
     from ..plots.histoplot import CutFlowPlot
 
-    plots = {
-        'signals': {procs[0]: []},
-        'backgrounds': {process: [] for process in procs[1:]},
-    }
     cutflow = CutFlowPlot(
         flow, outDir, cat, sel, plots,
         colors, legend, ecm, lumi, tot
@@ -911,9 +900,9 @@ def CutFlow(
                            format, suffix, quiet)
 
     # Export yields table to file
+    procs = list(plots.get('signals', {})) + list(plots.get('backgrounds', {}))
     write_table(str(cutflow.output_dir()), outName+suffix,
-                ['Cut', 'Significance'] + procs, rows,
-                10, 25)
+                ['Cut', 'Significance'] + procs, rows, 10, 25)
 
     return None
 

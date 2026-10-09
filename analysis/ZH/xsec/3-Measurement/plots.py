@@ -40,15 +40,11 @@ from constants import (
 from zh_xsec.tools.utils import high_low_sels  # High/low control region helpers
 from sel_xsec.final.leptonic import histos_ll, custom_hists_ll
 from sel_xsec.final.hadronic import histos_qq, custom_hists_qq
-from zh_xsec.plots.plotting import (
-    AAAyields, Efficiency, PlotDecays, get_args, makePlot,
-    plot_configs, significance
-)
-from zh_xsec.tools.process import (
+from tools.process import (
     preload_histograms,     # Preload histogram cache for performance
     clear_histogram_cache   # Clear cache when done
 )
-
+from plotting.plotting import plot_configs, get_args
 
 
 #############################
@@ -115,6 +111,7 @@ def main() -> None:
             # Generate yields plots unless skipped
             if arg.yields:
                 from constants import quarks, z_labels, h_labels
+                from plotting.plotting import AAAyields, Efficiency
 
                 yield_args = plot_kwargs('acolinearity', AAAyields, hName='acolinearity')
                 for total, config in [(False, plots['category']), (True, plots['total'])]:
@@ -142,7 +139,7 @@ def main() -> None:
 
                     # Generate significance scan plots if requested
                     if arg.scan:
-                        # One configuration is reused for both cumulative directions.
+                        from plotting.plotting import significance
                         scan_args = plot_kwargs(variable, significance,
                                                 plots=plots['category'], var_labels=var_labels)
                         for reverse in [True, False]:
@@ -151,7 +148,7 @@ def main() -> None:
 
                     # Generate Higgs decay mode plots unless skipped
                     if arg.decay:
-                        # Reuse invariant decay options across scales and categories.
+                        from plotting.plotting import PlotDecays
                         decay_args = plot_kwargs(variable, PlotDecays)
                         for logY in [False, True]:
                             decay_args['logY'] = logY
@@ -161,6 +158,7 @@ def main() -> None:
 
                     # Generate standard distribution plots unless skipped
                     if arg.make:
+                        from plotting.plotting import makePlot
                         # Reuse invariant options for category and total distributions.
                         make_args = plot_kwargs(variable, makePlot)
                         for logY in [False, True]:

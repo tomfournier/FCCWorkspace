@@ -50,7 +50,7 @@ from typing import Any, Union, TYPE_CHECKING
 
 from ..func.bias import getMetaInfo
 from .root.helper import build_cfg
-from ..tools.process import get_range_decay, getHist
+from tools.process import get_range_decay, getHist
 
 if TYPE_CHECKING:
     import numpy as np
@@ -355,7 +355,7 @@ def significance(
     import numpy as np
     import matplotlib.pyplot as plt
     from .python.plotter import set_labels, savefigs
-    from ..tools.process import getHist
+    from tools.process import getHist
 
     _ensure_plt_style()
 
@@ -660,7 +660,7 @@ def AAAyields(
 
     from constants import colors, legend
     from .root import plotter
-    from ..tools.process import getHist
+    from tools.process import getHist
     from .root.helper import (
         mk_legend, style_hist,
         savecanvas, draw_latex,
@@ -796,7 +796,7 @@ def Bias(
     ROOT.gStyle.SetOptTitle(0)
 
     from .root import plotter
-    from ..tools.process import get_range_decay
+    from tools.process import get_range_decay
     from .root.helper import (
         build_cfg, setup_latex, savecanvas
     )
