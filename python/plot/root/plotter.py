@@ -42,7 +42,8 @@ Usage:
 import ROOT
 
 from tools.utils import mkdir
-
+from logger import get_logger
+LOGGER = get_logger(__name__)
 
 
 ########################
@@ -163,6 +164,7 @@ def setup_latex(
         ROOT.TLatex: Configured TLatex object with NDC enabled.
     '''
     latex = ROOT.TLatex()
+    ROOT.SetOwnership(latex, False)
     latex.SetNDC()
     latex.SetTextSize(text_size)
     latex.SetTextColor(text_color)
@@ -268,7 +270,8 @@ def canvas(
     Returns:
         ROOT.TCanvas: Configured ROOT.TCanvas object.
     '''
-    c = ROOT.TCanvas('c', 'c', width, height)
+    canvas_name = ROOT.TUUID().AsString()
+    c = ROOT.TCanvas(canvas_name, canvas_name, width, height)
     canvas_margins(c, top, bottom, left, right)
 
     # Apply log scales unless plotting yields
@@ -303,14 +306,17 @@ def canvasRatio(
     Returns:
         tuple: (canvas, upper_pad, lower_pad) configured for ratio plots.
     '''
-    c = ROOT.TCanvas('c', 'c', width, height)
+    canvas_name = ROOT.TUUID().AsString()
+    c = ROOT.TCanvas(canvas_name, canvas_name, width, height)
     canvas_margins(c, 0, 0, 0, 0)
 
     rfrac = cfg.get('ratiofraction', '')
 
     # Create upper pad for main plot and lower pad for ratio
-    pad1 = ROOT.TPad('p1','p1', 0, rfrac, 1, 1)
-    pad2 = ROOT.TPad('p2','p2', 0, 0, 1, rfrac - 0.7*eps)
+    pad1_name = ROOT.TUUID().AsString()
+    pad2_name = ROOT.TUUID().AsString()
+    pad1 = ROOT.TPad(pad1_name, pad1_name, 0, rfrac, 1, 1)
+    pad2 = ROOT.TPad(pad2_name, pad2_name, 0, 0, 1, rfrac - 0.7*eps)
 
     pad_margins(pad1, 0.055/(1 - rfrac), eps, left)
     pad_margins(pad2, 0, 0.37, left)
@@ -386,6 +392,7 @@ def dummy(
         labels: list[str] = [],
         label_size: float = 1,
         label_offset: float = 1.2,
+        y_title_offset: float = 1.7,
 ) -> ROOT.TH1D:
     '''
     Create a dummy histogram with configured axis limits and labels.
@@ -403,10 +410,12 @@ def dummy(
     ymin, ymax = axis_limits(cfg, 'y')
 
     xtitle = cfg.get('xtitle', '')
+    if xtitle == 'None': xtitle = ''
     ytitle = cfg.get('ytitle', '')
 
     # Create empty histogram with specified bin count and range
-    dummy = ROOT.TH1D('h', 'h', nbins, xmin, xmax)
+    dummy = ROOT.TH1D(ROOT.TUUID().AsString(), 'h', nbins, xmin, xmax)
+    dummy.SetDirectory(0)
 
     # Configure x-axis
     configure_axis(dummy.GetXaxis(), xtitle,
@@ -415,7 +424,7 @@ def dummy(
                    label_offset=label_offset)
     # Configure y-axis
     configure_axis(dummy.GetYaxis(), ytitle, ymin,
-                   ymax, title_offset=1.7, label_offset=1.4)
+                   ymax, title_offset=y_title_offset, label_offset=1.4)
 
     dummy.SetMinimum(ymin)
     dummy.SetMaximum(ymax)
@@ -423,6 +432,8 @@ def dummy(
     if nbins > 1:
         if len(labels) != nbins:
             raise ValueError('labels should have the same size as nbins')
+        dummy.GetXaxis().SetLabelSize(0.8*dummy.GetXaxis().GetLabelSize())
+        dummy.GetXaxis().SetLabelOffset(1.7*dummy.GetXaxis().GetLabelOffset())
         for i, label in enumerate(labels):
             dummy.GetXaxis().SetBinLabel(i+1, label)
             dummy.GetXaxis().LabelsOption('u')
@@ -458,8 +469,10 @@ def dummyRatio(
     ytitleR = cfg.get('ytitleR', '')
 
     # Create dummy histograms for upper (main) and lower (ratio) pads
-    dummyT = ROOT.TH1D('h1', 'h', nbins, xmin, xmax)
-    dummyB = ROOT.TH1D('h2', 'h', nbins, xmin, xmax)
+    dummyT = ROOT.TH1D(ROOT.TUUID().AsString(), 'h', nbins, xmin, xmax)
+    dummyB = ROOT.TH1D(ROOT.TUUID().AsString(), 'h', nbins, xmin, xmax)
+    dummyT.SetDirectory(0)
+    dummyB.SetDirectory(0)
 
     # Configure x-axis: hidden in upper pad, visible in lower pad
     configure_axis(dummyT.GetXaxis(), '', xmin, xmax,
@@ -500,8 +513,6 @@ def finalize_canvas(
     grid: bool = True
      ) -> None:
     '''
-    Finalize canvas appearance and redraw elements.
-
     Applies grid, ticks, auxiliary labels, and refreshes the canvas display.
 
     Args:
@@ -511,11 +522,12 @@ def finalize_canvas(
     Returns:
         None
     '''
+    canvas.cd()
     if grid: canvas.SetGrid()
-    canvas.Modify()
-    canvas.Update()
     aux()
     ROOT.gPad.SetTicks()
+    canvas.Modified()
+    canvas.Update()
     ROOT.gPad.RedrawAxis()
 
 
@@ -527,8 +539,7 @@ def save_canvas(
     file_formats: list[str] = ['png'],
     quiet: bool = False
 ) -> None:
-    '''
-    Save canvas to file with auxiliary labels and proper formatting.
+    '''Save canvas to file in multiple formats.
 
     Creates output directory if needed, applies final cosmetics (axis redraw,
     auxiliary labels), and exports to specified file formats.
@@ -547,10 +558,9 @@ def save_canvas(
     mkdir(outDir)
 
     # Apply final formatting before saving
-    canvas.RedrawAxis()
-    canvas.Modify()
+    canvas.cd()
+    canvas.Modified()
     canvas.Update()
-    canvas.Draw()
 
     fpath = os.path.join(outDir, outName+suffix)
     previous_level = ROOT.gErrorIgnoreLevel

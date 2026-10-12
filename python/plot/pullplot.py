@@ -11,13 +11,13 @@ class PullPlot:
 		values: Sequence[float],
 		errors: Sequence[float],
 		labels: Sequence[str],
-		reference: float | None = None,
-		reference_error: float = 0.,
+		ref: float | None = None,
+		ref_err: float = 0.,
 		ecm: int = 240,
 		lumi: float = 10.8,
-		x_title: str = '',
+		xtitle: str = '',
 		name: str = 'pulls',
-		out_dir: str | None = None,
+		outputdir: str | None = None,
 		selection: str | None = None,
 		output_subdir: str = 'yield',
 	) -> None:
@@ -29,14 +29,14 @@ class PullPlot:
 		self.values = list(values)
 		self.errors = list(errors)
 		self.labels = list(labels)
-		self.reference       = reference
-		self.reference_error = reference_error
+		self.reference       = ref
+		self.reference_error = ref_err
 		self.ecm  = ecm
 		self.lumi = lumi
-		self.x_title = x_title
-		self.name    = name
-		self.out_dir = out_dir
+		self.xtitle = xtitle
+		self.name   = name
 		self.selection = selection
+		self.outputdir = outputdir
 		self.output_subdir = output_subdir
 
 	@property
@@ -47,11 +47,11 @@ class PullPlot:
 		values = self.values + ([self.reference] if self.reference is not None else [])
 		return int(min(values)) - 5, int(max(values)) + 3
 
-	def _histogram(self, x_min: float, x_max: float) -> Any:
+	def _histogram(self, xmin: float, xmax: float) -> Any:
 		import ROOT
 
-		histogram = ROOT.TH2F(self.name, self.name, max(1, int((x_max - x_min) * 10)),
-		                      x_min, x_max, self.row_count, 0, self.row_count)
+		histogram = ROOT.TH2F(self.name, self.name, max(1, int((xmax - xmin) * 10)),
+		                      xmin, xmax, self.row_count, 0, self.row_count)
 		offset = 0
 		if self.reference is not None:
 			histogram.GetYaxis().SetBinLabel(1, 'Average')
@@ -62,19 +62,19 @@ class PullPlot:
 
 	def _config(
 		self,
-		x_min: float,
-		x_max: float,
+		xmin: float,
+		xmax: float,
 		top_left: str,
 		top_right: str,
 	) -> dict[str, Any]:
 		from .root.helper import make_cfg
 
 		return make_cfg({
-			'xmin': x_min,
-			'xmax': x_max,
+			'xmin': xmin,
+			'xmax': xmax,
 			'ymin': 0,
 			'ymax': self.row_count,
-			'xtitle': self.x_title,
+			'xtitle': self.xtitle,
 			'topLeft':  top_left,
 			'topRight': top_right,
 		}, self.ecm, self.lumi)
@@ -82,14 +82,13 @@ class PullPlot:
 
 	def output_dir(self) -> str:
 		'''Return the configured output directory for this selection.'''
-		if self.out_dir is None or self.selection is None:
-			raise ValueError('out_dir and selection are required for automatic paths')
+		if self.outputdir is None or self.selection is None:
+			raise ValueError('outputdir and selection are required for automatic paths')
 
 		base_selection = self.selection.replace('_high', '').replace('_low', '')
-		direction = ('high' if '_high' in self.selection
-		             else 'low' if '_low' in self.selection
+		direction = ('high' if '_high' in self.selection else 'low' if '_low' in self.selection
 					 else 'nominal')
-		return f'{self.out_dir}/{self.output_subdir}/{base_selection}/{direction}'
+		return f'{self.outputdir}/{self.output_subdir}/{base_selection}/{direction}'
 
 
 	def draw(
@@ -116,22 +115,22 @@ class PullPlot:
 		top_right = top_right or f'#sqrt{{s}} = {self.ecm} GeV, {self.lumi} ab^{{#minus1}}'
 
 		plotter.cfg = self._config(x_min, x_max, top_left, top_right)
-		histogram = self._histogram(x_min, x_max)
+		hist = self._histogram(x_min, x_max)
 		canvas = plotter.canvas(800, 800)
 		plotter.canvas_margins(canvas, top=0.08, bottom=0.1, left=0.15, right=0.05)
 		canvas.SetFillStyle(4000)
 		canvas.SetGrid(1, 0)
 		canvas.SetTickx(1)
 
-		histogram.GetXaxis().SetTitle(self.x_title)
-		histogram.GetXaxis().SetTitleSize(0.04)
-		histogram.GetXaxis().SetLabelSize(0.035)
-		histogram.GetXaxis().SetTitleOffset(1)
-		histogram.GetYaxis().SetLabelSize(0.055)
-		histogram.GetYaxis().SetTickLength(0)
-		histogram.GetYaxis().LabelsOption('v')
-		histogram.SetNdivisions(506, 'XYZ')
-		histogram.Draw('HIST 0')
+		hist.GetXaxis().SetTitle(self.x_title)
+		hist.GetXaxis().SetTitleSize(0.04)
+		hist.GetXaxis().SetLabelSize(0.035)
+		hist.GetXaxis().SetTitleOffset(1)
+		hist.GetYaxis().SetLabelSize(0.055)
+		hist.GetYaxis().SetTickLength(0)
+		hist.GetYaxis().LabelsOption('v')
+		hist.SetNdivisions(506, 'XYZ')
+		hist.Draw('HIST 0')
 
 		line = None
 		band = None
@@ -174,6 +173,7 @@ class PullPlot:
 				text.DrawLatex(0.2, 0.2 - index * 0.05, value)
 			text.Draw('SAME')
 
+		print(out_name, suffix)
 		save_canvas(canvas, out_dir or self.output_dir(), out_name,
 		            suffix, file_formats, quiet)
 		canvas.Close()

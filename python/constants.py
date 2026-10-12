@@ -55,6 +55,7 @@ quarks   = QUARKS
 
 # Lazy-loaded ROOT colors - these are computed on first access
 # ROOT color indices (lazily initialized on first access)
+_SIG_COLOR  = None   # Black for total ZH signal
 _ZH_COLOR   = None   # Red for ZH signal
 _WW_COLOR   = None   # Orange for WW background
 _ZZ_COLOR   = None   # Blue for ZZ background
@@ -68,9 +69,10 @@ def _init_colors() -> None:
     Creates ROOT color indices for signal and background processes.
     Called automatically by _get_colors_dict() on first use.
     """
-    global _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR, _TT_COLOR
+    global _SIG_COLOR, _ZH_COLOR, _WW_COLOR, _ZZ_COLOR, _ZG_COLOR, _RARE_COLOR, _TT_COLOR
     if _ZH_COLOR is None:
         root = get_root()
+        _SIG_COLOR  = root.TColor.GetColor("#040303")    # Black     for ZH signal (tot)
         _ZH_COLOR   = root.TColor.GetColor('#e42536')    # Red       for ZH signal
         _WW_COLOR   = root.TColor.GetColor('#f89c20')    # Orange    for WW background
         _ZZ_COLOR   = root.TColor.GetColor('#5790fc')    # Blue      for ZZ background
@@ -107,13 +109,13 @@ def _get_colors_dict() -> dict:
         Dictionary mapping process names to color codes.
     """
     _init_colors()
-    return {'ZH':     _ZH_COLOR,
+    return {'ZH':     _SIG_COLOR,
             'ZeeH':   _ZH_COLOR,
             'ZmumuH': _ZH_COLOR,
             'ZqqH':   _ZH_COLOR,
             'ZnunuH': _ZH_COLOR,
 
-            'zh':     _ZH_COLOR,
+            'zh':     _SIG_COLOR,
             'zeeh':   _ZH_COLOR,
             'zmumuh': _ZH_COLOR,
             'zqqh':   _ZH_COLOR,

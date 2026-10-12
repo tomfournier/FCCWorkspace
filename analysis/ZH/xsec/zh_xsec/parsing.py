@@ -662,7 +662,7 @@ def measurement_plots_parser(description: str | None = None) -> ArgumentParser:
 def measurement_cutflow_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'Cutflow Script',
-        include_cat=True, cat_multi=True, include_ecm=True,
+        include_cat=True, include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='Baseline')
     add_plot_args(parser)
     add_cutflow_args(parser)

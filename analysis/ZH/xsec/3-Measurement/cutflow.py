@@ -35,11 +35,12 @@ from sel_xsec.final.hadronic import histos_qq
 from tools.utils import timer
 from samples import get_process_dict
 from constants import (
+    QUARKS,
     z_decays,             # Z boson decay modes
     H_decays,             # Higgs decay modes
     colors, legend        # Process styling for plots
 )
-from zh_xsec.plots.cutflow import (
+from plotting.cutflow import (
     get_cutflow,            # Calculate event counts per cut
     branches_from_cuts      # Get branches needed for each cut
 )
@@ -51,7 +52,7 @@ from zh_xsec.plots.cutflow import (
 ############################
 
 # Decay categories to analyze (from command-line: cat1-cat2 format)
-cats, ecm, sels = arg.cat.split('-'), arg.ecm, arg.sels.split('-')
+cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
 # Integrated luminosity [ab^-1]
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
@@ -62,27 +63,23 @@ lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 ############################
 
 # Define sequential baseline selection cuts
-baseline_cuts_ll = {
-    'cut0': '',                                                      # Diagnostic: no cuts
-    'cut1': '',                                                      # Lepton isolation (applied in pre-selection)
-    'cut2': '',                                                      # Opposite-sign requirement
-    'cut3': '' if arg.kin else  'zll_m > 86 & zll_m < 96',           # Z mass window [GeV]
-}
+baseline_cuts_ll = {'cut0': '', 'cut1': '', 'cut2': '',
+                    'cut3': '' if arg.kin else  'zll_m > 86 & zll_m < 96'}
 
 # Human-readable labels for cuts (displayed in plots)
 baseline_labels_ll = {
-    'cut0': 'No cut',                                            # Diagnostic baseline
-    'cut1': '#geq 1#ell^{#pm} + ISO',                            # Lepton with isolation
-    'cut2': '#geq 2 #ell^{#pm} + OS',                            # Dilepton pair, opposite sign
-    'cut3': '86 < m_{#ell^{+}#ell^{-}} < 96 GeV',                # Z boson mass selection
+    'cut0': 'No cut',                         # Diagnostic baseline
+    'cut1': '#geq 1 l^{#pm} + ISO',           # Lepton with isolation
+    'cut2': '#geq 2 l^{#pm} + OS',            # Dilepton pair, opposite sign
+    'cut3': '86 < m_{l^{+}l^{-}} < 96 GeV',   # Z boson mass selection
 }
 
 if ecm == 240:
     baseline_cuts_ll['cut4']   = '' if arg.kin else 'zll_p > 20 & zll_p < 70'                   # Dilepton momentum window (240 GeV)
-    baseline_labels_ll['cut4'] = '20 < p_{#ell^{+}#ell^{-}} < 70 GeV'
+    baseline_labels_ll['cut4'] = '20 < p_{l^{+}l^{-}} < 70 GeV'
 elif ecm == 365:
     baseline_cuts_ll['cut4']   = '' if arg.kin else 'zll_p > 50 & zll_p < 150'                  # Dilepton momentum window (365 GeV)
-    baseline_labels_ll['cut4'] = '50 < p_{#ell^{+}#ell^{-}} < 150 GeV'
+    baseline_labels_ll['cut4'] = '50 < p_{l^{+}l^{-}} < 150 GeV'
 
     baseline_cuts_ll['cut5']   = '' if arg.kin else 'zll_recoil_m > 100 && zll_recoil_m < 150'  # Recoil mass selection (if 365 GeV)
     baseline_labels_ll['cut5'] = '100 < m_{recoil} < 150 GeV'
@@ -118,10 +115,7 @@ elif ecm == 365:
 ###############################
 
 # Define sequential baseline selection cuts
-baseline_cuts_qq = {
-    'cut0': '',
-    'cut1': '',
-    'cut2': '',
+baseline_cuts_qq = {'cut0': '', 'cut1': '', 'cut2': '',
     # 'cut5': '' if arg.kin else 'zqq_costheta > -0.85 & zqq_costheta < 0.85',
     # 'cut6': '' if arg.kin else 'acolinearity > 0.35',
     'cut5': '' if arg.kin else 'delta_mWW > 6',
@@ -173,59 +167,43 @@ if 'Baseline_sep' in sels:
 
 
 
+decays_cat = [cat] if cat in ['ee', 'mumu'] else (QUARKS if cat=='qq' else [])
+plots = {
+    'signals':     get_process_dict(['ZH', f'Z{cat}H'], ecm),
+    'backgrounds': get_process_dict(['WW', 'ZZ', 'Zgamma', 'Rare'], ecm),
+    'decays': {'cat': {y: [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in decays_cat] for y in H_decays},
+               'tot': {y: [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in H_decays}}
+}
+
+
 ##########################
 ### EXECUTION FUNCTION ###
 ##########################
 
-def run(cats: list[str],
-        sels: list[str],
-        processes: dict[str, list[str]],
-        colors: dict[str, dict[str, str]],
-        legend: dict[str, dict[str, str]]
-        ) -> None:
+def main() -> None:
     '''Generate cutflow plots for each channel and selection strategy.'''
-    for cat in cats:
-        LOGGER.info(f'Making plots for {cat} channel')
-        # Define process names (signal must be first)
-        procs = [f'Z{cat}H' if not arg.tot else 'ZH', 'WW', 'ZZ', 'Zgamma', 'Rare']
-        procs_decays = [f'z{cat}h' if not arg.tot else 'zh', 'WW', 'ZZ', 'Zgamma', 'Rare']
+    LOGGER.info(f'Making plots for {cat} channel')
+    # Define process names (signal must be first)
 
-        if (cat=='qq') and (ecm==365):
-            procs.append('tt')
-            procs_decays.append('tt')
+    variables  = list(histos_ll) if cat in ['ee', 'mumu'] else list(histos_qq)
+    cuts       = cuts_ll       if cat in ['ee', 'mumu'] else cuts_qq
+    cuts_label = cuts_label_ll if cat in ['ee', 'mumu'] else cuts_label_qq
 
-        histos = histos_ll if cat in ['ee', 'mumu'] else histos_qq
-        variables = [v for v in histos.keys() if (v!='zqq_m_recoil_m') and (v!='zqq_m_recoil_m_test')]
+    # Define input and output directories
+    if arg.kin: inDir = loc.get('EVENTS_TEST', cat, ecm)
+    else:       inDir = loc.get('EVENTS',      cat, ecm)
+    outDir = loc.get('PLOTS_MEASUREMENT',      cat, ecm)
 
-        cuts = cuts_ll if cat in ['ee', 'mumu'] else cuts_qq
-        cuts_label = cuts_label_ll if cat in ['ee', 'mumu'] else cuts_label_qq
+    # Extract required branches from cuts and variables
+    branches = branches_from_cuts(cuts, variables)
+    br_str = ', '.join(br for br in branches)
+    if not branches: branches = [variables[0]]
+    LOGGER.info(f'Only importing these branches from the .root file: {br_str}')
 
-        # Define input and output directories
-        if arg.kin: inDir = loc.get('EVENTS_TEST', cat, ecm)
-        else:       inDir = loc.get('EVENTS',      cat, ecm)
-        outDir = loc.get('PLOTS_MEASUREMENT',      cat, ecm)
-
-        # Extract required branches from cuts and variables
-        branches = branches_from_cuts(cuts, variables)
-        br_str = ', '.join(br for br in branches)
-        if not branches: branches = [variables[0]]
-        LOGGER.info(f'Only importing these branches from the .root file: {br_str}')
-
-        # Generate cutflow plots and tables
-        get_cutflow(
-            inDir, outDir,
-            cat, sels,
-            procs, procs_decays,
-            processes, colors, legend,
-            cuts, cuts_label,
-            z_decays, H_decays,
-            branches=branches,
-            ecm=ecm,
-            lumi=lumi,
-            sig_scale=1,
-            tot=arg.tot,
-            loc_json=loc.JSON+f'/{cat}'
-        )
+    # Generate cutflow plots and tables
+    get_cutflow(inDir, outDir, cat, sels, plots, colors, legend,
+                cuts, cuts_label, branches=branches, ecm=ecm, lumi=lumi,
+                sig_scale=1, tot=arg.tot, loc_json=loc.JSON+f'/{ecm}/{cat}')
 
 
 ######################
@@ -235,7 +213,7 @@ def run(cats: list[str],
 if __name__=='__main__':
     try:
         # Run cutflow analysis for all categories and selections
-        run(cats, sels, get_process_dict(ecm=ecm), colors, legend)
+        main()
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

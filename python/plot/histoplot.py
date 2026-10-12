@@ -202,7 +202,7 @@ class HistogramPlot:
         '''Build the ROOT plot configuration for the loaded histograms.'''
         from .root.helper import make_cfg
 
-        ref_hist = sig_hists[0] if sig_hists else bkgs[0]
+        ref_hist  = sig_hists[0] if sig_hists else bkgs[0]
         all_hists = [*sig_hists, *bkgs]
         xMin, xMax, yMin, yMax = self._get_ranges(
             all_hists, bkgs,
@@ -226,12 +226,11 @@ class HistogramPlot:
         else:
             ytitle += f' / {bwidth:.2f} {unit}'
 
-        return make_cfg({
-            'xmin': xMin,     'xmax': xMax,
-            'ymin': yMin,     'ymax': yMax,
-            'logx': logX,     'logy': logY,
-            'xtitle': xTitle, 'ytitle': ytitle,
-        }, self.ecm, self.lumi)
+        return make_cfg({'xmin': xMin,     'xmax': xMax,
+                         'ymin': yMin,     'ymax': yMax,
+                         'logx': logX,     'logy': logY,
+                         'xtitle': xTitle, 'ytitle': ytitle,
+                         }, self.ecm, self.lumi)
 
     def _get_ranges(
         self,
@@ -288,10 +287,9 @@ class HistogramPlot:
 
         plotter.cfg = self.cfg
         canvas = plotter.canvas()
-        dummy = plotter.dummy(
-            1 if not xlabels else len(xlabels), xlabels,
-            0.75 if len(xlabels) > 0 else 1,
-            1.3 if len(xlabels) > 0 else 1)
+        dummy = plotter.dummy(1 if not xlabels else len(xlabels), xlabels,
+                              0.75 if len(xlabels) > 0 else 1,
+                              1.3 if len(xlabels) > 0 else 1)
 
         dummy.Draw('HIST')
         if stack_signals:
@@ -338,7 +336,9 @@ class HistogramPlot:
 
         tot_suffix = ('_log' if logY else '_lin') + suffix 
 
+        LOGGER.info('Finalizing canvas')
         finalize_canvas(canvas)
+        LOGGER.info('Saving canvas')
         save_canvas(canvas, out, outName, tot_suffix, file_formats, quiet)
 
 
@@ -352,10 +352,8 @@ class CutFlowPlot(HistogramPlot):
 
     def __init__(
         self,
-        flow: dict[str, dict[str, Any]],
-        inputdir: str,
+        flow: dict[str, dict[str, Any]] | None,
         outputdir: str,
-        output_subdir: str,
         category: str,
         selection: str,
         plots: dict[str, dict[str, list[str]]],
@@ -364,25 +362,53 @@ class CutFlowPlot(HistogramPlot):
         ecm: int = 240,
         lumi: float = 10.8,
         tot: bool = False,
+        output_subdir: str = 'yield',
     ) -> None:
         if not plots or not plots.get('signals'):
             raise ValueError('CutFlowPlot requires at least one signal process')
-        super().__init__('cutflow', selection,
-                         inputdir, outputdir, output_subdir, plots,
-                         colors, legend, ecm, lumi, tot)
-        self.flow = flow
-        self.category  = category
+        super().__init__('cutflow', selection, '', outputdir,
+                         output_subdir, plots, colors, legend, ecm, lumi, tot)
+        self.flow = flow or {}
+        self.category = category
+        self.root_prefix = ''.join(character if character.isalnum() else '_'
+                                   for character in f'{selection}_{id(self)}')
         self.procs = [*self.sigs, *self.bkgs]
+
+    def histograms(self) -> dict[str, Any]:
+        '''Build and cache process histograms from the cutflow values.'''
+        if hasattr(self, '_source_hists'):
+            return self._source_hists
+
+        import ROOT
+
+        self._source_hists = {}
+        for proc in self.procs:
+            values = self.flow.get(proc)
+            if values is None: continue
+
+            counts: dict = values.get('cut', {})
+            errors: dict = values.get('err', {})
+            hist = ROOT.TH1D(f'hists_{proc}', f'hists_{proc}', len(counts), 0, len(counts))
+            hist.SetDirectory(0)
+            for index, cut in enumerate(counts):
+                hist.SetBinContent(index + 1, counts[cut])
+                hist.SetBinError(index + 1, errors.get(cut, 0.))
+            self._source_hists[proc] = hist
+
+        return self._source_hists
 
 
     def prepare(self, sig_scale: float = 1.) -> dict[str, Any]:
         '''Style flow histograms for stack or independent-curve mode.'''
         import copy, ROOT
 
-        hists = {proc: self.flow[proc]['hist'][0] for proc in self.procs}
-        self._hists = hists
-        yield_hists = [copy.deepcopy(hists[proc]) if proc in self.sigs else hists[proc]
-                       for proc in self.procs]
+        hists   = self.histograms()
+        missing = [proc for proc in self.procs if proc not in hists]
+        if missing:
+            raise KeyError(f'Missing cutflow histograms: {missing}')
+        self.hists  = hists
+        self.nsig   = len(self.sigs)
+        yield_hists = [copy.deepcopy(hists[proc]) for proc in self.procs]
 
         for proc in self.sigs:
             self.style_hist(hists[proc], self.colors[proc],
@@ -391,19 +417,18 @@ class CutFlowPlot(HistogramPlot):
 
         if not self.bkgs:
             return {'mode': 'curves',
-                    'histograms': [hists[proc] for proc in self.sigs],
-                    'yield_hists': yield_hists, 'signal_scale': sig_scale}
+                    'hists': [hists[proc] for proc in self.sigs],
+                    'yields': yield_hists, 'sig_scale': sig_scale,
+                    'nsigs': len(self.sigs)}
 
-        if len(self.sigs) != 1:
-            raise ValueError('Stack mode requires exactly one signal process')
-        sig = hists[self.sigs[0]]
-        stack = ROOT.THStack('stack', 'stack')
-        bkgs = []
-        bkg_tot = None
+        signals = [hists[proc] for proc in self.sigs]
+        stack = ROOT.THStack(f'stack', 'stack')
+        bkgs, bkg_tot = [], None
+
         for proc in self.bkgs:
             hist = hists[proc]
             if bkg_tot is None:
-                bkg_tot = hist.Clone('h_bkg_tot')
+                bkg_tot = hist.Clone(f'{self.root_prefix}_bkg_tot')
             else:
                 bkg_tot.Add(hist)
 
@@ -418,31 +443,59 @@ class CutFlowPlot(HistogramPlot):
         bkg_tot.SetLineWidth(2)
 
         return {'mode': 'stack', 'stack': stack,
-                'sig': sig, 'sig_scale': sig_scale,
+                'sigs': signals, 'sig': next(iter(signals)),
+                'sig_scale': sig_scale, 'nsigs': len(signals),
                 'bkgs': bkgs, 'bkg_tot': bkg_tot,
-                'yield_hists': yield_hists}
+                'yields': yield_hists}
+
+    def prepare_efficiencies(self) -> dict[str, Any]:
+        '''Prepare normalized signal curves without mutating source yields.'''
+        import copy
+
+        hists = self.histograms()
+        if not hists or self.bkgs:
+            raise ValueError('Efficiency curves require signal-only histograms')
+        self.hists = hists
+        yield_hists = [copy.deepcopy(hists[proc]) for proc in self.sigs]
+        for proc in self.sigs:
+            hist = hists[proc]
+            first_bin = hist.GetBinContent(1)
+            if first_bin:
+                self.style_hist(hist, self.colors[proc], 2, 1, 100. / first_bin)
+        return {'mode': 'curves', 'hists': list(hists.values()),
+                'yields': yield_hists, 'sig_scale': 1.}
 
     def define_legend(self, signal_scale: float = 1.) -> Any:
         '''Create and populate the cutflow legend.'''
         columns = 1 if self.bkgs else 4
-        legend = super().define_legend(
-            len(self.proc), columns,
-            0.55 if self.bkgs else 0.2,
-            0.99 if self.bkgs else 0.925,
-            0.99 if self.bkgs else 0.95,
-            0.90 if self.bkgs else 0.925
-        )
-        for process in self.procs:
-            label = self.legend[process]
-            if process in self.sigs and self.bkgs and signal_scale != 1:
+        legend = super().define_legend(len(self.procs), columns,
+                                       0.55 if self.bkgs else 0.2,
+                                       0.99 if self.bkgs else 0.925,
+                                       0.99 if self.bkgs else 0.95,
+                                       0.90 if self.bkgs else 0.925)
+        for proc in self.procs:
+            label = self.legend[proc]
+            if proc in self.sigs and self.bkgs and signal_scale != 1:
                 label += f' (#times {int(signal_scale)})'
-            legend.AddEntry(self._hists[process], label,
-                            'L' if process in self.sigs else 'F')
+            legend.AddEntry(self.hists[proc], label, 'L' if proc in self.sigs else 'F')
         return legend
+
+    def ordered_labels(self, labels: dict[str, str] | list[str]) -> list[str]:
+        return ([labels[key] for key in sorted(labels)]
+                if isinstance(labels, dict) else labels)
+
+    def compute_significance(self, yields: list[Any], sig_scale: float) -> Any:
+        import numpy as np
+
+        contents = np.asarray([[float(h.GetBinContent(i + 1)) for i in range(yields[0].GetNbinsX())] for h in yields])
+        sig = contents[:self.nsig].sum(axis=0)
+        sig = sig / sig_scale if sig_scale else sig
+        bkg = contents[self.nsig:].sum(axis=0)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            return np.where(sig + bkg == 0, -1., sig / np.sqrt(sig + bkg))
 
     def build_cutflow_config(
         self,
-        prepared: dict[str, Any],
         xmin: float,
         xmax: float,
         ymin: float | None,
@@ -450,20 +503,78 @@ class CutFlowPlot(HistogramPlot):
     ) -> dict[str, Any]:
         '''Build the log-scale configuration used by a cutflow frame.'''
         from .root.helper import make_cfg
-        from tools.process import get_range
 
-        x_min, x_max, y_min, y_max = get_range(
-            [prepared['signal']], prepared['backgrounds'],
-            True, False, False,
-            0.5, 1e4,
-            xmin, xmax, ymin, ymax)
-
-        return make_cfg({'xmin': x_min, 'xmax': x_max,
-                         'ymin': y_min, 'ymax': y_max,
+        return make_cfg({'xmin': xmin, 'xmax': xmax,
+                         'ymin': ymin, 'ymax': ymax,
                          'logx': False, 'logy': True,
                          'xtitle': 'None', 'ytitle': 'Events'},
                          self.ecm, self.lumi)
 
+
+    def draw_frame(self, labels: list[str], canvas_size: tuple[int, int] = (800, 800)) -> tuple[Any, Any]:
+        from .root import plotter
+        plotter.cfg = self.cfg
+        log_y = bool(self.cfg.get('logy'))
+        canvas = plotter.canvas(*canvas_size, bottom=0.12,
+                                left=0.19 if log_y else 0.15)
+        y_title_offset = 0.7 if log_y else 1.2
+        dummy = plotter.dummy(
+            nbins=len(labels), labels=labels, label_size=28,
+            label_offset=1.1, y_title_offset=y_title_offset)
+        self._frame_hist = dummy
+        dummy.GetXaxis().LabelsOption('u')
+        dummy.Draw('HIST')
+        return canvas, dummy
+
+    def draw_curves(self, prepared: dict[str, Any], legend: Any,
+                    labels: list[str], ymin: float | None, ymax: float | None,
+                    curve_stats: tuple[float, float, float, float] | None = None) -> Any:
+        from .root.helper import draw_latex, make_cfg, setup_latex
+        self.cfg = make_cfg({'xmin': 0, 'xmax': len(labels), 'ymin': ymin,
+                             'ymax': ymax, 'logx': False, 'logy': False,
+                             'xtitle': 'None', 'ytitle': 'Selection efficiency [%]'},
+                            self.ecm, self.lumi)
+        canvas, _ = self.draw_frame(labels)
+        if curve_stats is not None:
+            average, average_error, spread_min, spread_max = curve_stats
+            text = setup_latex(0.04, 11, text_color=1, text_font=42)
+            draw_latex(text, [(f'Avg eff: {average:.2f} #pm {average_error:.2f} %', 0.2, 0.2, 0.04),
+                              (f'Min/max: {spread_min:.2f}/{spread_max:.2f}', 0.2, 0.15, 0.04)])
+            text.Draw('SAME')
+        for histogram in prepared['hists']:
+            histogram.Draw('SAME HIST')
+        legend.Draw('SAME')
+        return canvas
+
+    def _save_and_close(
+        self,
+        canvas: Any,
+        out_name: str,
+        suffix: str,
+        file_formats: list[str],
+        log_y: bool,
+        quiet: bool,
+    ) -> None:
+        '''Save a cutflow canvas and release its ROOT resources.'''
+        self.save(canvas, out_name, suffix, file_formats, log_y, quiet)
+        canvas.Close()
+
+    def draw_stack(self, prepared: dict[str, Any], legend: Any,
+                   labels: list[str], ymin: float | None, ymax: float | None) -> Any:
+        self.cfg = self.build_cutflow_config(0, len(labels), ymin, ymax)
+        canvas, _ = self.draw_frame(labels)
+        prepared['stack'].Draw('SAME HIST')
+        prepared['bkg_tot'].Draw('SAME HIST')
+        for signal in prepared['sigs']:
+            signal.Draw('SAME HIST')
+        legend.Draw('SAME')
+        return canvas
+
+    def yield_rows(self, yield_hists: list[Any], significance: Any) -> list[list[str]]:
+        return [[f'Cut {index}', f'{significance[index]:.3f}',
+                 *['%.2e +/- %.2e' % (hist.GetBinContent(index + 1),
+                                       hist.GetBinError(index + 1)) for hist in yield_hists]]
+                for index in range(yield_hists[0].GetNbinsX())]
 
     def draw(
         self,
@@ -479,77 +590,21 @@ class CutFlowPlot(HistogramPlot):
         curve_stats: tuple[float, float, float, float] | None = None,
     ) -> tuple[list[float], list[list[Any]]]:
         '''Draw either a stacked cutflow or independent curves.'''
-        import numpy as np
-        from .root import plotter
-
-        yield_hists = prepared['yield_hists']
-        nbins = yield_hists[0].GetNbinsX()
-        ordered_labels = ([labels[key] for key in sorted(labels)]
-                          if isinstance(labels, dict) else labels)
+        yields = prepared['yields']
+        ordered_labels = self.ordered_labels(labels)
 
         if prepared['mode'] == 'curves':
-            from .root.helper import draw_latex, make_cfg, setup_latex
-
-            self.cfg = make_cfg({
-                'xmin': 0, 'xmax': nbins,
-                'ymin': y_min, 'ymax': y_max,
-                'logx': False, 'logy': False,
-                'xtitle': 'None',
-                'ytitle': 'Selection efficiency [%]',
-            }, self.ecm, self.lumi)
-            plotter.cfg = self.cfg
-            canvas = plotter.canvas(800, 800)
-            dummy  = plotter.dummy(nbins, ordered_labels, 0.75, 1.3)
-            dummy.Draw('HIST')
-            if curve_stats is not None:
-                average, average_error, spread_min, spread_max = curve_stats
-                text = setup_latex(0.04, 11, text_color=1, text_font=42)
-                draw_latex(text, [
-                    (f'Avg eff: {average:.2f} #pm {average_error:.2f} %', 0.2, 0.2, 0.04),
-                    (f'Min/max: {spread_min:.2f}/{spread_max:.2f}', 0.2, 0.15, 0.04),
-                ])
-                text.Draw('SAME')
-            for histogram in prepared['histograms']:
-                histogram.Draw('SAME HIST')
-            legend.Draw('SAME')
-            self.save(canvas, out_name, suffix, file_formats, False, quiet)
-            canvas.Close()
+            canvas = self.draw_curves(prepared, legend, ordered_labels,
+                                      y_min, y_max, curve_stats)
+            self._save_and_close(canvas, out_name, suffix, file_formats,
+                                 False, quiet)
             return [], []
 
-        contents = np.vstack([
-            np.fromiter((float(hist.GetBinContent(i + 1))
-                         for i in range(nbins)), dtype=float)
-            for hist in yield_hists
-        ])
-        signal = contents[0]
-        signal_scale = prepared['signal_scale']
-        if signal_scale != 1.:
-            signal = signal / signal_scale
-        background = contents[1:].sum(axis=0)
-        with np.errstate(divide='ignore', invalid='ignore'):
-            significance = np.where(signal + background == 0,
-                                    -1., signal / np.sqrt(signal + background))
+        significance = self.compute_significance(yields, prepared['sig_scale'])
+        canvas = self.draw_stack(prepared, legend, ordered_labels, y_min, y_max)
 
-        self.cfg = self.build_cutflow_config(prepared, 0, nbins, y_min, y_max)
-        plotter.cfg = self.cfg
-        canvas = plotter.canvas()
-        dummy  = plotter.dummy(nbins, ordered_labels, 0.75, 1.3)
-        dummy.Draw('HIST')
-        prepared['stack'].Draw('SAME HIST')
-        prepared['background_total'].Draw('SAME HIST')
-        prepared['signal'].Draw('SAME HIST')
-        legend.Draw('SAME')
-
-        self.save(canvas, out_name, suffix, file_formats, True, quiet)
-        canvas.Close()
-
-        rows = []
-        for index in range(nbins):
-            row = [f'Cut {index}', f'{significance[index]:.3f}']
-            row.extend('%.2e +/- %.2e' % (hist.GetBinContent(index + 1),
-                            hist.GetBinError(index + 1)) for hist in yield_hists)
-            rows.append(row)
-        return significance.tolist(), rows
+        self._save_and_close(canvas, out_name, suffix, file_formats, True, quiet)
+        return significance.tolist(), self.yield_rows(yields, significance)
 
     @property
     def sel_base(self) -> str:

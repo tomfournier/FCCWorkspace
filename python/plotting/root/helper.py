@@ -534,6 +534,7 @@ def setup_latex(
         ROOT.TLatex: Configured TLatex object with NDC enabled.
     '''
     latex = ROOT.TLatex()
+    ROOT.SetOwnership(latex, False)
     latex.SetNDC()
     latex.SetTextSize(text_size)
     latex.SetTextColor(text_color)

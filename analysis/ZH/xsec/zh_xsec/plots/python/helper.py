@@ -270,6 +270,36 @@ def get_cut(
     return int(sum(_cut_from_file(os.fspath(f), cut_name)
                    for f in files))
 
+def get_cuts(
+    files: list[str],
+    cut_names: list[str]
+     ) -> dict[str, int]:
+    '''Read several precomputed cut yields while opening each file once.'''
+    if isinstance(files, str):
+        files = [files]
+    totals = {cut: 0 for cut in cut_names}
+    hist_types = ['TH1D', 'TH1F', 'TH1I', 'TH1S', 'TH1C']
+    for filepath in files:
+        try:
+            with uproot.open(os.fspath(filepath)) as root_file:
+                histogram = None
+                for hist_type in hist_types:
+                    try:
+                        histogram = root_file[f'custom_objects/{hist_type}/cutFlow']
+                        break
+                    except KeyError:
+                        continue
+                if histogram is None:
+                    continue
+                values = histogram.values()
+                for cut in cut_names:
+                    bin_index = _get_bin_index(cut)
+                    if bin_index > 0 and bin_index <= len(values):
+                        totals[cut] += int(values[bin_index - 1])
+        except Exception:
+            continue
+    return totals
+
 # ____________________________________
 def getcut(
     df: 'pd.DataFrame',
@@ -383,17 +413,8 @@ def is_there_events(
         LOGGER.error(f'Could not find ROOT file for {proc}')
         quit()
 
-# _________________________________
-def dump_json(
-    flow: dict[str,
-               dict[str,
-                    dict[str,
-                         float]]],
-    outDir: str,
-    outName: str,
-    hist: bool = False,
-    procs: list = []
-     ) -> None:
+
+def dump_json(flow: dict, outDir: str, outName: str) -> None:
     '''Save event flow dictionary to a JSON file.
 
     Creates a deep copy of the flow dictionary and optionally removes the 'hist' key
@@ -405,227 +426,38 @@ def dump_json(
                event flow data (typically from get_flow() or get_flow_decay()).
         outDir (str): Output directory path (created if necessary).
         outName (str): Output file name without extension (saves as outName.json).
-        hist (bool, optional): If True, removes 'hist' key from each process to
-               exclude non-JSON-serializable ROOT objects. Defaults to False.
-        procs (list, optional): List of process names (strings) corresponding to
-               keys in flow dict. Only processed if hist=True. Defaults to [].
 
     Returns:
         None
     '''
     dictio = copy.deepcopy(flow)
-    if hist:
-        for proc in procs:
-            del dictio[proc]['hist']
 
     mkdir(outDir)
     with open(f'{outDir}/{outName}.json', 'w') as fOut:
         json.dump(dictio, fOut, indent=4)
 
-# _______________________________________________________
-def get_flow(
-    events: dict[str,
-                 dict[str,
-                      float | int | dict[str,
-                                         float | str]]],
-    procs: list[str],
-    processes: dict[str, str],
-    cuts: dict[str, dict[str, str]],
-    cat: str,
-    sel: str,
-    tot: bool = False,
-    json_file: bool = False,
-    loc: str = '',
-    outName: str = 'flow',
-    suffix: str = '',
-    save_hist: bool = False
-     ) -> dict[str,
-               dict[str,
-                    'ROOT.TH1' | dict[str,
-                                      float]]]:
-    '''Build event flow histograms and cutflow data aggregated by process.
 
-    Accumulates cut yields and errors across all samples for each physics process.
-    Creates ROOT TH1D histograms with bin contents set to cumulative event counts and
-    bin errors from error propagation (sqrt of summed squared errors). Optionally saves
-    results to JSON file (excluding ROOT objects). Modifies procs[0] to match naming
-    convention (e.g., 'ZeeH' or 'ZH' if tot=True).
-
-    Args:
-        events (dict[str, dict[str, float | int | dict[str, float | str]]]): Event data
-               indexed as events[sample_name][selection_name] containing 'cut' and 'err' dicts.
-        procs (list[str]): List of process names (modified in-place to set procs[0]).
-        processes (dict[str, str]): Mapping of process names to list of sample names.
-        cuts (dict[str, dict[str, str]]): Dictionary of selections with cut name lists.
-        cat (str): Category label for naming (e.g., 'ee', 'mumu').
-        sel (str): Selection name key (e.g., 'pre-selection', 'final-selection').
-        tot (bool, optional): If True, set procs[0]='ZH'; otherwise 'Z{cat}H'. Defaults to False.
-        json_file (bool, optional): If True, save results to JSON file. Defaults to False.
-        loc (str, optional): Output directory for JSON files. Defaults to ''.
-        outName (str, optional): Base name for JSON output file. Defaults to 'flow'.
-        suffix (str, optional): Suffix appended to JSON filename. Defaults to ''.
-
-    Returns:
-        dict[str, dict]: Dictionary with keys for each process containing:
-            - 'hist': list with one ROOT.TH1D histogram per process
-            - 'cut': dict mapping cut names to cumulative event counts
-            - 'err': dict mapping cut names to error values (sqrt of summed squared errors)
-    '''
-    import ROOT
-
-    # Rename first process to follow naming convention: ZeeH, ZmumuH, etc.
-    procs[0] = f'Z{cat}H' if not tot else 'ZH'
-    _cat, _sel, _tot = f'_{cat}', f'_{sel}', '_tot' if tot else ''
-
-    flow = {}
-    for proc in procs:
-        flow[proc] = {}
-        # Initialize containers: 'hist' (list of ROOT histograms), 'cut' and 'err' (dicts by cut name)
-        flow[proc]['hist'], flow[proc]['cut'], flow[proc]['err']  = [], {}, {}
-        # Create ROOT histogram with number of bins equal to number of cuts
-        hist = ROOT.TH1D(proc+_cat+_sel+_tot, proc+_cat+_sel+_tot, len(cuts[sel]), 0, len(cuts[sel]))
-        for i, cut in enumerate(cuts[sel]):
-            # Initialize count and error for this cut
-            flow[proc]['cut'][cut], flow[proc]['err'][cut]  = 0, 0
-            # Sum yields from all samples for this process (skip 'Hinv' samples)
-            for sample in processes[proc]:
-                if 'Hinv' in sample: continue
-                # Accumulate yields and errors from all samples
-                flow[proc]['cut'][cut] += events[sample][sel]['cut'][cut]
-                flow[proc]['err'][cut] += events[sample][sel]['err'][cut]**2
-
-            # Fill histogram bin with accumulated count and propagated error (sqrt of sum of squares)
-            hist.SetBinContent(i+1, flow[proc]['cut'][cut])
-            hist.SetBinError(i+1,   flow[proc]['err'][cut]**0.5)
-        flow[proc]['hist'].append(hist)
-
-    if json_file:
-        mkdir(loc)
-        dump_json(flow, loc, outName+_sel+suffix, hist=True, procs=procs)
-
-    if save_hist:
-        mkdir(loc)
-        with ROOT.TFile(f"{loc}/{outName}{_sel}{suffix}.root", 'RECREATE'):
-            for proc in procs:
-                h = flow[proc]['hist'][0]
-                h.Write()
-    return flow
-
-# _______________________________________________________
-def get_flow_decay(
-    events: dict[str,
-                 dict[str,
-                      float | int | dict[str,
-                                         float | str]]],
-    z_decays: list[str],
-    h_decays: list[str],
-    cuts: dict[str, dict[str, str]],
-    cat: str,
-    sel: str,
-    outName: str = 'flow_decay',
-    ecm: int = 240,
-    json_file: bool = False,
-    loc: str = '',
-    suffix: str = '',
-    tot: bool = False
-     ) -> 'dict[str, dict[str, ROOT.TH1 | dict[str, float]]]':
-    '''Build event flow histograms aggregated by Higgs decay channel.
-
-    Accumulates cut yields for each Higgs decay mode (bb, tautau, etc.) across Z decay
-    channels specified in z_decays list. Constructs signal sample names from decay mode
-    combinations (e.g., 'wzp6_ee_eeH_Hbb_ecm240'). Creates ROOT TH1D histograms with
-    error propagation. Optionally saves results to JSON file.
-
-    Args:
-        events (dict[str, dict[str, float | int | dict[str, float | str]]]): Event data
-               indexed as events[sample_name][selection_name] containing 'cut' and 'err' dicts.
-        z_decays (list[str]): List of Z decay modes (e.g., ['ee', 'mumu', 'tautau']).
-        h_decays (list[str]): List of Higgs decay modes (e.g., ['bb', 'tautau', 'cc']).
-        cuts (dict[str, dict[str, str]]): Dictionary of selections with cut name lists.
-        cat (str): Category label for naming (typically single Z decay mode).
-        sel (str): Selection name key (e.g., 'pre-selection', 'final-selection').
-        outName (str, optional): Base name for JSON output file. Defaults to 'flow_decay'.
-        ecm (int, optional): Center-of-mass energy in GeV (used in sample naming). Defaults to 240.
-        json_file (bool, optional): If True, save results to JSON file. Defaults to False.
-        loc (str, optional): Output directory for JSON files. Defaults to ''.
-        suffix (str, optional): Suffix appended to JSON filename. Defaults to ''.
-        tot (bool, optional): If True, accumulate across all z_decays; otherwise use [cat]. Defaults to False.
-
-    Returns:
-        dict[str, dict]: Dictionary with keys for each Higgs decay mode containing:
-            - 'hist': list with one ROOT.TH1D histogram per Higgs decay
-            - 'cut': dict mapping cut names to cumulative event counts
-            - 'err': dict mapping cut names to error values (sqrt of summed squared errors)
-    '''
-    import ROOT
-
-    # Determine which Z decay modes to include in flow
-    cats = z_decays if tot else [cat]
-    # Build signal sample names from decay mode combinations
-    sigs = [[f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in cats] for y in h_decays]
-    _cat, _sel, _tot = f'_{cat}', f'_{sel}', '_tot' if tot else ''
-
-    flow = {}
-    for h, sig in zip(h_decays, sigs):
-        flow[h] = {}
-        # Initialize containers: 'hist' (list of ROOT histograms), 'cut' and 'err' (dicts by cut name)
-        flow[h]['hist'], flow[h]['cut'], flow[h]['err'] = [], {}, {}
-        # Create ROOT histogram with number of bins equal to number of cuts
-        hist = ROOT.TH1D('H'+h+_cat+_sel+_tot, 'H'+h+_cat+_sel+_tot, len(cuts[sel]), 0, len(cuts[sel]))
-        for i, cut in enumerate(cuts[sel]):
-            # Initialize count and error for this Higgs decay mode
-            flow[h]['cut'][cut], flow[h]['err'][cut] = 0, 0
-            # Accumulate yields from all signal samples for this specific Higgs decay
-            for s in sig:
-                flow[h]['cut'][cut] += events[s][sel]['cut'][cut]
-                flow[h]['err'][cut] += events[s][sel]['err'][cut]**2
-            # Fill histogram bin with accumulated count and propagated error (sqrt of sum of squares)
-            hist.SetBinContent(i+1, flow[h]['cut'][cut])
-            hist.SetBinError(i+1,   flow[h]['err'][cut]**0.5)
-        flow[h]['hist'].append(hist)
-
-    if json_file:
-        dump_json(flow, loc, outName+_sel+suffix, hist=True, procs=h_decays)
-    return flow
-
-# _______________________________________________________
 def get_flows(
-    procs: list[str],
-    processes: dict[str, list[str]],
+    events: dict[str, dict[str, float | int | dict[str, float | str]]],
+    plots: dict[str, dict[str, list[str]]],
     cuts: dict[str, dict[str, str]],
-    events: dict[str,
-                 dict[str,
-                      float | int | dict[str,
-                                         float | str]]],
-    cat: str,
     sel: str,
-    z_decays: list[str],
-    h_decays: list[str],
-    ecm: int = 240,
     json_file: bool = False,
     tot: bool = False,
     loc_json: str = ''
      ) ->tuple[dict, dict]:
-    '''Generate both process-level and Higgs-decay-level event flows.
+    '''Generate process-level and decay-level flows from one plot mapping.
 
-    Convenience wrapper that computes two complementary views of event flow data:
-    1. Flows aggregated by physics process (using get_flow())
-    2. Flows aggregated by Higgs decay channel (using get_flow_decay())
-
-    Both are created with identical selection and naming parameters to ensure consistency.
-    Optionally saves both flows to JSON files with '_tot' suffix if tot=True.
+    ``plots`` contains ``signals`` and ``backgrounds`` for the process flow and
+    ``decays`` for the Higgs-decay flow. Each group maps an output label to its
+    list of input samples. The returned tuple remains ``(flow, flow_decay)``.
 
     Args:
-        procs (list[str]): List of process names (modified in-place by get_flow).
-        processes (dict[str, list[str]]): Mapping of process names to lists of sample names.
+        plots (dict[str, dict[str, list[str]]]): Process and decay groups.
         cuts (dict[str, dict[str, str]]): Dictionary of selections with cut name lists.
         events (dict[str, dict[str, float | int | dict[str, float | str]]]): Event data
                indexed as events[sample_name][selection_name] containing 'cut' and 'err' dicts.
-        cat (str): Category label for naming (e.g., 'ee', 'mumu').
         sel (str): Selection name key (e.g., 'pre-selection', 'final-selection').
-        z_decays (list[str]): List of Z decay modes for decay-level flow.
-        h_decays (list[str]): List of Higgs decay modes for decay-level flow.
-        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
         json_file (bool, optional): If True, save both flows to JSON files. Defaults to False.
         tot (bool, optional): If True, combines categories with '_tot' suffix. Defaults to False.
         loc_json (str, optional): Output directory for JSON files. Defaults to ''.
@@ -635,22 +467,28 @@ def get_flows(
                names as keys and dicts containing 'hist', 'cut', 'err' keys.
     '''
     suffix = '_tot' if tot else ''
-    # Generate process-level flow (aggregated across samples per physics process)
-    flow = get_flow(
-        events, procs,
-        processes, cuts,
-        cat, sel, tot=tot,
-        json_file=json_file,
-        loc=loc_json,
-        suffix=suffix
-    )
+    cut_names = list(cuts[sel])
 
-    # Generate decay-level flow (aggregated across Z decays per Higgs decay channel)
-    flow_decay = get_flow_decay(
-        events, z_decays, h_decays,
-        cuts, cat, sel, ecm=ecm,
-        json_file=json_file,
-        loc=loc_json,
-        suffix=suffix, tot=tot
-    )
-    return flow, flow_decay
+    def aggregate(groups: dict[str, list[str]], skip_hinv: bool = False) -> dict:
+        flow = {}
+        for label, samples in groups.items():
+            flow[label] = {'cut': {}, 'err': {}}
+            for cut in cut_names:
+                yields = [events[sample][sel]['cut'][cut] for sample in samples
+                          if not skip_hinv or 'Hinv' not in sample]
+                errors = [events[sample][sel]['err'][cut] for sample in samples
+                          if not skip_hinv or 'Hinv' not in sample]
+                flow[label]['cut'][cut] = sum(yields)
+                flow[label]['err'][cut] = sum(error**2 for error in errors)**0.5
+        return flow
+
+    groups = {label: samples for group in ('signals', 'backgrounds')
+              for label, samples in plots.get(group, {}).items()}
+    flow_procs = aggregate(groups, True)
+    flow_decay = aggregate(plots.get('decays', {}), False)
+
+    if json_file:
+        mkdir(loc_json)
+        dump_json(flow_procs, loc_json, f'flow_procs_{sel}{suffix}')
+        dump_json(flow_decay, loc_json, f'flow_decay_{sel}{suffix}')
+    return flow_procs, flow_decay

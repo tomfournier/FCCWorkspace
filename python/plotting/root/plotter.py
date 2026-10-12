@@ -104,7 +104,8 @@ def canvas(
     Returns:
         ROOT.TCanvas: Configured ROOT.TCanvas object.
     '''
-    c = ROOT.TCanvas('c', 'c', width, height)
+    canvas_name = ROOT.TUUID().AsString()
+    c = ROOT.TCanvas(canvas_name, canvas_name, width, height)
     canvas_margins(
         c, top=top,
         bottom=bottom,
@@ -145,15 +146,18 @@ def canvasRatio(
     Returns:
         tuple: (canvas, upper_pad, lower_pad) configured for ratio plots.
     '''
-    c = ROOT.TCanvas('c', 'c', width, height)
+    canvas_name = ROOT.TUUID().AsString()
+    c = ROOT.TCanvas(canvas_name, canvas_name, width, height)
     canvas_margins(
         c, top=0., bottom=0.,
         left=0., right=0.
     )
 
     # Create upper pad for main plot and lower pad for ratio
-    pad1 = ROOT.TPad('p1','p1', 0, cfg['ratiofraction'], 1, 1)
-    pad2 = ROOT.TPad('p2','p2', 0, 0.0, 1, cfg['ratiofraction']-0.7*eps)
+    pad1_name = ROOT.TUUID().AsString()
+    pad2_name = ROOT.TUUID().AsString()
+    pad1 = ROOT.TPad(pad1_name, pad1_name, 0, cfg['ratiofraction'], 1, 1)
+    pad2 = ROOT.TPad(pad2_name, pad2_name, 0, 0.0, 1, cfg['ratiofraction']-0.7*eps)
 
     pad_margins(pad1, top=0.055/(1.-cfg['ratiofraction']), bottom=eps,
                 left=left)
@@ -235,9 +239,10 @@ def dummy(
     ymin, ymax = axis_limits(cfg, 'y')
 
     # Create empty histogram with specified bin count and range
-    dummy = ROOT.TH1D('h', 'h',
+    dummy = ROOT.TH1D(ROOT.TUUID().AsString(), 'h',
                       nbins,
                       xmin, xmax)
+    dummy.SetDirectory(0)
 
     # Configure x-axis
     configure_axis(
@@ -286,11 +291,13 @@ def dummyRatio(
 
     # Create dummy histograms for upper (main) and lower (ratio) pads
     dummyT = ROOT.TH1D(
-        'h1', 'h', nbins, xmin, xmax
+        ROOT.TUUID().AsString(), 'h', nbins, xmin, xmax
     )
     dummyB = ROOT.TH1D(
-        'h2', 'h', nbins, xmin, xmax
+        ROOT.TUUID().AsString(), 'h', nbins, xmin, xmax
     )
+    dummyT.SetDirectory(0)
+    dummyB.SetDirectory(0)
 
     # Configure x-axis: hidden in upper pad, visible in lower pad
     configure_axis(
@@ -388,13 +395,11 @@ def finalize_canvas(
     Returns:
         None
     '''
+    canvas.cd()
     if grid:
         canvas.SetGrid()
-    canvas.Modify()
-    canvas.Update()
     aux()
     ROOT.gPad.SetTicks()
-    ROOT.gPad.RedrawAxis()
 
 # _________________________________
 def save_canvas(
@@ -422,10 +427,7 @@ def save_canvas(
     '''
     mkdir(outDir)
 
-    # Apply final formatting before saving
+    # Apply final formatting before saving without forcing a ROOT repaint.
+    canvas.cd()
     aux()
-    canvas.RedrawAxis()
-    canvas.Modify()
-    canvas.Update()
-    canvas.Draw()
     savecanvas(canvas, outDir, outName, suffix, plot_file)

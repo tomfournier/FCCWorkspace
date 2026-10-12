@@ -45,7 +45,7 @@ Lazy Imports:
 ####################################
 
 from inspect import Parameter, signature
-from re import search
+from re import LOCALE, search
 from typing import Any, Union
 
 from constants import h_labels
@@ -485,7 +485,7 @@ def makePlot(
         quiet: bool = True
 )-> None:
 
-    from plots.histoplot import HistogramPlot
+    from plot.histoplot import HistogramPlot
     from constants import colors, legend
 
     histoplot = HistogramPlot(variable, sel, inDir, outDir,
@@ -566,7 +566,7 @@ def PlotDecays(
         tot (bool, optional): Save to 'tot' subdir if True, 'cat' subdir if False. Defaults to False.
     '''
 
-    from plots.histoplot import HistogramPlot
+    from plot.histoplot import HistogramPlot
     from constants import h_colors as colors, h_labels as legend
 
     histoplot = HistogramPlot(variable, sel, inDir, outDir,
@@ -645,7 +645,7 @@ def AAAyields(
 
     import numpy as np
     from constants import colors, legend
-    from plots.textplot import TextPlot
+    from plot.textplot import TextPlot
 
     textplot = TextPlot(outDir, sel, ecm=ecm, lumi=lumi)
     rows, leg, s_tot, b_tot = textplot.load_yields(
@@ -744,7 +744,7 @@ def Efficiency(
         ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
     '''
 
-    from plots.pullplot import PullPlot
+    from plot.pullplot import PullPlot
 
     lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
@@ -757,7 +757,7 @@ def Efficiency(
     decays = z_decays if invert else h_decays
     plot = PullPlot(eff, eff_err, [h_labels[decay] for decay in decays],
                     eff_avg, eff_avg_err, ecm, lumi,
-                    'Selection efficiency [%]', out_dir=outDir, selection=sel)
+                    'Selection efficiency [%]', 'efficiency', outDir, sel)
     plot.draw(None, outName, suffix, format, quiet,
               top_right=f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}',
               statistics=(f'Avg eff: {eff_avg:.2f} #pm {eff_avg_err:.2f} %',
@@ -838,7 +838,6 @@ def CutFlow(
     plots: dict[str, dict[str, dict[str, list[str]]]],
     colors: dict[str, dict[str, int]],
     legend: dict[str, dict[str, str]],
-    cuts: dict[str, dict[str, str]],
     labels: dict[str, dict[str, str]],
     ecm: int = 240,
     lumi: float = 10.8,
@@ -846,8 +845,8 @@ def CutFlow(
     format: list[str] = ['png'],
     suffix: str = '',
     sig_scale: float = 1.0,
-    yMin: float | None = None,
-    yMax: float | None = None,
+    yMin: float | None = 1e2,
+    yMax: float | None = 1e12,
     tot: bool = False,
     quiet: bool = False,
 ) -> None:
@@ -887,12 +886,10 @@ def CutFlow(
         yMax (float, optional): Log-scale Y-axis maximum. Defaults to 1e10.
     '''
 
-    from ..plots.histoplot import CutFlowPlot
+    from plot.histoplot import CutFlowPlot
 
-    cutflow = CutFlowPlot(
-        flow, outDir, cat, sel, plots,
-        colors, legend, ecm, lumi, tot
-    )
+    cutflow = CutFlowPlot(flow, outDir, cat, sel, plots,
+                          colors, legend, ecm, lumi, tot)
     prepared = cutflow.prepare(sig_scale)
     leg = cutflow.define_legend(sig_scale)
     _, rows = cutflow.draw(prepared, leg, labels[sel],
@@ -908,14 +905,10 @@ def CutFlow(
 
 
 def CutFlowDecays(
-    flow: dict[str,
-               dict[str, Any |
-                    dict[str, float]]],
+    flow: dict[str, dict[str, Any | dict[str, float]]],
     outDir: str,
     cat: str,
     sel: str,
-    h_decays: list[str],
-    cuts: dict[str, dict[str, str]],
     labels: dict[str, dict[str, str]],
     suffix: str = '',
     ecm: int = 240,
@@ -943,8 +936,6 @@ def CutFlowDecays(
         outDir (str): Base directory for outputs (plots and tables).
         cat (str): Detector channel ('ee' for electron or 'mumu' for muon).
         sel (str): Selection identifier for cut definitions and labels.
-        h_decays (list[str]): Higgs decay mode identifiers to plot (e.g., ['bb', 'WW', 'tau']).
-        cuts (dict[str, dict[str, str]]): Cut expression definitions per selection.
         labels (dict[str, dict[str, str]]): Axis labels corresponding to each cut step.
         suffix (str, optional): String appended to file names. Defaults to ''.
         ecm (int, optional): Beam energy in GeV. Defaults to 240.
@@ -956,23 +947,24 @@ def CutFlowDecays(
     '''
 
     import numpy as np
-    from plots.histoplot import CutFlowPlot
+    from plot.histoplot import CutFlowPlot
     from constants import h_colors
+    h_decays = list(flow)
 
-    # Store original yields and prepare efficiency arrays
-    hists, hist_yield = [], []
-    nbins = len(cuts[sel])
+    # Let CutFlowPlot convert the flow dictionary and prepare normalized curves.
+    plots = {'signals': {decay: [] for decay in h_decays}, 'backgrounds': {}}
+    flow_plot = CutFlowPlot(flow, outDir, cat, sel, plots,
+                            h_colors, h_labels, ecm, lumi, tot)
+    prepared = flow_plot.prepare_efficiencies()
+    hists = prepared['hists']
+    hist_yield = prepared['yields']
+    if not hists:
+        raise ValueError('CutFlowDecays requires at least one decay histogram')
+    nbins = hists[0].GetNbinsX()
     eff_final, eff_final_err = [], []
 
     contents, errors = [], []
-    for h_decay in h_decays:
-        h_sig = flow[h_decay]['hist'][0]
-        # Clone unscaled histogram for yield table
-        hist_yield.append(h_sig.Clone(f'yield_{h_decay}'))
-        # Normalize to first bin (efficiency in %)
-        h_sig.Scale(100. / h_sig.GetBinContent(1))
-        hists.append(h_sig)
-
+    for h_sig in hists:
         # Extract final bin efficiency and uncertainty
         eff_final.append(float(h_sig.GetBinContent(nbins)))
         eff_final_err.append(float(h_sig.GetBinError(nbins)))
@@ -990,13 +982,10 @@ def CutFlowDecays(
     hist_tot.Scale(1.0 / len(h_decays))
     eff_avg = hist_tot.GetBinContent(nbins)
     eff_avg_err = hist_tot.GetBinError(nbins)
+
     # Min/max spreads relative to average
     eff_min, eff_max = eff_avg-min(eff_final), max(eff_final)-eff_avg
 
-    plots = {'signals': {decay: [] for decay in h_decays}, 'backgrounds': {}}
-    flow_plot = CutFlowPlot(flow, outDir, cat, sel, plots,
-                            h_colors, h_labels, ecm, lumi, tot)
-    prepared = flow_plot.prepare()
     legend   = flow_plot.define_legend()
     labels_ordered = [labels[sel][key] for key in sorted(labels[sel])]
     flow_plot.draw(prepared, legend, labels_ordered, yMin, yMax,
@@ -1013,7 +1002,7 @@ def CutFlowDecays(
             row.append('%.2e +/- %.2e' % (yield_, err))
         rows.append(row)
     write_table(out, outName+suffix,
-                ('Cut',) + h_decays, rows,
+                ['Cut', *h_decays], rows,
                 10, 25)
 
     return None
