@@ -493,8 +493,7 @@ def makePlot(
 
     legend = histoplot.define_legend(len(plots['signals']) + len(plots['backgrounds']))
     all_hists = histoplot.load_histograms(f'_{sel}_histo', rebin, lazy)
-    stack_hist, sig_hists, bkg_hists = histoplot.style_histograms(
-        all_hists, legend, sig_scale, bkg_scale)
+    stack_hist, sig_hists, bkg_hists = histoplot.style_histograms(all_hists, sig_scale, bkg_scale)
 
     histoplot.cfg = histoplot.build_config(sig_hists, bkg_hists,
                                            xmin, xmax, ymin, ymax, logX, logY,
@@ -575,7 +574,7 @@ def PlotDecays(
     legend = histoplot.define_legend(len(plots['signals']), 4,
                                      0.2, 0.925, 0.95, 0.925)
     all_hists   = histoplot.load_histograms(f'_{sel}_histo', rebin, lazy, True)
-    _, hists, _ = histoplot.style_histograms(all_hists, legend)
+    _, hists, _ = histoplot.style_histograms(all_hists)
 
     histoplot.cfg = histoplot.build_config(hists, [],
                                            xmin, xmax, ymin, ymax, logX, logY,
@@ -648,7 +647,10 @@ def AAAyields(
     from plot.textplot import TextPlot
 
     textplot = TextPlot(outDir, sel, ecm=ecm, lumi=lumi)
-    rows, leg, s_tot, b_tot = textplot.load_yields(
+    nprocs = [*plots.get('signals', {}), *plots.get('backgrounds', {})]
+    textplot.define_legend(nprocs)
+
+    rows, s_tot, b_tot = textplot.load_yields(
         hName, inDir, plots, legend, colors,
         scale_sig, scale_bkg, lazy
     )
@@ -667,7 +669,7 @@ def AAAyields(
     ]
     formatted_rows = [(label, f'{integral:,.0f}', f'{entries:,.0f}')
                       for label, integral, entries in rows]
-    textplot.draw(formatted_rows, metadata, outName, legend=leg,
+    textplot.draw(formatted_rows, metadata, outName,
                   file_formats=format, quiet=quiet,
                   suffix='_tot' if tot else '')
 
@@ -832,9 +834,8 @@ def write_table(
 
 def CutFlow(
     flow: dict[str, dict[str, Any | dict[str, float]]],
-    outDir: str,
-    cat: str,
-    sel: str,
+    outputdir: str,
+    selection: str,
     plots: dict[str, dict[str, dict[str, list[str]]]],
     colors: dict[str, dict[str, int]],
     legend: dict[str, dict[str, str]],
@@ -842,7 +843,7 @@ def CutFlow(
     ecm: int = 240,
     lumi: float = 10.8,
     outName: str = 'cutFlow',
-    format: list[str] = ['png'],
+    file_formats: list[str] = ['png'],
     suffix: str = '',
     sig_scale: float = 1.0,
     yMin: float | None = 1e2,
@@ -886,20 +887,17 @@ def CutFlow(
         yMax (float, optional): Log-scale Y-axis maximum. Defaults to 1e10.
     '''
 
-    from plot.histoplot import CutFlowPlot
+    from plot.cutflowplot import CutFlowPlot
 
-    cutflow = CutFlowPlot(flow, outDir, cat, sel, plots,
-                          colors, legend, ecm, lumi, tot)
-    prepared = cutflow.prepare(sig_scale)
-    leg = cutflow.define_legend(sig_scale)
-    _, rows = cutflow.draw(prepared, leg, labels[sel],
-                           yMin, yMax, outName,
-                           format, suffix, quiet)
+    procs = list(plots.get('signals', {})) + list(plots.get('backgrounds', {}))
+
+    cutflow = CutFlowPlot(flow, outputdir, selection, plots, colors, legend, ecm, lumi, tot)
+    cutflow.prepare(sig_scale)
+    cutflow.define_legend(sig_scale, len(procs))
+    rows = cutflow.draw(labels[selection], yMin, yMax, outName, file_formats, suffix, quiet)
 
     # Export yields table to file
-    procs = list(plots.get('signals', {})) + list(plots.get('backgrounds', {}))
-    write_table(str(cutflow.output_dir()), outName+suffix,
-                ['Cut', 'Significance'] + procs, rows, 10, 25)
+    cutflow.write_table(outName+suffix, ['Cut', 'Significance'] + procs, rows)
 
     return None
 
@@ -907,17 +905,17 @@ def CutFlow(
 def CutFlowDecays(
     flow: dict[str, dict[str, Any | dict[str, float]]],
     outDir: str,
-    cat: str,
     sel: str,
     labels: dict[str, dict[str, str]],
     suffix: str = '',
     ecm: int = 240,
     lumi: float = 10.8,
     outName: str = 'cutFlow_decays',
-    format: list[str] = ['png'],
+    file_formats: list[str] = ['png'],
     yMin: float | int = 0,
     yMax: float | int = 150,
     tot: bool = False,
+    quiet: bool = False
 ) -> None:
     '''Plot selection efficiencies across Higgs decay modes as normalized curves.
 
@@ -946,63 +944,39 @@ def CutFlowDecays(
         yMax (float | int, optional): Linear Y-axis maximum (efficiency %). Defaults to 150.
     '''
 
-    import numpy as np
-    from plot.histoplot import CutFlowPlot
+    from plot.cutflowplot import CutFlowPlot
     from constants import h_colors
     h_decays = list(flow)
 
     # Let CutFlowPlot convert the flow dictionary and prepare normalized curves.
     plots = {'signals': {decay: [] for decay in h_decays}, 'backgrounds': {}}
-    flow_plot = CutFlowPlot(flow, outDir, cat, sel, plots,
+    flow_plot = CutFlowPlot(flow, outDir, sel, plots,
                             h_colors, h_labels, ecm, lumi, tot)
-    prepared = flow_plot.prepare_efficiencies()
-    hists = prepared['hists']
-    hist_yield = prepared['yields']
+    flow_plot.prepare(rescale=True)
+    hists = flow_plot.signals
     if not hists:
         raise ValueError('CutFlowDecays requires at least one decay histogram')
-    nbins = hists[0].GetNbinsX()
-    eff_final, eff_final_err = [], []
+    nbins = next(iter(hists)).GetNbinsX()
 
-    contents, errors = [], []
-    for h_sig in hists:
-        # Extract final bin efficiency and uncertainty
-        eff_final.append(float(h_sig.GetBinContent(nbins)))
-        eff_final_err.append(float(h_sig.GetBinError(nbins)))
-
-        # Store normalized content and error arrays
-        contents.append(np.fromiter((
-            float(h_sig.GetBinContent(i+1)) for i in range(nbins)), dtype=float))
-        errors.append(np.fromiter((
-            float(h_sig.GetBinError(i+1)) for i in range(nbins)), dtype=float))
+    # Extract final bin efficiency and uncertainty
+    final = [float(h.GetBinContent(nbins)) for h in hists]
 
     # Compute average efficiency across decay channels
-    hist_tot = hists[0].Clone('h_tot')
-    for hist in hists[1:]:
-        hist_tot.Add(hist)
+    hist_tot = None
+    for hist in hists:
+        if hist_tot is None: hist_tot = hist.Clone('h_tot')
+        else: hist_tot.Add(hist)
     hist_tot.Scale(1.0 / len(h_decays))
-    eff_avg = hist_tot.GetBinContent(nbins)
-    eff_avg_err = hist_tot.GetBinError(nbins)
-
+    
+    avg     = hist_tot.GetBinContent(nbins)
+    avg_err = hist_tot.GetBinError(nbins)
+    
     # Min/max spreads relative to average
-    eff_min, eff_max = eff_avg-min(eff_final), max(eff_final)-eff_avg
+    Min, Max = avg-min(final), max(final)-avg
 
-    legend   = flow_plot.define_legend()
-    labels_ordered = [labels[sel][key] for key in sorted(labels[sel])]
-    flow_plot.draw(prepared, legend, labels_ordered, yMin, yMax,
-                   outName, format, suffix,
-                   curve_stats=(eff_avg, eff_avg_err, eff_min, eff_max))
-    out = str(flow_plot.output_dir())
-
-    # Build yield table from original (non-scaled) histograms
-    rows = []
-    for i in range(nbins):
-        row = [f'Cut {i}']
-        for j in range(len(hist_yield)):
-            yield_, err = contents[j][i], errors[j][i]
-            row.append('%.2e +/- %.2e' % (yield_, err))
-        rows.append(row)
-    write_table(out, outName+suffix,
-                ['Cut', *h_decays], rows,
-                10, 25)
+    flow_plot.define_legend(1, len(h_decays))
+    labels = [labels[sel][key] for key in sorted(labels[sel])]
+    rows = flow_plot.draw(labels, yMin, yMax, outName, file_formats, suffix, quiet, (avg, avg_err, Min, Max))
+    flow_plot.write_table(outName+suffix, ['Cut', *h_decays], rows, 10, 25)
 
     return None

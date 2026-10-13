@@ -69,6 +69,124 @@ cfg = {}  # Global configuration dictionary, populated at runtime
 ### HELPER FUNCTIONS ###
 ########################
 
+def make_cfg(
+    cfg: dict[str, str | float | int | bool],
+    ecm: int = 240,
+    lumi: float = 10.8,
+    ratio_plot: bool = False
+) -> dict[str, str | float | int | None]:
+    '''Complete plotting configuration with defaults and validation.
+
+    Args:
+        cfg (dict[str, str | float | int | bool]): Partial configuration dictionary with plot settings.
+        ecm (int, optional): Center-of-mass energy in GeV. Defaults to 240.
+        lumi (float, optional): Integrated luminosity in ab^-1. Defaults to 10.8.
+        ratio_plot (bool, optional): Whether ratio plot is enabled. Defaults to False.
+
+    Returns:
+        dict[str, str | float | int | None]: Complete configuration dictionary with all required fields.
+    '''
+
+    # Validate required x-y range parameters
+    if ('xmin' not in cfg) or ('xmax' not in cfg) \
+            or ('ymin' not in cfg) or ('ymax' not in cfg):
+        LOGGER.error('Histogram limits not set. Aborting code')
+        exit(1)
+
+    # Set default x-y scale options
+    cfg.setdefault('logx', False)
+    cfg.setdefault('logy', False)
+
+    # Set default title labels
+    cfg.setdefault('xtitle',   '')
+    cfg.setdefault('ytitle',   'Events')
+    cfg.setdefault('topLeft',  '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}')
+    cfg.setdefault('topRight', f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{-1}}')
+
+    # Configure ratio plot settings if enabled
+    if (('ymin' not in cfg) or ('ymax' not in cfg)) and ratio_plot:
+        LOGGER.error('Ratio limits of the histogram not set. Aborting code')
+        exit(1)
+    cfg.setdefault('ytitleR', 'Ratio')
+    cfg.setdefault('ratiofraction', 0.3)
+
+    return cfg
+
+
+def define_legend(
+        num_entries: int,
+        columns: int = 1,
+        x1: float = 0.55,
+        y1: float = 0.99,
+        x2: float = 0.99,
+        y2: float = 0.90,
+        border_size: int = 0,
+        fill_style: int = 0,
+        text_size: float = 0.03,
+        set_margin: float = 0.2,
+        text_font: int = -1
+) -> ROOT.TLegend:
+    '''Create the legend used by the plot.'''
+
+    leg = ROOT.TLegend(x1, y1 - num_entries * 0.06 / columns, x2, y2)
+
+    if text_font != -1:
+        leg.SetTextFont(text_font)
+    leg.SetBorderSize(border_size)
+    leg.SetFillStyle(fill_style)
+    leg.SetTextSize(text_size)
+    leg.SetMargin(set_margin)
+    leg.SetNColumns(columns)
+
+    return leg
+
+
+def setup_latex(
+    text_size: float,
+    text_align: int,
+    text_color: int | ROOT.TColor = 1,
+    text_font: int = 42
+) -> ROOT.TLatex:
+
+    '''Create TLatex object for text annotations.
+
+    Args:
+        text_size (float): Text size in NDC coordinates.
+        text_align (int): Text alignment code.
+        text_color (int | ROOT.TColor, optional): Text color code or TColor object. Defaults to 1.
+        text_font (int, optional): Text font code. Defaults to 42.
+
+    Returns:
+        ROOT.TLatex: Configured TLatex object with NDC enabled.
+    '''
+    latex = ROOT.TLatex()
+    latex.SetNDC()
+    latex.SetTextSize(text_size)
+    latex.SetTextAlign(text_align)
+    latex.SetTextColor(text_color)
+    latex.SetTextFont(text_font)
+    return latex
+
+
+def draw_latex(
+    latex: ROOT.TLatex,
+    text_data: list[tuple[str, float, float, float]]
+) -> None:
+    '''Draw multiple text annotations with individual sizing.
+
+    Args:
+        latex (ROOT.TLatex): Configured TLatex object.
+        text_data (list[tuple[str, float, float, float]]): List of tuples (text, x, y, size) for each annotation.
+
+    Returns:
+        None
+    '''
+    for text, x, y, size in text_data:
+        latex.SetTextSize(size)
+        latex.DrawLatex(x, y, text)
+
+    return None
+
 def canvas_margins(
     c: ROOT.TCanvas,
     top:    float | None = 0.055,
@@ -234,7 +352,7 @@ def configure_axis(
     axis.SetLabelSize(label_size)
     axis.SetTitleFont(title_font)
     axis.SetLabelFont(label_font)
-    axis.SetTitleOffset(title_offset * axis.GetTitleOffset())
+    axis.SetTitleOffset(title_offset)
     axis.SetLabelOffset(label_offset * axis.GetLabelOffset())
 
     return None
@@ -392,7 +510,6 @@ def dummy(
         labels: list[str] = [],
         label_size: float = 1,
         label_offset: float = 1.2,
-        y_title_offset: float = 1.7,
 ) -> ROOT.TH1D:
     '''
     Create a dummy histogram with configured axis limits and labels.
@@ -424,7 +541,7 @@ def dummy(
                    label_offset=label_offset)
     # Configure y-axis
     configure_axis(dummy.GetYaxis(), ytitle, ymin,
-                   ymax, title_offset=y_title_offset, label_offset=1.4)
+                   ymax, label_offset=1.4, title_offset=1.4)
 
     dummy.SetMinimum(ymin)
     dummy.SetMaximum(ymax)
