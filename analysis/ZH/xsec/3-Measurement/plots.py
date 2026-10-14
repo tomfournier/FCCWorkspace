@@ -3,6 +3,7 @@
 ################################
 
 from time import time
+from typing import Any
 
 # Start timer for performance tracking
 t = time()
@@ -78,11 +79,9 @@ def main() -> None:
     '''Generate yields, distributions, decay, and scan plots for the analysis.'''
     for cat in cats:
         LOGGER.info(f'Making plots for {cat} channel')
+        
         plots = plot_configs(ecm, cat)
-
-        all_procs = [process for process_group in plots['total'].values()
-                     for processes in process_group.values()
-                     for process in processes]
+        procs = [proc for proc_group in plots['total'].values() for procs in proc_group.values() for proc in procs]
 
         variables = VARIABLES['lep' if cat in ['ee', 'mumu'] else 'had']
         variables = variables if 'all' in arg.variables else arg.variables.split('-')
@@ -90,44 +89,40 @@ def main() -> None:
         var_labels = vars_label_ll if cat in ['ee', 'mumu'] else vars_label_qq
 
         # Define input and output directories
-        inDir  = loc.get('HIST_PREPROCESSED', cat, ecm)
-        outDir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
+        inputdir  = loc.get('HIST_PREPROCESSED', cat, ecm)
+        outputdir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
 
         for sel in sels:
             # Shared context is filtered by get_args for each target function.
-            plot_context = {'sel': sel, 'cat': cat, 'ecm': ecm, 'lumi': lumi,
-                            'inDir': inDir, 'outDir': outDir, 'quiet': quiet}
+            context = {'selection': sel, 'cat': cat, 'ecm': ecm, 'lumi': lumi,
+                      'inputdir': inputdir, 'outputdir': outputdir, 'quiet': quiet}
 
-            def plot_kwargs(config_var: str, function, **overrides):
+            def plot_kwargs(config_var: str, function, **overrides) -> dict[str, Any]:
                 '''Resolve one function's defaults and selection-specific options.'''
-                return get_args(config_var, function, args, plot_context, **overrides)
+                return get_args(config_var, function, args, context, **overrides)
 
             if arg.yields or arg.make or arg.decay or arg.scan:
                 # Avoid repeated ROOT I/O when several plot families are enabled.
                 LOGGER.info(f'Making plots for {sel} selection')
                 if (arg.make or arg.decay or arg.scan) and not (len(variables)==1 or len(sels)==1):
-                    preload_histograms(all_procs, inDir, f'_{sel}_histo', variables)
+                    preload_histograms(procs, inputdir, f'_{sel}_histo', variables)
 
             # Generate yields plots unless skipped
             if arg.yields:
                 from constants import quarks, z_labels, h_labels
                 from plotting.plotting import AAAyields, Efficiency
 
-                yield_args = plot_kwargs('acolinearity', AAAyields, hName='acolinearity')
-                for total, config in [(False, plots['category']), (True, plots['total'])]:
-                    # Category and total yields share every option except plots/tot.
-                    yield_args.update(plots=config, tot=total)
-                    AAAyields(**yield_args)
+                yield_args = plot_kwargs('acolinearity', AAAyields, hName='acolinearity', plots=plots['procs'])
+                AAAyields(**yield_args)
 
                 Z_decays = [cat] if cat in ['ee', 'mumu'] else quarks
-                efficiencies = [(Z_decays, h_labels, 'selection_efficiency',     False),
-                                (z_decays, h_labels, 'selection_efficiency_tot', False),
-                                (z_decays, z_labels, 'efficiency_selection',     True)]
+                efficiencies = [(Z_decays, h_labels, 'efficiency',     False),
+                                (z_decays, h_labels, 'efficiency_tot', False),
+                                (z_decays, z_labels, 'Efficiency',     True)]
 
                 for z_modes, decay_labels, name, invert in efficiencies:
                     efficiency_args = plot_kwargs('acolinearity', Efficiency,
-                                                  hName='acolinearity',
-                                                  z_decays=z_modes, h_decays=H_decays,
+                                                  hName='acolinearity', z_decays=z_modes, h_decays=H_decays,
                                                   h_labels=decay_labels, outName=name, invert=invert)
                     Efficiency(**efficiency_args)
 
@@ -160,13 +155,11 @@ def main() -> None:
                     if arg.make:
                         from plotting.plotting import makePlot
                         # Reuse invariant options for category and total distributions.
-                        make_args = plot_kwargs(variable, makePlot)
+                        make_args = plot_kwargs(variable, makePlot, plots=plots['procs'])
                         for logY in [False, True]:
                             make_args['logY'] = logY
                             make_args['sig_scale'] = 1 if logY else make_args['sig_scale']
-                            for total, config in [(False, plots['category']), (True, plots['total'])]:
-                                make_args.update(plots=config, tot=total)
-                                makePlot(**make_args)
+                            makePlot(**make_args)
 
             # Clear cache after finishing this selection to free memory
             clear_histogram_cache()

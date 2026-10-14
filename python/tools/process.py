@@ -89,7 +89,7 @@ def _get_procDict(
 # ___________________________
 def preload_histograms(
     procs: list[str],
-    inDir: str,
+    inputdir: str,
     suffix: str = '',
     hNames: list[str] = None,
     rebin: int = 1,
@@ -120,8 +120,8 @@ def preload_histograms(
 
     not_found: dict[str, list[str]] = {}
     for proc in tqdm(procs):
-        fInName = os.path.join(inDir, f'{proc}{suffix}.root')
-        cache_key = (proc, suffix, inDir)
+        fInName = os.path.join(inputdir, f'{proc}{suffix}.root')
+        cache_key = (proc, suffix, inputdir)
 
         # Skip if already cached
         if cache_key in HIST_CACHE: continue

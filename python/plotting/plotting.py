@@ -81,7 +81,7 @@ def _ensure_plt_style() -> None:
     '''
     global PLT_STYLE_SET
     if not PLT_STYLE_SET:
-        from .python.plotter import set_plt_style
+        from .plotter import set_plt_style
         set_plt_style()
         PLT_STYLE_SET = True
 
@@ -191,24 +191,18 @@ def _extract_nested_args(
 def decay_plots(process: str, ecm: int) -> dict[str, dict[str, tuple[str, ...]]]:
     from samples import get_process_dict
     from constants import H_decays
-    return {'signals': {decay: get_process_dict([process], ecm, h_decays=[decay])[process]
-                        for decay in H_decays}}
+    return {'signals': {d: get_process_dict([process], ecm, h_decays=[d])[process] for d in H_decays}}
 
 
 def plot_configs(ecm: int, cat: str) -> dict[str, dict[str, dict[str, tuple[str, ...]]]]:
     from samples import get_process_dict
     backgrounds = get_process_dict(['WW', 'ZZ', 'Zgamma', 'Rare'] +
                                    (['tt'] if cat == 'qq' and ecm == 365 else []), ecm)
-    category = {'signals': get_process_dict([f'Z{cat}H'], ecm),
-                'backgrounds': backgrounds}
-    total = {'signals': get_process_dict(['ZH'], ecm),
-             'backgrounds': backgrounds}
-    return {
-        'category': category,
-        'total':    total,
-        'decay':       decay_plots(f'Z{cat}H', ecm),
-        'total_decay': decay_plots('ZH', ecm),
-    }
+    category = {'signals': get_process_dict(['ZH', f'Z{cat}H'], ecm), 'backgrounds': backgrounds}
+    procs = {'signals': get_process_dict(['ZH', f'Z{cat}H'], ecm), 'backgrounds': backgrounds}
+    total = {'signals': get_process_dict(['ZH'], ecm), 'backgrounds': backgrounds}
+    return {'category': category, 'total': total, 'procs': procs, 'decay': decay_plots(f'Z{cat}H', ecm),
+            'total_decay': decay_plots('ZH', ecm)}
 
 
 
@@ -216,11 +210,10 @@ def plot_configs(ecm: int, cat: str) -> dict[str, dict[str, dict[str, tuple[str,
 ### MAIN FUNCTIONS ###
 ######################
 
-# ___________________________________________
 def get_args(
     var: str,
     function,
-    args: dict[str, dict[str, Union[str, float, int]]],
+    args: dict[str, dict[str, str | float | int]],
     context: dict[str, Any] | None = None,
     **overrides: Any
      ) -> dict[str, Any]:
@@ -258,7 +251,7 @@ def get_args(
     '''
 
     context = {**(context or {}), **overrides}
-    sel, ecm, lumi = context['sel'], context['ecm'], context['lumi']
+    sel, ecm, lumi = context['selection'], context['ecm'], context['lumi']
     parameters = signature(function).parameters
     raw = _extract_nested_args(args[var], ecm, sel, function) if var in args else {}
     defaults = {name: parameter.default
@@ -286,16 +279,15 @@ def get_args(
     result = defaults.copy()
     result.update({name: raw[name]     for name in defaults   if name in raw})
     result.update({name: context[name] for name in parameters if name in context})
-    if 'ecm'      in parameters: result['ecm']      = ecm
-    if 'lumi'     in parameters: result['lumi']     = lumi
-    if 'sel'      in parameters: result['sel']      = sel
-    if 'variable' in parameters: result['variable'] = var
+    if 'ecm'       in parameters: result['ecm']       = ecm
+    if 'lumi'      in parameters: result['lumi']      = lumi
+    if 'selection' in parameters: result['selection'] = sel
+    if 'variable'  in parameters: result['variable']  = var
     if function is makePlot and 'sig_scale' not in raw:
         result['sig_scale'] = 1. if context.get('cat') in ('ee', 'mumu') else 10.
     return result
 
 
-# ________________________________________
 def significance(
     variable: str,
     inDir: str,
@@ -345,11 +337,10 @@ def significance(
 
     import numpy as np
     import matplotlib.pyplot as plt
-    from .python.plotter import set_labels, savefigs
+    from .plotter import set_labels, savefigs
     from tools.process import getHist
 
     _ensure_plt_style()
-
 
     if outName=='': outName = variable
     suff  = f'_{sel}_histo'
@@ -452,12 +443,14 @@ def significance(
     savefigs(fig, out, outName, suffix, format)
     plt.close()
 
+    return None
+
 
 def makePlot(
         variable: str,
-        inDir: str,
-        outDir: str,
-        sel: str,
+        inputdir: str,
+        outputdir: str,
+        selection: str,
         plots: dict[str, dict[str, list[str]]],
         ecm: int = 240,
         lumi: float = 10.8,
@@ -488,30 +481,30 @@ def makePlot(
     from plot.histoplot import HistogramPlot
     from constants import colors, legend
 
-    histoplot = HistogramPlot(variable, sel, inDir, outDir,
+    histoplot = HistogramPlot(variable, selection, inputdir, outputdir, 'makePlot',
                               plots, colors, legend, ecm, lumi, tot)
 
     legend = histoplot.define_legend(len(plots['signals']) + len(plots['backgrounds']))
-    all_hists = histoplot.load_histograms(f'_{sel}_histo', rebin, lazy)
-    stack_hist, sig_hists, bkg_hists = histoplot.style_histograms(all_hists, sig_scale, bkg_scale)
+    all_hists = histoplot.load_histograms(f'_{selection}_histo', rebin, lazy)
+    sig_hists, bkg_hists = histoplot.style_histograms(all_hists, sig_scale, bkg_scale)
 
-    histoplot.cfg = histoplot.build_config(sig_hists, bkg_hists,
-                                           xmin, xmax, ymin, ymax, logX, logY,
-                                           xtitle, ytitle, scale_min, scale_max, strict, stack)
+    histoplot.build_config(sig_hists, bkg_hists, xmin, xmax, ymin, ymax,
+                           logX, logY, xtitle, ytitle, scale_min, scale_max, strict, stack)
 
-    canvas, _ = histoplot.draw(all_hists, stack_hist, bkg_hists,
-                               legend, stack, xlabels)
+    canvas = histoplot.draw(all_hists, bkg_hists, stack, xlabels)
 
     outName = variable if not outName else outName
-    histoplot.save(canvas, outName, suffix, file_formats, logY, quiet)
+    histoplot.save(canvas, outName, suffix, logY, file_formats, quiet)
     canvas.Close()
+
+    return None
 
 
 def PlotDecays(
     variable: str,
-    inDir: str,
-    outDir: str,
-    sel: str,
+    inputdir: str,
+    outputdir: str,
+    selection: str,
     plots: dict[str, dict[str, list[str]]],
     ecm: int = 240,
     lumi: float = 10.8,
@@ -568,41 +561,42 @@ def PlotDecays(
     from plot.histoplot import HistogramPlot
     from constants import h_colors as colors, h_labels as legend
 
-    histoplot = HistogramPlot(variable, sel, inDir, outDir,
+    histoplot = HistogramPlot(variable, selection, inputdir, outputdir, 'higgsDecays',
                               plots, colors, legend, ecm, lumi, tot)
 
-    legend = histoplot.define_legend(len(plots['signals']), 4,
-                                     0.2, 0.925, 0.95, 0.925)
-    all_hists   = histoplot.load_histograms(f'_{sel}_histo', rebin, lazy, True)
-    _, hists, _ = histoplot.style_histograms(all_hists)
+    histoplot.define_legend(len(plots['signals']), 4,
+                            0.2, 0.925, 0.95, 0.925)
+    all_hists = histoplot.load_histograms(f'_{selection}_histo', rebin, lazy, True)
+    sig_hists, _ = histoplot.style_histograms(all_hists)
 
-    histoplot.cfg = histoplot.build_config(hists, [],
-                                           xmin, xmax, ymin, ymax, logX, logY,
-                                           xtitle, ytitle, scale_min, scale_max, strict)
+    histoplot.build_config(sig_hists, [], xmin, xmax, ymin, ymax,
+                           logX, logY, xtitle, ytitle, scale_min, scale_max, strict)
 
-    canvas, _ = histoplot.draw(all_hists, None, [],
-                               legend, False, xlabels)
+    canvas = histoplot.draw(all_hists, [], False, xlabels)
 
     outName = variable if not outName else outName
-    histoplot.save(canvas, outName, suffix, file_formats, logY, quiet)
+    histoplot.save(canvas, outName, suffix, logY, file_formats, quiet)
     canvas.Close()
 
+    return None
 
-# _______________________________
+
 def AAAyields(
     hName: str,
-    inDir: str,
-    outDir: str,
+    inputdir: str,
+    outputdir: str,
+    selection: str,
     plots: dict[str, list[str]],
-    cat: str, sel: str,
+    cat: str,
     ecm: int = 240,
     lumi: float = 10.8,
-    scale_sig: float = 1.,
-    scale_bkg: float = 1.,
+    sig_scale: float = 1.,
+    bkg_scale: float = 1.,
+    suffix: str = '',
     lazy: bool = True,
     tot: bool = False,
     outName: str = '',
-    format: list[str] = ['png'],
+    file_formats: list[str] = ['png'],
     quiet: bool = False
      ) -> None:
     '''Render a yields summary canvas with process list and metadata.
@@ -646,14 +640,11 @@ def AAAyields(
     from constants import colors, legend
     from plot.textplot import TextPlot
 
-    textplot = TextPlot(outDir, sel, ecm=ecm, lumi=lumi)
-    nprocs = [*plots.get('signals', {}), *plots.get('backgrounds', {})]
+    textplot = TextPlot(inputdir, outputdir, 'yield', selection, ecm, lumi, tot)
+    nprocs = len([*plots.get('signals', {}), *plots.get('backgrounds', {})])
     textplot.define_legend(nprocs)
 
-    rows, s_tot, b_tot = textplot.load_yields(
-        hName, inDir, plots, legend, colors,
-        scale_sig, scale_bkg, lazy
-    )
+    rows, s_tot, b_tot = textplot.load_yields(hName, plots, colors, legend, sig_scale, bkg_scale, lazy)
     with np.errstate(divide='ignore', invalid='ignore'):
         significance = s_tot / (s_tot + b_tot)**0.5 if s_tot > 0 and b_tot > 0 else 0
 
@@ -662,21 +653,23 @@ def AAAyields(
         (f'#it{{#sqrt{{s}} = {ecm} GeV}}', 0.065, 0.88, 0.04),
         (f'#it{{L = {lumi} ab^{{#minus1}}}}', 0.065, 0.83, 0.035),
         (f'#it{{{ana_tex}}}', 0.065, 0.78, 0.04),
-        (f'#it{{{sel}}}', 0.065, 0.73, 0.025),
-        (f'#it{{Signal Scaling = {scale_sig:.3g}}}', 0.065, 0.67, 0.04),
-        (f'#it{{Background Scaling = {scale_bkg:.3g}}}', 0.065, 0.62, 0.04),
+        (f'#it{{{selection}}}', 0.065, 0.73, 0.025),
+        (f'#it{{Signal Scaling = {sig_scale:.3g}}}', 0.065, 0.67, 0.04),
+        (f'#it{{Background Scaling = {bkg_scale:.3g}}}', 0.065, 0.62, 0.04),
         (f'#it{{Significance = {significance:.3f}}}', 0.065, 0.57, 0.04),
     ]
-    formatted_rows = [(label, f'{integral:,.0f}', f'{entries:,.0f}')
-                      for label, integral, entries in rows]
-    textplot.draw(formatted_rows, metadata, outName,
-                  file_formats=format, quiet=quiet,
-                  suffix='_tot' if tot else '')
+    # Label, integral, entries
+    rows = [(l, f'{i:,.0f}', f'{e:,.0f}') for l, i, e in rows]
+    canvas = textplot.draw(rows, metadata)
+
+    textplot.save(canvas, outName, suffix, file_formats, quiet)
+
+    return None
 
 
 def get_efficiency(
         hName: str,
-        inDir: str,
+        inputdir: str,
         ecm: int,
         z_decays: list[str],
         h_decays: list[str],
@@ -693,33 +686,35 @@ def get_efficiency(
     effs, errs = {}, {}
 
     for decay, sigs in zip(h_decays, sig_groups):
-        processed = sum(uproot.open(f'{inDir}/{sig}{suffix}.root')['eventsProcessed'].value
-                        for sig in sigs if os.path.exists(f'{inDir}/{sig}{suffix}.root'))
+        processed = sum(uproot.open(f'{inputdir}/{sig}{suffix}.root')['eventsProcessed'].value
+                        for sig in sigs if os.path.exists(f'{inputdir}/{sig}{suffix}.root'))
         total = sum(getMetaInfo(signal, rmww=True) for signal in sigs) * lumi
         tot_err = total / processed**0.5
 
-        histogram = getHist(hName, sigs, inDir, suffix)
+        histogram = getHist(hName, sigs, inputdir, suffix)
         sel, entries = histogram.Integral(), histogram.GetEntries()
         sel_err = entries**0.5 * total / processed
         eff = 100 * sel / total
 
+        coeff = ((tot_err / total)**2 + ((sel_err / sel)**2 if sel > 0 else 0))**0.5
+
         effs[decay] = eff
-        errs[decay] = eff * ((tot_err / total)**2 + ((sel_err / sel)**2 if sel > 0 else 0))**0.5
+        errs[decay] = eff * coeff
 
     return effs, errs
 
 
 def Efficiency(
     hName: str,
-    inDir: str,
-    outDir: str,
-    sel: str,
+    inputdir: str,
+    outputdir: str,
+    selection: str,
     z_decays: list[str],
     h_decays: list[str],
     h_labels: dict[str, str],
     suffix: str = '',
     outName: str = 'selection_efficiency',
-    format: list[str] = ['png'],
+    file_formats: list[str] = ['png'],
     ecm: int = 240,
     invert: bool = False,
     quiet: bool = False
@@ -750,84 +745,23 @@ def Efficiency(
 
     lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
-    efficiency, efficiency_err = get_efficiency(hName, inDir, ecm, z_decays, h_decays, f'_{sel}_histo', invert)
+    efficiency, efficiency_err = get_efficiency(hName, inputdir, ecm, z_decays, h_decays,
+                                                f'_{selection}_histo', invert)
     eff, eff_err = list(efficiency.values()), list(efficiency_err.values())
     eff_avg      = sum(eff) / len(eff)
     eff_avg_err  = (sum(err**2 for err in eff_err))**0.5 / len(eff_err)
     eff_min, eff_max = eff_avg - min(eff), max(eff) - eff_avg
 
     decays = z_decays if invert else h_decays
-    plot = PullPlot(eff, eff_err, [h_labels[decay] for decay in decays],
-                    eff_avg, eff_avg_err, ecm, lumi,
-                    'Selection efficiency [%]', 'efficiency', outDir, sel)
-    plot.draw(None, outName, suffix, format, quiet,
+    plot = PullPlot(outputdir, 'yield', selection, eff, eff_err,
+                    [h_labels[decay] for decay in decays], eff_avg, eff_avg_err,
+                    ecm, lumi, 'Selection efficiency [%]', 'efficiency')
+    plot.draw(outName, suffix, file_formats, quiet,
               top_right=f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}',
               statistics=(f'Avg eff: {eff_avg:.2f} #pm {eff_avg_err:.2f} %',
                           f'Min/max: {eff_min:.2f}/{eff_max:.2f}'))
 
-    plot.save_text(plot.output_dir(), outName,
-                   'Eff', '.2f', '.2f')
-
-    return None
-
-# TO DO
-# Integrate it to CutFlowPlot and PullPlot
-def write_table(
-    file_path: str,
-    file_name: str,
-    headers: list[str],
-    rows: list[list[str]],
-    first_col_width: int = 10,
-    other_col_width: int = 25,
-    header_sep: bool = True,
-    footer_lines: list[str] | None = None,
-    file_type: str = 'txt'
-) -> None:
-    '''Write a formatted aligned ASCII table to file.
-
-    Creates nicely aligned columns with configurable widths and optional header separator
-    and footer lines. Useful for exporting analysis summary tables.
-
-    Format:
-    - Column 0 (narrow): Cut step names, decay channels, etc.
-    - Columns 1+: Data values, uncertainties, statistics.
-    - Rows shorter than header count are padded with empty strings.
-    - Header separator: dashed line below headers if header_sep=True.
-
-    Args:
-        file_path (str): Output directory path (created if missing).
-        file_name (str): Base file name (without extension).
-        headers (list[str]): Column header strings.
-        rows (list[list[str]]): List of table rows; shorter rows automatically padded.
-        first_col_width (int, optional): Width of first column in characters. Defaults to 10.
-        other_col_width (int, optional): Width of other columns in characters. Defaults to 25.
-        header_sep (bool, optional): If True, add dashed line below headers. Defaults to True.
-        footer_lines (list[str] | None, optional): Optional lines appended after table. Defaults to None.
-        file_type (str, optional): File extension (e.g., 'txt', 'dat'). Defaults to 'txt'.
-    '''
-    mkdir(file_path)
-    ncols = len(headers)
-    # Set column widths: narrower for first column, equal for others
-    widths = [first_col_width] + [other_col_width] * (ncols - 1)
-
-    # Create format string for aligned columns
-    fmt = '{:<%d} ' % widths[0] + ' '.join(['{:<%d}' % w for w in widths[1:]])
-    with open(f'{file_path}/{file_name}.{file_type}', 'w') as f:
-        # Write headers
-        f.write(fmt.format(*headers) + '\n')
-        if header_sep:
-            # Write separator line with dashes
-            sep = ['-' * widths[0]] + ['-' * w for w in widths[1:]]
-            f.write(fmt.format(*sep) + '\n')
-        # Write data rows, padding if necessary
-        for row in rows:
-            row_fixed = [str(r) for r in row] + [''] * (ncols - len(row))
-            f.write(fmt.format(*row_fixed) + '\n')
-        # Append optional footer lines
-        if footer_lines:
-            f.write('\n')
-            for line in footer_lines:
-                f.write(str(line) + '\n')
+    plot.save_text(outName, 'Eff', '.2f', '.2f')
 
     return None
 
@@ -842,8 +776,8 @@ def CutFlow(
     labels: dict[str, dict[str, str]],
     ecm: int = 240,
     lumi: float = 10.8,
-    outName: str = 'cutFlow',
     file_formats: list[str] = ['png'],
+    outName: str = 'cutFlow',
     suffix: str = '',
     sig_scale: float = 1.0,
     yMin: float | None = 1e2,
@@ -904,14 +838,14 @@ def CutFlow(
 
 def CutFlowDecays(
     flow: dict[str, dict[str, Any | dict[str, float]]],
-    outDir: str,
-    sel: str,
+    outputdir: str,
+    selection: str,
     labels: dict[str, dict[str, str]],
-    suffix: str = '',
     ecm: int = 240,
     lumi: float = 10.8,
-    outName: str = 'cutFlow_decays',
     file_formats: list[str] = ['png'],
+    outName: str = 'cutFlow_decays',
+    suffix: str = '',
     yMin: float | int = 0,
     yMax: float | int = 150,
     tot: bool = False,
@@ -950,7 +884,7 @@ def CutFlowDecays(
 
     # Let CutFlowPlot convert the flow dictionary and prepare normalized curves.
     plots = {'signals': {decay: [] for decay in h_decays}, 'backgrounds': {}}
-    flow_plot = CutFlowPlot(flow, outDir, sel, plots,
+    flow_plot = CutFlowPlot(flow, outputdir, selection, plots,
                             h_colors, h_labels, ecm, lumi, tot)
     flow_plot.prepare(rescale=True)
     hists = flow_plot.signals
@@ -975,7 +909,7 @@ def CutFlowDecays(
     Min, Max = avg-min(final), max(final)-avg
 
     flow_plot.define_legend(1, len(h_decays))
-    labels = [labels[sel][key] for key in sorted(labels[sel])]
+    labels = [labels[selection][key] for key in sorted(labels[selection])]
     rows = flow_plot.draw(labels, yMin, yMax, outName, file_formats, suffix, quiet, (avg, avg_err, Min, Max))
     flow_plot.write_table(outName+suffix, ['Cut', *h_decays], rows, 10, 25)
 

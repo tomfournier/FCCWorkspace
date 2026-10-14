@@ -179,10 +179,15 @@ class HistogramPlot:
                 stack.Add(hist)
                 backgrounds.append(hist)
 
+        if signals: self.signals = signals
+        if backgrounds:
+            self.stack = stack
+            self.backgrounds = backgrounds
+
         missing_sigs = [sig for sig in self.sigs if hists.get(sig) is None]
         if missing_sigs:
             LOGGER.warning(f'Could not load signal histograms: {missing_sigs}')
-        return stack, signals, backgrounds
+        return signals, backgrounds
 
     def build_config(
         self,
@@ -200,6 +205,7 @@ class HistogramPlot:
         scale_max: float | None = None,
         strict: bool = True,
         stack: bool = False,
+        return_cfg: bool = False
     ) -> dict[str, Any]:
         '''Build the ROOT plot configuration for the loaded histograms.'''
         from .plotter import make_cfg
@@ -227,11 +233,13 @@ class HistogramPlot:
         else:
             ytitle += f' / {bwidth:.2f} {unit}'
 
-        return make_cfg({'xmin': xMin,     'xmax': xMax,
-                         'ymin': yMin,     'ymax': yMax,
-                         'logx': logX,     'logy': logY,
-                         'xtitle': xTitle, 'ytitle': ytitle,
-                         }, self.ecm, self.lumi)
+        self.cfg = make_cfg({'xmin': xMin, 'xmax': xMax,'ymin': yMin, 'ymax': yMax,
+                             'logx': logX, 'logy': logY, 'xtitle': xTitle, 'ytitle': ytitle
+                             }, self.ecm, self.lumi)
+
+        if return_cfg:
+            return self.cfg
+        return None
 
     def _get_ranges(
         self,
@@ -257,7 +265,7 @@ class HistogramPlot:
         xMin, xMax = get_xrange(total, strict, xmin, xmax)
 
         scale_min = min_scale if min_scale is not None else (0.5 if logY else 1.0)
-        scale_max = max_scale if max_scale is not None else (1e4 if logY else 1.5)
+        scale_max = max_scale if max_scale is not None else (1e6 if logY else 1.8)
 
         y_ranges = [get_yrange(hist, logY, ymin, ymax, scale_min, scale_max) for hist in hists]
         yMin = min(axis_range[0] for axis_range in y_ranges)
@@ -276,11 +284,10 @@ class HistogramPlot:
     def draw(
         self,
         hists: dict[str, Any],
-        stack: Any | None,
         bkgs: list[Any],
         stack_signals: bool = False,
         xlabels: list[str] = []
-    ) -> tuple[Any, Any]:
+    ) -> Any:
         '''Draw the configured histograms on a standard ROOT canvas.'''
 
         from . import plotter
@@ -288,8 +295,9 @@ class HistogramPlot:
         plotter.cfg = self.cfg
         canvas = plotter.canvas()
         dummy  = plotter.dummy(1 if not xlabels else len(xlabels), xlabels,
-                               0.75 if len(xlabels) > 0 else 1,
-                               1.3 if len(xlabels) > 0 else 1)
+                               28, 1.3 if len(xlabels) > 0 else 1)
+        self.dummy = dummy
+        stack = self.stack if hasattr(self, 'stack') else None
 
         dummy.Draw('HIST')
         if stack_signals:
@@ -309,7 +317,7 @@ class HistogramPlot:
                 hists[signal].Draw('HIST SAME')
         if hasattr(self, 'leg'): self.leg.Draw('SAME')
         else: LOGGER.warning('No legend was defined, not drawing it')
-        return canvas, dummy
+        return canvas
 
     def output_dir(self) -> Path:
         '''Return the nominal/high/low directory for the configured selection.'''
@@ -323,9 +331,9 @@ class HistogramPlot:
         canvas: Any,
         outName: str,
         suffix: str,
-        file_formats: list[str],
         logY: bool,
-        quiet: bool,
+        file_formats: list[str] = ['png'],
+        quiet: bool = False,
     ) -> None:
         '''Finalize and save the canvas using the standard output layout.'''
 
@@ -338,3 +346,5 @@ class HistogramPlot:
 
         finalize_canvas(canvas)
         save_canvas(canvas, out, outName, tot_suffix, file_formats, quiet)
+
+        return None

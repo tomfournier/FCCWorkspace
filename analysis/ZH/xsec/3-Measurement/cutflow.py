@@ -30,20 +30,10 @@ LOGGER = get_logger(__name__)
 
 # Load directory paths and cutflow analysis functions
 from zh_xsec.userConfig import loc
-from sel_xsec.final.leptonic import histos_ll
-from sel_xsec.final.hadronic import histos_qq
 from tools.utils import timer
 from samples import get_process_dict
-from constants import (
-    QUARKS,
-    z_decays,             # Z boson decay modes
-    H_decays,             # Higgs decay modes
-    colors, legend        # Process styling for plots
-)
-from plotting.cutflow import (
-    get_cutflow,            # Calculate event counts per cut
-    branches_from_cuts      # Get branches needed for each cut
-)
+from constants import QUARKS, z_decays, H_decays, colors, legend
+from plotting.cutflow import get_cutflow
 
 
 
@@ -58,122 +48,83 @@ lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 
 
-############################
-### DEFINE LEPTONIC CUTS ###
-############################
+###################
+### DEFINE CUTS ###
+###################
 
-# Define sequential baseline selection cuts
-baseline_cuts_ll = {'cut0': '', 'cut1': '', 'cut2': '',
-                    'cut3': '' if arg.kin else  'zll_m > 86 & zll_m < 96'}
-
-# Human-readable labels for cuts (displayed in plots)
-baseline_labels_ll = {
-    'cut0': 'No cut',                         # Diagnostic baseline
-    'cut1': '#geq 1 l^{#pm} + ISO',           # Lepton with isolation
-    'cut2': '#geq 2 l^{#pm} + OS',            # Dilepton pair, opposite sign
-    'cut3': '86 < m_{l^{+}l^{-}} < 96 GeV',   # Z boson mass selection
+# Leptonic cuts and labels
+CUTS_LL = {
+    'cut0': ('', 'No cut'),                # No cut
+    'cut1': ('', '#geq 1 l^{#pm} + ISO'),  # At least one isolated lepton
+    'cut2': ('', '#geq 2 l^{#pm} + OS'),   # Di-lepton pair, opposite sign
+    'cut3': ('zll_m > 86 & zll_m < 96', '86 < m_{l^{+}l^{-}} < 96 GeV'),                   # Z boson mass selection
+    'cut4': ('zll_p > 20 & zll_p < 70',  '20 < p_{l^{+}l^{-}} < 70 GeV') if ecm==240 else  # Di-lepton momentum window (240 GeV)
+            ('zll_p > 50 & zll_p < 150', '50 < p_{l^{+}l^{-}} < 150 GeV'),                 # Di-lepton momentum window (365 GeV)
+    **({'cut5': (('zll_recoil_m > 100 & zll_recoil_m < 150',
+                  '100 < m_{recoil} < 150 GeV'))} if ecm==365 else {})
 }
 
-if ecm == 240:
-    baseline_cuts_ll['cut4']   = '' if arg.kin else 'zll_p > 20 & zll_p < 70'                   # Dilepton momentum window (240 GeV)
-    baseline_labels_ll['cut4'] = '20 < p_{l^{+}l^{-}} < 70 GeV'
-elif ecm == 365:
-    baseline_cuts_ll['cut4']   = '' if arg.kin else 'zll_p > 50 & zll_p < 150'                  # Dilepton momentum window (365 GeV)
-    baseline_labels_ll['cut4'] = '50 < p_{l^{+}l^{-}} < 150 GeV'
+if arg.kin: CUTS_LL = {k: ('', label) for k, (_, label) in CUTS_LL.items()}
 
-    baseline_cuts_ll['cut5']   = '' if arg.kin else 'zll_recoil_m > 100 && zll_recoil_m < 150'  # Recoil mass selection (if 365 GeV)
-    baseline_labels_ll['cut5'] = '100 < m_{recoil} < 150 GeV'
+new_cut = 'cut5' if ecm==240 else 'cut6'
+E_vis = 100 if ecm==240 else 171
+EXTRA_LL = {'Baseline_miss': {new_cut: ('cosTheta_miss < 0.98', '|cos#theta_{miss}| < 0.98')},  # Missing energy polar angle cut
+            'Baseline_sep':  {new_cut: (f'((visibleEnergy > {E_vis}) |'                         # Visible sample, do nothing
+                                        f' (visibleEnergy < {E_vis} & cosTheta_miss < 0.99))',  # Invisible sample, missing energy polar angle cut
+                                        '|cos#theta_{miss}| < 0.99 [inv]')}}
 
-
-# Copy baseline cuts for each selection strategy
-# Sort cuts by number and copy for each selection strategy
-cuts_ll       = {sel: {k: baseline_cuts_ll[k]   for k in sorted(baseline_cuts_ll.keys())}   for sel in sels}
-cuts_label_ll = {sel: {k: baseline_labels_ll[k] for k in sorted(baseline_labels_ll.keys())} for sel in sels}
-
-# Add additional cuts for specific selection strategies
-if ecm == 240:
-    if 'Baseline_miss' in sels:
-        cuts_ll['Baseline_miss']['cut5']       = 'cosTheta_miss < 0.98'
-        cuts_label_ll['Baseline_miss']['cut5'] = '|cos#theta_{miss}| < 0.98'
-
-    if 'Baseline_sep' in sels:
-        cuts_ll['Baseline_sep']['cut5']       = '((visibleEnergy > 100) | (visibleEnergy < 100 & cosTheta_miss < 0.99))'
-        cuts_label_ll['Baseline_sep']['cut5'] = '|cos#theta_{miss}| < 0.99 [inv]'
-elif ecm == 365:
-    if 'Baseline_miss' in sels:
-        cuts_ll['Baseline_miss']['cut6']       = 'cosTheta_miss < 0.98'
-        cuts_label_ll['Baseline_miss']['cut6'] = '|cos#theta_{miss}| < 0.98'
-
-    if 'Baseline_sep' in sels:
-        cuts_ll['Baseline_sep']['cut6']       = '((visibleEnergy > 171) | (visibleEnergy < 171 & cosTheta_miss < 0.99))'
-        cuts_label_ll['Baseline_sep']['cut6'] = '|cos#theta_{miss}| < 0.99 [inv]'
-
-
-
-###############################
-### DEFINE HADRONICNIC CUTS ###
-###############################
-
-# Define sequential baseline selection cuts
-baseline_cuts_qq = {'cut0': '', 'cut1': '', 'cut2': '',
-    # 'cut5': '' if arg.kin else 'zqq_costheta > -0.85 & zqq_costheta < 0.85',
-    # 'cut6': '' if arg.kin else 'acolinearity > 0.35',
-    'cut5': '' if arg.kin else 'delta_mWW > 6',
-    # 'cut8': '' if arg.kin else 'cosTheta_miss < 0.995',
+# Hadronic cuts and labels
+CUTS_QQ = {
+    'cut0': ('', 'No cut'),         # No cut
+    'cut1': ('', 'Veto leptonic'),  # Remove events passing the leptonic selection (orthogonality)
+    'cut2': ('', 'Clustering'),     # Remove events failing the clustering
+    'cut3': ('zqq_m > 20 & zqq_m < 140', '20 < m_{jj} < 140 GeV') if ecm==240 else      # Z boson mass selection (240 GeV)
+            ('zqq_m > 60 & zqq_m < 200', '60 < m_{jj} < 200 GeV'),                      # Z boson mass selection (240 GeV)
+    'cut4': ('zqq_p > 20 & zqq_p < 90',  '20 < p_{jj} < 90 GeV') if ecm==240 else       # Di-jet momentum window (240 GeV)
+            ('zqq_p > 20 & zqq_p < 160', '20 < p_{jj} < 160 GeV'),                      # Di-jet momentum window (240 GeV)
+    'cut5': ('zqq_costheta > -0.85 & zqq_costheta < 0.85', '|cos#theta_{jj}| < 0.85'),  # Di-jet polar angle cut
+    'cut6': ('delta_mWW4 > 6', 'WW pair mass'),                      # Remove WW-like events
+    'cut7': ('cosTheta_miss < 0.995', '|cos#theta_{miss}| < 0.995')  # Missing energy polar angle cut
 }
 
-# Human-readable labels for cuts (displayed in plots)
-baseline_labels_qq = {
-    'cut0': 'No cut',
-    'cut1': 'Veto leptonic',
-    'cut2': 'Clustering',
-    # 'cut5': '|cos#theta_{jj}| < 0.85',
-    # 'cut6': 'Acolinearity > 0.35',
-    'cut5': 'WW pair mass',
-    # 'cut8': '|cos#theta_{miss}| < 0.995',
-}
+if arg.kin:
+    CUTS_QQ = {k: ('' if k in {'cut3', 'cut4'} else cut, label) for k, (cut, label) in CUTS_QQ.items()}
 
-if ecm == 240:
-    baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 20 & zqq_m < 140'
-    baseline_labels_qq['cut3'] = '20 < m_{jj} < 140 GeV'
-
-    baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 90'
-    baseline_labels_qq['cut4'] = '20 < p_{jj} < 70 GeV'
-
-elif ecm == 365:
-    baseline_cuts_qq['cut3']   = '' if arg.kin else 'zqq_m > 60 & zqq_m < 200'
-    baseline_labels_qq['cut3'] = '60 < m_{jj} < 200 GeV'
-
-    baseline_cuts_qq['cut4']   = '' if arg.kin else 'zqq_p > 20 & zqq_p < 160'
-    baseline_labels_qq['cut4'] = '20 < p_{jj} < 160 GeV'
-
-    # baseline_cuts_qq['cut9']   = '' if arg.kin else 'thrust < 0.85'
-    # baseline_labels_qq['cut9'] = 'Thrust < 0.85'
+E_vis = 120 if ecm==240 else 175
+EXTRA_QQ = {'Baseline_sep':  {new_cut: (f'((visibleEnergy > {E_vis}) |'                          # Visible sample, do nothing
+                                        f' (visibleEnergy < {E_vis} & cosTheta_miss < 0.995))',  # Invisible sample, missing energy polar angle cut
+                                        '|cos#theta_{miss}| < 0.995 [inv]')}}
 
 
-# Sort cuts by number and copy for each selection strategy
-cuts_qq       = {sel: {k: baseline_cuts_qq[k]   for k in sorted(baseline_cuts_qq.keys())}   for sel in sels}
-cuts_label_qq = {sel: {k: baseline_labels_qq[k] for k in sorted(baseline_labels_qq.keys())} for sel in sels}
 
-if 'Baseline_miss' in sels:
-    cuts_qq['Baseline_miss']['cut6'] = 'cosTheta_miss < 0.995'
-    cuts_label_qq['Baseline_miss']['cut6'] = '|cos#theta_{miss}| < 0.995'
-if 'Baseline_sep' in sels:
-    if ecm == 240:
-        cuts_qq['Baseline_sep']['cut6'] = '((visibleEnergy > 100) | (visibleEnergy < 100 & cosTheta_miss < 0.995))'
-    else:
-        cuts_qq['Baseline_sep']['cut6'] = '((visibleEnergy > 171) | (visibleEnergy < 171 & cosTheta_miss < 0.995))'
-    cuts_label_qq['Baseline_sep']['cut6'] = '|cos#theta_{miss}| < 0.995 [inv]'
+################################
+### PROCESS CUTS FOR CUTFLOW ###
+################################
+
+# Merge baseline and selection-specific cuts before splitting expressions and labels.
+CUTS_LL_BY_SEL = {sel: {**CUTS_LL, **EXTRA_LL.get(sel, {})} for sel in sels}
+
+cuts_ll  = {sel: {k: specs[k][0] for k in sorted(specs.keys())} for sel, specs in CUTS_LL_BY_SEL.items()}
+label_ll = {sel: {k: specs[k][1] for k in sorted(specs.keys())} for sel, specs in CUTS_LL_BY_SEL.items()}
+
+# Merge baseline and selection-specific cuts before splitting expressions and labels.
+CUTS_QQ_BY_SEL = {sel: {**CUTS_QQ, **EXTRA_QQ.get(sel, {})} for sel in sels}
+
+cuts_qq  = {sel: {k: specs[k][0] for k in sorted(specs.keys())} for sel, specs in CUTS_QQ_BY_SEL.items()}
+label_qq = {sel: {k: specs[k][1] for k in sorted(specs.keys())} for sel, specs in CUTS_QQ_BY_SEL.items()}
 
 
+
+####################################
+### PROCESSES DICT CONFIGURATION ###
+####################################
 
 decays_cat = [cat] if cat in ['ee', 'mumu'] else (QUARKS if cat=='qq' else [])
-plots = {
-    'signals':     get_process_dict(['ZH', f'Z{cat}H'], ecm),
-    'backgrounds': get_process_dict(['WW', 'ZZ', 'Zgamma', 'Rare'], ecm),
-    'decays': {'cat': {y: [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in decays_cat] for y in H_decays},
-               'tot': {y: [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays] for y in H_decays}}
-}
+plots = {'signals':     get_process_dict(['ZH', f'Z{cat}H'], ecm),
+         'backgrounds': get_process_dict(['WW', 'ZZ', 'Zgamma', 'Rare'], ecm),
+         'decays': {'cat': {y: [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in decays_cat] for y in H_decays},
+                    'tot': {y: [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays]   for y in H_decays}}}
+
 
 
 ##########################
@@ -185,25 +136,19 @@ def main() -> None:
     LOGGER.info(f'Making plots for {cat} channel')
     # Define process names (signal must be first)
 
-    variables  = list(histos_ll) if cat in ['ee', 'mumu'] else list(histos_qq)
-    cuts       = cuts_ll       if cat in ['ee', 'mumu'] else cuts_qq
-    cuts_label = cuts_label_ll if cat in ['ee', 'mumu'] else cuts_label_qq
+    cuts   = cuts_ll  if cat in ['ee', 'mumu'] else cuts_qq
+    labels = label_ll if cat in ['ee', 'mumu'] else label_qq
 
     # Define input and output directories
     if arg.kin: inDir = loc.get('EVENTS_TEST', cat, ecm)
     else:       inDir = loc.get('EVENTS',      cat, ecm)
     outDir = loc.get('PLOTS_MEASUREMENT',      cat, ecm)
 
-    # Extract required branches from cuts and variables
-    branches = branches_from_cuts(cuts, variables)
-    br_str = ', '.join(br for br in branches)
-    if not branches: branches = [variables[0]]
-    LOGGER.info(f'Only importing these branches from the .root file: {br_str}')
-
     # Generate cutflow plots and tables
     get_cutflow(inDir, outDir, cat, sels, plots, colors, legend,
-                cuts, cuts_label, branches=branches, ecm=ecm, lumi=lumi,
-                sig_scale=1, tot=arg.tot, loc_json=loc.JSON+f'/{ecm}/{cat}')
+                cuts, labels, arg.formats.split('-'), ecm, lumi,
+                1, arg.tot, True, True,
+                loc.JSON)
 
 
 ######################

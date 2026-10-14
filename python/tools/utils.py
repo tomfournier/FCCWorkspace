@@ -153,22 +153,26 @@ def load_json(
 
 
 def dump_json(
-    arg: dict,
-    file: str,
+    dictionary: dict,
+    outputdir: str,
+    outName: str,
+    file_type: str = 'json',
     indent: int = 4
 ) -> None:
     '''
     Dump a dictionary to a JSON file.
 
     Args:
-        arg (dict): Dictionary to save.
-        file (str): Output file path.
+        dictionary (dict): Dictionary to save.
+        outputdir (str): Output directory.
+        outName (str): Name of the output file.
+        file_type (str, optional): File type. Default to json.
         indent (int, optional): JSON indentation level. Defaults to 4.
     '''
-    import json
-
-    with open(file, mode='w', encoding='utf-8') as fOut:
-        json.dump(arg, fOut, indent=indent)
+    import os, json
+    os.makedirs(outputdir, exist_ok=True)
+    with open(f'{outputdir}/{outName}.{file_type}', 'w', encoding='utf-8') as fOut:
+        json.dump(dictionary, fOut, indent=indent)
 
 
 def Z0(S: float | int, B: float | int) -> float:

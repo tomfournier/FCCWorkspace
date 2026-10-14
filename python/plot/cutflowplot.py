@@ -234,7 +234,8 @@ class CutFlowPlot:
         from . import plotter
         plotter.cfg = self.cfg
         canvas = plotter.canvas(*canvas_size, bottom=0.12)
-        dummy = plotter.dummy(len(labels), labels, 28, 1.1)
+        dummy = plotter.dummy(len(labels), labels,
+                              28, 1.1, 1.5)
         self._frame_hist = dummy
         dummy.GetXaxis().LabelsOption('u')
         dummy.Draw('HIST')
@@ -251,7 +252,7 @@ class CutFlowPlot:
         quiet: bool = False,
         stats: tuple[float, float, float, float] | None = None,
     ) -> tuple[list[float], list[list[Any]]]:
-        from .plotter import draw_latex, make_cfg, setup_latex
+        from .plotter import draw_latex, setup_latex
         labels = self.ordered_labels(labels)
 
         self.cfg = self.build_config(0, len(labels), ymin, ymax)

@@ -4,13 +4,17 @@
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-import os, json, copy, uproot
+import os, uproot
 
 import numpy as np
 
 from tqdm import tqdm
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from functools import lru_cache
+
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
 
 
 
@@ -43,30 +47,6 @@ def _key_from_file(filepath: str, key: str) -> int:
             return 0
 
 
-def _get_bin_index(cut_name: str) -> int:
-    try:
-        return int(cut_name[3:]) + 1 if cut_name.startswith('cut') else 0
-    except (ValueError, IndexError):
-        return 0
-
-
-@lru_cache(maxsize=None)
-def _cut_from_file(filepath: str, cut_name: str) -> int:
-    try:
-        index = _get_bin_index(cut_name)
-        if index <= 0:
-            return 0
-        root_file = uproot.open(filepath)
-        for hist_type in ('TH1D', 'TH1F', 'TH1I', 'TH1S', 'TH1C'):
-            try:
-                return int(root_file[f'custom_objects/{hist_type}/cutFlow'].values()[index - 1])
-            except (KeyError, IndexError, TypeError):
-                continue
-    except Exception:
-        pass
-    return 0
-
-
 @lru_cache(maxsize=None)
 def _col_from_file(filepath: str) -> set[str]:
     try:
@@ -91,36 +71,21 @@ def get_processed(files: list[str] | str, arg: str = 'eventsProcessed') -> int:
     return int(sum(_key_from_file(os.fspath(filepath), arg) for filepath in files))
 
 
-def get_cut(files: list[str] | str, cut_name: str) -> int:
-    files = [files] if isinstance(files, str) else files
-    return int(sum(_cut_from_file(os.fspath(filepath), cut_name) for filepath in files))
-
-
-def getcut(
-    df: Any,
-    filter: str,
-    mask: 'np.ndarray' | None = None,
-) -> tuple[int, 'np.ndarray' | None]:
-    if df is None or df.empty:
-        return 0, mask
-    selected = np.asarray(df.eval(filter), dtype=bool)
-    mask = selected if mask is None else mask & selected
-    return int(mask.sum()), mask
-
-
 def get_count(
-    df: Any,
-    df_mask: 'np.ndarray' | None,
+    df: 'pd.DataFrame',
+    df_mask: np.ndarray | None,
     file_list: list[str],
     cut_name: str,
     filter_expr: str,
-) -> tuple[int, 'np.ndarray' | None]:
+) -> tuple[int, np.ndarray | None]:
     if not filter_expr:
-        return get_cut(file_list, cut_name), df_mask
+        return get_cuts(file_list, [cut_name])[cut_name], df_mask
     if df is None or df.empty:
         return 0, df_mask
     try:
-        return getcut(df, filter_expr, df_mask)
+        selected = np.asarray(df.eval(filter_expr), dtype=bool)
+        df_mask = selected if df_mask is None else df_mask & selected
+        return int(df_mask.sum()), df_mask
     except Exception:
         LOGGER.warning("Couldn't compute the count for this cut")
         return 0, df_mask
@@ -132,24 +97,17 @@ def get_cuts(files: list[str] | str, cut_names: list[str]) -> dict[str, int]:
     for filepath in files:
         try:
             with uproot.open(os.fspath(filepath)) as root_file:
-                histogram = next((root_file[f'custom_objects/{kind}/cutFlow']
-                                  for kind in ('TH1D', 'TH1F', 'TH1I', 'TH1S', 'TH1C')
-                                  if f'custom_objects/{kind}/cutFlow' in root_file), None)
+                histogram = next(
+                    (root_file[f'custom_objects/{kind}/cutFlow'] for kind in ('TH1D', 'TH1F', 'TH1I', 'TH1S', 'TH1C')
+                     if f'custom_objects/{kind}/cutFlow' in root_file), None)
                 if histogram is None: continue
                 values = histogram.values()
                 for cut in cut_names:
-                    index = _get_bin_index(cut) - 1
+                    index = int(cut[3:]) if cut.startswith('cut') else -1
                     if 0 <= index < len(values):
                         totals[cut] += int(values[index])
-        except Exception:
-            continue
+        except Exception: continue
     return totals
-
-
-def dump_json(flow: dict, outDir: str, outName: str) -> None:
-    os.makedirs(outDir, exist_ok=True)
-    with open(f'{outDir}/{outName}.json', 'w') as output:
-        json.dump(copy.deepcopy(flow), output, indent=4)
 
 
 def get_flows(
@@ -163,58 +121,38 @@ def get_flows(
 ) -> tuple[dict, dict]:
     cut_names = list(cuts[sel])
 
+    from tools.utils import dump_json
+
     def aggregate(groups: dict[str, list[str]], skip_hinv: bool) -> dict:
         flow = {}
         for label, samples in groups.items():
-            selected = [sample for sample in samples
-                        if not skip_hinv or 'Hinv' not in sample]
+            selected = [s for s in samples if not skip_hinv or 'Hinv' not in s]
             flow[label] = {
-                'cut': {cut: sum(events[sample][sel]['cut'][cut] for sample in selected)
-                        for cut in cut_names},
-                'err': {cut: sum(events[sample][sel]['err'][cut] ** 2
-                                for sample in selected) ** 0.5
-                        for cut in cut_names},
+                'cut': {cut: sum(events[s][sel]['cut'][cut]    for s in selected)      for cut in cut_names},
+                'err': {cut: sum(events[s][sel]['err'][cut]**2 for s in selected)**0.5 for cut in cut_names},
             }
         return flow
 
-    process_groups = {
-        label: samples
-        for group in ('signals', 'backgrounds')
-        for label, samples in plots.get(group, {}).items()
-    }
-    flow = aggregate(process_groups, True)
+    process_groups = {label: samples for group in ('signals', 'backgrounds')
+                      for label, samples in plots.get(group, {}).items()}
+    flow_procs = aggregate(process_groups, True)
     flow_decay = aggregate(plots.get('decays', {}), False)
     if json_file:
         suffix = '_tot' if tot else ''
-        dump_json(flow, loc_json, f'flow_procs_{sel}{suffix}')
+        dump_json(flow_procs, loc_json, f'flow_procs_{sel}{suffix}')
         dump_json(flow_decay, loc_json, f'flow_decay_{sel}{suffix}')
-    return flow, flow_decay
+    return flow_procs, flow_decay
 
 
-def branches_from_cuts(
+def get_branches(
     cuts: dict[str, dict[str, str]],
     variables: list,
 ) -> list:
     '''Return variables referenced by any cut expression.'''
     import re
 
-    return sorted({variable for selection in cuts.values()
-                   for expression in selection.values() if expression
-                   for variable in variables
-                   if re.search(r'\b' + re.escape(variable) + r'\b', expression)})
-
-
-def _required_branches(
-    cuts: dict[str, dict[str, str]],
-    selections: list[str],
-    available: set[str],
-    requested: list[str],
-) -> list[str]:
-    '''Use explicit branches or derive the minimal branch list from cuts.'''
-    if requested:
-        return list(dict.fromkeys(requested))
-    return branches_from_cuts({selection: cuts[selection] for selection in selections},
-                              sorted(available))
+    return sorted({var for sel in cuts.values() for expr in sel.values() if expr for var in variables
+                   if re.search(r'\b' + re.escape(var) + r'\b', expr)})
 
 
 
@@ -223,8 +161,8 @@ def _required_branches(
 #####################
 
 def get_cutflow(
-    inDir: str,
-    outDir: str,
+    inputdir: str,
+    outputdir: str,
     cat: str,
     sels: list[str],
     plots: dict[str, dict],
@@ -236,7 +174,6 @@ def get_cutflow(
     ecm: int = 240,
     lumi: float = 10.8,
     sig_scale: float = 1.0,
-    branches: list[str] = [],
     scaled: bool = True,
     tot: bool = False,
     json_file: bool = False,
@@ -244,6 +181,7 @@ def get_cutflow(
 ) -> None:
     '''Count events and render category and optional total cutflows.'''
     from plotting.plotting import CutFlow, CutFlowDecays
+    from tools.utils import dump_json
 
     procs_plots = {k:plots[k] for k in ('signals', 'backgrounds')}
     decay_plots = plots['decays']
@@ -251,10 +189,8 @@ def get_cutflow(
     active_decay_groups = [decay_plots.get('cat', {})]
     if tot:
         active_decay_groups.append(decay_plots.get('tot', {}))
-    samples = sorted({sample
-                      for group in [*procs_plots.values(), *active_decay_groups]
-                      for sample_list in group.values()
-                      for sample in sample_list})
+    samples = sorted({sample for group in [*procs_plots.values(), *active_decay_groups]
+                      for sample_list in group.values() for sample in sample_list})
 
     # Initialize event and file list dictionaries.
     events: dict[str, dict[str, float | int | str | dict[str, float | str | dict[str, Any]]]] = {}
@@ -262,11 +198,11 @@ def get_cutflow(
 
     # Collect metadata from all samples
     LOGGER.info('Getting processed events')
-    for sample in tqdm(samples):
+    for sample in tqdm(samples, unit=' sample'):
         events[sample] = {}
 
         # Find all input files for the sample
-        files = find_sample_files(inDir, sample)
+        files = find_sample_files(inputdir, sample)
         file_list[sample] = files
 
         # Extract cross section and total processed event count for luminosity scaling
@@ -275,7 +211,7 @@ def get_cutflow(
 
     selected_sels = [sel for sel in sels if sel in cuts]
     LOGGER.info('Getting cuts from DataFrame')
-    for sample in tqdm(samples):
+    for sample in tqdm(samples, unit=' sample'):
         flist = file_list.get(sample, [])
         processed = events[sample]['eventsProcessed']
         xsec  = events[sample]['cross-section']
@@ -294,7 +230,7 @@ def get_cutflow(
         data_sels = [sel for sel in selected_sels if sel not in histogram_sels]
         if event_files and data_sels:
             available = set().union(*(_col_from_file(path) for path in event_files))
-            read_branches = _required_branches(cuts, data_sels, available, branches)
+            read_branches = get_branches({s:cuts[s] for s in data_sels}, available)
             for filepath in event_files:
                 df = get_df(filepath, read_branches)
                 if df is None or df.empty: continue
@@ -322,14 +258,14 @@ def get_cutflow(
     dump_json(events, out_json, 'events')
 
     LOGGER.info('Making cutflow plots')
-    for sel in selected_sels:
+    for selection in selected_sels:
         plot_config = {**procs_plots, 'decays': decay_plots.get('cat', {})}
         flow_procs, flow_decay = get_flows(events, plot_config, cuts, sel, json_file, False, out_json)
-        CutFlow(flow_procs, outDir, sel, procs_plots, colors, legend, labels,
-                ecm=ecm, lumi=lumi, file_formats=file_formats, sig_scale=sig_scale)
-        CutFlowDecays(flow_decay, outDir, sel, labels, ecm=ecm, lumi=lumi, file_formats=file_formats, yMin=0, yMax=150)
+        CutFlow(flow_procs, outputdir, selection, procs_plots, colors, legend, labels,
+                ecm, lumi, file_formats, sig_scale=sig_scale, yMin=1e5 if cat=='qq' else 1e2)
+        CutFlowDecays(flow_decay, outputdir, selection, labels, ecm=ecm, lumi=lumi, file_formats=file_formats, yMin=0, yMax=150)
         if tot:
             plot_config = {**procs_plots, 'decays': decay_plots.get('tot', {})}
             flow_procs, flow_decay = get_flows(events, plot_config, cuts, sel, json_file, True, out_json)
-            CutFlowDecays(flow_decay, outDir, sel, labels, ecm=ecm, lumi=lumi, file_formats=file_formats,
+            CutFlowDecays(flow_decay, outputdir, selection, labels, ecm, lumi, file_formats,
                             yMin=0 if cat=='qq' else -50, yMax=160, tot=True)

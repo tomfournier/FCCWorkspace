@@ -1,6 +1,7 @@
 '''Reusable ROOT pull and reference-band plots.'''
 
 from typing import Any, Sequence
+from pathlib import Path
 
 
 class PullPlot:
@@ -8,6 +9,9 @@ class PullPlot:
 
 	def __init__(
 		self,
+		outputdir: str,
+		output_subdir: str,
+		selection: str,
 		values: Sequence[float],
 		errors: Sequence[float],
 		labels: Sequence[str],
@@ -17,9 +21,6 @@ class PullPlot:
 		lumi: float = 10.8,
 		xtitle: str = '',
 		name: str = 'pulls',
-		outputdir: str | None = None,
-		selection: str | None = None,
-		output_subdir: str = 'yield',
 	) -> None:
 		if not values:
 			raise ValueError('PullPlot requires at least one value')
@@ -67,7 +68,7 @@ class PullPlot:
 		top_left: str,
 		top_right: str,
 	) -> dict[str, Any]:
-		from .root.helper import make_cfg
+		from .plotter import make_cfg
 
 		return make_cfg({
 			'xmin': xmin,
@@ -80,49 +81,45 @@ class PullPlot:
 		}, self.ecm, self.lumi)
 
 
-	def output_dir(self) -> str:
+	def output_dir(self) -> Path:
 		'''Return the configured output directory for this selection.'''
 		if self.outputdir is None or self.selection is None:
 			raise ValueError('outputdir and selection are required for automatic paths')
 
 		base_selection = self.selection.replace('_high', '').replace('_low', '')
-		direction = ('high' if '_high' in self.selection else 'low' if '_low' in self.selection
-					 else 'nominal')
-		return f'{self.outputdir}/{self.output_subdir}/{base_selection}/{direction}'
+		direction = ('high' if '_high' in self.selection else 'low' if '_low' in self.selection else 'nominal')
+		return Path(f'{self.outputdir}/{self.output_subdir}/{base_selection}/{direction}')
 
 
 	def draw(
 		self,
-		out_dir: str | None,
-		out_name: str,
+		outName: str,
 		suffix: str = '',
 		file_formats: list[str] = ['png'],
 		quiet: bool = False,
-		x_min: float | None = None,
-		x_max: float | None = None,
+		xmin: float | None = None,
+		xmax: float | None = None,
 		top_left: str = '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
 		top_right: str | None = None,
 		statistics: Sequence[str] = (),
 	) -> None:
 		import ROOT
-		from .root import plotter
-		from .root.plotter import save_canvas
-		from .root.helper import setup_latex
+		from . import plotter
 
 		default_min, default_max = self._x_range()
-		x_min = default_min if x_min is None else x_min
-		x_max = default_max if x_max is None else x_max
+		xmin = default_min if xmin is None else xmin
+		xmax = default_max if xmax is None else xmax
 		top_right = top_right or f'#sqrt{{s}} = {self.ecm} GeV, {self.lumi} ab^{{#minus1}}'
 
-		plotter.cfg = self._config(x_min, x_max, top_left, top_right)
-		hist = self._histogram(x_min, x_max)
+		plotter.cfg = self._config(xmin, xmax, top_left, top_right)
+		hist = self._histogram(xmin, xmax)
 		canvas = plotter.canvas(800, 800)
 		plotter.canvas_margins(canvas, top=0.08, bottom=0.1, left=0.15, right=0.05)
 		canvas.SetFillStyle(4000)
 		canvas.SetGrid(1, 0)
 		canvas.SetTickx(1)
 
-		hist.GetXaxis().SetTitle(self.x_title)
+		hist.GetXaxis().SetTitle(self.xtitle)
 		hist.GetXaxis().SetTitleSize(0.04)
 		hist.GetXaxis().SetLabelSize(0.035)
 		hist.GetXaxis().SetTitleOffset(1)
@@ -163,19 +160,17 @@ class PullPlot:
 		graph.SetLineWidth(2)
 		graph.Draw('P0 SAME')
 
-		latex = setup_latex(0.045, 30, 1, 42)
+		latex = plotter.setup_latex(0.045, 30, 1, 42)
 		latex.DrawLatex(0.95, 0.925, top_right)
-		latex = setup_latex(0.045, 13, 1, 42)
+		latex = plotter.setup_latex(0.045, 13, 1, 42)
 		latex.DrawLatex(0.15, 0.96, top_left)
 		if statistics:
-			text = setup_latex(0.04, 11, 1, 42)
+			text = plotter.setup_latex(0.04, 11, 1, 42)
 			for index, value in enumerate(statistics):
 				text.DrawLatex(0.2, 0.2 - index * 0.05, value)
 			text.Draw('SAME')
 
-		print(out_name, suffix)
-		save_canvas(canvas, out_dir or self.output_dir(), out_name,
-		            suffix, file_formats, quiet)
+		plotter.save_canvas(canvas, self.output_dir(), outName, suffix, file_formats, quiet)
 		canvas.Close()
 
 		return None
@@ -183,27 +178,25 @@ class PullPlot:
 
 	def save_text(
 		self,
-		out_dir: str,
-		out_name: str,
-		row_label: str = 'Value',
+		outName: str,
+		label: str = 'Value',
 		value_format: str = '.2f',
 		error_format: str = '.2f',
 		separator: str = '+/-',
-		column_width: int = 15,
+		col_width: int = 15,
 	) -> None:
 		'''Write the plotted values and uncertainties as a fixed-width table.'''
-		from pathlib import Path
 
-		Path(out_dir).mkdir(parents=True, exist_ok=True)
-		header = f"{'Labels':<{column_width}}" + ''.join(
-			f'{label:<{column_width}}' for label in self.labels)
-		separator_line = '-' * column_width * (len(self.labels) + 1)
+		out = self.output_dir()
+		out.mkdir(exist_ok=True, parents=True)
+
+		header = f"{'Labels':<{col_width}}" + ''.join(f'{label:<{col_width}}' for label in self.labels)
+		separator_line = '-' * col_width * (len(self.labels) + 1)
 		values = [f'{value:{value_format}}{separator}{error:{error_format}}'
 		          for value, error in zip(self.values, self.errors)]
-		row = f'{row_label:<{column_width}}' + ''.join(
-			f'{value:<{column_width}}' for value in values)
+		row = f'{label:<{col_width}}' + ''.join(f'{value:<{col_width}}' for value in values)
 
-		with open(Path(out_dir) / f'{out_name}.txt', 'w') as text_file:
+		with open(out / f'{outName}.txt', 'w') as text_file:
 			text_file.write('\n'.join((header, separator_line, row)) + '\n')
 
 		return None

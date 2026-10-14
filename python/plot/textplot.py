@@ -27,31 +27,28 @@ class TextPlot:
 
 	def __init__(
 		self,
+		inputdir: str,
 		outputdir: str,
 		output_subdir: str,
 		selection: str,
 		ecm: int = 240,
 		lumi: float = 10.8,
+		tot: bool = False,
 		column_positions: Sequence[float] = (0.065, 0.35, 0.7),
 		canvas_size: tuple[int, int] = (1000, 1000),
 	) -> None:
 		if len(column_positions) == 0:
 			raise ValueError('TextPlot requires at least one column position')
 
-		self.outputdir     = outputdir
+		self.inputdir  = inputdir
+		self.outputdir = outputdir
 		self.output_subdir = output_subdir
 		self.selection = selection
 		self.ecm  = ecm
 		self.lumi = lumi
 		self.col_pos = tuple(column_positions)
 		self.canvas_size = canvas_size
-
-	def output_dir(self) -> Path:
-		'''Return the nominal/high/low directory for the configured selection.'''
-		base_selection = self.selection.replace('_high', '').replace('_low', '')
-		direction = ('high' if '_high' in self.selection else 'low' if '_low' in self.selection
-					 else 'nominal')
-		return Path(self.outputdir) / self.output_subdir / base_selection / direction
+		self.tot = tot
 
 
 	def define_legend(
@@ -88,13 +85,12 @@ class TextPlot:
 
 	def load_yields(
 		self,
-		h_name: str,
-		in_dir: str,
+		hName: str,
 		plots: dict[str, dict[str, list[str]]],
-		labels: dict[str, str],
 		colors: dict[str, Any],
-		signal_scale: float = 1.,
-		background_scale: float = 1.,
+		legend: dict[str, str],
+		sig_scale: float = 1.,
+		bkg_scale: float = 1.,
 		lazy: bool = True,
 	) -> tuple[list[tuple[str, float, float]], Any, float, float]:
 		'''Load, style, and summarize process histograms for a text table.'''
@@ -109,8 +105,8 @@ class TextPlot:
 		procs = [*plots.get('signals', {}), *plots.get('backgrounds', {})]
 		for proc in procs:
 			group = 'signals' if proc in plots.get('signals', {}) else 'backgrounds'
-			scale = signal_scale if group == 'signals' else background_scale
-			proc_hist = getHist(h_name, plots[group][proc], in_dir,
+			scale = sig_scale if group == 'signals' else bkg_scale
+			proc_hist = getHist(hName, plots[group][proc], self.inputdir,
 			                    suffix, lazy=lazy, use_cache=False)
 			if proc_hist is None: continue
 
@@ -123,9 +119,9 @@ class TextPlot:
 				proc_hist.SetFillColor(colors[proc])
 			if scale != 1.:
 				proc_hist.Scale(scale)
-			self.leg.AddEntry(proc_hist, labels[proc], 'L' if group == 'signals' else 'F')
+			self.leg.AddEntry(proc_hist, legend[proc], 'L' if group == 'signals' else 'F')
 
-			rows.append((labels[proc], integral, entries))
+			rows.append((legend[proc], integral, entries))
 			if group == 'signals': sig_tot += integral
 			else:                  bkg_tot += integral
 
@@ -135,13 +131,10 @@ class TextPlot:
 		self,
 		rows: Sequence[Sequence[Any]],
 		metadata: Sequence[tuple[str, float, float, float]],
-		out_name: str,
 		headers: Sequence[str] = ('Process', 'Yields', 'Raw MC'),
-		file_formats: list[str] = ['png'],
-		quiet: bool = False,
-		suffix: str = '',
-	) -> None:
+	) -> Any:
 		'''Draw and save a text table with optional metadata and legend.'''
+
 		import ROOT
 		from . import plotter
 
@@ -150,18 +143,19 @@ class TextPlot:
 		if any(len(row) != len(headers) for row in rows):
 			raise ValueError('every row must have one value per header')
 
-		canvas = plotter.canvas(*self.canvas_size, top=0.08, bottom=0.05, left=0.05, right=0.05)
-		dummy = ROOT.TH1F(f'{out_name}_dummy', '', 1, 0, 1)
-		dummy.SetStats(0)
+		plotter.cfg = plotter.make_cfg({
+			'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1,
+			'topLeft': '', 'topRight': ''}, self.ecm, self.lumi)
+		canvas = plotter.canvas(*self.canvas_size, top=0.08, bottom=0.05,
+							left=0.05, right=0.05)
+		dummy = plotter.dummy()
+		dummy.GetYaxis().SetLabelOffset(999)
+		self.dummy = dummy
 
-		plotter.configure_axis(dummy.GetXaxis(), '', 0, 1, label_offset=999, label_size=0)
-		plotter.configure_axis(dummy.GetYaxis(), '', 0, 1, label_offset=999, label_size=0)
-
-		# Remove ticks from canvas
 		dummy.GetXaxis().SetTickLength(0)
 		dummy.GetYaxis().SetTickLength(0)
 
-		dummy.Draw('AH')
+		dummy.Draw('AXIS')
 		if hasattr(self, 'leg'): self.leg.Draw()
 		else: LOGGER.warning('No legend was defined, not drawing it')
 
@@ -175,7 +169,34 @@ class TextPlot:
 		latex = plotter.setup_latex(0.035, 12)
 		plotter.draw_latex(latex, text_data)
 
-		output = self.output_dir()
-		output.mkdir(parents=True, exist_ok=True)
-		plotter.save_canvas(canvas, output, out_name, suffix, file_formats, quiet)
-		canvas.Close()
+		return canvas
+
+
+	def output_dir(self) -> Path:
+		'''Return the nominal/high/low directory for the configured selection.'''
+		base_selection = self.selection.replace('_high', '').replace('_low', '')
+		direction = ('high' if '_high' in self.selection else 'low' if '_low' in self.selection
+						else 'nominal')
+		return Path(self.outputdir) / self.output_subdir / base_selection / direction
+
+
+	def save(
+		self,
+		canvas,
+		outName: str,
+		suffix: str,
+		file_formats: list[str] = ['png'],
+		quiet: bool = False
+	) -> None: 
+		'''Finalize and save the canvas using the standard output layout.'''
+
+		from .plotter import finalize_canvas, save_canvas
+		out = self.output_dir()
+		out.mkdir(exist_ok=True, parents=True)
+
+		suffix = ('_tot' if self.tot else '') + suffix
+
+		finalize_canvas(canvas)
+		save_canvas(canvas, out, outName, suffix, file_formats, quiet)
+
+		return None

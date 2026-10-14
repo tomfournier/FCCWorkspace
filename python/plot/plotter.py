@@ -307,8 +307,8 @@ def axis_limits(
         tuple: (min, max) axis limits with optional log padding.
     '''
     try:
-        min = float(cfg[f'{axis}min{ratio}'])
-        max = float(cfg[f'{axis}max{ratio}'])
+        min = float(cfg.get(f'{axis}min{ratio}', 0))
+        max = float(cfg.get(f'{axis}max{ratio}', 1))
     except KeyError:
         raise KeyError('Limit should be defined in cfg')
 
@@ -510,6 +510,7 @@ def dummy(
         labels: list[str] = [],
         label_size: float = 1,
         label_offset: float = 1.2,
+        title_offset: float = 1.7
 ) -> ROOT.TH1D:
     '''
     Create a dummy histogram with configured axis limits and labels.
@@ -541,7 +542,7 @@ def dummy(
                    label_offset=label_offset)
     # Configure y-axis
     configure_axis(dummy.GetYaxis(), ytitle, ymin,
-                   ymax, label_offset=1.4, title_offset=1.4)
+                   ymax, label_offset=1.4, title_offset=title_offset)
 
     dummy.SetMinimum(ymin)
     dummy.SetMaximum(ymax)
