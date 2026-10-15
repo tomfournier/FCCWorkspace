@@ -59,3 +59,8 @@ class LazyColorDict(dict):
     def values(self):
         self._ensure()
         return super().values()
+
+def label_parts(label: str) -> tuple[str, str]:
+    from re import search
+    match = search(r'\s*\[([^]]+)\]\s*$', label)
+    return (label[:match.start()], match.group(1)) if match else (label, '')

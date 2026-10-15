@@ -45,11 +45,9 @@ Lazy Imports:
 ####################################
 
 from inspect import Parameter, signature
-from re import LOCALE, search
 from typing import Any, Union
 
 from constants import h_labels
-from tools.utils import mkdir
 from logger import get_logger
 
 LOGGER = get_logger(__name__)
@@ -68,40 +66,6 @@ PLT_STYLE_SET = False
 ########################
 ### HELPER FUNCTIONS ###
 ########################
-
-def _label_parts(label: str) -> tuple[str, str]:
-    match = search(r'\s*\[([^]]+)\]\s*$', label)
-    return (label[:match.start()], match.group(1)) if match else (label, '')
-
-def _ensure_plt_style() -> None:
-    '''Initialize matplotlib styling once to avoid repeated setup calls.
-
-    Sets the global PLT_STYLE_SET flag after first initialization to prevent
-    redundant style configuration in subsequent calls.
-    '''
-    global PLT_STYLE_SET
-    if not PLT_STYLE_SET:
-        from .plotter import set_plt_style
-        set_plt_style()
-        PLT_STYLE_SET = True
-
-def _parse_selection_dir(
-    sel: str,
-    outDir: str,
-    subdir: str
-     ) -> str:
-    '''Build standardized output directory path from selection string.
-
-    Returns a path of the form:
-        outDir/subdir/<base_sel>/<direction>
-
-    Where:
-    - base_sel: selection name without suffixes ('_high', '_low')
-    - direction: one of 'high', 'low', or 'nominal'
-    '''
-    base_sel = sel.replace('_high', '').replace('_low', '')
-    direction = 'high' if '_high' in sel else ('low' if '_low' in sel else 'nominal')
-    return f'{outDir}/{subdir}/{base_sel}/{direction}'
 
 def _extract_nested_args(
     var_args: dict[str, dict | float | int | str],
@@ -196,19 +160,12 @@ def decay_plots(process: str, ecm: int) -> dict[str, dict[str, tuple[str, ...]]]
 
 def plot_configs(ecm: int, cat: str) -> dict[str, dict[str, dict[str, tuple[str, ...]]]]:
     from samples import get_process_dict
-    backgrounds = get_process_dict(['WW', 'ZZ', 'Zgamma', 'Rare'] +
-                                   (['tt'] if cat == 'qq' and ecm == 365 else []), ecm)
-    category = {'signals': get_process_dict(['ZH', f'Z{cat}H'], ecm), 'backgrounds': backgrounds}
-    procs = {'signals': get_process_dict(['ZH', f'Z{cat}H'], ecm), 'backgrounds': backgrounds}
-    total = {'signals': get_process_dict(['ZH'], ecm), 'backgrounds': backgrounds}
-    return {'category': category, 'total': total, 'procs': procs, 'decay': decay_plots(f'Z{cat}H', ecm),
-            'total_decay': decay_plots('ZH', ecm)}
+    backgrounds = get_process_dict(['WW', 'ZZ', 'Zgamma', 'Rare'] + (['tt'] if cat == 'qq' and ecm == 365 else []), ecm)
+    category = {'signals': get_process_dict([f'Z{cat}H'],       ecm), 'backgrounds': backgrounds}
+    procs    = {'signals': get_process_dict(['ZH', f'Z{cat}H'], ecm), 'backgrounds': backgrounds}
+    total    = {'signals': get_process_dict(['ZH'],             ecm), 'backgrounds': backgrounds}
+    return {'category': category, 'total': total, 'procs': procs, 'decay': decay_plots(f'Z{cat}H', ecm), 'total_decay': decay_plots('ZH', ecm)}
 
-
-
-######################
-### MAIN FUNCTIONS ###
-######################
 
 def get_args(
     var: str,
@@ -288,11 +245,16 @@ def get_args(
     return result
 
 
+
+######################
+### MAIN FUNCTIONS ###
+######################
+
 def significance(
     variable: str,
-    inDir: str,
-    outDir: str,
-    sel: str,
+    inputdir: str,
+    outputdir: str,
+    selection: str,
     plots: dict[str, dict[str, list[str]]],
     var_labels: dict[str, str],
     locx: str = 'right',
@@ -301,7 +263,7 @@ def significance(
     xMax: Union[float, int, None] = None,
     outName: str = '',
     suffix: str = '',
-    format: list[str] = ['png'],
+    file_formats: list[str] = ['png'],
     reverse: bool = False,
     lazy: bool = True,
     rebin: int = 1
@@ -336,112 +298,83 @@ def significance(
     '''
 
     import numpy as np
-    import matplotlib.pyplot as plt
-    from .plotter import set_labels, savefigs
+    from plot.pyplot import MatplotlibPlot
     from tools.process import getHist
+    from utilities import label_parts
 
-    _ensure_plt_style()
-
-    if outName=='': outName = variable
-    suff  = f'_{sel}_histo'
-
-    sig_procs = list(plots['signals'])
-    if len(sig_procs) != 1:
+    # Checking only 1 signal process is in plots
+    if len(plots['signals']) != 1:
         raise ValueError('Only support one signal process')
-    sig = sig_procs[0]
-    h_sig = getHist(variable,
-                    plots['signals'][sig], inDir,
-                    suffix=suff, rebin=rebin)
-    sig_tot = h_sig.Integral()
 
-    bkgs_procs = []
-    for bkg in plots['backgrounds'].keys():
-        bkgs_procs.extend(plots['backgrounds'][bkg])
+    # Getting signals and backgrounds processes
+    sig_procs = plots['signals'][next(iter(plots['signals']))]
+    bkg_procs = [proc for bkg in plots['backgrounds'].values() for proc in bkg]
 
-    h_bkg = getHist(variable, bkgs_procs, inDir,
-                    suffix=suff, rebin=rebin, lazy=lazy)
+    # Getting signal and backgrounds histograms
+    h_sig = getHist(variable, sig_procs, inputdir, f'_{selection}_histo', rebin, lazy)
+    h_bkg = getHist(variable, bkg_procs, inputdir, f'_{selection}_histo', rebin, lazy)
 
+    # Converting the histograms to numpy arrays
     nbins = h_sig.GetNbinsX()
+    sig_arr = np.array(h_sig, dtype=np.float64)[1:nbins+1]
+    bkg_arr = np.array(h_bkg, dtype=np.float64)[1:nbins+1]
 
-    sig_arr = np.array(h_sig, dtype=np.float64)[:nbins+1]
-    bkg_arr = np.array(h_bkg, dtype=np.float64)[:nbins+1]
+    # Defining bin centers
 
-    # Get axis object once
-    xaxis = h_sig.GetXaxis()
+    centers = h_sig.GetXaxis().GetXmin() + (np.arange(nbins) + 0.5) * \
+        (h_sig.GetXaxis().GetXmax() - h_sig.GetXaxis().GetXmin()) / nbins
 
-    # Check if variable bin width
-    if xaxis.IsVariableBinSize():
-        # Variable bins: extract edges individually but efficiently
-        centers = np.array([xaxis.GetBinCenter(i+1) for i in range(nbins+1)], dtype=np.float64)
-    else:
-        # Fixed bins: use linspace for maximum speed
-        centers = np.linspace(xaxis.GetXmin(), xaxis.GetXmax(), nbins + 1, dtype=np.float64)
-
-    mask = np.ones(nbins+1, dtype=bool)
+    # Mask to remove bins outside the allowed range
+    mask = np.ones(nbins, dtype=bool)
     if xMin is not None: mask &= (centers >= xMin)
     if xMax is not None: mask &= (centers <= xMax)
+    if not np.any(mask):
+        raise ValueError('No cut values remain after applying xMin/xMax')
 
     # Compute cumulative sums from either left or right depending on reverse flag.
-    if reverse:
-        sig_cum = np.cumsum(sig_arr)
-        bkg_cum = np.cumsum(bkg_arr)
-    else:
-        # Right-to-left cumulative: sum from high to low bin values.
-        sig_cum = np.cumsum(sig_arr[::-1])[::-1]
-        bkg_cum = np.cumsum(bkg_arr[::-1])[::-1]
+    tot_arr = sig_arr + bkg_arr
+    sig_cum = np.cumsum(sig_arr) if reverse else np.cumsum(sig_arr[::-1])[::-1]
+    tot_cum = np.cumsum(tot_arr) if reverse else np.cumsum(tot_arr[::-1])[::-1]
 
-    denom = sig_cum + bkg_cum
-    with np.errstate(divide='ignore', invalid='ignore'):
-        significance = np.where(denom > 0, sig_cum / np.sqrt(denom), 0)
-    sig_loss = np.where(sig_tot > 0, sig_cum / sig_tot, 0)
+    significance = np.divide(sig_cum, np.sqrt(tot_cum), out=np.zeros_like(sig_cum), where=tot_cum > 0)
+    sig_loss     = np.divide(sig_cum, h_sig.Integral(), out=np.zeros_like(sig_cum), where=h_sig.Integral() > 0,)
 
-    x, y = centers[mask], significance[mask]
-    l = sig_loss[mask]
+    x, y, l = centers[mask], significance[mask], sig_loss[mask]
+    max_idx = int(np.argmax(y))
+    max_x, max_y, max_l = float(x[max_idx]), float(y[max_idx]), float(l[max_idx])
 
-    max_index = int(np.argmax(y))
-    max_y = float(y[max_index])
-    max_x, max_l = float(x[max_index]), float(l[max_index])
+    plotname, plot_suffix = variable if not outName else outName, f'{suffix}_reverse' if reverse else suffix
+    main_plot = MatplotlibPlot(outputdir, 'significance', selection, plotname, plot_suffix, file_formats)
+    effs_plot = MatplotlibPlot(axes=main_plot.axes.twinx(), style=False)
 
-    fig, ax1 = plt.subplots()
+    try:
+        main_plot.draw([
+            ([x, y, 'scatter'], {'color': 'blue', 'marker': '.', 'label': 'Significance'}),
+            ([max_x, max_y, 'scatter'], {'color': 'red', 'marker': '*', 's': 150}),
+            ([max_x, 'axvline'], {'color': 'black', 'alpha': 0.8, 'linewidth': 1}),
+            ([max_y, 'axhline'], {'color': 'blue', 'alpha': 0.8, 'linewidth': 1}),
+        ])
+        effs_plot.draw([
+            ([x, l, 'plot'], {'color': 'red', 'linewidth': 3, 'label': 'Signal efficiency'}),
+            ([max_l, 'axhline'], {'color': 'red', 'alpha': 0.8, 'linewidth': 1}),
+        ])
 
-    ax2 = ax1.twinx()
-    ax2.plot(x, l, color='red', linewidth=3,
-             label='Signal efficiency')
-    ax1.scatter(x, y, color='blue', marker='o',
-                label='Significance')
-    ax1.scatter(max_x, max_y, color='red',
-                marker='*', s=150)
+        main_plot.configure(xlim=(min(x), max(x)))
+        label, unit = label_parts(var_labels[variable])
 
-    ax1.axvline(max_x, color='black', alpha=0.8, linewidth=1)
-    ax1.axhline(max_y, color='blue',  alpha=0.8, linewidth=1)
-    ax2.axhline(max_l, color='red',   alpha=0.8, linewidth=1)
+        main_plot.set_labels(var_labels[variable], 'Significance', left=' ', locx=locx, locy=locy)
+        main_plot.set_axis_color('y', 'blue')
 
-    ax1.set_xlim(min(x), max(x))
-    label, unit = _label_parts(var_labels[variable])
+        effs_plot.set_labels(ylabel='Signal Efficiency', left=' ', locy=locy)
+        effs_plot.set_axis_color('y', 'red')
+        effs_plot.axes.grid(False, axis='y')
 
-    set_labels(ax1, var_labels[variable], 'Significance', left=' ', locx=locx, locy=locy)
-    ax1.tick_params(axis='y', labelcolor='blue')
-    ax1.yaxis.label.set_color('blue')
+        title = rf'{label} ${"<" if reverse else ">"}$ {max_x:.2f} {unit}, Z = {max_y:.2f}, $\epsilon_{{sig}} = {max_l*100:.1f}\%$'
+        main_plot.set_title(title)
+        main_plot.save(close=False)
 
-    set_labels(ax2, ylabel='Signal Efficiency', left=' ', locy=locy)
-    ax2.tick_params(axis='y', labelcolor='red')
-    ax2.yaxis.label.set_color('red')
-    ax2.grid(False, axis='y')
-
-    if reverse:
-        ax1.set_title(rf'Max: {label} $<$ {max_x:.2f} {unit}, '
-                      rf'Significance = {max_y:.2f}, Signal eff = {max_l*100:.1f} \%')
-    else:
-        ax1.set_title(rf'Max: {label} $>$ {max_x:.2f} {unit}, '
-                      rf'Significance = {max_y:.2f}, Signal eff = {max_l*100:.1f} \%')
-    fig.tight_layout()
-
-    out = _parse_selection_dir(sel, outDir, 'significance')
-    mkdir(out)
-
-    suffix = '_reverse' if reverse else ''
-    savefigs(fig, out, outName, suffix, format)
-    plt.close()
+    finally:
+        main_plot.close()
 
     return None
 
