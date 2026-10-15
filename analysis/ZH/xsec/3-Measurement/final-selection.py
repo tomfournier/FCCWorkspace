@@ -117,9 +117,14 @@ if cat in ['ee', 'mumu']:
     else:    E_vis, theta_miss = 100 if ecm == 240 else 171, 0.99
 elif cat == 'qq':
     cutList['test']  = Baseline_cut_qq(ecm, True)
-    cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
-    cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 5'
-    cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 9'
+    cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
+    cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    
+    cutList['jan']  = Baseline_cut_qq(ecm, True)
+    cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
+    cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
 
     E_vis, theta_miss = 120 if ecm == 240 else 175, 0.995
 else:

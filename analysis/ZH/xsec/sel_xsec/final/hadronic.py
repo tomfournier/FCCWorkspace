@@ -14,8 +14,11 @@ def Baseline_cut_qq(ecm: int, miss: bool = False) -> str:
     # Di-jet momentum cut
     cut += f'zqq_p > {p_dw} && zqq_p < {p_up}'
 
-    # Di-jet polar angle cut
-    cut += 'zqq_costheta > -0.9 && zqq_costheta < 0.9'
+    # Di-jet polar angle cut (only for 240 GeV for the moment)
+    if ecm: cut += 'zqq_costheta > -0.9 && zqq_costheta < 0.9'
+
+    # WW pair mass cut
+    cut += ' && delta_mWW4 > 6'
 
     # Missing energy polar angle cut (optional)
     if miss: cut += ' && cosTheta_miss < 0.995'

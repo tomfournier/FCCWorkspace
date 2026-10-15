@@ -97,12 +97,17 @@ if cat in ['ee', 'mumu']:
     if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
     else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
-    if test:
-        cutList['test']  = Baseline_cut_qq(ecm, True)
-        cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'
-        cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 5'
-        cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 9'
-    else: cutList['Baseline'] = Baseline_cut_qq(ecm, True) + ' && delta_mWW4 > 6'   # Baseline selection (hadronic channel)
+    cutList['Baseline'] = Baseline_cut_qq(ecm, True)   # Baseline selection (hadronic channel)
+    
+    cutList['test']  = Baseline_cut_qq(ecm, True)
+    cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
+    cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    
+    cutList['jan']  = Baseline_cut_qq(ecm, True)
+    cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
+    cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 
 # Save ROOT TTrees in addition to histograms (for BDT training)
