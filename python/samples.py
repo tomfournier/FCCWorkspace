@@ -206,6 +206,7 @@ def get_process_list(
     onlybkg: bool = False,
     frac: dict[str, float] | None = None,
     chunks: dict[str, int] | None = None,
+    n_max: dict[str, int] | None = None,
     include: dict[str, dict] | None = None,
     exclude: set[str] | None = None,
     all_train_sig: bool = True
@@ -227,11 +228,12 @@ def get_process_list(
         onlybkg: Return only background processes (mutually exclusive with onlysig).
         frac: Custom fractions by sample name (overrides defaults).
         chunks: Custom event chunk counts by sample name (overrides defaults).
+        n_max: Maximum event counts by sample name.
         include: Additional processes to add, dict with 'sig' and/or 'bkg' keys.
         exclude: Set of sample names to exclude from output.
 
     Returns:
-        Dictionary mapping sample names to {'fraction': float, 'chunks': int}.
+        Dictionary mapping sample names to {'fraction': float, 'chunks': int, 'n_max': int}.
 
     Raises:
         ValueError: If onlysig and onlybkg are both True.
@@ -239,6 +241,7 @@ def get_process_list(
     # Initialize optional parameters
     frac    = frac    or {}
     chunks  = chunks  or {}
+    n_max   = n_max   or {}
     include = include or {}
     exclude = exclude or set()
 
@@ -307,11 +310,11 @@ def get_process_list(
                 f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 0.1, 'nb': middle}})
 
     # Build signal dict with custom overrides
-    process_sig = {s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1)}
+    process_sig = {s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1), 'n_max': n_max.get(s)}
                    for s in sigs if (s not in exclude and 'all' not in exclude)}
 
     # Build background dict with custom overrides
-    process_bkg = {b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb'])}
+    process_bkg = {b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb']), 'n_max': n_max.get(b)}
                    for b, v in bkgs.items() if (b not in exclude and 'all' not in exclude)}
 
     # Apply custom inclusions. The nested form is retained for programmatic
