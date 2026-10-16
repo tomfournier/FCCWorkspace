@@ -570,8 +570,10 @@ def mva_final_selection_parser(description: str | None = None) -> ArgumentParser
         include_cat=True, include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='all')
     add_selection_args(parser)
-    add_final_selection_args(parser, True)
+    add_xsec_selection_args(parser)
+    add_final_selection_args(parser)
     add_sample_selection_args(parser)
+    add_xsec_sample_selection_args(parser)
     return parser
 
 # Parser for 1-MVAInputs/plots.py
@@ -581,6 +583,7 @@ def mva_plots_parser(description: str | None = None) -> ArgumentParser:
         include_cat=True, include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='all')
     add_selection_args(parser)
+    add_xsec_selection_args(parser)
     add_plots_args(parser)
     add_mva_plot_args(parser)
     return parser
@@ -643,6 +646,7 @@ def measurement_final_selection_parser(description: str | None = None) -> Argume
         include_cat=True, include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='all')
     add_selection_args(parser)
+    add_xsec_selection_args(parser)
     add_final_selection_args(parser)
     add_final_bdt_selection_args(parser)
     add_sample_selection_args(parser)
@@ -788,7 +792,7 @@ def MVAInputs_parser(description: str | None = None) -> ArgumentParser:
     add_preselection_args(parser)
     add_sample_selection_args(parser)
     add_xsec_sample_selection_args(parser)
-    add_final_selection_args(parser, training=True)
+    add_final_selection_args(parser)
     add_plot_args(parser)
     add_mva_plot_args(parser)
     return parser
