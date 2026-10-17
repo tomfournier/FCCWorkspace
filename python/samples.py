@@ -262,8 +262,7 @@ def get_process_list(
             raise ValueError(
                 f'{cat} is not a valid category. Use [ee, mumu, qq].')
     else:
-        sigs = [
-            f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
+        sigs = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
 
     small, middle, big = ((5, 5, 10) if batch else (1, 5, 10)) if train \
         else ((5, 20, 30) if batch else (1, 5, 10))
@@ -291,9 +290,7 @@ def get_process_list(
             f'wzp6_gammae_eZ_Zqq_ecm{ecm}': {'frac': 1,   'nb': middle}},
     }
     if ecm == 365:
-        category_specific['qq'].update({
-            'wzp6_ee_WbWb_ecm365': {'frac': 1, 'nb': small},
-            'p8_ee_tt_ecm365':     {'frac': 1, 'nb': small}})
+        category_specific['qq'].update({'wzp6_ee_WbWb_ecm365': {'frac': 1, 'nb': small}})
 
     if train:
         bkgs = {**common, **category_specific.get(cat, {})}

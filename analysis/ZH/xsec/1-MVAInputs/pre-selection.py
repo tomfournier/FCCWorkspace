@@ -86,6 +86,12 @@ processList = get_process_list(
     chunks={'wzp6_gaga_ee_60_ecm365': 1},
 )
 
+# Limit decayed signal samples for training. The inclusive training samples
+# named wzp6_ee_{x}H_ecm{ecm} are intentionally left unrestricted.
+for procName, proc_cfg in processList.items():
+    if procName.startswith('wzp6_ee_') and '_H' in procName:
+        proc_cfg['n_max'] = 150_000
+
 
 
 #####################################################
