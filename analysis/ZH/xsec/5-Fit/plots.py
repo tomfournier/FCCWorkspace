@@ -72,9 +72,9 @@ def main():
         for cat, ecm, sel in [(c, e, s) for c in cats for e in ecms for s in sels]:
             all_scans = []
             for i, target in enumerate(targets):
-                inDir  = loc.get('BIAS_WS',         cat, ecm, sel)
+                inDir  = loc.get('BIAS_WS',    cat, ecm, sel)
                 if arg.only1:
-                    outDir = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
+                    outDir = loc.get('BIAS_FIT', cat, ecm, sel)
                 else:
                     outDir = loc.get('BIAS_RESULT', cat, ecm, sel)
                 fIn = f'higgsCombinezh_xsec_{target}.MultiDimFit.mH125.123456.root' if arg.toy \
@@ -93,8 +93,8 @@ def main():
         if arg.which == '':
             # Individual plots for all combinations
             for cat, ecm, sel in [(c, e, s) for c in cats for e in ecms for s in sels]:
-                inDir  = loc.get('NOMINAL_WS',     cat, ecm, sel)
-                outDir = loc.get('NOMINAL_RESULT', cat, ecm, sel)
+                inDir  = loc.get('FIT_WS',     cat, ecm, sel)
+                outDir = loc.get('FIT_RESULT', cat, ecm, sel)
                 fIn = 'higgsCombinezh_xsec.MultiDimFit.mH125.123456.root' if arg.toy \
                     else 'higgsCombinezh_xsec.MultiDimFit.mH125.root'
                 scan = (inDir / fIn, "Observed", colors[0])
@@ -123,7 +123,7 @@ def main():
                     param = list(fixed_vals)
                     param.insert(insert_pos, var_val)
 
-                    inDir = loc.get('NOMINAL_WS', *param)
+                    inDir = loc.get('FIT_WS', *param)
                     fIn = 'higgsCombinezh_xsec.MultiDimFit.mH125.123456.root' if arg.toy \
                         else 'higgsCombinezh_xsec.MultiDimFit.mH125.root'
                     scan  = (inDir / fIn,
@@ -131,7 +131,7 @@ def main():
                              colors[i % len(colors)])
                     all_scans.append(scan)
 
-                out: Path = loc.get('PLOTS_FIT_SCAN') / arg.which
+                out: Path = loc.get('PLOT_SCAN') / arg.which
                 out.mkdir(exist_ok=True, parents=True)
                 plot_1d_scans(
                     all_scans, out, arg.param,

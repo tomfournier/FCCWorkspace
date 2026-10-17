@@ -6,7 +6,7 @@ import time
 
 import pandas as pd
 
-from zh_xsec.tools.utils import load_data
+from zh_xsec.tools.utils import data_from_pkl
 
 # Start timer for performance tracking
 t = time.time()
@@ -95,13 +95,13 @@ def main() -> None:
 
     for sel in sels:
         # Input: Preprocessed training data from process_input.py
-        inputdir  = loc.get('MVA_INPUTS', cat, ecm, sel)
+        inputdir  = loc.get('MVA_INPUT', cat, ecm, sel)
         # Output: Trained BDT models and metadata
-        outputdir = loc.get('BDT',        cat, ecm, sel)
+        outputdir = loc.get('MVA_MODEL', cat, ecm, sel)
 
         # Load preprocessed training dataframe
         LOGGER.debug('Loading preprocessed training data and input variables')
-        df, vars = load_data(inputdir)
+        df, vars = data_from_pkl(inputdir)
 
         print_stats(df, modes)
 

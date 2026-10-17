@@ -26,11 +26,7 @@ LOGGER = logging.getLogger('FCCAnalyses.final-selection')
 
 # Load analysis configuration and predefined histogram config
 from zh_xsec.userConfig import loc
-from samples import (
-    get_process_list,
-    parse_sample_selection,
-    parse_sample_exclusion
-)
+from samples import get_process_list, get_include, get_exclude
 from sel_xsec.final.leptonic import Baseline_cut_ll, histos_ll
 from sel_xsec.final.hadronic import Baseline_cut_qq, histos_qq
 
@@ -48,10 +44,10 @@ LOGGER.info(f'Using {cat = } | {ecm = } | sels = {arg.sels} | {test = } | jan = 
 # Input: Pre-selection ROOT trees and histograms
 if   test:    inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
 elif arg.jan: inputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)  # Jan's samples
-else:         inputDir = loc.get('EVENTS_TRAINING',   cat, ecm)  # Full training sample
+else:         inputDir = loc.get('EVENTS_TRAIN',      cat, ecm)  # Full training sample
 
 # Output: Directory for MVA input histograms
-outputDir = loc.get('HIST_MVA', cat, ecm)
+outputDir = loc.get('HIST_INPUT', cat, ecm)
 
 # Process dictionary with cross-section and sample metadata
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
@@ -79,8 +75,8 @@ intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 processList = get_process_list(
     cat, ecm, train=True,
     onlysig=arg.only_sig, onlybkg=arg.only_bkg,
-    include=parse_sample_selection(arg.include),
-    exclude=parse_sample_exclusion(arg.exclude)
+    include=get_include(arg.include),
+    exclude=get_exclude(arg.exclude)
 ).keys()
 
 

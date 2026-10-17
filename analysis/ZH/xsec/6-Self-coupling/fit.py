@@ -20,7 +20,7 @@ from parsing import set_log, parse_args
 from zh_xsec.parsing import create_parser
 from logger import get_logger
 parser = create_parser('6-Self-coupling', 'fit')
-arg = parse_args(parser, comb=True)  # Parse with combination support
+arg = parse_args(parser, comb=True)
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -35,12 +35,10 @@ LOGGER = get_logger(__name__)
 from path import PathObj
 from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
-from tools.utils import timer  # Timing utility
+from tools.utils import timer
 from zh_xsec.func.fit import (
-    res_saving,
-    run_cmd,
-    get_results,
-    get_grid_number,
+    res_saving, run_cmd,
+    get_results, get_grid_number,
     convert_to_kappa
 )
 from zh_xsec.func.self_coupling import get_parameters
@@ -80,12 +78,12 @@ if arg.combine: arg.cat = 'combined'
 args = [arg.cat, 0, arg.sel]
 
 # Resolve directory paths based on configuration and arguments
-dr:   PathObj = loc.get('NLO',          *args)   # Working directory
-dc:   PathObj = loc.get('NLO_DATACARD', *args)   # Input datacard directory
-ws:   PathObj = loc.get('NLO_WS',       *args)   # Workspace directory
-log:  PathObj = loc.get('NLO_LOG',      *args)   # Log output directory
-res:  PathObj = loc.get('NLO_RESULT',   *args)   # Results output directory
-scan: PathObj = loc.get('NLO_FASTSCAN', *args)   # Fast scan directory
+dr:   PathObj = loc.get('SELF',        *args)   # Working directory
+dc:   PathObj = loc.get('SELF_CARD',   *args)   # Input datacard directory
+ws:   PathObj = loc.get('SELF_WS',     *args)   # Workspace directory
+log:  PathObj = loc.get('SELF_LOG',    *args)   # Log output directory
+res:  PathObj = loc.get('SELF_RESULT', *args)   # Results output directory
+scan: PathObj = loc.get('SELF_SCAN',   *args)   # Fast scan directory
 
 # Define naming suffixes for file outputs
 comb = '_combined' if arg.combine else ''  # Combined channel suffix
@@ -102,8 +100,8 @@ log_fit   = log / 'log_results_fit.txt'       # Fit results log (fit results)
 
 # Datacard file definition
 dc_nom = dc / f'datacard{comb}.txt'
-dc_240 = loc.get('NOMINAL_DATACARD', arg.cat, 240, arg.sel) / f'datacard{comb}.txt'
-dc_365 = loc.get('NOMINAL_DATACARD', arg.cat, 365, arg.sel) / f'datacard{comb}.txt'
+dc_240 = loc.get('FIT_CARD', arg.cat, 240, arg.sel) / f'datacard{comb}.txt'
+dc_365 = loc.get('FIT_CARD', arg.cat, 365, arg.sel) / f'datacard{comb}.txt'
 
 # Set up environment for subprocess calls
 env = os.environ.copy()

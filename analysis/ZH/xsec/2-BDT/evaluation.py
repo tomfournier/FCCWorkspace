@@ -40,11 +40,8 @@ from path import PathObj
 loc.set_default_type(PathObj)
 
 # Import configuration utilities and labels paremeters
-from constants import (
-    modes_label, modes_color,        # Plot styling for processes
-    vars_label_ll,
-    vars_label_qq
-)
+from constants import (modes_label, modes_color,
+                       vars_label_ll, vars_label_qq)
 from tools.utils import timer
 from samples import get_bdt_modes
 
@@ -53,10 +50,8 @@ from zh_xsec.tools.utils import data_from_pkl
 
 # Import BDT model utilities
 from zh_xsec.func.bdt import (
-    load_model,    # Load trained XGBoost model
-    get_metrics,   # Extract training curves from model
-    print_stats,   # Display event statistics
-    evaluate_bdt   # Apply BDT to data and compute scores
+    load_model, get_metrics,
+    print_stats, evaluate_bdt
 )
 
 
@@ -197,9 +192,9 @@ if __name__=='__main__':
     try:
         # Evaluate trained BDT models for each selection strategy
         for sel in sels:
-            inputdir  = loc.get('MVA_INPUTS',  cat, ecm, sel)
-            outputdir = loc.get('PLOTS_BDT',   cat, ecm, sel)
-            loc_BDT   = loc.get('BDT',         cat, ecm, sel)
+            inputdir  = loc.get('MVA_INPUT', cat, ecm, sel)
+            outputdir = loc.get('PLOT_BDT',  cat, ecm, sel)
+            loc_BDT   = loc.get('MVA_MODEL', cat, ecm, sel)
 
             # Load preprocessed evaluation data
             LOGGER.info(f'Getting DataFrame from {sel}')

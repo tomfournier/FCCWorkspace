@@ -33,16 +33,10 @@ LOGGER = get_logger(__name__)
 
 # Load directory paths and histogram processing utilities
 from zh_xsec.userConfig import loc
-from samples import (
-    get_process_dict,   # Build process definitions
-    get_process_list
-)
+from samples import get_process_dict, get_process_list
 from tools.utils import timer, mkdir
-from constants import H_decays   # Higgs decay modes
-from zh_xsec.tools.process import (       # Histogram utilities
-    get_hist, concat,
-    unroll, stack_hist
-)
+from constants import H_decays
+from tools.process import get_hist, concat, unroll, stack_hist
 
 
 
@@ -96,13 +90,13 @@ def run(cats: str,
         sels: List of selection strategies
 
     Returns:
-        None (writes processed histograms to HIST_PROCESSED directories)
+        None (writes processed histograms to HIST_PROC directories)
     """
 
     # Process each final state category
     for cat in cats:
         LOGGER.info(f'Processing histograms for {cat}')
-        inDir = loc.get('HIST_PREPROCESSED', cat, ecm)
+        inDir = loc.get('HIST_RAW', cat, ecm)
 
         # Histograms to process for BDT training/measurement
         hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_recoil_m_tot', 'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_tot_mva', 'zqq_m_recoil_m_full_mva']
@@ -112,7 +106,7 @@ def run(cats: str,
         for sel in sels:
             LOGGER.info(f'Processing histograms for {sel}')
 
-            outDir = loc.get('HIST_PROCESSED', cat, ecm, sel)
+            outDir = loc.get('HIST_PROC', cat, ecm, sel)
             mkdir(outDir)
 
             # Define histogram name suffixes for control regions and combined

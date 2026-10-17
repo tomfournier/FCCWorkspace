@@ -98,8 +98,8 @@ def main():
                      for proc in bkg_procs.keys()}
             systs_procs = {}
             for sel in sels:
-                inputDir  = loc.get('HIST_PROCESSED',   cat, ecm, sel)
-                outputDir = loc.get('NOMINAL_DATACARD', cat, ecm, sel)
+                inputDir  = loc.get('HIST_PROC', cat, ecm, sel)
+                outputDir = loc.get('FIT_CARD',  cat, ecm, sel)
 
                 do_combine(
                     inputDir, outputDir, hist_names,

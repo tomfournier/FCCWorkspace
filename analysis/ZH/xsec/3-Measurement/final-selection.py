@@ -25,23 +25,12 @@ LOGGER = logging.getLogger('FCCAnalyses.final-selection')
 ##########################################################
 
 # Load configuration and measurement selection functions
-from zh_xsec.userConfig import loc, event
-from zh_xsec.func.bdt   import def_bdt, make_high_low  # BDT score binning utilities
-from sel_xsec.final.leptonic import (
-    Baseline_cut_ll,  # Baseline cut definition      (leptonic channel)
-    histos_ll,        # Histogram definitions        (leptonic channel)
-    custom_hists_ll   # Custom histogram definitions (leptonic channel)
-)
-from sel_xsec.final.hadronic import (
-    Baseline_cut_qq,  # Baseline cut definition      (hadronic channel)
-    histos_qq,        # Histogram definitions        (hadronic channel)
-    custom_hists_qq   # Custom histogram definitions (hadronic channel)
-)
-from samples import (
-    get_process_list,
-    parse_sample_selection,
-    parse_sample_exclusion
-)
+from zh_xsec.userConfig import loc
+from zh_xsec.func.bdt   import def_bdt, make_high_low
+from sel_xsec.final.leptonic import Baseline_cut_ll, histos_ll, custom_hists_ll
+from sel_xsec.final.hadronic import Baseline_cut_qq, histos_qq, custom_hists_qq
+from samples import get_process_list, get_include, get_exclude
+from utilities import has_events
 
 
 
@@ -59,7 +48,7 @@ else:         inputDir = loc.get('EVENTS',      cat, ecm)  # Full event samples
 
 
 # Output: Directory for measurement histograms (used by measurement/fit stages)
-outputDir = loc.get('HIST_PREPROCESSED', cat, ecm)
+outputDir = loc.get('HIST_RAW', cat, ecm)
 
 # Process dictionary with cross-section and sample metadata
 # Source: /cvmfs/fcc.cern.ch/FCCDicts
@@ -86,16 +75,16 @@ intLumi = lumi * 1e6  # Integrated luminosity in pb^-1
 # These are processed through final selection cuts and histogram filling
 samples = get_process_list(
     cat, ecm, onlysig=arg.only_sig, onlybkg=arg.only_bkg,
-    include=parse_sample_selection(arg.include),
-    exclude=parse_sample_exclusion(arg.exclude)
+    include=get_include(arg.include),
+    exclude=get_exclude(arg.exclude)
 ).keys()
 
 # Load event samples with events TTree
-processList = event(samples, inputDir)
+processList = has_events(samples, inputDir)
 
 # Define BDT score from trained model and apply BDT cut
-if test: loc_BDT = loc.get('BDT', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'test')
-else:    loc_BDT = loc.get('BDT', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'Baseline')
+if test: loc_BDT = loc.get('MVA_MODEL', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'test')
+else:    loc_BDT = loc.get('MVA_MODEL', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'Baseline')
 LOGGER.info(f'Using BDT from {loc_BDT}')
 defineList, bdt_cut = def_bdt(loc_BDT, weight_suffix=f'_{arg.weight_suffix}')
 

@@ -406,7 +406,7 @@ def df_split_data(
 
 
 # _______________________________________________
-def apply_balanced_training_weights(
+def balance_training_weights(
     df: dict[str, 'pd.DataFrame'],
     modes: dict[str, list[str]],
     sig: str,

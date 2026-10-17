@@ -36,10 +36,7 @@ LOGGER.debug('Loading custom modules')
 
 # Configuration and directory management
 from zh_xsec.userConfig import loc
-from zh_xsec.userConfig import (
-    input_vars_ll,              # List of variables for BDT training (hadronic channel)
-    input_vars_qq,              # List of variables for BDT training (hadronic channel)
-)
+from zh_xsec.userConfig import input_vars_ll, input_vars_qq
 from samples import get_bdt_modes
 from tools.utils import timer
 
@@ -49,12 +46,9 @@ from tools.utils import get_paths, get_procDict
 
 # BDT data preparation functions
 from zh_xsec.func.bdt import (
-    counts_and_effs,            # Calculate event counts and efficiencies
-    additional_info,            # Add signal/background labels and weights
-    BDT_input_numbers,          # Determine optimal training set sizes
-    sample_df_by_xsec,          # Sample process dataframes in proportion to cross-sections
-    df_split_data,              # Split data into training/validation sets
-    apply_balanced_training_weights
+    counts_and_effs, additional_info,
+    BDT_input_numbers, sample_df_by_xsec,
+    df_split_data, balance_training_weights
 )
 
 LOGGER.debug('Modules loaded')
@@ -69,7 +63,7 @@ LOGGER.debug('Modules loaded')
 cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
 lumi = 10.8 if ecm == 240 else (3.12 if ecm == 365 else -1)
 
-inputdir = loc.get('HIST_MVA', cat, ecm)  # Input directory with MVA histograms
+inputdir = loc.get('HIST_INPUT', cat, ecm)  # Input directory with MVA histograms
 input_vars = input_vars_ll if cat in ['ee', 'mumu'] else input_vars_qq
 
 # Process modes for BDT training (signal and all major background processes)
@@ -114,7 +108,7 @@ def main() -> None:
 
     for sel in sels:
         # Output directory for preprocessed pickle files
-        outputdir = loc.get('MVA_INPUTS', cat, ecm, sel)
+        outputdir = loc.get('MVA_INPUT', cat, ecm, sel)
 
         # Initialize storage containers for each process
         eff, eff_proc, N_procs, N_events = {}, {}, {}, {m:0 for m in modes}
@@ -168,7 +162,7 @@ def main() -> None:
             if df[mode].shape[0] == 0: continue
             df[mode] = df_split_data(df[mode], N_BDT_inputs, mode, lumi, arg.test_size)
 
-        good_modes = apply_balanced_training_weights(df, modes, sig)
+        good_modes = balance_training_weights(df, modes, sig)
 
         # Merge all processes and save to single pickle file for BDT training
         dfsum = pd.concat([df[mode] for mode in good_modes])

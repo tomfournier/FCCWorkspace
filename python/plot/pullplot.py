@@ -21,6 +21,8 @@ class PullPlot:
 		lumi: float = 10.8,
 		xtitle: str = '',
 		name: str = 'pulls',
+		reference_row: bool = True,
+		reference_marker: bool = True,
 	) -> None:
 		if not values:
 			raise ValueError('PullPlot requires at least one value')
@@ -32,6 +34,8 @@ class PullPlot:
 		self.labels = list(labels)
 		self.reference       = ref
 		self.reference_error = ref_err
+		self.reference_row   = reference_row
+		self.reference_marker = reference_marker
 		self.ecm  = ecm
 		self.lumi = lumi
 		self.xtitle = xtitle
@@ -42,7 +46,7 @@ class PullPlot:
 
 	@property
 	def row_count(self) -> int:
-		return len(self.labels) + (1 if self.reference is not None else 0)
+		return len(self.labels) + (1 if self.reference is not None and self.reference_row else 0)
 
 	def _x_range(self) -> tuple[int, int]:
 		values = self.values + ([self.reference] if self.reference is not None else [])
@@ -54,7 +58,7 @@ class PullPlot:
 		histogram = ROOT.TH2F(self.name, self.name, max(1, int((xmax - xmin) * 10)),
 		                      xmin, xmax, self.row_count, 0, self.row_count)
 		offset = 0
-		if self.reference is not None:
+		if self.reference is not None and self.reference_row:
 			histogram.GetYaxis().SetBinLabel(1, 'Average')
 			offset = 1
 		for index, label in enumerate(self.labels):
@@ -83,8 +87,12 @@ class PullPlot:
 
 	def output_dir(self) -> Path:
 		'''Return the configured output directory for this selection.'''
-		if self.outputdir is None or self.selection is None:
-			raise ValueError('outputdir and selection are required for automatic paths')
+		if self.outputdir is None:
+			raise ValueError('outputdir is required for automatic paths')
+		if not self.output_subdir:
+			return Path(self.outputdir)
+		if self.selection is None:
+			raise ValueError('selection is required for automatic paths')
 
 		base_selection = self.selection.replace('_high', '').replace('_low', '')
 		direction = ('high' if '_high' in self.selection else 'low' if '_low' in self.selection else 'nominal')
@@ -102,6 +110,7 @@ class PullPlot:
 		top_left: str = '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
 		top_right: str | None = None,
 		statistics: Sequence[str] = (),
+		point_colors: Sequence[Any] | None = None,
 	) -> None:
 		import ROOT
 		from . import plotter
@@ -147,18 +156,43 @@ class PullPlot:
 			band.SetFillColorAlpha(16, 0.35)
 			band.Draw('SAME F')
 
-		offset = 1 if self.reference is not None else 0
-		graph = ROOT.TGraphErrors(len(self.values) + offset)
-		if self.reference is not None:
-			graph.SetPoint(0, self.reference, 0.5)
-			graph.SetPointError(0, self.reference_error, 0.)
-		for index, (value, error) in enumerate(zip(self.values, self.errors)):
-			graph.SetPoint(index + offset, value, index + offset + 0.5)
-			graph.SetPointError(index + offset, error, 0.)
-		graph.SetMarkerSize(1.2)
-		graph.SetMarkerStyle(20)
-		graph.SetLineWidth(2)
-		graph.Draw('P0 SAME')
+		offset = 1 if self.reference is not None and self.reference_row else 0
+		if point_colors is not None and len(point_colors) != len(self.values):
+			raise ValueError('point_colors must match the number of values')
+
+		graphs = []
+		if self.reference is not None and self.reference_marker:
+			reference_graph = ROOT.TGraphErrors(1)
+			reference_graph.SetPoint(0, self.reference, 0.5)
+			reference_graph.SetPointError(0, self.reference_error, 0.)
+			graphs.append((reference_graph, None))
+
+		if point_colors is None:
+			groups = [(None, list(range(len(self.values))))]
+		else:
+			groups = []
+			for index, color in enumerate(point_colors):
+				for group_color, group_indices in groups:
+					if group_color == color:
+						group_indices.append(index)
+						break
+				else:
+					groups.append((color, [index]))
+
+		for color, indices in groups:
+			graph = ROOT.TGraphErrors(len(indices))
+			for point, index in enumerate(indices):
+				graph.SetPoint(point, self.values[index], index + offset + 0.5)
+				graph.SetPointError(point, self.errors[index], 0.)
+			graphs.append((graph, color))
+
+		for graph, color in graphs:
+			if color is not None:
+				graph.SetMarkerColor(color)
+			graph.SetMarkerSize(1.2)
+			graph.SetMarkerStyle(20)
+			graph.SetLineWidth(2)
+			graph.Draw('P0 SAME')
 
 		latex = plotter.setup_latex(0.045, 30, 1, 42)
 		latex.DrawLatex(0.95, 0.925, top_right)

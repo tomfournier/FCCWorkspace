@@ -42,12 +42,8 @@ LOGGER = get_logger(__name__)
 from zh_xsec.userConfig import loc
 from tools.utils import timer
 from samples import get_process_dict
-from constants import (
-    z_decays,           # Z boson decay modes
-    h_decays,           # Higgs decay modes (visible only)
-    H_decays            # Higgs decay modes (all including invisible)
-)
-from zh_xsec.func.bias import pseudo_datacard  # Pseudo-datacard generation utilities
+from constants import z_decays, h_decays, H_decays
+from zh_xsec.func.bias import pseudo_datacard
 
 
 
@@ -59,8 +55,8 @@ from zh_xsec.func.bias import pseudo_datacard  # Pseudo-datacard generation util
 cat, ecm, sel, tot = arg.cat, arg.ecm, arg.sel, not arg.tot  # Include all Z decays if --tot not specified
 
 # Define input/output directories
-inDir  = loc.get('HIST_PROCESSED', cat, ecm, sel)  # Input: processed histograms
-outDir = loc.get('BIAS_DATACARD',  cat, ecm, sel)  # Output: pseudo-data datacards
+inDir  = loc.get('HIST_PROC', cat, ecm, sel)  # Input: processed histograms
+outDir = loc.get('BIAS_CARD', cat, ecm, sel)  # Output: pseudo-data datacards
 
 # Define observable for pseudo-data generation
 hNames, categories = ('zll_recoil_m',), (f'z_{cat}',)  # Recoil mass histogram
@@ -131,13 +127,7 @@ if __name__=='__main__' and (arg.run or arg.onlyrun):
     try:
         show_cmd = ' '.join(cmd)
         LOGGER.info(f'Running fit command: {show_cmd}')
-        result = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=False,
-            text=True,
-            env=os.environ.copy()
-        )
+        result = subprocess.run(cmd, check=False, capture_output=False, text=True, env=os.environ.copy())
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

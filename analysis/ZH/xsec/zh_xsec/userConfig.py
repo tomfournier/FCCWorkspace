@@ -24,7 +24,6 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os
 from pathlib import Path
 
 from path import loc, LocPath
@@ -66,109 +65,67 @@ input_vars_qq = (
 
 repo = str(Path(__file__).parent.parent.resolve())
 
-# Templates as LocPath strings with placeholders: cat, ecm, sel
-loc.ROOT                = LocPath(repo)                    # Repository root
-loc.PACKAGE             = LocPath(f'{repo}/zh_xsec')       # Python package directory
-loc.OUT                 = LocPath(f'{repo}/output')        # Output root directory
-loc.PLOTS               = LocPath(f'{repo}/output/plots')  # All plots output
-loc.DATA                = LocPath(f'{repo}/output/data')   # All data artifacts
-loc.TMP                 = LocPath(f'{repo}/output/tmp')    # Temporary/scratch data
+# Base locations. Each numbered root is a complete stage of the workflow.
+loc.ROOT      = LocPath(repo)                     # Repository root
+loc.PACKAGE   = LocPath(f'{repo}/zh_xsec')        # Shared Python package
+loc.OUT       = LocPath(f'{repo}/output')         # All generated output
+loc.DATA      = LocPath(f'{repo}/output/data')    # Generated data files
+loc.PLOTS     = LocPath(f'{repo}/output/plots')   # Generated plots
+loc.TMP       = LocPath(f'{repo}/output/tmp')     # Temporary files
 
-loc.JSON                = LocPath(f'{repo}/output/tmp/config_json')      # JSON configuration directory
-loc.RUN                 = LocPath(f'{repo}/output/tmp/config_json/run')  # Per-run configuration directory
+# Data output's main directories
+loc.EVENTS_DIR = LocPath(f'{repo}/output/data/1-events')       # 1. Event samples
+loc.HIST_DIR   = LocPath(f'{repo}/output/data/2-histograms')   # 2. Histogram stages
+loc.MVA_DIR    = LocPath(f'{repo}/output/data/3-MVA')          # 3. MVA inputs and models
+loc.FIT_DIR    = LocPath(f'{repo}/output/data/4-combine')      # 4. Statistical fits
+loc.NLO_DIR    = LocPath(f'{repo}/output/data/5-nlo')          # 5. Self-coupling fits
 
-# Event directories: templates use {ecm}, {cat} placeholders
-loc.EVENTS_TRAINING     = LocPath(f'{repo}/output/data/events/ecm/cat/full/training')  # Full event samples for BDT training
-loc.EVENTS              = LocPath(f'{repo}/output/data/events/ecm/cat/full/analysis')  # Full event samples for analysis
-loc.EVENTS_TRAIN_TEST   = LocPath(f'{repo}/output/data/events/ecm/cat/test/training')  # Test event samples for BDT training
-loc.EVENTS_TEST         = LocPath(f'{repo}/output/data/events/ecm/cat/test/analysis')  # Test event samples for analysis
-loc.EVENTS_TRAIN_JAN    = LocPath(f'{repo}/output/data/events/ecm/cat/jan/training')   # Test event samples for BDT training with Jan's defintion
-loc.EVENTS_JAN          = LocPath(f'{repo}/output/data/events/ecm/cat/jan/analysis')   # Test event samples for analysis with Jan's definition
+# Events: ecm and cat are path placeholders.
+loc.EVENTS_TRAIN      = LocPath(f'{repo}/output/data/1-events/ecm/cat/training/full')   # Full  training events
+loc.EVENTS            = LocPath(f'{repo}/output/data/1-events/ecm/cat/analysis/full')   # Full  analysis events
+loc.EVENTS_TRAIN_TEST = LocPath(f'{repo}/output/data/1-events/ecm/cat/training/test')   # Test  training events
+loc.EVENTS_TEST       = LocPath(f'{repo}/output/data/1-events/ecm/cat/analysis/test')   # Test  analysis events
+loc.EVENTS_TRAIN_JAN  = LocPath(f'{repo}/output/data/1-events/ecm/cat/training/jan')    # Jan's training events
+loc.EVENTS_JAN        = LocPath(f'{repo}/output/data/1-events/ecm/cat/analysis/jan')    # Jan's analysis events
 
-# Multivariate analysis (BDT): templates use {ecm}, {cat}, {sel} placeholders
-loc.MVA                 = LocPath(f'{repo}/output/data/MVA')                        # MVA root directory
-loc.MVA_INPUTS          = LocPath(f'{repo}/output/data/MVA/ecm/cat/sel/MVAInputs')  # BDT input variables
-loc.BDT                 = LocPath(f'{repo}/output/data/MVA/ecm/cat/sel/BDT')        # Trained BDT models
+# Histograms: ecm, cat and sel are path placeholders.
+loc.HIST_INPUT = LocPath(f'{repo}/output/data/2-histograms/1-inputs/ecm/cat')          # Histogram inputs
+loc.HIST_RAW   = LocPath(f'{repo}/output/data/2-histograms/2-raw-hists/ecm/cat')       # Raw histograms
+loc.HIST_PROC  = LocPath(f'{repo}/output/data/2-histograms/3-processed/ecm/cat/sel')   # Processed histograms
 
-# Histograms: templates use {ecm}, {cat}, {sel} placeholders
-loc.HIST                = LocPath(f'{repo}/output/data/histograms')                           # Histograms root directory
-loc.HIST_MVA            = LocPath(f'{repo}/output/data/histograms/MVAInputs/ecm/cat/')        # MVA input variable histograms
-loc.HIST_PREPROCESSED   = LocPath(f'{repo}/output/data/histograms/preprocessed/ecm/cat')      # After final selection
-loc.HIST_PROCESSED      = LocPath(f'{repo}/output/data/histograms/processed/ecm/cat/sel')     # After histogram processing
-loc.HIST_OPTIMISATION   = LocPath(f'{repo}/output/data/histograms/optimisation/ecm/cat/sel')  # Optimisation analysis histograms
+# MVA: ecm, cat, and sel are path placeholders.
+loc.MVA_INPUT  = LocPath(f'{repo}/output/data/3-MVA/1-inputs/ecm/cat/sel')   # MVA input variables
+loc.MVA_MODEL  = LocPath(f'{repo}/output/data/3-MVA/2-bdt/ecm/cat/sel')      # Trained BDT models
 
-# Plots: templates use {ecm}, {cat}, {sel} placeholders
-loc.PLOTS_MVA           = LocPath(f'{repo}/output/plots/1-MVAInputs/ecm/cat')       # Input variable distributions
-loc.PLOTS_BDT           = LocPath(f'{repo}/output/plots/2-evaluation/ecm/cat/sel')  # BDT performance and scores
-loc.PLOTS_MEASUREMENT   = LocPath(f'{repo}/output/plots/3-measurement/ecm/cat')     # Analysis measurement plots
-loc.PLOTS_FIT_SCAN      = LocPath(f'{repo}/output/plots/4-fit/scans')               # Likelyhood scan comparison plots
-loc.PLOTS_FIT_NLO       = LocPath(f'{repo}/output/plots/4-fit/nlo')                 # NLO scan comparison plots
+# Plots: keep the same numbered order as the analysis stages.
+loc.PLOT_INPUT = LocPath(f'{repo}/output/plots/1-MVAInputs/ecm/cat')     # Input distributions
+loc.PLOT_BDT   = LocPath(f'{repo}/output/plots/2-BDT/ecm/cat/sel')       # BDT evaluation plots
+loc.PLOT_MEAS  = LocPath(f'{repo}/output/plots/3-measurement/ecm/cat')   # Measurement plots
+loc.PLOT_SCAN  = LocPath(f'{repo}/output/plots/4-fit')                   # Fit scan plots
+loc.PLOT_NLO   = LocPath(f'{repo}/output/plots/5-nlo')                   # Self-coupling plots
 
-# Statistical fit: templates use {sel}, {ecm}, {cat} placeholders
-loc.COMBINE             = LocPath(f'{repo}/output/data/combine/sel/ecm/cat')           # Combine root directory
-loc.COMBINE_NOMINAL     = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/nominal')   # Nominal analysis
-loc.COMBINE_BIAS        = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/bias')      # Bias test results
+# Combine outputs: sel, ecm, and cat are path placeholders.
+loc.FIT         = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat')             # Combine output root
+loc.FIT_NOMINAL = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/1-nominal')   # Nominal fit
+loc.FIT_BIAS    = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/2-bias')      # Bias tests
 
-# Nominal fit outputs: templates use {sel}, {ecm}, {cat} placeholders
-loc.NOMINAL_LOG         = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/nominal/log')       # Combine job logs
-loc.NOMINAL_RESULT      = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/nominal/results')   # Fit results and plots
-loc.NOMINAL_DATACARD    = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/nominal/datacard')  # Combine datacards
-loc.NOMINAL_FASTSCAN    = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/nominal/fastscan')  # To check the nll of the fit
-loc.NOMINAL_WS          = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/nominal/WS')        # Combine workspaces
+loc.FIT_LOG     = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/1-nominal/log')        # Fit logs
+loc.FIT_RESULT  = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/1-nominal/results')    # Fit results
+loc.FIT_CARD    = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/1-nominal/datacard')   # Nominal datacards
+loc.FIT_SCAN    = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/1-nominal/fastscan')   # Fast scans
+loc.FIT_WS      = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/1-nominal/WS')         # Workspaces
 
-# Bias test outputs: templates use {sel}, {ecm}, {cat} placeholders
-loc.BIAS_LOG            = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/bias/log')           # Combine job logs
-loc.BIAS_FIT_RESULT     = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/bias/results/fit')   # Individual toy fit results
-loc.BIAS_RESULT         = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/bias/results/bias')  # Bias summaries and statistics
-loc.BIAS_DATACARD       = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/bias/datacard')      # Combine datacards
-loc.BIAS_FASTSCAN       = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/bias/fastscan')      # To check the nll of the fit
-loc.BIAS_WS             = LocPath(f'{repo}/output/data/combine/sel/ecm/cat/bias/WS')            # Combine workspaces
+loc.BIAS_LOG    = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/2-bias/log')              # Bias logs
+loc.BIAS_RESULT = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/2-bias/results/1-bias')   # Bias test results
+loc.BIAS_FIT    = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/2-bias/results/2-fit')    # Bias fit results
+loc.BIAS_CARD   = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/2-bias/datacard')         # Bias datacards
+loc.BIAS_SCAN   = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/2-bias/fastscan')         # Bias fast scans
+loc.BIAS_WS     = LocPath(f'{repo}/output/data/4-combine/sel/ecm/cat/2-bias/WS')               # Bias workspaces
 
-# Self-coupling outputs: templates use {sel}, {ecm}, {cat} placeholders
-loc.NLO                = LocPath(f'{repo}/output/data/nlo/sel/cat')               # Self-coupling root directory
-loc.NLO_LOG            = LocPath(f'{repo}/output/data/nlo/sel/cat/log')           # Combine job logs
-loc.NLO_RESULT         = LocPath(f'{repo}/output/data/nlo/sel/cat/results')       # Fit results and plots
-loc.NLO_DATACARD       = LocPath(f'{repo}/output/data/nlo/sel/cat/datacard')      # Combine datacards
-loc.NLO_FASTSCAN       = LocPath(f'{repo}/output/data/nlo/sel/cat/fastscan')      # To check the nll of the fit
-loc.NLO_WS             = LocPath(f'{repo}/output/data/nlo/sel/cat/WS')            # Combine workspaces
-
-
-
-#################
-### FUNCTIONS ###
-#################
-
-def event(procs: list[str],
-          path: str = '',
-          end: str = '.root'
-          ) -> list[str]:
-    '''Filter processes that contain valid ROOT event trees.
-
-    Validates that all files for each process contain the 'events' TTree.
-    Supports both single files and directories with multiple files.
-
-    Args:
-        procs: List of process names to validate
-        path: Base path where process files are located
-        end: File extension to search for (default: '.root')
-
-    Returns:
-        List of process names where all associated files contain 'events' TTree
-    '''
-    import uproot
-    from glob import glob
-
-    newprocs = []
-    for proc in procs:
-        file = os.path.join(path, proc)
-        # Check for single file or directory with multiple files
-        filenames = [f'{file}{end}'] \
-            if os.path.exists(f'{file}{end}') \
-            else glob(f'{file}/*')
-
-        # Verify all files contain 'events' TTree
-        isTTree = [i for i, filename in enumerate(filenames)
-                   if 'events' in uproot.open(filename)]
-        if len(isTTree)==len(filenames):
-            newprocs.append(proc)
-    return newprocs
+# Self-coupling outputs: sel and cat are path placeholders.
+loc.SELF        = LocPath(f'{repo}/output/data/5-nlo/sel/cat')            # Self-coupling output root
+loc.SELF_LOG    = LocPath(f'{repo}/output/data/5-nlo/sel/cat/log')        # Self-coupling logs
+loc.SELF_RESULT = LocPath(f'{repo}/output/data/5-nlo/sel/cat/results')    # Self-coupling results
+loc.SELF_CARD   = LocPath(f'{repo}/output/data/5-nlo/sel/cat/datacard')   # Self-coupling datacards
+loc.SELF_SCAN   = LocPath(f'{repo}/output/data/5-nlo/sel/cat/fastscan')   # Self-coupling scans
+loc.SELF_WS     = LocPath(f'{repo}/output/data/5-nlo/sel/cat/WS')         # Self-coupling workspaces

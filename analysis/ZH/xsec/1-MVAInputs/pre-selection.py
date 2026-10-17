@@ -5,11 +5,6 @@
 from pathlib import Path
 import sys, logging
 
-# Add parent directory to path so zh_xsec and sel modules are found
-# This is necessary for HTCondor batch jobs to find local modules
-# script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# if script_dir not in sys.path: sys.path.insert(0, script_dir)
-
 
 
 ########################
@@ -31,11 +26,7 @@ LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
 ##########################################################
 
 from zh_xsec.userConfig import loc
-from samples import (
-    get_process_list,
-    parse_sample_selection,
-    parse_sample_exclusion,
-)
+from samples import get_process_list, get_include, get_exclude
 from sel_xsec.presel.leptonic import training_ll, branch_list_ll
 from sel_xsec.presel.hadronic import training_qq, branch_list_qq
 
@@ -51,7 +42,7 @@ LOGGER.info(f'Running the pre-selection for {cat = } | {ecm = } | {test = }')
 # Output directory for training events (default is local directory)
 if   test:    outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
 elif arg.jan: outputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)  # Jan's samples
-else:         outputDir = loc.get('EVENTS_TRAINING',   cat, ecm)  # Full event samples
+else:         outputDir = loc.get('EVENTS_TRAIN',      cat, ecm)  # Full event samples
 
 # Custom C++ analysis functions for particle selection and kinematic calculations
 includePaths = ['../../../../functions/functions.h',
@@ -90,8 +81,8 @@ if arg.run_batch:
 processList = get_process_list(
     cat, ecm, train=True, batch=runBatch,
     onlysig=arg.only_sig, onlybkg=arg.only_bkg,
-    include=parse_sample_selection(arg.include),
-    exclude=parse_sample_exclusion(arg.exclude),
+    include=get_include(arg.include),
+    exclude=get_exclude(arg.exclude),
     chunks={'wzp6_gaga_ee_60_ecm365': 1},
 )
 

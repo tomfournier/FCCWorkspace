@@ -38,10 +38,8 @@ loc.set_default_type(Path)
 from tools.utils import timer  # Timing utility
 from run import get_extra_args, update_namespace
 from zh_xsec.func.fit import (
-    check_log,
-    get_results,
-    res_saving,
-    run_cmd
+    check_log, get_results,
+    res_saving, run_cmd
 )
 
 
@@ -67,21 +65,21 @@ else:
 # This allows reusing code for both standard fits and bias test procedures
 location_map = {
     False: {  # Nominal fit (standard measurement)
-        'dir':  'COMBINE_NOMINAL',      # Main working directory
-        'dc':   'NOMINAL_DATACARD',     # Input datacard directory
-        'ws':   'NOMINAL_WS',           # Workspace output directory
-        'log':  'NOMINAL_LOG',          # Log file directory
-        'res':  'NOMINAL_RESULT',       # Fit results output directory
-        'scan': 'NOMINAL_FASTSCAN',     # Check the fit stability
+        'dir':  'FIT_NOMINAL',  # Main working directory
+        'dc':   'FIT_CARD',     # Input datacard directory
+        'ws':   'FIT_WS',       # Workspace output directory
+        'log':  'FIT_LOG',      # Log file directory
+        'res':  'FIT_RESULT',   # Fit results output directory
+        'scan': 'FIT_SCAN',     # Check the fit stability
         'tp':   'nominal',              # Type label for naming
     },
     True: {   # Bias test fit (for testing fit bias)
-        'dir':  'COMBINE_BIAS',         # Bias test working directory
-        'dc':   'BIAS_DATACARD',        # Input biased datacard directory
-        'ws':   'BIAS_WS',              # Workspace output directory
-        'log':  'BIAS_LOG',             # Log file directory
-        'res':  'BIAS_FIT_RESULT',      # Fit results output directory
-        'scan': 'BIAS_FASTSCAN',        # Check the fit stability
+        'dir':  'FIT_BIAS',  # Bias test working directory
+        'dc':   'BIAS_CARD', # Input biased datacard directory
+        'ws':   'BIAS_WS',   # Workspace output directory
+        'log':  'BIAS_LOG',  # Log file directory
+        'res':  'BIAS_FIT',  # Fit results output directory
+        'scan': 'BIAS_SCAN', # Check the fit stability
         'tp':   'bias',                 # Type label for naming
     }
 }
@@ -100,7 +98,7 @@ tp            = config['tp']                          # Type identifier
 # Define naming suffixes for file outputs
 comb    = '_combined' if arg.combine else ''                     # Combined channel suffix
 tar     = f'_{arg.target}' if arg.bias else ''                   # Bias test target suffix (e.g., _bb)
-dcs = loc.get('COMBINE', '', arg.ecm, arg.sel)  # Combined datacard location
+dcs = loc.get('FIT', '', arg.ecm, arg.sel)  # Combined datacard location
 
 # Define full file paths for workspace, logs, and results
 ws_file   = ws  / f'ws{tar}.root'                                   # Workspace file (workspace.root or workspace_bb.root)

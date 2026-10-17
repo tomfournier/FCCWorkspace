@@ -43,7 +43,7 @@ LOGGER = get_logger(__name__)
 ### PROCESSES FUNCTION ###
 ##########################
 
-def parse_sample_selection(selection: str) -> dict[str, dict[str, float | int]]:
+def get_include(selection: str) -> dict[str, dict[str, float | int]]:
     '''Parse CLI sample selections into process overrides.
 
     Entries are separated by ``:``. Each entry is either a sample name, or a
@@ -82,7 +82,7 @@ def parse_sample_selection(selection: str) -> dict[str, dict[str, float | int]]:
     return samples
 
 
-def parse_sample_exclusion(exclusion: str) -> set[str]:
+def get_exclude(exclusion: str) -> set[str]:
     '''Parse colon-separated sample names for the exclusion option.'''
     return {sample.strip() for sample in exclusion.split(':') if sample.strip()}
 

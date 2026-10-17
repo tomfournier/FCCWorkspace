@@ -39,14 +39,10 @@ from constants import (
 )
 from tools.utils import timer
 from samples import get_process_dict
-from zh_xsec.plots.plotting import Bias, PseudoRatio          # Plotting utilities
-from zh_xsec.tools.utils import mkdir                         # Directory creation
-from zh_xsec.tools.process import (                           # Process utilities
-    preload_histograms,                                       # Cache histograms
-    clear_histogram_cache,
-    getMetaInfo
-)
-from zh_xsec.func.bias import pseudo_datacard                 # Bias test utilities
+from zh_xsec.plots.plotting import Bias, PseudoRatio
+from tools.utils import mkdir
+from tools.process import preload_hists, clear_hists, getMetaInfo
+from zh_xsec.func.bias import pseudo_datacard
 
 
 
@@ -85,11 +81,11 @@ if arg.extra:
 scale = 'polL' if arg.polL else ('polR' if arg.polR else ('ILC' if arg.ILC else ''))
 
 # Resolve directory paths for bias test results and input
-inputdir   = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
+inputdir   = loc.get('BIAS_FIT',       cat, ecm, sel)
 loc_result = loc.get('BIAS_RESULT',     cat, ecm, sel)
-nomDir     = loc.get('NOMINAL_RESULT',  cat, ecm, sel)
-inDir      = loc.get('BIAS_DATACARD',   cat, ecm, sel)
-h_inDir    = loc.get('HIST_PROCESSED',  cat, ecm, sel)
+nomDir     = loc.get('FIT_RESULT', cat, ecm, sel)
+inDir      = loc.get('BIAS_CARD',  cat, ecm, sel)
+h_inDir    = loc.get('HIST_PROC',  cat, ecm, sel)
 
 
 
@@ -109,7 +105,7 @@ def _setup_cache() -> None:
     # Preload the most used histograms
     hNames = ('zqq_m_recoil_m_mva_fit',) if cat=='qq' else ('zll_recoil_m_fit',)
     LOGGER.debug('Preloading histograms and cross-section before bias loop')
-    preload_histograms(samples, h_inDir, hNames=hNames, rmww=True)
+    preload_hists(samples, h_inDir, hNames=hNames, rmww=True)
 
     # Warm up zh_xsec cache for both rmww variants to avoid repeated computations in downstream calls
     for s in samples:
@@ -157,7 +153,7 @@ def run_fit(target: str,
         sys.exit(result.returncode)
 
     # Extract and return the fitted signal strength
-    inputdir = loc.get('BIAS_FIT_RESULT', cat, ecm, sel)
+    inputdir = loc.get('BIAS_FIT', cat, ecm, sel)
     with open(f'{inputdir}/results_fit_{target}.json', 'r') as fIn:
         mu = json.load(fIn)['r']['best_fit']
     return mu
@@ -269,7 +265,7 @@ if __name__=='__main__':
         # Save bias results to formatted text file
         bias_to_txt(loc_result, bias, H_decays)
 
-        clear_histogram_cache()
+        clear_hists()
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
     except Exception:

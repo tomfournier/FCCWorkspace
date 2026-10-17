@@ -2,12 +2,7 @@
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-import os, re, sys, logging
-
-# Add parent directory to path so zh_xsec and sel modules are found
-# This is necessary for HTCondor batch jobs to find local modules
-script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if script_dir not in sys.path: sys.path.insert(0, script_dir)
+import sys, logging
 
 
 
@@ -33,11 +28,7 @@ LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
 
 # Load analysis configuration and preselection functions
 from zh_xsec.userConfig import loc
-from samples import (
-    get_process_list,
-    parse_sample_selection,
-    parse_sample_exclusion
-)
+from samples import get_process_list, get_include, get_exclude
 from sel_xsec.presel.leptonic import get_systs_list, presel_ll, branch_list_ll
 from sel_xsec.presel.hadronic import presel_qq, branch_list_qq
 
@@ -84,8 +75,8 @@ nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses
 processList = get_process_list(
     cat, ecm, batch=runBatch,
     onlysig=arg.only_sig, onlybkg=arg.only_bkg,
-    include=parse_sample_selection(arg.include),
-    exclude=parse_sample_exclusion(arg.exclude)
+    include=get_include(arg.include),
+    exclude=get_exclude(arg.exclude)
 )
 
 
@@ -100,9 +91,9 @@ class RDFgraph():
     @staticmethod
     def dataset_name(dataset):
         '''Recover the process name for direct-file batch jobs.'''
-        if dataset:
-            return dataset
+        if dataset: return dataset
 
+        import os, re
         match = re.fullmatch(r'job_(.+)_chunk_\d+', os.path.basename(os.getcwd()))
         return match.group(1) if match else dataset
 

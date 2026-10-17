@@ -142,7 +142,7 @@ def main() -> None:
     # Define input and output directories
     if arg.kin: inDir = loc.get('EVENTS_TEST', cat, ecm)
     else:       inDir = loc.get('EVENTS',      cat, ecm)
-    outDir = loc.get('PLOTS_MEASUREMENT',      cat, ecm)
+    outDir = loc.get('PLOT_MEAS', cat, ecm)
 
     # Generate cutflow plots and tables
     get_cutflow(inDir, outDir, cat, sels, plots, colors, legend,

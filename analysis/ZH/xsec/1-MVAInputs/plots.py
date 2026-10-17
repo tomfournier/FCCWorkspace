@@ -54,8 +54,8 @@ energy         = ecm       # Center-of-mass energy [GeV]
 collider       = 'FCC-ee'  # Collider identifier
 
 # Input/output directories and plot configuration
-inputDir       = loc.get('HIST_MVA',  cat, ecm)  # Input histograms from final-selection.py
-outdir         = loc.get('PLOTS_MVA', cat, ecm)  # Output plots directory
+inputDir       = loc.get('HIST_INPUT', cat, ecm)  # Input histograms from final-selection.py
+outdir         = loc.get('PLOT_INPUT',  cat, ecm)  # Output plots directory
 yaxis          = ['lin','log']             # Y-axis scale options (linear and logarithmic)
 stacksig       = ['nostack']               # Signal display mode (nostack = overlaid)
 formats        = arg.formats.split('-')    # Output file formats (e.g., png, pdf)

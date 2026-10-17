@@ -69,8 +69,8 @@ def main():
     # Individual plots for all combinations
     if arg.which == '':
         for cat, sel in [(c, s) for c in cats for s in sels]:
-            inDir  = loc.get('NLO_WS',     cat, '', sel)
-            outDir = loc.get('NLO_RESULT', cat, '', sel)
+            inDir  = loc.get('SELF_WS',     cat, '', sel)
+            outDir = loc.get('SELF_RESULT', cat, '', sel)
             fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
                 else 'higgsCombineXsec.MultiDimFit.mH125.root'
             scan = (inDir / fIn, "Observed", colors[0])
@@ -105,7 +105,7 @@ def main():
                 param = list(fixed_vals)
                 param.insert(insert_pos, var_val)
 
-                inDir = loc.get('NLO_WS', *param)
+                inDir = loc.get('SELF_WS', *param)
                 fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
                     else 'higgsCombineXsec.MultiDimFit.mH125.root'
                 scan  = (inDir / fIn,
@@ -113,7 +113,7 @@ def main():
                          colors[i % len(colors)])
                 all_scans.append(scan)
 
-            out: Path = loc.get('PLOTS_FIT_SCAN') / arg.which
+            out: Path = loc.get('PLOT_SCAN') / arg.which
             out.mkdir(exist_ok=True, parents=True)
             for param in params:
                 other_params = [p for p in params if p!=param] if len(params)>1 else []

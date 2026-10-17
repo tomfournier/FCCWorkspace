@@ -33,7 +33,7 @@ t = time.time()
 
 from parsing import set_log
 from zh_xsec.parsing import create_parser
-from logger import get_logger               # Logging setup
+from logger import get_logger
 arg = create_parser('4-Combine').parse_args()
 set_log(arg)
 
@@ -46,8 +46,8 @@ LOGGER = get_logger(__name__)
 ##########################################################
 
 # Load directory path manager and utilities
-from zh_xsec.userConfig import loc           # Directory path configuration
-from tools.utils import timer             # Execution timing utility
+from zh_xsec.userConfig import loc
+from tools.utils import timer
 from run import log_msg, update_namespace, get_extra_args
 
 

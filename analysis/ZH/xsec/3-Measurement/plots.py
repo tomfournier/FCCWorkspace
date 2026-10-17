@@ -32,19 +32,11 @@ LOGGER = get_logger(__name__)
 # Load directory paths and process configurations
 from zh_xsec.userConfig import loc
 from tools.utils import timer
-from constants import (
-    z_decays,           # Z boson decay modes
-    H_decays,           # Higgs decay modes
-    vars_label_ll,
-    vars_label_qq
-)
+from constants import z_decays, H_decays, vars_label_ll, vars_label_qq
 from zh_xsec.tools.utils import high_low_sels  # High/low control region helpers
 from sel_xsec.final.leptonic import histos_ll, custom_hists_ll
 from sel_xsec.final.hadronic import histos_qq, custom_hists_qq
-from tools.process import (
-    preload_histograms,     # Preload histogram cache for performance
-    clear_histogram_cache   # Clear cache when done
-)
+from tools.process import preload_hists, clear_hists
 from plotting.plotting import plot_configs, get_args
 
 
@@ -89,8 +81,8 @@ def main() -> None:
         var_labels = vars_label_ll if cat in ['ee', 'mumu'] else vars_label_qq
 
         # Define input and output directories
-        inputdir  = loc.get('HIST_PREPROCESSED', cat, ecm)
-        outputdir = loc.get('PLOTS_MEASUREMENT', cat, ecm)
+        inputdir  = loc.get('HIST_RAW', cat, ecm)
+        outputdir = loc.get('PLOT_MEAS', cat, ecm)
 
         for sel in sels:
             # Shared context is filtered by get_args for each target function.
@@ -105,7 +97,7 @@ def main() -> None:
                 # Avoid repeated ROOT I/O when several plot families are enabled.
                 LOGGER.info(f'Making plots for {sel} selection')
                 if (arg.make or arg.decay or arg.scan) and not (len(variables)==1 or len(sels)==1):
-                    preload_histograms(procs, inputdir, f'_{sel}_histo', variables)
+                    preload_hists(procs, inputdir, f'_{sel}_histo', variables)
 
             # Generate yields plots unless skipped
             if arg.yields:
@@ -162,7 +154,7 @@ def main() -> None:
                             makePlot(**make_args)
 
             # Clear cache after finishing this selection to free memory
-            clear_histogram_cache()
+            clear_hists()
 
 
 ######################

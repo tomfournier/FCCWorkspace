@@ -87,7 +87,7 @@ def _get_procDict(
 
 
 # ___________________________
-def preload_histograms(
+def preload_hists(
     procs: list[str],
     inputdir: str,
     suffix: str = '',
@@ -190,7 +190,7 @@ def preload_histograms(
 
 
 # __________________________________
-def clear_histogram_cache() -> None:
+def clear_hists() -> None:
     '''
     Clear all histogram and scaling caches to free memory.
 
