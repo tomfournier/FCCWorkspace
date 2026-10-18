@@ -103,10 +103,10 @@ def get_argument_metadata(parser: ArgumentParser) -> dict[str, dict]:
 def get_extra_args(args: Namespace, parser: ArgumentParser | Mapping[str, object], function) -> list[str]:
     '''Build command-line arguments accepted by ``parser`` from ``args``.
 
-    Regular options are forwarded with their current value. ``store_true``
-    options are forwarded only when true. Boolean optional options are
-    forwarded only when their value differs from the parser default, using
-    either ``--name`` or ``--no-name`` as appropriate.
+    Regular options are forwarded with their current value when it differs
+    from the parser default. ``store_true`` options are forwarded only when
+    true. Boolean optional options use either ``--name`` or ``--no-name`` as
+    appropriate.
     '''
     if isinstance(parser, Mapping):
         parser = function(**parser)
@@ -123,9 +123,10 @@ def get_extra_args(args: Namespace, parser: ArgumentParser | Mapping[str, object
         flags: list[str] = details['flags']
         flag   = next((item for item in flags if item.startswith('--')), flags[0])
 
+        if value == details['default']:
+            continue
+
         if action == 'BooleanOptionalAction':
-            if value == details['default']:
-                continue
             if value:
                 extra_args.append(flag)
             else:
