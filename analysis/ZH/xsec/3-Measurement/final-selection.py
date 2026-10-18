@@ -27,8 +27,8 @@ LOGGER = logging.getLogger('FCCAnalyses.final-selection')
 # Load configuration and measurement selection functions
 from zh_xsec.userConfig import loc
 from zh_xsec.func.bdt   import def_bdt, make_high_low
-from sel_xsec.final.leptonic import Baseline_cut_ll, histos_ll, custom_hists_ll
-from sel_xsec.final.hadronic import Baseline_cut_qq, histos_qq, custom_hists_qq
+from zh_xsec.sel.final.leptonic import Baseline_cut_ll, histos_ll, custom_hists_ll
+from zh_xsec.sel.final.hadronic import Baseline_cut_qq, histos_qq, custom_hists_qq
 from samples import get_process_list, get_include, get_exclude
 from utilities import has_events
 

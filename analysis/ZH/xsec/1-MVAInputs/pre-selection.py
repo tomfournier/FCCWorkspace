@@ -27,8 +27,8 @@ LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
 
 from zh_xsec.userConfig import loc
 from samples import get_process_list, get_include, get_exclude
-from sel_xsec.presel.leptonic import training_ll, branch_list_ll
-from sel_xsec.presel.hadronic import training_qq, branch_list_qq
+from zh_xsec.sel.presel.leptonic import training_ll, branch_list_ll
+from zh_xsec.sel.presel.hadronic import training_qq, branch_list_qq
 
 
 

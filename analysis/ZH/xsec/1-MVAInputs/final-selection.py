@@ -27,8 +27,8 @@ LOGGER = logging.getLogger('FCCAnalyses.final-selection')
 # Load analysis configuration and predefined histogram config
 from zh_xsec.userConfig import loc
 from samples import get_process_list, get_include, get_exclude
-from sel_xsec.final.leptonic import Baseline_cut_ll, histos_ll
-from sel_xsec.final.hadronic import Baseline_cut_qq, histos_qq
+from zh_xsec.sel.final.leptonic import Baseline_cut_ll, histos_ll
+from zh_xsec.sel.final.hadronic import Baseline_cut_qq, histos_qq
 
 
 

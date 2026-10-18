@@ -34,8 +34,8 @@ from zh_xsec.userConfig import loc
 from tools.utils import timer
 from constants import z_decays, H_decays, vars_label_ll, vars_label_qq
 from zh_xsec.tools.utils import high_low_sels  # High/low control region helpers
-from sel_xsec.final.leptonic import histos_ll, custom_hists_ll
-from sel_xsec.final.hadronic import histos_qq, custom_hists_qq
+from zh_xsec.sel.final.leptonic import histos_ll, custom_hists_ll
+from zh_xsec.sel.final.hadronic import histos_qq, custom_hists_qq
 from tools.process import preload_hists, clear_hists
 from plotting.plotting import plot_configs, get_args
 
