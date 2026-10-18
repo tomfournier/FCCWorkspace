@@ -29,7 +29,7 @@ LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
 # Load analysis configuration and preselection functions
 from zh_xsec.userConfig import loc
 from samples import get_process_list, get_include, get_exclude
-from zh_xsec.sel.presel.leptonic import get_systs_list, presel_ll, branch_list_ll
+from zh_xsec.sel.presel.leptonic import presel_ll, branch_list_ll
 from zh_xsec.sel.presel.hadronic import presel_qq, branch_list_qq
 
 
@@ -128,7 +128,7 @@ class RDFgraph():
             list: Names of kinematic variables and event properties to output as ROOT branches
         """
         if cat in ['ee', 'mumu']:
-            return sorted(branch_list_ll + get_systs_list(cat))
+            return sorted(branch_list_ll)
         elif cat == 'qq':
             return sorted(branch_list_qq)
         else:
