@@ -4,6 +4,8 @@
 
 import sys, logging
 
+from pathlib import Path
+
 
 
 ########################
@@ -67,8 +69,15 @@ runBatch   = arg.run_batch           # Submit the job to HTCondor
 batchQueue = arg.job_flavor          # Queue for batch submission
 compGroup = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
+# To make HTCondor execute userBatchConfig.sh
+# This will make HTCondor detect FCCWorkspace/python and custom modules in analysis/**
+userBatchConfig = str(Path(__file__).resolve().parents[4] / 'userBatchConfig.sh')
+
 # Parallel processing configuration
 nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
+
+if arg.run_batch:
+    LOGGER.info(f'Running script on HTCondor with {nCPUS} CPUs and using {batchQueue} job flavor')
 
 
 

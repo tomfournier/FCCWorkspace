@@ -2,8 +2,9 @@
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-from pathlib import Path
 import sys, logging
+
+from pathlib import Path
 
 
 
