@@ -36,13 +36,17 @@ from zh_xsec.sel.presel.hadronic import training_qq, branch_list_qq
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-cat, ecm, test = arg.cat, arg.ecm, arg.do_test
-LOGGER.info(f'Running the pre-selection for {cat = } | {ecm = } | {test = }')
+cat, ecm, test, jan = arg.cat, arg.ecm, arg.do_test, arg.jan
+if jan and test:
+    raise ValueError('Cannot use --do-test and --jan at the same time. Choose one at a time')
+if jan and cat in ['ee', 'mumu']:
+    raise ValueError("Cannot use --jan with cat = 'ee', 'mumu'. Use it with cat = 'qq'")
+LOGGER.info(f'Running the pre-selection for {cat = } | {ecm = } | {test = } | {jan = }')
 
 # Output directory for training events (default is local directory)
-if   test:    outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
-elif arg.jan: outputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)  # Jan's samples
-else:         outputDir = loc.get('EVENTS_TRAIN',      cat, ecm)  # Full event samples
+if   test: outputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
+elif jan:  outputDir = loc.get('EVENTS_TRAIN_JAN',  cat, ecm)  # Jan's samples
+else:      outputDir = loc.get('EVENTS_TRAIN',      cat, ecm)  # Full event samples
 
 # Custom C++ analysis functions for particle selection and kinematic calculations
 includePaths = ['../../../../functions/functions.h',
@@ -119,7 +123,7 @@ class RDFanalysis():
         if cat in ['ee', 'mumu']:
             df = training_ll(df, cat, ecm, test)
         elif cat == 'qq':
-            df = training_qq(df, cat, ecm, test)
+            df = training_qq(df, cat, ecm, test, jan)
         else:
             raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
         return df

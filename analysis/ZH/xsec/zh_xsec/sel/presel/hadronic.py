@@ -118,13 +118,17 @@ def cluster_and_recoil(df: 'ROOT.ROOT.RDataFrame',
 def compare_algo(df: 'ROOT.ROOT.RDataFrame',
                  hists: list['ROOT.TH1',
                              'ROOT.TParameter'],
-                 ecm: int
+                 ecm: int,
+                 jan: bool = False
                  ) -> tuple['ROOT.ROOT.RDataFrame',
                             list['ROOT.TH1',
                                  'ROOT.TParameter']]:
 
-    df = df.Define('zqq_algo',            'std::vector<Vec_rp> r = {zqq_N0, zqq_N2, zqq_N4, zqq_N6}; return r;')
-    df = df.Define('zqq_algo_jets',       'std::vector<Vec_rp> r = {zqq_jets_N0, zqq_jets_N2, zqq_jets_N4, zqq_jets_N6}; return r;')
+    df = df.Define('zqq_algo', 'std::vector<Vec_rp> r = {zqq_N0, zqq_N2, zqq_N4, zqq_N6}; return r;')
+    if jan:
+        df = df.Define('zqq_algo_jets', 'std::vector<Vec_rp> r = {jets_rp_cand_N0, jets_rp_cand_N2, jets_rp_cand_N4, jets_rp_cand_N6}; return r;')
+    else:
+        df = df.Define('zqq_algo_jets', 'std::vector<Vec_rp> r = {zqq_jets_N0, zqq_jets_N2, zqq_jets_N4, zqq_jets_N6}; return r;')
     df = df.Define('zqq_algo_m',          'Vec_f r = {zqq_m_N0, zqq_m_N2, zqq_m_N4, zqq_m_N6}; return r;')
     df = df.Define('zqq_algo_p',          'Vec_f r = {zqq_p_N0, zqq_p_N2, zqq_p_N4, zqq_p_N6}; return r;')
     df = df.Define('zqq_algo_recoil_m',   'Vec_f r = {zqq_recoil_m_N0, zqq_recoil_m_N2, zqq_recoil_m_N4, zqq_recoil_m_N6}; return r;')
@@ -252,7 +256,8 @@ def additional_variable(df: 'ROOT.ROOT.RDataFrame',
 def training_qq(df: 'ROOT.ROOT.RDataFrame',
                 cat: str,
                 ecm: int,
-                test: bool = False
+                test: bool = False,
+                jan: bool = False
                 ) -> 'ROOT.ROOT.RDataFrame':
 
     df = setup_alias(df, cat)
@@ -277,7 +282,7 @@ def training_qq(df: 'ROOT.ROOT.RDataFrame',
     for i in [0, 2, 4, 6]:
         df = cluster_and_recoil(df, ecm, i)
 
-    df, _ = compare_algo(df, [], ecm)
+    df, _ = compare_algo(df, [], ecm, jan)
 
     ##########
     ### CUT 2: remove events failing clustering
@@ -348,7 +353,8 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
               cat: str,
               ecm: int,
               dataset: str,
-              test: bool = False
+              test: bool = False,
+              jan: bool = False
               ) -> tuple['ROOT.ROOT.RDataFrame',
                          list['ROOT.TH1',
                               'ROOT.TParameter']]:
@@ -385,7 +391,7 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     for i in [0, 2, 4, 6]:
         df = cluster_and_recoil(df, ecm, i)
 
-    df, hists = compare_algo(df, hists, ecm)
+    df, hists = compare_algo(df, hists, ecm, jan)
 
     ##########
     ### CUT 2: remove events failing clustering

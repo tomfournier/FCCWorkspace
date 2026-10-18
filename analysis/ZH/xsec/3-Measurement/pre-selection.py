@@ -38,12 +38,17 @@ from zh_xsec.sel.presel.hadronic import presel_qq, branch_list_qq
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
 
-cat, ecm, test = arg.cat, arg.ecm, arg.do_test
+cat, ecm, test, jan = arg.cat, arg.ecm, arg.do_test, arg.jan
+if jan and test:
+    raise ValueError('Cannot use --do-test and --jan at the same time. Choose one at a time')
+if jan and cat in ['ee', 'mumu']:
+    raise ValueError("Cannot use --jan with cat = 'ee', 'mumu'. Use it with cat = 'qq'")
+LOGGER.info(f'Running the pre-selection for {cat = } | {ecm = } | {test = } | {jan = }')
 
 # Output directory for analysis events (default is local directory)
-if   test:    outputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
-elif arg.jan: outputDir = loc.get('EVENTS_JAN',  cat, ecm)  # Jan's samples
-else:         outputDir = loc.get('EVENTS',      cat, ecm)  # Full event samples
+if   test: outputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
+elif jan:  outputDir = loc.get('EVENTS_JAN',  cat, ecm)  # Jan's samples
+else:      outputDir = loc.get('EVENTS',      cat, ecm)  # Full event samples
 
 # Custom C++ analysis functions for particle selection and kinematic calculations
 includePaths = ['../../../../functions/functions.h',
@@ -89,7 +94,7 @@ class RDFgraph():
     '''RDataFrame analysis class for pre-selection stage.'''
 
     @staticmethod
-    def dataset_name(dataset):
+    def dataset_name(dataset) -> str:
         '''Recover the process name for direct-file batch jobs.'''
         if dataset: return dataset
 
@@ -114,7 +119,7 @@ class RDFgraph():
         if cat in ['ee', 'mumu']:
             df, params = presel_ll(df, cat, ecm, dataset, test)
         elif cat == 'qq':
-            df, params = presel_qq(df, cat, ecm, dataset, test)
+            df, params = presel_qq(df, cat, ecm, dataset, test, jan)
         else:
             raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
         return df, params
