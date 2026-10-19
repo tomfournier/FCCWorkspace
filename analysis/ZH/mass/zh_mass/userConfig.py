@@ -24,11 +24,8 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os
-from pathlib import Path
-
-from path import loc, LocPath
-from .logger import get_logger
+from path import loc, LocPath, PathObj
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -38,69 +35,31 @@ LOGGER = get_logger(__name__)
 ##### LOCATION OF FILES #####
 #############################
 
-repo = str(Path(__file__).parent.parent.resolve())
+repo = str(PathObj(__file__).parent.parent.resolve())
 
 # Templates as LocPath strings with placeholders
-loc.ROOT                = LocPath(repo)                    # Repo root
-loc.PACKAGE             = LocPath(f"{repo}/package")       # Python package code
-loc.OUT                 = LocPath(f"{repo}/output")        # Output root
-loc.PLOTS               = LocPath(f"{repo}/output/plots")  # Plots root
-loc.DATA                = LocPath(f"{repo}/output/data")   # Data artifacts
-loc.TMP                 = LocPath(f"{repo}/output/tmp")    # Scratch state
+loc.ROOT        = LocPath(repo)                    # Repo root
+loc.PACKAGE     = LocPath(f"{repo}/package")       # Python package code
+loc.OUT         = LocPath(f"{repo}/output")        # Output root
+loc.PLOTS       = LocPath(f"{repo}/output/plots")  # Plots root
+loc.DATA        = LocPath(f"{repo}/output/data")   # Data artifacts
+loc.TMP         = LocPath(f"{repo}/output/tmp")    # For temporary files
 
-loc.JSON                = LocPath(f"{repo}/output/tmp/config_json")      # JSON configs
-loc.RUN                 = LocPath(f"{repo}/output/tmp/config_json/run")  # Per-run configs
+loc.EVENTS_DIR  = LocPath(f"{repo}/output/data/1-events")      # 1. Event samples
+loc.HIST_DIR    = LocPath(f"{repo}/output/data/2-histograms")  # 2. Histograms root directory
+loc.FIT_DIR     = LocPath(f"{repo}/output/data/3-combine")     # 3. Statistical fits
 
-loc.EVENTS              = LocPath(f"{repo}/output/data/events/ecm/cat/full/analysis")  # Analysis samples
-loc.EVENTS_TEST         = LocPath(f"{repo}/output/data/events/ecm/cat/test/analysis")  # Test samples for analysis
+loc.EVENTS      = LocPath(f"{repo}/output/data/events/ecm/cat/full")  # Analysis samples
+loc.EVENTS_TEST = LocPath(f"{repo}/output/data/events/ecm/cat/test")  # Test samples for analysis
 
-loc.HIST                = LocPath(f"{repo}/output/data/histograms")                           # Histograms root
-loc.HIST_MEASUREMENT    = LocPath(f"{repo}/output/data/histograms/measurement/ecm/cat")       # Measurement histograms
+loc.HIST_RAW    = LocPath(f"{repo}/output/data/histograms/1-raw-hists/ecm/cat")      # Raw histograms
+loc.HIST_PROC   = LocPath(f"{repo}/output/data/histograms/2-processed/ecm/cat/sel")  # Processed histograms
 
-loc.PLOTS_MEASUREMENT   = LocPath(f"{repo}/output/plots/measurement/ecm/cat")   # Analysis plots
-loc.PLOTS_FIT           = LocPath(f"{repo}/output/plots/fit/ecm/cat/sel")       # Fit plots
+loc.PLOTS_SEL   = LocPath(f"{repo}/output/plots/1-selection/ecm/cat")  # Analysis plots
+loc.PLOTS_FIT   = LocPath(f"{repo}/output/plots/2-fit")                # Fit plots
 
-loc.COMBINE             = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")           # Combine root
-loc.COMBINE_LOG         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/log")       # Logs (nominal)
-loc.COMBINE_RESULT      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/results")   # Results (nominal)
-loc.COMBINE_DATACARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/datacard")  # Datacards (nominal)
-loc.COMBINE_WS          = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/WS")        # Workspaces (nominal)
-
-
-
-#################
-### FUNCTIONS ###
-#################
-
-# __________________________
-def event(procs: list[str],
-          path: str = '',
-          end: str = '.root'
-          ) -> list[str]:
-    '''Filter processes that contain valid ROOT event trees.
-
-    Args:
-        procs: List of process names to validate
-        path: Base path where process files are located
-        end: File extension (default: '.root')
-
-    Returns:
-       List[str]: List of valid process names with 'events' TTree
-    '''
-    import uproot
-    from glob import glob
-
-    newprocs = []
-    for proc in procs:
-        file = os.path.join(path, proc)
-        # Check for single file or directory with multiple files
-        filenames = [f'{file}{end}'] \
-            if os.path.exists(f'{file}{end}') \
-            else glob(f'{file}/*')
-
-        # Verify all files contain 'events' TTree
-        isTTree = [i for i, filename in enumerate(filenames)
-                   if 'events' in uproot.open(filename)]
-        if len(isTTree)==len(filenames):
-            newprocs.append(proc)
-    return newprocs
+loc.FIT         = LocPath(f"{repo}/output/data/combine/sel/ecm/cat")           # Combine root
+loc.FIT_LOG     = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/log")       # Logs
+loc.FIT_RESULT  = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/results")   # Results
+loc.FIT_CARD    = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/datacard")  # Datacards
+loc.FIT_WS      = LocPath(f"{repo}/output/data/combine/sel/ecm/cat/WS")        # Workspaces

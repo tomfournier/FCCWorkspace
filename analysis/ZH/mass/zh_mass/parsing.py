@@ -12,189 +12,58 @@ Core principles:
 - Reduced code duplication through composition
 
 Examples:
-    Basic setup with just core arguments:
+    Script-specific parser:
         from package.parsing import create_parser
-        parser = create_parser(cat_multi=True, ecm_multi=True)
+        parser = create_parser('2-BDT', 'evaluation')
         args = parser.parse_args()
 
-    With evaluations for BDT:
-        parser = create_parser(
-            cat_multi=True, ecm_multi=True,
-            include_sels=True,           # For batch selection processing
-            bdt_eval=True,               # For metric/tree plotting
-            bdt_extra=True               # For check/hl options
-        )
-        args = parser.parse_args()
 '''
 
-from argparse import ArgumentParser, Namespace, BooleanOptionalAction
+from argparse import ArgumentParser, BooleanOptionalAction
 
-
-# ========================================================== #
-# MODULAR ARGUMENT BUILDERS (low-level, reusable components) #
-# ========================================================== #
-
-def add_cat_argument(
-        parser: ArgumentParser,
-        multi: bool = False,
-        allow_empty: bool = False,
-        default: str = '',
-        group=None
-         ) -> None:
-    '''Add --cat/--cats argument for final state selection.'''
-
-    def_value = default or ('ee-mumu' if multi else '')
-
-    choices = ['ee', 'mumu']
-    if multi:
-        choices.extend(['ee-mumu', 'mumu-ee'])
-    if allow_empty:
-        choices.append('')
-
-    if group is None:
-        group = parser.add_argument_group('General arguments')
-
-    # Use metavar to show a concise pattern instead of listing all choices
-    metavar = 'CHANNELS' if multi else '{ee, mumu}'
-    help_text = ('Final state lepton category: ee, mumu' +
-                 (' or combinations separated by dash like ee-mumu' if multi else '') +
-                 f' (default: "{def_value}")')
-
-    group.add_argument(
-        '--cat', '--cats',
-        type=str,
-        default=def_value,
-        choices=choices,
-        metavar=metavar,
-        help=help_text
-    )
-
-
-def add_ecm_argument(
-        parser: ArgumentParser,
-        multi: bool = False,
-        default=None,
-        group=None
-         ) -> None:
-    '''Add --ecm/--ecms argument for center-of-mass energy.'''
-    if default is None:
-        default = '240' if multi else 240
-    else:
-        if isinstance(default, int):
-            default = str(default) if multi else default
-        elif isinstance(default, str):
-            default = int(default) if not multi else default
-        else:
-            raise TypeError('Either int or str type are supported')
-
-    if group is None:
-        group = parser.add_argument_group('General arguments')
-
-    metavar = 'ENERGIES' if multi else '{240, 365}'
-    help_text = ('Center-of-mass energy in GeV: 240 or 365' +
-                 (' or combinations separated by dash like 240-365' if multi else '') +
-                 ' (default: 240)')
-
-    group.add_argument(
-        '--ecm', '--ecms',
-        type=str if multi else int,
-        default=default,
-        choices=['240', '365', '240-365', '365-240'] if multi else [240, 365],
-        metavar=metavar,
-        help=help_text
-    )
-
-
-def add_sel_argument(
-        parser: ArgumentParser,
-        default: str = '',
-        group=None
-         ) -> None:
-    '''Add --sel argument for single selection strategy.'''
-    if group is None:
-        group = parser.add_argument_group('General arguments')
-    group.add_argument(
-        '--sel',
-        type=str,
-        default=default,
-        help=f'Selection strategy to apply (default: "{default}")'
-    )
-
-
-def add_sels_argument(
-        parser: ArgumentParser,
-        default: str = '',
-        group=None
-         ) -> None:
-    '''Add --sels argument for multiple selection strategies (batch mode).'''
-    if group is None:
-        group = parser.add_argument_group('General arguments')
-    group.add_argument(
-        '--sels',
-        type=str,
-        default=default,
-        help='Selections to process (dash-separated for multiple choices) (default: "")'
-    )
-
-
-def add_run_argument(
-        parser: ArgumentParser,
-        n_stages: int = 3,
-        default: str = '2-3',
-        group=None
-         ) -> None:
-    '''Add --run argument for pipeline stage selection.'''
-    if n_stages == 2:
-        choices = ['1', '2', '1-2']
-    elif n_stages == 3:
-        choices = ['1', '2', '3', '1-2', '2-3', '1-2-3']
-    elif n_stages == 4:
-        choices = ['1', '2', '3', '4', '1-2', '2-3', '3-4', '1-2-3', '2-3-4', '1-2-3-4']
-    else:
-        raise ValueError(f'n_stages must be 2, 3, or 4, got {n_stages}')
-
-    if group is None:
-        group = parser.add_argument_group('Execution arguments')
-
-    help_text = f'Pipeline stages to execute (1-{n_stages} or combinations separated by dash) (default: {default})'
-
-    group.add_argument(
-        '--run',
-        type=str,
-        default=default,
-        choices=choices,
-        metavar='STAGES',
-        help=help_text
-    )
-
-
-def add_verbose_argument(parser: ArgumentParser, group=None) -> None:
-    '''Add -v/--verbose argument for debugging output.'''
-    if group is None:
-        group = parser.add_argument_group('General arguments')
-    group.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        default=False,
-        help='Enable verbose output for debugging'
-    )
-
-
-def add_batch_argument(parser: ArgumentParser, group=None) -> None:
-    '''Add --batch for HTCondor batch processing.'''
-    if group is None:
-        group = parser.add_argument_group('Execution arguments')
-    group.add_argument(
-        '--batch',
-        action='store_true',
-        default=False,
-        help='Submit jobs to HTCondor batch system'
-    )
-
+from parsing import (
+    add_plot_args,
+    base_parser,
+    add_run_argument,
+    add_selection_args,
+    add_preselection_args,
+    add_final_selection_args,
+    add_sample_selection_args
+)
 
 # ============================================================== #
 # FEATURE GROUP BUILDERS (higher-level, feature-specific groups) #
 # ============================================================== #
+
+######################################
+### 1-MVAINPUTS SPECIFIC ARGUMENTS ###
+######################################
+
+#######################
+## GENERAL ARGUMENTS ##
+#######################
+
+def add_xsec_sample_selection_args(parser: ArgumentParser) -> None:
+    '''Add sample filtering options shared by selection scripts.'''
+    args = parser.add_argument_group('Sample-selection arguments')
+    args.add_argument(
+        '--only-sig',
+        action='store_true',
+        default=False,
+        help='Only do the pre-selection for the signal processes'
+    )
+    args.add_argument(
+        '--only-bkg',
+        action='store_true',
+        default=False,
+        help='Only do the pre-selection for the background processes'
+    )
+
+
+
+########################################
+### 1-SELECTION SPECIFIC ARGUMENTS ###
+########################################
 
 def add_plots_args(parser: ArgumentParser) -> None:
     '''Add plots arguments (yields, decay, make, scan)'''
@@ -224,8 +93,8 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('Cutflow arguments')
     args.add_argument(
         '--tot',
-        action='store_true',
-        default=False,
+        action=BooleanOptionalAction,
+        default=True,
         help='Include all the Z decays in the cutflow'
     )
     args.add_argument(
@@ -236,16 +105,83 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
     )
 
 
-def add_fit_args(
-        parser: ArgumentParser,
-         ) -> None:
-    '''Add fit arguments (pert, target, combine, bias, t, print).'''
+
+####################################
+### 4-COMBINE SPECIFIC ARGUMENTS ###
+####################################
+
+def add_polarization(parser: ArgumentParser) -> None:
+    '''Add polarization and luminosity scaling arguments.'''
+    args = parser.add_argument_group('Polarization arguments')
+    args.add_argument(
+        '--polL',
+        action='store_true',
+        default=False,
+        help='Scale to left polarization'
+    )
+    args.add_argument(
+        '--polR',
+        action='store_true',
+        default=False,
+        help='Scale to right polarization'
+    )
+    args.add_argument(
+        '--ILC',
+        action='store_true',
+        default=False,
+        help='Scale to ILC luminosity'
+    )
+
+
+def add_combine_args(parser: ArgumentParser) -> None:
+    parser.add_argument(
+        '--mc-stats',
+        action='store_true',
+        default=False,
+        help='Include MC statistical uncertainties (default: False)'
+    )
+    parser.add_argument(
+        '--rebin',
+        type=int,
+        default=1,
+        help='Histogram rebinning factor (default: 1)'
+    )
+    parser.add_argument(
+        '--intLumi',
+        type=float,
+        default=1.,
+        help='Luminosity scaling factor for normalization'
+    )
+    parser.add_argument(
+        '--rescale',
+        default=False,
+        action='store_true',
+        help='Rescale the histograms to 1 ab-1 (default: False)'
+    )
+
+
+
+################################
+### 5-FIT SPECIFIC ARGUMENTS ###
+################################
+
+#######################
+## GENERAL ARGUMENTS ##
+#######################
+
+def add_fit_args(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('Fit arguments')
+    args.add_argument(
+        '--lep', '--leptonic',
+        action='store_true',
+        default=False,
+        help='Combine the fit for the ee and mumu channel. Do not use with --combine'
+    )
     args.add_argument(
         '--combine', '--comb',
         action='store_true',
         default=False,
-        help='Combine channels for fit'
+        help='Combine the fit the for all channel (ee, mumu, qq). Do not use with --lep'
     )
     args.add_argument(
         '--timer',
@@ -254,282 +190,268 @@ def add_fit_args(
         help='Display elapsed time'
     )
     args.add_argument(
+        '--fastscan',
+        action='store_true',
+        default=False,
+        help='Do a fast scan to check the fit'
+    )
+    args.add_argument(
+        '--skip-setup',
+        action='store_true',
+        default=False,
+        help='Skip the datacard and workspace setup'
+    )
+    args.add_argument(
+        '--only-diag',
+        action='store_true',
+        default=False,
+        help='Only do the diagnostic fit and skip the likelihood scan (decrease the fit precision)'
+    )
+    args.add_argument(
+        '--fast-scan',
+        action='store_true',
+        default=False,
+        help='Do a fast likelihood scan for the second fit'
+    )
+    args.add_argument(
+        '--npoints',
+        type=int,
+        default=400,
+        help='Number of points to do for the likelihood scan (default: 400)'
+    )
+    args.add_argument(
+        '--rescaled',
+        default=False,
+        action='store_true',
+        help='Rescaled the uncertainties to the nominal luminosity (default: False)'
+    )
+    args.add_argument(
         '--print',
         action=BooleanOptionalAction,
         default=True,
         help='Suppress uncertainty output'
     )
 
+###############################
+## SCRIPT SPECIFIC ARGUMENTS ##
+###############################
 
-def add_mass_fit_args(
-        parser: ArgumentParser,
-        datacard: bool = False,
-        fit: bool = False
-         ) -> None:
-    '''Add mass fit arguments (pert, target, combine, bias, t, print).'''
-    args = parser.add_argument_group('Fit arguments')
+def add_fit_plot_args(
+    parser: ArgumentParser,
+) -> None:
+    args = parser.add_argument_group('Fit plot arguments')
     args.add_argument(
-        '--recoilMin',
-        type=float,
-        default=120,
-        help='Lower mass limit of the fit (default: 120)'
+        "--param",
+        default="r",
+        help="Parameter to scan (default: r)"
     )
     args.add_argument(
-        '--recoilMax',
+        "--y-cut",
         type=float,
-        default=140,
-        help='Higher mass limit of the fit (default: 140)'
+        default=7.0,
+        help="Remove points with y > y-cut"
     )
     args.add_argument(
-        '--hName',
+        "--y-max",
         type=float,
-        default='zll_recoil_m',
-        help='Name of the histogram to fit (default: zll_recoil_m)'
+        default=-1,
+        help="Y-axis maximum"
     )
-    parser.add_argument(
-        '--mode',
-        type=str,
-        help='Detector mode',
-        choices=['IDEA', 'IDEA_MC', 'IDEA_3T', 'CLD', 'CLD_FullSim',
-                 'IDEA_noBES', 'IDEA_2E', 'IDEA_BES6pct'],
-        default='IDEA'
+    args.add_argument(
+        '--sig2',
+        action='store_true',
+        help='Plot 95%% CL'
     )
-    parser.add_argument(
-        '--category',
-        type=int,
-        help='Category (0, 1, 2 or 3) (default 0)',
-        choices=[0, 1, 2, 3],
-        default=0
+    args.add_argument(
+        '--combine', '--comb',
+        action='store_true',
+        default=False,
+        help='Plot the combined fit'
     )
-    parser.add_argument(
-        '--tag',
-        type=str,
-        help='Analysis tag for versioning, optional',
-        default=''
-    )
-    parser.add_argument(
-        '--nBins',
-        type=int,
-        help='Number of bins for plotting (default 250)',
-        default=250
-    )
-    parser.add_argument(
-        '--normYield',
-        type=bool,
-        help='Normalize the histograms (default True)',
+    args.add_argument(
+        '--timer',
         action=BooleanOptionalAction,
-        default=True
+        default=True,
+        help='Display elapsed time'
     )
-    if datacard:
-        parser.add_argument(
-            '--syst',
-            type=bool,
-            action=BooleanOptionalAction,
-            default=True,
-            help='Include the systematic uncertainties in the fit (default True)'
-        )
-    if fit:
-        parser.add_argument(
-            '--statOnly',
-            action='store_true',
-            default=False,
-            help='Do stat-only fit'
-        )
-        parser.add_argument(
-            '--doSummary',
-            action='store_true',
-            default=False,
-            help='Do summary plots'
-        )
-        parser.add_argument(
-            '--freezeBkg',
-            action='store_true',
-            default=False,
-            help='Freeze the background for the fit'
-        )
-        parser.add_argument(
-            '--noBkg',
-            action='store_true',
-            default=False,
-            help='Remove the background for the fit'
-        )
-        parser.add_argument(
-            '--doBreakdown',
-            action='store_true',
-            default=False,
-            help='Do breakdown of the nuisance parameters'
-        )
-        parser.add_argument(
-            '--combine',
-            action='store_true',
-            default=False,
-            help='Do the full combination fit'
-        )
+    args.add_argument(
+        '--only1',
+        action='store_true',
+        default=False,
+        help='Only compute the scan for one target at a time'
+    )
+    args.add_argument(
+        '--which',
+        type=str,
+        default='',
+        choices=['', 'cat', 'ecm', 'sel'],
+        help='Choose which parameter to compare'
+    )
 
 
-# ============================================================================
-# FACTORY FUNCTIONS - Compose modular builders for specific scripts
-# ============================================================================
 
-def create_parser(
-        cat_single: bool = False,
-        cat_multi: bool = False,
-        cat_default: str = '',
-        ecm_multi: bool = False,
-        ecm_default: int | str | None = None,
-        allow_empty: bool = False,
-        include_sel: bool = False,
-        include_sels: bool = False,
-        run_stages: int = 0,
-        run_default: str = '2-3',
-        batch: bool = False,
-        plots: bool = False,
-        cutflow: bool = False,
-        fit: bool = False,
-        mass_fit: bool = False,
-        datacard: bool = False,
-        do_fit: bool = False,
-        description: str = 'Analysis script'
-         ) -> ArgumentParser:
-    '''
-    Factory function to compose a custom parser with selected argument groups.
+# ==================================================================#
+# FACTORY FUNCTIONS - Compose modular builders for specific scripts #
+# ==================================================================#
 
-    This single function replaces all the specific create_*_parser functions
-    by allowing you to specify exactly which features you need.
 
-    Args:
-        cat_single: Add --cat for single channel
-        cat_multi: Add --cat for multi-channel (ee-mumu combinations)
-        cat_default: Default value for --cat (None: auto-sets to 'ee-mumu' if cat_multi=True, else '')
-        ecm_multi: Add --ecm for multi-energy (240-365 combinations)
-        allow_empty_cat: Allow empty string for --cat
-        include_sel: Add --sel (single selection)
-        include_sels: Add --sels (batch selections)
-        run_stages: Add --run with N stages (0=none, 2/3/4 for pipeline stages)
-        batch: Add --batch for HTCondor
-        optimize: Add optimization args (procs, nevents, incr)
-        fit: Add fit arguments
-        mass: Add mass fit arguments
-        description: Parser description
+################################
+### PARSER FOR 1-SELECTION ###
+################################
 
-    Returns:
-        Configured ArgumentParser ready to use
-    '''
-    parser = ArgumentParser(description=description)
+# Parser for 3-Selection/pre-selection.py
+def measurement_preselection_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Pre-selection Script',
+        include_cat=True, include_ecm=True)
+    add_selection_args(parser)
+    add_preselection_args(parser)
+    add_sample_selection_args(parser)
+    add_xsec_sample_selection_args(parser)
+    return parser
 
-    # Create argument groups once to avoid duplication in help output
-    general = parser.add_argument_group('General arguments')
-    exec    = parser.add_argument_group('Execution arguments')
+# Parser for 3-Measurement/final-selection.py
+def measurement_final_selection_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Final-selection Script',
+        include_cat=True, include_ecm=True,
+        include_sel=True, sel_multi=True, sel_default='all')
+    add_selection_args(parser)
+    add_final_selection_args(parser)
+    add_sample_selection_args(parser)
+    return parser
 
-    # Core arguments (share the same groups)
-    if cat_single or cat_multi:
-        add_cat_argument(parser, cat_multi, allow_empty, cat_default, general)
-    if ecm_multi or (cat_single or cat_multi):
-        add_ecm_argument(parser, ecm_multi, ecm_default, general)
-    add_verbose_argument(parser, general)
+# Parser for 3-Measurement/plots.py
+def measurement_plots_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Selection Plots Script',
+        include_cat=True, cat_multi=True, include_ecm=True,
+        include_sel=True, sel_multi=True, sel_default='Baseline')
+    add_plot_args(parser)
+    add_plots_args(parser)
+    return parser
 
-    # Selection arguments (share the same group)
-    if include_sel:
-        add_sel_argument(parser, 'Baseline' if fit else '', general)
-    if include_sels:
-        add_sels_argument(parser, '', general)
-
-    # Execution arguments (share the same group)
-    if run_stages > 0:
-        add_run_argument(parser, run_stages, run_default, exec)
-    if batch:
-        add_batch_argument(parser, exec)
-
-    # Feature groups
-    if plots:
-        add_plots_args(parser)
-    if cutflow:
-        add_cutflow_args(parser)
-    if fit:
-        add_fit_args(parser)
-    if mass_fit:
-        add_mass_fit_args(parser, datacard, do_fit)
-
+# Parser for 3-Measurement/cutflow.py
+def measurement_cutflow_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Cutflow Script',
+        include_cat=True, include_ecm=True,
+        include_sel=True, sel_multi=True, sel_default='Baseline')
+    add_plot_args(parser)
+    add_cutflow_args(parser)
     return parser
 
 
 
-# ==================== #
-# VALIDATION UTILITIES #
-# ==================== #
+########################
+### PARSER FOR 4-FIT ###
+########################
 
-def parse_args(
-        parser: ArgumentParser,
-        validate_cat: bool = False,
-        comb: bool = False
-         ) -> Namespace:
-    '''
-    Parse and validate command-line arguments.
+# Parser for 2-Fit/process_histogram.py
+def combine_process_histogram_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Histogram Processing Script',
+        include_cat=True, cat_multi=True, include_ecm=True,
+        include_sel=True, sel_multi=True, sel_default='Baseline')
+    add_polarization(parser)
+    return parser
 
-    Args:
-        parser: ArgumentParser instance
-        validate_cat: Require --cat to be specified
-        comb: For fit scripts - require either --cat or --combine
-
-    Returns:
-        Parsed arguments as Namespace
-
-    Raises:
-        SystemExit: If validation fails
-    '''
-    args = parser.parse_args()
-
-    if comb and hasattr(args, 'combine'):
-        if not (hasattr(args, 'cat') and args.cat) and not args.combine:
-            parser.error('Either --cat or --combine must be specified for fit')
-    elif validate_cat and (not hasattr(args, 'cat') or not args.cat):
-        parser.error('--cat must be specified')
-
-    return args
+# Parser for 2-fit/combine.py
+def combine_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Datacard making script',
+        include_cat=True, cat_multi=True,
+        include_ecm=True, ecm_multi=True,
+        include_sel=True, sel_multi=True)
+    add_combine_args(parser)
+    return parser
 
 
+# Parser for 2-Fit/fit.py
+def fit_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Fit Script',
+        include_cat=True, allow_empty=True, include_ecm=True,
+        include_sel=True)
+    add_fit_args(parser)
+    return parser
 
-# ==================== #
-# LOGGING SETUP        #
-# ==================== #
+# Parser for 2-Fit/plots.py
+def fit_plots_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Fit Plots Script',
+        include_cat=True, cat_multi=True, cat_default='', allow_empty=True,
+        include_ecm=True, ecm_multi=True,
+        include_sel=True, sel_multi=True)
+    add_plot_args(parser, False, False)
+    add_fit_plot_args(parser)
+    return parser
 
-def set_log(args: Namespace) -> None:
-    """
-    Initialize logging system based on parsed arguments.
 
-    Call this right after parse_args() to configure logging with the verbosity
-    level specified by the user (via -v/--verbose flag).
 
-    This function should be called ONCE in your main analysis script,
-    before any other imports that need logging.
+########################
+### PARSER FOR 0-RUN ###
+########################
 
-    Parameters
-    ----------
-    args : Namespace
-        Parsed arguments from parse_args()
+# Parser for 0-Run/1-run.py
+def Measurement_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run Selection pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
+                         include_sel=True, sel_multi=True, sel_default='all')
+    add_run_argument(parser, 4)
+    add_selection_args(parser)
+    add_preselection_args(parser)
+    add_sample_selection_args(parser)
+    add_xsec_sample_selection_args(parser)
+    add_final_selection_args(parser)
+    add_plot_args(parser)
+    add_plots_args(parser)
+    add_cutflow_args(parser)
+    return parser
 
-    Examples
-    --------
-    In your main analysis script:
+# Parser for 0-Run/2-run.py
+def Fit_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run Combine and fit pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
+                         include_sel=True, sel_multi=True)
+    add_run_argument(parser, 3, default='1-2')
+    add_polarization(parser)
+    add_combine_args(parser)
+    add_fit_args(parser)
+    add_polarization(parser)
+    return parser
 
-        from package.parsing import create_parser, parse_args, setup_logger_from_args
-        from package.logger import get_logger
 
-        # Parse arguments
-        parser = create_parser(cat_single=True, include_sels=True)
-        args = parse_args(parser)
 
-        # Setup logging based on --verbose flag
-        setup_logger_from_args(args)
+##############################
+### GLOBAL PARSER FUNCTION ###
+##############################
 
-        # Now you can use logging
-        LOGGER = get_logger(__name__)
-        LOGGER.info('Analysis starting')
-    """
-    from .logger import setup_logging
+def create_parser(
+        directory: str,
+        script: str | None = None,
+        description: str | None = None
+         ) -> ArgumentParser:
+    '''Dispatch to a script parser or aggregate a whole directory parser.'''
+    if script is None:
+        if directory == '1-Selection': return Measurement_parser(description)
+        if directory == '2-Fit':       return Fit_parser(description)
+        raise ValueError(f'Unknown parser directory: {directory}')
 
-    # Check if args has verbose flag
-    verbose = getattr(args, 'verbose', False)
+    # 1-Selection directory
+    elif directory == '1-Selection':
+        if script == 'pre-selection':   return measurement_preselection_parser(description)
+        if script == 'final-selection': return measurement_final_selection_parser(description)
+        if script == 'plots':           return measurement_plots_parser(description)
+        if script == 'cutflow':         return measurement_cutflow_parser(description)
 
-    # Initialize logging with the verbose flag
-    setup_logging(verbose=verbose)
+    # 2-Fit directory
+    elif directory == '2-Fit':
+        if script == 'process_histogram': return combine_process_histogram_parser(description)
+        if script == 'combine':           return combine_parser(description)
+        if script == 'fit':               return fit_parser(description)
+        if script == 'plots':             return fit_plots_parser(description)
+
+    raise ValueError(f'Unknown parser script: {directory}/{script}')

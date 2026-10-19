@@ -12,6 +12,12 @@ def Baseline_cut(ecm: int) -> str:
     return cut
 
 
+custom_hists = {
+    'leps_iso':    {'name':'ConeIsolation', 'title':'I_{rel}'},
+    'leps_iso_no': {'name':'n_leptons', 'title':'Isolated leptons'}
+}
+
+
 # Output histogram definitions (name, title, binning)
 histo_list = {
 
