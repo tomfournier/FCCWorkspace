@@ -334,3 +334,162 @@ def get_process_list(
     if onlysig: return process_sig
     if onlybkg: return process_bkg
     return {**process_sig, **process_bkg}
+
+
+def get_process_list_mass(
+    cat: str,
+    ecm: int,
+    batch: bool = False,
+    onlysig: bool = False,
+    onlybkg: bool = False,
+    frac: dict[str, float] | None = None,
+    chunks: dict[str, int] | None = None,
+    n_max: dict[str, int] | None = None,
+    include: dict[str, dict] | None = None,
+    exclude: set[str] | None = None,
+) -> dict[str, dict[str, float | int]]:
+    '''Generate analysis-ready process dictionary with signals and backgrounds.
+
+    Full-featured process builder for analysis workflows. Combines signal and background
+    samples with event counts and fractions. Training mode uses simplified samples.
+    Supports filtering, custom overrides, and batch mode scaling.
+
+    Args:
+        cat: Category ('ee', 'mumu', 'qq').
+        ecm: Center-of-mass energy in GeV (240 or 365).
+        batch: If True, scale chunk sizes for batch processing.
+        onlysig: Return only signal processes (mutually exclusive with onlybkg).
+        onlybkg: Return only background processes (mutually exclusive with onlysig).
+        frac: Custom fractions by sample name (overrides defaults).
+        chunks: Custom event chunk counts by sample name (overrides defaults).
+        n_max: Maximum event counts by sample name.
+        include: Additional processes to add, dict with 'sig' and/or 'bkg' keys.
+        exclude: Set of sample names to exclude from output.
+
+    Returns:
+        Dictionary mapping sample names to {'fraction': float, 'chunks': int, 'n_max': int}.
+
+    Raises:
+        ValueError: If onlysig and onlybkg are both True.
+    '''
+    # Initialize optional parameters
+    frac    = frac    or {}
+    chunks  = chunks  or {}
+    n_max   = n_max   or {}
+    include = include or {}
+    exclude = exclude or set()
+
+    # Validate conflicting options
+    if onlysig and onlybkg:
+        raise ValueError('Cannot set both onlysig and onlybkg to True. Choose one.')
+
+    # Nominal signal samples
+    sigs_nom = [f'wzp6_ee_{x}H_ecm{ecm}' for x in Z_DECAYS]
+    # Alternative signal samples for systematics studies
+    sigs_bes = [f'wzp6_ee_{x}H_BES-{ud}-1pc_ecm{ecm}'  for x in Z_DECAYS for ud in ['higher', 'lower']]
+    sigs_mh  = [f'wzp6_ee_{x}H_mH-{ud}-50MeV_ecm{ecm}' for x in Z_DECAYS for ud in ['higher', 'lower']]
+
+    sigs = sigs_nom + sigs_bes + sigs_mh
+
+    small, middle, big = ((5, 20, 30) if batch else (1, 5, 10))
+    common = {f'p8_ee_WW_ecm{ecm}':            {'frac': 1, 'nb': big},
+              f'p8_ee_ZZ_ecm{ecm}':            {'frac': 1, 'nb': middle},
+              f'wzp6_ee_tautau_ecm{ecm}':      {'frac': 1, 'nb': small},
+              f'wzp6_gaga_tautau_60_ecm{ecm}': {'frac': 1, 'nb': small},
+              f'wzp6_ee_nuenueZ_ecm{ecm}':     {'frac': 1, 'nb': small}}
+
+    category_specific: dict[str, dict[str, float | int]] = {
+        'ee': {
+            f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1, 'nb': middle},
+            f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            f'wzp6_gammae_eZ_Zee_ecm{ecm}':    {'frac': 1, 'nb': middle},
+            f'wzp6_gaga_ee_60_ecm{ecm}':       {'frac': 1, 'nb': middle}},
+        'mumu': {
+            f'p8_ee_WW_mumu_ecm{ecm}':        {'frac': 1, 'nb': middle},
+            f'wzp6_ee_mumu_ecm{ecm}':         {'frac': 1, 'nb': big},
+            f'wzp6_egamma_eZ_Zmumu_ecm{ecm}': {'frac': 1, 'nb': middle},
+            f'wzp6_gammae_eZ_Zmumu_ecm{ecm}': {'frac': 1, 'nb': middle},
+            f'wzp6_gaga_mumu_60_ecm{ecm}':    {'frac': 1, 'nb': middle}},
+    }
+
+    bkgs = {**common, **category_specific.get(cat, {})}
+
+    # Build signal dict with custom overrides
+    process_sig = {s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1), 'n_max': n_max.get(s)}
+                   for s in sigs if (s not in exclude and 'all' not in exclude)}
+
+    # Build background dict with custom overrides
+    process_bkg = {b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb']), 'n_max': n_max.get(b)}
+                   for b, v in bkgs.items() if (b not in exclude and 'all' not in exclude)}
+
+    # Apply custom inclusions. The nested form is retained for programmatic
+    # callers; the flat form is convenient for CLI sample selection.
+    if 'sig' in include or 'bkg' in include:
+        process_sig = {**process_sig, **include.get('sig', {})}
+        process_bkg = {**process_bkg, **include.get('bkg', {})}
+    else:
+        for sample, override in include.items():
+            if sample in sigs:
+                defaults = {'fraction': 1, 'chunks': 1}
+                process_sig[sample] = {**defaults, **override}
+            elif sample in bkgs:
+                defaults = {'fraction': bkgs[sample]['frac'], 'chunks': bkgs[sample]['nb']}
+                process_bkg[sample] = {**defaults, **override}
+            else:
+                raise ValueError(f'Cannot classify included sample {sample!r} as signal or background.')
+
+    # Return requested subset
+    if onlysig: return process_sig
+    if onlybkg: return process_bkg
+    return {**process_sig, **process_bkg}
+
+
+def get_process_dict_mass(
+    procs: Union[Sequence[str], None] = None,
+    ecm: int = 240,
+) -> dict[str, tuple[str, ...]]:
+    '''Generate process dictionary with optional filtering and custom decay modes.
+
+    Simple process builder for creating FCC sample dictionaries.
+    Can use defaults (cached) or custom decay modes. Optionally filters to specific process keys.
+    Returns process key -> sample names mapping (e.g., 'ZH' -> ('wzp6_ee_bbH_Hbb_ecm240', ...)).
+
+    Args:
+        procs: Process keys to include. If None, returns all available processes.
+        ecm: Center-of-mass energy in GeV (default 240).
+
+    Returns:
+        Dictionary mapping process keys to tuples of FCC sample names.
+
+    Examples:
+        >>> get_process_dict()  # All processes, default decays, 240 GeV
+        >>> get_process_dict(procs=['ZH', 'WW'], ecm=365)  # Filtered, 365 GeV
+    '''
+
+    processes = {
+        # All signals for the Z exclusive decays
+        'ZH':     tuple(f'wzp6_ee_{x}H_ecm{ecm}' for x in Z_DECAYS),
+
+        # All signals for a specific Z inclusive decay
+        'ZeeH':   tuple(f'wzp6_ee_eeH_ecm{ecm}',),
+        'ZmumuH': tuple(f'wzp6_ee_mumuH_ecm{ecm}',),
+        'ZqqH':   tuple(f'wzp6_ee_{x}H_ecm{ecm}' for x in QUARKS),
+
+        # Diboson production e+e- -> VV (V = W or Z)
+        'WW':     (f'p8_ee_WW_ecm{ecm}', f'p8_ee_WW_ee_ecm{ecm}', f'p8_ee_WW_mumu_ecm{ecm}'),
+        'ZZ':     (f'p8_ee_ZZ_ecm{ecm}',),
+
+        # 2 fermion production e+e- -> ff
+        'Zgamma': (f'wzp6_ee_ee_Mee_30_150_ecm{ecm}', f'wzp6_ee_mumu_ecm{ecm}', f'wzp6_ee_tautau_ecm{ecm}',),
+
+        # Rare processes: photon induced, diphoton and nunuZ processes
+        'Rare':   (f'wzp6_gammae_eZ_Zee_ecm{ecm}',    f'wzp6_egamma_eZ_Zee_ecm{ecm}',
+                   f'wzp6_gammae_eZ_Zmumu_ecm{ecm}',  f'wzp6_egamma_eZ_Zmumu_ecm{ecm}',
+                   f'wzp6_gaga_ee_60_ecm{ecm}',       f'wzp6_gaga_mumu_60_ecm{ecm}',
+                   f'wzp6_gaga_tautau_60_ecm{ecm}',   f'wzp6_ee_nuenueZ_ecm{ecm}'),
+    }
+
+    if procs:
+        return {proc: processes[proc] for proc in procs if proc in processes}
+    return processes
