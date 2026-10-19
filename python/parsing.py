@@ -283,12 +283,13 @@ def add_plot_args(
         choices=['png', 'pdf', 'png-pdf', 'pdf-png'],
         help='Output file formats (default: png)'
     )
-    args.add_argument(
-        '--scale-sig',
-        type=float,
-        default=1.,
-        help='Signal scaling in plots (default: 1)'
-    )
+    if include_sig_scale:
+        args.add_argument(
+            '--scale-sig',
+            type=float,
+            default=1.,
+            help='Signal scaling in plots (default: 1)'
+        )
 
 
 
