@@ -166,6 +166,14 @@ def plot_configs(ecm: int, cat: str) -> dict[str, dict[str, dict[str, tuple[str,
     total    = {'signals': get_process_dict(['ZH'],             ecm), 'backgrounds': backgrounds}
     return {'category': category, 'total': total, 'procs': procs, 'decay': decay_plots(f'Z{cat}H', ecm), 'total_decay': decay_plots('ZH', ecm)}
 
+def plot_configs_mass(ecm: int, cat: str) -> dict[str, dict[str, dict[str, tuple[str, ...]]]]:
+    from samples import get_process_dict_mass
+    backgrounds = get_process_dict_mass(['WW', 'ZZ', 'Zgamma', 'Rare'], ecm)
+    category = {'signals': get_process_dict_mass([f'Z{cat}H'],       ecm), 'backgrounds': backgrounds}
+    procs    = {'signals': get_process_dict_mass(['ZH', f'Z{cat}H'], ecm), 'backgrounds': backgrounds}
+    total    = {'signals': get_process_dict_mass(['ZH'],             ecm), 'backgrounds': backgrounds}
+    return {'category': category, 'total': total, 'procs': procs}
+
 
 def get_args(
     var: str,
