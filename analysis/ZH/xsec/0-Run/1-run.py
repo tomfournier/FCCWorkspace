@@ -119,7 +119,7 @@ def main(cat: str, ecm: int, script: str) -> int:
     result = subprocess.run(cmds[script].split() + [f'{path}/{script}.py'] + extra_args,
                             env=ENV, stdout=sys.stdout, stderr=sys.stderr)
 
-    # Log completion status without changing the subprocess return code.
+    # Log completion status.
     status = '✓ COMPLETED' if result.returncode == 0 else '✗ FAILED'
     log_msg(status, script, cat=cat, ecm=ecm)
 

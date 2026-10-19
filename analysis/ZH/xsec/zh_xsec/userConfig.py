@@ -4,11 +4,8 @@ Provides:
 - Path templates via `loc` with placeholders: `cat`, `ecm`, `sel`.
 - Type-flexible expansion with `LocPath.get()` and `loc.get(...)`.
 - Bidirectional type conversion via `astype(str)` and `astype(Path)`.
-- Global parameters: `plot_file`, `frac`, `nb`, `ww`, `cat`, `ecm`, `lumi`.
-- Utilities: `event()`, `get_params()`.
 
 Conventions:
-- `lumi` is in ab^-1 (10.8 at 240 GeV; 3.12 at 365 GeV).
 - Templates are expanded with `loc.get()` or `LocPath.get()`.
 - Expanded paths can be str or pathlib.Path; both support `astype()`.
 

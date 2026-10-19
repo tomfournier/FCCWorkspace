@@ -1,4 +1,4 @@
-# `package/`
+# `zh_xsec/`
 
 Shared Python utilities for the FCC-ee ZH cross-section analysis. The package
 supports the MVA, measurement, combine, fit, and self-coupling workflows.
@@ -7,13 +7,11 @@ supports the MVA, measurement, combine, fit, and self-coupling workflows.
 
 | Module | Role |
 | --- | --- |
-| `config.py` | Physics constants, labels, process definitions, and analysis helpers |
-| `logger.py` | Common logging setup and module loggers |
 | `parsing.py` | Reusable command-line argument builders and script parsers |
-| `run.py` | Helpers for composing parsers, forwarding arguments, and reporting stages |
 | `userConfig.py` | Output path templates and shared analysis parameters |
 | `func/` | Analysis algorithms, including BDT and fit-related functions |
 | `plots/` | Plotting and visualization helpers |
+| `sel/` | Pre-selection and final-selection functions |
 | `tools/` | ROOT I/O, histogram, and other data-processing utilities |
 
 The package is an internal analysis library. Analysis scripts in the numbered
@@ -24,8 +22,9 @@ workflow directories are the main entry points.
 Set up logging and obtain the parser for the script being run:
 
 ```python
-from package.logger import get_logger
-from package.parsing import create_parser, parse_args, set_log
+from parsing import set_log
+from zh_xsec.parsing import create_parser
+from logger import get_logger
 
 parser = create_parser('2-BDT', 'evaluation')
 args = parse_args(parser)
@@ -39,8 +38,8 @@ Use the configuration modules for processes and paths:
 ```python
 from pathlib import Path
 
-from package.config import get_process_dict
-from package.userConfig import loc
+from samples import get_process_dict
+from zh_xsec.userConfig import loc
 
 processes = get_process_dict(procs=['ZH', 'WW'], ecm=240)
 events = loc.EVENTS.get(cat='mumu', ecm=240, type=Path)
@@ -73,5 +72,4 @@ source setup/FCCAnalyses.sh
 ```
 
 See the repository setup documentation for environment installation and
-workflow-specific commands. This README intentionally documents stable module
-boundaries rather than every constant, path, or command-line option.
+workflow-specific commands.
