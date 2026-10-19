@@ -13,11 +13,8 @@ def Baseline_cut_ll(ecm: int) -> str:
 
 
 custom_hists_ll = {
-    'leps_iso':    {'name':'ConeIsolation',
-                    'title':'I_{rel}'},
-
-    'leps_iso_no': {'name':'n_leptons',
-                    'title':'Isolated leptons'}
+    'leps_iso':    {'name':'ConeIsolation', 'title':'I_{rel}'},
+    'leps_iso_no': {'name':'n_leptons', 'title':'Isolated leptons'}
 }
 
 
@@ -33,9 +30,9 @@ histos_ll = {
                             'title':'p_{T,l,leading} [GeV]',
                             'bin':1000,'xmin':0,'xmax':250},
 
-    'leading_theta':       {'name':'leading_theta',
-                            'title':'#theta_{l,leading}',
-                            'bin':128, 'xmin':0, 'xmax':3.2},
+    'leading_costheta':    {'name':'leading_costheta',
+                            'title':'cos#theta_{l,leading}',
+                            'bin':1000, 'xmin':-1, 'xmax':1},
 
     # Lepton kinematics: subleading lepton
     'subleading_p':        {'name':'subleading_p',
@@ -46,9 +43,9 @@ histos_ll = {
                             'title':'p_{T,l,subleading} [GeV]',
                             'bin':800,'xmin':0,'xmax':200},
 
-    'subleading_theta':    {'name':'subleading_theta',
-                            'title':'#theta_{l,subleading}',
-                            'bin':128, 'xmin':0, 'xmax':3.2},
+    'subleading_costheta': {'name':'subleading_costheta',
+                            'title':'cos#theta_{l,subleading}',
+                            'bin':1000, 'xmin':-1, 'xmax':1},
 
     # Angular separation between leptons
     'acolinearity':        {'name':'acolinearity',
@@ -80,9 +77,9 @@ histos_ll = {
                             'title':'p_{T,l^{+}l^{-}} [GeV]',
                             'bin':2500,'xmin':0,'xmax':250},
 
-    'zll_theta':           {'name':'zll_theta',
-                            'title':'#theta_{l^{+}l^{-}}',
-                            'bin':128,'xmin':0,'xmax':3.2},
+    'zll_costheta':        {'name':'zll_costheta',
+                            'title':'cos#theta_{l^{+}l^{-}}',
+                            'bin':1000,'xmin':-1,'xmax':1},
 
     # Recoil mass (Higgs candidate)
     'zll_recoil_m':        {'name':'zll_recoil_m',

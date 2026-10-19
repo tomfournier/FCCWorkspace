@@ -88,22 +88,22 @@ processList = get_process_list(
 # Selection cuts dictionary for ROOT filtering
 # Keys: selection names appearing in output file names and histograms
 cutList: dict[str, str] = {}
-if arg.do_sel0: cutList['sel0_test' if arg.test else 'sel0'] = 'return true;'  # No cuts selection
+if arg.do_sel0: cutList['sel0_test' if test else 'sel0'] = 'return true;'  # No cuts selection
 if cat in ['ee', 'mumu']:
     if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
     else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
 elif cat == 'qq':
     cutList['Baseline'] = Baseline_cut_qq(ecm, True)   # Baseline selection (hadronic channel)
     
-    cutList['test']  = Baseline_cut_qq(ecm, True)
-    cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
-    cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    cutList['test']  = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85'
+    cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
+    cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
     
     cutList['jan']  = Baseline_cut_qq(ecm, True)
-    cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
-    cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
+    cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 
 # Save ROOT TTrees in addition to histograms (for BDT training)

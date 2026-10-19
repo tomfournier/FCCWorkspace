@@ -584,7 +584,7 @@ def mva_plots_parser(description: str | None = None) -> ArgumentParser:
         include_sel=True, sel_multi=True, sel_default='all')
     add_selection_args(parser)
     add_xsec_selection_args(parser)
-    add_plots_args(parser)
+    add_plot_args(parser)
     add_mva_plot_args(parser)
     return parser
 
@@ -639,7 +639,7 @@ def measurement_preselection_parser(description: str | None = None) -> ArgumentP
     add_xsec_sample_selection_args(parser)
     return parser
 
-# Parser for 3-Measurement.final-selection.py
+# Parser for 3-Measurement/final-selection.py
 def measurement_final_selection_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'Final-selection Script',
@@ -650,6 +650,7 @@ def measurement_final_selection_parser(description: str | None = None) -> Argume
     add_final_selection_args(parser)
     add_final_bdt_selection_args(parser)
     add_sample_selection_args(parser)
+    add_xsec_sample_selection_args(parser)
     return parser
 
 # Parser for 3-Measurement/plots.py

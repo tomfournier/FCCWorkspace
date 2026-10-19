@@ -6,8 +6,6 @@ Provides:
 - Batch execution across energies and channels while streaming child output.
 
 Conventions:
-- Temporary configuration files are created in loc.RUN and removed after each stage.
-- Environment variable RUN='1' flags automated mode for the analysis scripts.
 - Scripts are executed in nested loops: ecm -> cat -> stage-specific script, then plots/cutflow.
 
 Usage:
@@ -45,7 +43,6 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-# Load directory path manager and timing utility
 from zh_xsec.userConfig import loc
 from tools.utils import timer
 from run import log_msg, update_namespace, get_extra_args
@@ -64,10 +61,10 @@ script_map = {
     '4': 'cutflow'           # Stage 4: Analyze event yield per cut stage
 }
 
+# Map to associate script to command (must match script_map values)
 cmds = {'pre-selection':   'fccanalysis run',
         'final-selection': 'fccanalysis final',
-        'plots':           'python',
-        'cutflow':         'python'}
+        'plots': 'python', 'cutflow': 'python'}
 
 
 
@@ -93,7 +90,7 @@ ENV = os.environ.copy()
 ##########################
 
 def main(cat: str, ecm: int, script: str) -> None:
-    '''Execute one measurement stage and stream its output.
+    '''Execute one Measurement pipeline and stream its output.
 
     Builds the downstream command from the selected parser configuration,
     overrides the current channel and energy, and forwards the resulting

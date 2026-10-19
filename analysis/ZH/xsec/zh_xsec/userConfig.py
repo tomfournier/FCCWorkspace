@@ -21,9 +21,7 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-from pathlib import Path
-
-from path import loc, LocPath
+from path import loc, LocPath, PathObj
 from logger import get_logger
 
 LOGGER = get_logger(__name__)
@@ -60,7 +58,7 @@ input_vars_qq = (
 ### LOCATION OF FILES ###
 #########################
 
-repo = str(Path(__file__).parent.parent.resolve())
+repo = str(PathObj(__file__).parent.parent.resolve())
 
 # Base locations. Each numbered root is a complete stage of the workflow.
 loc.ROOT      = LocPath(repo)                     # Repository root
@@ -72,7 +70,7 @@ loc.TMP       = LocPath(f'{repo}/output/tmp')     # Temporary files
 
 # Data output's main directories
 loc.EVENTS_DIR = LocPath(f'{repo}/output/data/1-events')       # 1. Event samples
-loc.HIST_DIR   = LocPath(f'{repo}/output/data/2-histograms')   # 2. Histogram stages
+loc.HIST_DIR   = LocPath(f'{repo}/output/data/2-histograms')   # 2. Histogram root
 loc.MVA_DIR    = LocPath(f'{repo}/output/data/3-MVA')          # 3. MVA inputs and models
 loc.FIT_DIR    = LocPath(f'{repo}/output/data/4-combine')      # 4. Statistical fits
 loc.NLO_DIR    = LocPath(f'{repo}/output/data/5-nlo')          # 5. Self-coupling fits

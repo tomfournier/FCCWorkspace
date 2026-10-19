@@ -26,9 +26,6 @@ LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
 ###########################################################
 
-
-
-# Load analysis configuration and preselection functions
 from zh_xsec.userConfig import loc
 from samples import get_process_list, get_include, get_exclude
 from zh_xsec.sel.presel.leptonic import presel_ll, branch_list_ll

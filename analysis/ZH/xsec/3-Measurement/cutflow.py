@@ -16,8 +16,7 @@ t = time()
 from parsing import set_log
 from zh_xsec.parsing import create_parser
 from logger import get_logger
-parser = create_parser('3-Measurement', 'cutflow')
-arg = parser.parse_args()
+arg = create_parser('3-Measurement', 'cutflow').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -46,6 +45,10 @@ cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
 # Integrated luminosity [ab^-1]
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
+# Define input and output directories
+if arg.kin: inputdir = loc.get('EVENTS_TEST', cat, ecm)
+else:       inputdir = loc.get('EVENTS',      cat, ecm)
+outputdir = loc.get('PLOT_MEAS', cat, ecm)
 
 
 ###################
@@ -71,7 +74,7 @@ E_vis = 100 if ecm==240 else 171
 EXTRA_LL = {'Baseline_miss': {new_cut: ('cosTheta_miss < 0.98', '|cos#theta_{miss}| < 0.98')},  # Missing energy polar angle cut
             'Baseline_sep':  {new_cut: (f'((visibleEnergy > {E_vis}) |'                         # Visible sample, do nothing
                                         f' (visibleEnergy < {E_vis} & cosTheta_miss < 0.99))',  # Invisible sample, missing energy polar angle cut
-                                        '|cos#theta_{miss}| < 0.99 [inv]')}}
+                                         '|cos#theta_{miss}| < 0.99 [inv]')}}
 
 # Hadronic cuts and labels
 CUTS_QQ = {
@@ -139,16 +142,10 @@ def main() -> None:
     cuts   = cuts_ll  if cat in ['ee', 'mumu'] else cuts_qq
     labels = label_ll if cat in ['ee', 'mumu'] else label_qq
 
-    # Define input and output directories
-    if arg.kin: inDir = loc.get('EVENTS_TEST', cat, ecm)
-    else:       inDir = loc.get('EVENTS',      cat, ecm)
-    outDir = loc.get('PLOT_MEAS', cat, ecm)
-
     # Generate cutflow plots and tables
-    get_cutflow(inDir, outDir, cat, sels, plots, colors, legend,
+    get_cutflow(inputdir, outputdir, cat, sels, plots, colors, legend,
                 cuts, labels, arg.formats.split('-'), ecm, lumi,
-                1, arg.tot, True, True,
-                loc.JSON)
+                1, True, arg.tot, True, loc.JSON)
 
 
 ######################

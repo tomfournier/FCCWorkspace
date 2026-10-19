@@ -17,8 +17,7 @@ t = time()
 from parsing import set_log
 from zh_xsec.parsing import create_parser
 from logger import get_logger
-parser = create_parser('3-Measurement', 'plots')
-arg = parser.parse_args()
+arg = create_parser('3-Measurement', 'plots').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -29,7 +28,6 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-# Load directory paths and process configurations
 from zh_xsec.userConfig import loc
 from tools.utils import timer
 from constants import z_decays, H_decays, vars_label_ll, vars_label_qq
@@ -149,8 +147,7 @@ def main() -> None:
                         # Reuse invariant options for category and total distributions.
                         make_args = plot_kwargs(variable, makePlot, plots=plots['procs'])
                         for logY in [False, True]:
-                            make_args['logY'] = logY
-                            make_args['sig_scale'] = 1 if logY else make_args['sig_scale']
+                            make_args.update(logY=logY, sig_scale=1 if logY else make_args['sig_scale'])
                             makePlot(**make_args)
 
             # Clear cache after finishing this selection to free memory

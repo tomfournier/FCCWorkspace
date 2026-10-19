@@ -24,7 +24,6 @@ LOGGER = logging.getLogger('FCCAnalyses.final-selection')
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-# Load configuration and measurement selection functions
 from zh_xsec.userConfig import loc
 from zh_xsec.func.bdt   import def_bdt, make_high_low
 from zh_xsec.sel.final.leptonic import Baseline_cut_ll, histos_ll, custom_hists_ll
@@ -99,7 +98,7 @@ Baseline_miss = Baseline + ' && cosTheta_miss < ' + ('0.98' if cat in ['ee', 'mu
 
 # Selection cut dictionary (key = selection name used in outputs)
 cutList: dict[str, str] = {}
-if arg.do_sel0: cutList['sel0_test' if arg.test else 'sel0'] = 'return true;'  # No cuts selection
+if arg.do_sel0: cutList['sel0_test' if test else 'sel0'] = 'return true;'  # No cuts selection
 
 if cat in ['ee', 'mumu']:
     if test: cutList['test'] = Baseline

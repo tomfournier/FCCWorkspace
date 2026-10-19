@@ -54,8 +54,8 @@ energy         = ecm       # Center-of-mass energy [GeV]
 collider       = 'FCC-ee'  # Collider identifier
 
 # Input/output directories and plot configuration
-inputDir       = loc.get('HIST_INPUT', cat, ecm)  # Input histograms from final-selection.py
-outdir         = loc.get('PLOT_INPUT',  cat, ecm)  # Output plots directory
+inputDir       = loc.get('HIST_INPUT', cat, ecm)+'/'   # Input histograms from final-selection.py
+outdir         = loc.get('PLOT_INPUT', cat, ecm)       # Output plots directory
 yaxis          = ['lin','log']             # Y-axis scale options (linear and logarithmic)
 stacksig       = ['nostack']               # Signal display mode (nostack = overlaid)
 formats        = arg.formats.split('-')    # Output file formats (e.g., png, pdf)
@@ -76,10 +76,10 @@ customLabel    = 'Training sample'  # Custom label shown on plots
 
 # Comprehensive list of kinematic variables to plot (sorted alphabetically)
 # These variables are computed in pre-selection.py and filled into histograms by final-selection.py
-if 'all' in arg.variable:
+if 'all' in arg.variables:
     variables = sorted(histos_ll.keys()) if cat in ['ee', 'mumu'] else \
         (sorted(histos_qq.keys()) if cat=='qq' else [])
-else: variables = arg.variable.split('-')
+else: variables = arg.variables.split('-')
 
 
 
