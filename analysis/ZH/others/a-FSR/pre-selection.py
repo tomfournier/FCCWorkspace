@@ -1,21 +1,34 @@
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
+
+import sys, logging
+
+from pathlib import Path
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from zh_others.parsing import create_parser
+parser = create_parser('a-FSR', 'pre-selection')
+cmd_args = globals().get('cmdline_args')
+arguments = cmd_args['unknwon'] if cmd_args is not None else sys.argv[1:]
+arg, _ = parser.parse_known_args(arguments)
+
+LOGGER = logging.getLogger('FCCAnalyses.pre-selection')
+
+
+
 ###########################################################
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULES ###
 ###########################################################
 
-import os
-
-# Import user configuration paths and parameters
-from zh_others.config import get_process_list, quarks
-from sel_others.fsr import (
-    fsr_recovery,
-    branch_list
-)
-from zh_others.userConfig import (
-    loc, get_params
-)
-
-env = os.environ.copy()
-cat, ecm, _ = get_params(env, 'a-run.json')
+from zh_others.userConfig import loc
+from samples import get_process_list, get_include, get_exclude
+from zh_others.sel.fsr import fsr_recovery, branch_list
 
 
 
@@ -23,15 +36,15 @@ cat, ecm, _ = get_params(env, 'a-run.json')
 ### SETUP CONFIG SETTINGS ###
 #############################
 
+cat, ecm = arg.cat, arg.ecm
+
 # Output directory for FSR recovery events (default is local directory)
-outputDir = loc.get('FSR_TREE', cat, ecm)
+outputDir = loc.get('EVENTS_FSR', cat, ecm)
 
 # Include custom C++ analysis functions
-includePaths = [
-    '../../../../functions/functions.h',
-    '../../../../functions/utils.h',
-    '../../../../functions/FSR_recovery.h'
-]
+includePaths = ['../../../../functions/functions.h',
+                '../../../../functions/utils.h',
+                '../../../../functions/FSR_recovery.h']
 
 # Mandatory: Production tag for EDM4Hep centrally produced events
 # Points to YAML files for sample statistics
@@ -41,18 +54,20 @@ prodTag = 'FCCee/winter2023/IDEA/'
 # Path to procDict: /cvmfs/fcc.cern.ch/FCCDicts
 procDict = 'FCCee_procDict_winter2023_IDEA.json'
 
-# Optional: Number of CPUs for parallel processing
-# (default is 4, -1 uses all cores available)
-nCPUS = 20
+# HTCondor batch system configuration (disabled by default)
+runBatch   = arg.run_batch            # Submit the job to HTCondor
+batchQueue = arg.job_flavor           # Queue for batch submission
+compGroup  = 'group_u_FCC.local_gen'  # Computing account for resource allocation
 
-# Run on HTCondor batch system (default is False)
-runBatch = True if env.get('RUN_BATCH') else False
+# To make HTCondor execute userBatchConfig.sh
+# This will make HTCondor detect FCCWorkspace/python and custom modules in analysis/**
+userBatchConfig = str(Path(__file__).resolve().parents[4] / 'userBatchConfig.sh')
 
-# Batch queue name for HTCondor (default is workday)
-batchQueue = 'longlunch'
+# Parallel processing configuration (default 4)
+nCPUS = 4 if runBatch else 20  # Number of CPUs for parallel processing (-1 uses all available)
 
-# Computing account for HTCondor (default is group_u_FCC.local_gen)
-compGroup = 'group_u_FCC.local_gen'
+if arg.run_batch:
+    LOGGER.info(f'Running script on HTCondor with {nCPUS} CPUs and using {batchQueue} job flavor')
 
 
 
@@ -60,14 +75,10 @@ compGroup = 'group_u_FCC.local_gen'
 ### SETUP SAMPLES TO PROCESS ###
 ################################
 
-decays = [cat] if cat in ['ee', 'mumu'] else quarks
 processList = get_process_list(
-    cat, ecm, onlysig=True, batch=True, z_decays=decays,
-    include={
-        'sig': {
-            f'wzp6_ee_{cat}H_ecm{ecm}': {'fraction': 1, 'chunks': 5}
-        }
-    }
+    cat, ecm, onlysig=True, train=True, batch=runBatch,
+    include=get_include(arg.include),
+    exclude=get_exclude(arg.exclude)
 )
 
 
@@ -77,11 +88,11 @@ processList = get_process_list(
 #####################################################
 
 class RDFanalysis():
-    '''RDataFrame analysis class for FSR recovery stage.
+    '''RDataFrame analysis class for applying pre-selection cuts and computing kinematic variables.
 
-    Applies FSR (Final State Radiation) recovery algorithms to reconstruct
-    true photon kinematics from the detector response and calculates FSR-related
-    kinematic variables.
+    This class defines the analysis pipeline using FCC's ROOT analysis framework,
+    applying particle selection, kinematic calculations, and producing output branches
+    for downstream FSR recovery optimization.
     '''
 
     # _________________________________________________________________
@@ -98,8 +109,10 @@ class RDFanalysis():
         Returns:
             RDataFrame with FSR recovery variables applied
         '''
-        df = fsr_recovery(df, cat, ecm)
-        return df
+        if cat in ['ee', 'mumu']:
+            df = fsr_recovery(df, cat, ecm)
+            return df
+        raise ValueError(f'{cat = } is not supported, choose between [ee, mumu]')
 
     # _____________________________________________________
     # Mandatory: output function defining branches to save
@@ -112,4 +125,6 @@ class RDFanalysis():
         Returns:
             Sorted list of branch names to persist in output
         '''
-        return sorted(branch_list)
+        if cat in ['ee', 'mumu']:
+            return sorted(branch_list)
+        raise ValueError(f'{cat = } is not supported, choose between [ee, mumu]')

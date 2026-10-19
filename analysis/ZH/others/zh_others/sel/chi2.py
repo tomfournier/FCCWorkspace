@@ -142,12 +142,6 @@ def optimize_ll(df: 'ROOT.ROOT.RDataFrame',
     return df
 
 
-def optimize_qq(df: 'ROOT.ROOT.RDataFrame',
-                cat: str,
-                ecm: int,
-                ) -> 'ROOT.ROOT.RDataFrame':
-    pass
-
 
 #######################
 ### OUTPUT BRANCHES ###
@@ -165,10 +159,4 @@ branch_list_ll = [
     'Leading_p', 'Leading_pt', 'Leading_theta',              # True leading lepton kinematics
     'subleading_p', 'subleading_pt', 'subleading_theta',     # Reco subleading lepton kinematics
     'Subleading_p', 'Subleading_pt', 'Subleading_theta',     # True subleading lepton kinematics
-]
-branch_list_qq = [
-    'jets_rp_cand_N0', 'jets_rp_cand_N2', 'jets_rp_cand_N4', 'jets_rp_cand_N6',
-    'jets_N0', 'jets_N2', 'jets_N4', 'jets_N6',
-    'clustered_jets_N0', 'clustered_jets_N2', 'clustered_jets_N4', 'clustered_jets_N6',
-    'rps_sel', 'pseudo_jets'
 ]

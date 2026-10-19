@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from package.logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -21,12 +21,7 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-# Import utilities and plotting configurations
-from .python.plotter import (
-    set_plt_style,
-    set_labels,
-    savefigs
-)
+from plot.pyplotter import set_plt_style, set_labels, savefigs
 
 
 
@@ -78,6 +73,7 @@ def _get_chi2_params(chi2_method: str) -> dict[str, any]:
         }
     else:
         raise ValueError(f"Unknown chi2_method: {chi2_method}")
+
 
 
 ##############################

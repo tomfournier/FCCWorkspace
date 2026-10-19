@@ -1,9 +1,7 @@
-
 #################################
 ### IMPORT STANDARD LIBRARIES ###
 #################################
 
-# Standard library and scientific computing imports
 import uproot
 
 import numpy as np
@@ -20,21 +18,18 @@ from pathlib import Path
 ### ARGUMENT PARSING ###
 ########################
 
-from package.logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
+
 
 
 ##########################################################
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-# Import utilities and plotting configurations
-from .python.plotter import (
-    set_plt_style,
-    set_labels,
-    savefigs
-)
+from plot.pyplotter import set_plt_style, set_labels, savefigs
+
 
 
 ################################
@@ -43,6 +38,7 @@ from .python.plotter import (
 
 set_plt_style()
 plt.ioff()
+
 
 
 ########################

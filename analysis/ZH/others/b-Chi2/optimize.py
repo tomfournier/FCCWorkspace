@@ -21,6 +21,7 @@ import sys, time
 
 import numpy as np
 
+# Start execution timer
 t = time.time()
 
 
@@ -29,14 +30,10 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_others.parsing import create_parser, parse_args, set_log
-from zh_others.logger import get_logger
-parser = create_parser(
-    cat_single=True,
-    optimize=True,
-    description='Optmisation Script'
-)
-arg = parse_args(parser, True)
+from parsing import set_log
+from zh_others.parsing import create_parser
+from logger import get_logger
+arg = create_parser('b-Chi2', 'optimize').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -49,7 +46,7 @@ LOGGER = get_logger(__name__)
 
 from zh_others.userConfig import loc
 loc.set_default_type('Path')
-from zh_others.config import timer
+from tools.utils import timer
 from zh_others.func.optimization import Optimizer
 
 
@@ -72,8 +69,8 @@ def main():
     """
     cat, ecm, nevents = arg.cat, arg.ecm, arg.nevents
 
-    inDir  = loc.get('OPTIMISATION',     cat, ecm)
-    outDir = loc.get('OPTIMISATION_RES', cat, ecm)
+    inDir  = loc.get('EVENTS_CHI2', cat, ecm)
+    outDir = loc.get('CHI2_RES',    cat, ecm)
 
     if not inDir.exists():
         LOGGER.error(f'Input directory not found at {inDir}')
@@ -100,7 +97,7 @@ def main():
     precision = len(incr_str.split('.')[-1]) if '.' in incr_str else 0
 
     # Store results for both methods
-    chi2_methods = arg.method.split('-')
+    chi2_methods = arg.methods.split('-')
     all_results = {method: {} for method in chi2_methods}
 
     # Run optimization for both chi2 methods

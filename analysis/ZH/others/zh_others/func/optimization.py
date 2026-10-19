@@ -8,7 +8,7 @@ from glob import glob
 from tqdm import tqdm
 from pathlib import Path
 
-from ..logger import get_logger
+from logger import get_logger
 
 LOGGER = get_logger(__name__)
 

@@ -14,7 +14,6 @@ Usage:
 ### IMPORT STANDARD LIBRARIES ###
 #################################
 
-# Standard library and scientific computing imports
 import sys, time
 
 import numpy as np
@@ -28,15 +27,10 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_others.parsing import create_parser, parse_args, set_log
-from zh_others.logger import get_logger
-parser = create_parser(
-    cat_single=True,
-    optimize=True,
-    is_plot=True,
-    description='Optimisation Plots Script'
-)
-arg = parse_args(parser, validate_cat=True)
+from parsing import set_log
+from zh_others.parsing import create_parser
+from logger import get_logger
+arg = create_parser('b-Chi2', 'plots').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -47,20 +41,17 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-# Import configuration paths and plot settings
-from zh_others.userConfig import loc, plot_file
+from zh_others.userConfig import loc
 loc.set_default_type('Path')
-# Import utilities and plotting configurations
-from zh_others.config import timer, process_label
-from zh_others.plots.optimization import (
-    load_results,
-    extract_arrays,
-    efficiency,
-    pairing_composition,
-    event_counts,
-    compare_dists
+from constants import H_labels as process_label
+from tools.utils import timer
+from zh_others.plots.chi2 import (
+    load_results, extract_arrays,
+    efficiency, pairing_composition,
+    event_counts, compare_dists
 )
 
+file_formats = arg.format.split('-')
 
 
 ##########################
@@ -109,7 +100,7 @@ def main():
         sys.exit(1)
 
     # Get chi2 methods to plot
-    chi2_methods: list[str] = arg.method.split('-')
+    chi2_methods: list[str] = arg.methods.split('-')
 
     # Set LaTeX label for final state
     if cat == 'mumu':
@@ -155,11 +146,7 @@ def main():
             if arg.metrics:
 
                 # Define categories and their output folder names
-                categories = {
-                    'overall':    'overall',
-                    'one_pair':   'one',
-                    'multi_pair': 'several'
-                }
+                categories = {'overall': 'overall', 'one_pair': 'one', 'multi_pair': 'several'}
 
                 # Generate optimization plots for each category
                 for category, folder_name in categories.items():
@@ -177,35 +164,25 @@ def main():
 
                     # Generate optimization plots
                     LOGGER.info(f'Generating {category} plots for {proc}')
-                    efficiency(
-                        fracs, effs,
-                        cat_outDir, Label, chi2_method, format=plot_file
-                    )
-                    pairing_composition(
-                        fracs,
-                        n_correct, n_partial, n_incorrect,
-                        n_total, effs,
-                        cat_outDir, Label, chi2_method, plot_file
-                    )
-                    event_counts(
-                        fracs,
-                        n_correct, n_partial, n_incorrect,
-                        cat_outDir, Label, chi2_method, plot_file
-                    )
+                    efficiency(fracs, effs, cat_outDir,
+                               Label, chi2_method, format=file_formats)
+                    pairing_composition(fracs, n_correct, n_partial, n_incorrect,
+                                        n_total, effs, cat_outDir,
+                                        Label, chi2_method, file_formats)
+                    event_counts(fracs, n_correct, n_partial, n_incorrect,
+                                 cat_outDir, Label, chi2_method, file_formats)
 
             if arg.dist:
                 LOGGER.debug(f'Generating distribution comparison plots for {proc}')
                 baseline_file = proc_dir / 'results_baseline.root'
                 optimal_file  = proc_dir / 'results_optimal.root'
-                dist_outDir   = out_dir / 'distributions'
-                origin_outDir = out_dir / 'origins'
+                dist_outDir   = out_dir  / 'distributions'
+                origin_outDir = out_dir  / 'origins'
 
                 if baseline_file.exists() and optimal_file.exists():
-                    compare_dists(
-                        baseline_file, optimal_file,
-                        dist_outDir, origin_outDir,
-                        Label, chi2_method, plot_file
-                    )
+                    compare_dists(baseline_file, optimal_file,
+                                  dist_outDir, origin_outDir,
+                                  Label, chi2_method, file_formats)
                 else:
                     missing = ''
                     if not baseline_file.exists(): missing += f'Missing: {baseline_file}\n'

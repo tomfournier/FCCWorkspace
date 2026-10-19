@@ -28,18 +28,10 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_others.parsing import create_parser, parse_args, set_log
-from zh_others.logger import get_logger
-
-parser = create_parser(
-    cat_single=True,
-    allow_qq=False,
-    is_plot=True,
-    optimize=True,
-    only_procs=True,
-    description='FSR Recovery Plots Script'
-)
-arg = parse_args(parser, validate_cat=True)
+from parsing import set_log
+from zh_others.parsing import create_parser
+from logger import get_logger
+arg = create_parser('a-FSR', 'plots').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -50,22 +42,19 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-# Import configuration paths and plot settings
-from zh_others.userConfig import loc, plot_file
+from path import PathObj
+from zh_others.userConfig import loc
 loc.set_default_type('Path')
-# Import utilities and plotting configurations
-from zh_others.config import timer, process_label
+from tools.utils import timer
+from constants import H_labels as process_label
 from zh_others.plots.fsr import (
-    load_data,
-    n_radiated,
-    leptons_origin,
-    photon_distributions,
-    leptons_fsr_comparison,
-    correlation_scan,
+    load_data, n_radiated, leptons_origin,
+    photon_distributions, leptons_fsr_comparison,
+    correlation_scan, significance,
     correlation_distributions,
-    significance
 )
 
+file_formats = arg.formats.split('-')
 
 
 #######################
@@ -73,14 +62,12 @@ from zh_others.plots.fsr import (
 #######################
 
 # Helper function to find process input (either .root file or directory with chunk*.root pattern)
-def find_process_path(inDir, process_name):
+def find_process_path(inputdir: PathObj, procName):
     """Find process input: first check for .root file, then check for directory."""
-    root_file = inDir / f'{process_name}.root'
-    if root_file.exists():
-        return root_file
-    proc_dir = inDir / process_name
-    if proc_dir.exists() and proc_dir.is_dir():
-        return proc_dir
+    root_file: PathObj = inputdir / f'{procName}.root'
+    if root_file.exists(): return root_file
+    proc_dir: PathObj = inputdir / procName
+    if proc_dir.exists() and proc_dir.is_dir(): return proc_dir
     return None
 
 
@@ -89,7 +76,7 @@ def find_process_path(inDir, process_name):
 ### EXECUTION FUNCTION ###
 ##########################
 
-def main():
+def main() -> None:
     """Main execution function.
 
     Orchestrates FSR recovery plotting workflow:
@@ -106,7 +93,7 @@ def main():
     cat, ecm = arg.cat, arg.ecm
 
     # Get input and output directories
-    inDir  = loc.get('FSR_TREE',  cat, ecm)
+    inDir  = loc.get('EVENTS_FSR',  cat, ecm)
     outDir = loc.get('PLOTS_FSR', cat, ecm)
 
     if not inDir.exists():
@@ -181,19 +168,19 @@ def main():
 
         # Generate significance plot with optimal cut
         cut = 1.80 if ecm == 240 else (0.95 if ecm == 365 else 1e10)
-        significance(data, proc_outDir, Label, format=plot_file)
+        significance(data, proc_outDir, Label, format=file_formats)
         for iso_name in [f'LEPS_iso{x}_pair' for x in ['', '_ch', '_ne', '_ph', '_PH']]:
-            correlation_scan(data, proc_outDir, Label, iso_name, cut, format=plot_file)
+            correlation_scan(data, proc_outDir, Label, iso_name, cut, format=file_formats)
 
         # Generate all plots (linear and log scales)
         LOGGER.info(f'Generating plots for {proc_dir.name}')
         for scale in [False, True]:
-            n_radiated(data, proc_outDir, Label, scale=scale, format=plot_file)
-            photon_distributions(data, proc_outDir, Label, scale=scale, format=plot_file)
-            leptons_fsr_comparison(data, proc_outDir, Label, scale=scale, format=plot_file)
+            n_radiated(data, proc_outDir, Label, scale=scale, format=file_formats)
+            photon_distributions(data, proc_outDir, Label, scale=scale, format=file_formats)
+            leptons_fsr_comparison(data, proc_outDir, Label, scale=scale, format=file_formats)
             for iso_name in ['', '_ch', '_ne', '_ph', '_PH']:
-                leptons_origin(data, proc_outDir, Label, scale=scale, iso_name=iso_name, iso_cut=cut, format=plot_file)
-                correlation_distributions(data, proc_outDir, Label, scale=scale, iso_name=iso_name, iso_cut=cut, format=plot_file)
+                leptons_origin(data, proc_outDir, Label, scale=scale, iso_name=iso_name, iso_cut=cut, format=file_formats)
+                correlation_distributions(data, proc_outDir, Label, scale=scale, iso_name=iso_name, iso_cut=cut, format=file_formats)
 
         LOGGER.info(f'Plots for {proc_dir.name} saved to {proc_outDir}\n')
 
