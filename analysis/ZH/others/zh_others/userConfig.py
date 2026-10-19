@@ -21,9 +21,7 @@ Usage:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-from pathlib import Path
-
-from path import loc, LocPath
+from path import loc, LocPath, PathObj
 from logger import get_logger
 
 LOGGER = get_logger(__name__)
@@ -34,7 +32,7 @@ LOGGER = get_logger(__name__)
 ##### LOCATION OF FILES #####
 #############################
 
-repo = str(Path(__file__).parent.parent.resolve())
+repo = str(PathObj(__file__).parent.parent.resolve())
 
 # Templates as LocPath strings with placeholders: cat, ecm, sel
 loc.ROOT     = LocPath(repo)                    # Repository root
