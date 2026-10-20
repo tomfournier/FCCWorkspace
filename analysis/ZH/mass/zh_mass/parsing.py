@@ -232,6 +232,64 @@ def add_fit_args(parser: ArgumentParser) -> None:
         help='Suppress uncertainty output'
     )
 
+def add_mass_fit_args(parser: ArgumentParser) -> None:
+    '''Add mass fit arguments (pert, target, combine, bias, t, print).'''
+    args = parser.add_argument_group('Higgs mass fit arguments')
+    args.add_argument(
+        '--recoilMin',
+        type=float,
+        default=120,
+        help='Lower mass limit of the fit (default: 120)'
+    )
+    args.add_argument(
+        '--recoilMax',
+        type=float,
+        default=140,
+        help='Higher mass limit of the fit (default: 140)'
+    )
+    args.add_argument(
+        '--hName',
+        type=str,
+        default='zll_recoil_m',
+        help='Name of the histogram to fit (default: zll_recoil_m)'
+    )
+    parser.add_argument(
+        '--mode',
+        type=str,
+        help='Detector mode',
+        choices=['IDEA', 'IDEA_MC', 'IDEA_3T', 'CLD', 'CLD_FullSim',
+                 'IDEA_noBES', 'IDEA_2E', 'IDEA_BES6pct'],
+        default='IDEA'
+    )
+    parser.add_argument(
+        '--category',
+        type=int,
+        help='Category (0, 1, 2 or 3) (default 0)',
+        choices=[0, 1, 2, 3],
+        default=0
+    )
+    parser.add_argument(
+        '--tag',
+        type=str,
+        help='Analysis tag for versioning, optional',
+        default=''
+    )
+    parser.add_argument(
+        '--nBins',
+        type=int,
+        help='Number of bins for plotting (default 250)',
+        default=250
+    )
+    parser.add_argument(
+        '--normYield',
+        type=bool,
+        help='Normalize the histograms (default True)',
+        action=BooleanOptionalAction,
+        default=True
+    )
+
+
+
 ###############################
 ## SCRIPT SPECIFIC ARGUMENTS ##
 ###############################
@@ -289,6 +347,56 @@ def add_fit_plot_args(
     )
 
 
+def add_datacard_args(parser: ArgumentParser) -> None:
+    '''Add mass fit arguments (pert, target, combine, bias, t, print).'''
+    args = parser.add_argument_group('Datacard making arguments')
+    args.add_argument(
+        '--syst',
+        type=bool,
+        action=BooleanOptionalAction,
+        default=True,
+        help='Include the systematic uncertainties in the fit (default True)'
+    )
+
+def add_fit_manager_args(parser: ArgumentParser) -> None:
+    args = parser.add_argument_group('Fit manager arguments')
+    args.add_argument(
+        '--statOnly',
+        action='store_true',
+        default=False,
+        help='Do stat-only fit'
+    )
+    args.add_argument(
+        '--doSummary',
+        action='store_true',
+        default=False,
+        help='Do summary plots'
+    )
+    args.add_argument(
+        '--freezeBkg',
+        action='store_true',
+        default=False,
+        help='Freeze the background for the fit'
+    )
+    args.add_argument(
+        '--noBkg',
+        action='store_true',
+        default=False,
+        help='Remove the background for the fit'
+    )
+    args.add_argument(
+        '--doBreakdown',
+        action='store_true',
+        default=False,
+        help='Do breakdown of the nuisance parameters'
+    )
+    args.add_argument(
+        '--combine',
+        action='store_true',
+        default=False,
+        help='Do the full combination fit'
+    )
+
 
 # ==================================================================#
 # FACTORY FUNCTIONS - Compose modular builders for specific scripts #
@@ -344,7 +452,7 @@ def measurement_cutflow_parser(description: str | None = None) -> ArgumentParser
 
 
 ########################
-### PARSER FOR 4-FIT ###
+### PARSER FOR 2-FIT ###
 ########################
 
 # Parser for 2-Fit/process_histogram.py
@@ -390,6 +498,40 @@ def fit_plots_parser(description: str | None = None) -> ArgumentParser:
 
 
 ########################
+### PARSER FOR 3-JAN ###
+########################
+
+# Parser for 3-Jan/parametrize_signal.py
+def parametrize_signal_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Signal Parametrization Script',
+        include_cat=True, allow_qq=False,
+        include_ecm=True, include_sel=True)
+    add_mass_fit_args(parser)
+    return parser
+
+# Parser for 3-Jan/make_datacard.py
+def make_datacard_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Datacard Making Script',
+        include_cat=True, allow_qq=False,
+        include_ecm=True, include_sel=True)
+    add_mass_fit_args(parser)
+    add_datacard_args(parser)
+    return parser
+
+# Parser for 3-Jan/fit_manager.py
+def fit_manager_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(
+        description or 'Fit Manager Script',
+        include_cat=True, allow_qq=False,
+        include_ecm=True, include_sel=True)
+    add_mass_fit_args(parser)
+    add_fit_manager_args(parser)
+    return parser
+
+
+########################
 ### PARSER FOR 0-RUN ###
 ########################
 
@@ -416,11 +558,23 @@ def Fit_parser(description: str | None = None) -> ArgumentParser:
                          include_cat=True, cat_multi=True, cat_default='ee-mumu',
                          include_ecm=True, ecm_multi=True,
                          include_sel=True, sel_multi=True)
-    add_run_argument(parser, 3, default='1-2')
+    add_run_argument(parser, 3, '1-2')
     add_polarization(parser)
     add_combine_args(parser)
     add_fit_args(parser)
     add_polarization(parser)
+    return parser
+
+# Parser ofr 0-Run/3-run.py
+def Jan_parser(description: str | None = None) -> ArgumentParser:
+    parser = base_parser(description or 'Run Mass fit pipeline',
+                         include_cat=True, cat_multi=True, cat_default='ee-mumu',
+                         include_ecm=True, ecm_multi=True,
+                         include_sel=True, sel_multi=True)
+    add_run_argument(parser, 3, '1-2')
+    add_mass_fit_args(parser)
+    add_datacard_args(parser)
+    add_fit_manager_args(parser)
     return parser
 
 
@@ -438,6 +592,7 @@ def create_parser(
     if script is None:
         if directory == '1-Selection': return Measurement_parser(description)
         if directory == '2-Fit':       return Fit_parser(description)
+        if directory == '3-Jan':       return Jan_parser(description)
         raise ValueError(f'Unknown parser directory: {directory}')
 
     # 1-Selection directory
@@ -453,5 +608,10 @@ def create_parser(
         if script == 'combine':           return combine_parser(description)
         if script == 'fit':               return fit_parser(description)
         if script == 'plots':             return fit_plots_parser(description)
+
+    elif directory == '3-Jan':
+        if script == 'parametrize_signal': return parametrize_signal_parser(description)
+        if script == 'make_datacard':      return make_datacard_parser(description)
+        if script == 'fit_manager':        return fit_manager_parser(description)
 
     raise ValueError(f'Unknown parser script: {directory}/{script}')

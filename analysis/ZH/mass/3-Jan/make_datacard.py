@@ -14,16 +14,10 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_mass.parsing import create_parser, parse_args, set_log
-from zh_mass.logger import get_logger
-parser = create_parser(
-    cat_single=True,
-    include_sel=True,
-    mass_fit=True,
-    datacard=True,
-    description='Datacard making script'
-)
-arg = parse_args(parser)
+from parsing import set_log
+from zh_mass.parsing import create_parser
+from logger import get_logger
+arg = create_parser('3-Jan', 'make_datacard').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -34,10 +28,10 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import zh_mass.plots.root.plotter as plotter
+import plot.plotter as plotter
 from zh_mass.tools.process import getHist
-from zh_mass.config import timer
-from zh_mass.userConfig import loc
+from tools.utils import timer
+from zh_mass.userConfig import loc, param_config
 loc.set_default_type('Path')
 
 from definitions import (
@@ -58,12 +52,19 @@ from zh_mass.plots.fit import (
     plot_fit_with_pull
 )
 from zh_mass.func.fit import (
+    RooModel,
+    RooModelBuilder,
+    SignalParametrizer,
+    build_model_from_spec,
     get_hist,
     build_background_pdf,
     build_pdf_from_spec,
     build_params_from_spec,
     make_unc_import
 )
+from combine import do_combine_mass
+
+MODEL_OWNERS = []
 
 
 
@@ -125,6 +126,35 @@ cfg = {
 }
 
 
+def ensure_signal_coefficients() -> None:
+    """Run the signal parametrization inline when no coefficient file exists."""
+    coefficient_file = paramDir / 'coeff.json'
+    if coefficient_file.exists():
+        return
+
+    LOGGER.info('No signal parametrization found; fitting signal mass points inline')
+    signal_spec = SIGNAL_MODELS['parametrize_signal']
+    processes = signal_spec['processes'](flavor, ecm)
+    recoilmass = ROOT.RooRealVar(
+        'zll_recoil_m_param', 'Recoil mass [GeV]', 125,
+        arg.recoilMin, arg.recoilMax,
+    )
+    parametrizer = SignalParametrizer(signal_spec, param_config[ecm][flavor][cat])
+
+    def load_hist(process, suffix, normalize=False, yield_nom=1):
+        return get_hist(
+            f'{flavor}_{hName}', inDir, process, suffix, cat_idx,
+            1, yield_nom, '', normalize,
+        )
+
+    coefficients, _, _ = parametrizer.fit_grid(
+        recoilmass, signal_spec['masses'], processes, load_hist,
+        normalize=getattr(arg, 'normYield', True),
+    )
+    paramDir.mkdir(exist_ok=True, parents=True)
+    coefficient_file.write_text(json.dumps(coefficients, indent=4))
+
+
 
 ########################################
 ### SIGNAL AND BACKGROUND DEFINITION ###
@@ -152,7 +182,7 @@ def doSignal(
     yield_nom = hist_nom.Integral()
 
     pdf_sigs = []
-    garbage = []  # Need to store the variables for memory issues
+    signal_model = RooModel('signal')
 
     ## Build model
     ## linear functions for mean and mean_gt
@@ -166,7 +196,11 @@ def doSignal(
     with open(f'{paramDir}/coeff.json') as coeff_file:
         coeffs = json.load(coeff_file)
 
-    for i, mH, proc in enumerate(zip(mHs, procs)):
+    signal_model.add('category', cats)
+    signal_model.add('hists', hists)
+    signal_model.add('pdf_tot', pdf_tot)
+
+    for i, (mH, proc) in enumerate(zip(mHs, procs)):
 
         mH_label = f'{mH:.3f}'.replace('.', 'p')
         LOGGER.info(f'Doing {mH_label} mass category')
@@ -181,8 +215,12 @@ def doSignal(
         cats.defineType(mH_label, i)
 
         params = build_params_from_spec(coeffs, sig_spec, mH, mH_label)
-        pdf_sig, _, sig_norm = build_pdf_from_spec(mrec, params, yield_zh, mH_label, sig_spec)
+        mass_model = build_model_from_spec(mrec, params, yield_zh, mH_label, sig_spec)
+        pdf_sig = mass_model.get('pdf')
+        sig_norm = mass_model.get(f'{sig_spec["yield_name"]}_{mH_label}')
         pdf_sigs.append(pdf_sig)
+        mass_model.add(rdh_zh.GetName(), rdh_zh)
+        signal_model.extend(mass_model)
 
         # Must store the individual vars for later, to extract the values
         # Seems not to work with workspace
@@ -191,8 +229,6 @@ def doSignal(
             else: var_dict[k].append(params[k])
         var_dict['norm'].append(sig_norm)
 
-        garbage.append(pdf_sig)
-
         pdf_sig.Print()
         pdf_tot.addPdf(pdf_sig, mH_label)
 
@@ -200,6 +236,9 @@ def doSignal(
 
     rdh_tot = ROOT.RooDataHist('rdh_tot', '', ROOT.RooArgList(mrec), cats, hists)
     fitRes = pdf_tot.fitTo(rdh_tot, ROOT.RooFit.Save(ROOT.kTRUE), ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.Minimizer('Minimizer', 'simplex'))
+    signal_model.add(rdh_tot.GetName(), rdh_tot)
+    signal_model.add('fit_result', fitRes)
+    MODEL_OWNERS.append(signal_model)
 
     cov_sts, fit_sts = f'Covariance Quality = {fitRes.covQual()}', f'Fit status = {fitRes.status()}'
     l = max([len(cov_sts), len(fit_sts)]) + 6
@@ -229,7 +268,8 @@ def doSignal(
         workspace.Import(rdh_zh)
         workspace.Import(sig_fit)
 
-        vals = {k:[v.getVal() if k!='mH' else v for v in values] for k, values in var_dict.items()}
+    vals = {k: [v.getVal() if k != 'mH' else v for v in values]
+            for k, values in var_dict.items()}
 
 
     ###########################
@@ -306,7 +346,16 @@ def doBackgrounds(
         bkg_spec['model_name'],
         bkg_spec['yield_name'],
     )
-    bkg_fit.fitTo(rdh_bkg, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+    bkg_model = RooModel('background')
+    for name, coeff in coeffs.items():
+        bkg_model.add(name, coeff)
+    bkg_model.add('bkg', bkg)
+    bkg_model.add('bkg_norm_tmp', bkg_norm)
+    bkg_model.add('bkg_fit', bkg_fit)
+    bkg_model.add('rdh_bkg', rdh_bkg)
+    bkg_model.add('fit', bkg_fit)
+    bkg_model.fit_to(rdh_bkg, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+    MODEL_OWNERS.append(bkg_model)
 
 
     ########### PLOTTING ###########
@@ -378,16 +427,8 @@ def setup_syst(
 
         cfg['ymax'] = yMax
         plotter.cfg = cfg
-        plot_fit_with_pull(
-            rdh_zh,
-            sig_fit,
-            mrec,
-            nBins,
-            f'{outDir}/fit_mH{suffix}',
-            label,
-            'ZH signal',
-            ROOT.kRed
-        )
+        plot_fit_with_pull(rdh_zh, sig_fit, mrec, nBins, f'{outDir}/fit_mH{suffix}',
+                           label, 'ZH signal', ROOT.kRed)
 
         # Import
         workspace.Import(rdh_zh)
@@ -413,6 +454,8 @@ def setup_syst(
 def main():
     h_obs = None  # should hold the data_obs = sum of signal and backgrounds
 
+    ensure_signal_coefficients()
+
     MH   = ROOT.RooRealVar('MH', 'Higgs mass [GeV]', 125, 124.95, 125.05)
     mrec = ROOT.RooRealVar('zll_recoil_m', 'm_{recoil} [GeV]', 125, recoilMin, recoilMax)
 
@@ -422,20 +465,17 @@ def main():
     w_tmp.Import(MH); w_tmp.Import(mrec)
 
     w_tmp = doSignal(flavor, ecm, hName, outDir, w_tmp, label,
-                     1, cat_idx, nBins)
+                     cat_idx, nBins)
     w_tmp = doBackgrounds(flavor, ecm, hName, outDir, w_tmp, label,
                           1, cat_idx, nBins)
 
     if arg.syst:
-        w_tmp = setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'BES',
-                           nBins, 1, cat_idx, 125.0)
-        w_tmp = setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'SQRTS',
-                           nBins, 1, cat_idx, 125.0)
-        w_tmp = setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'LEPSCALE',
-                           nBins, 1, cat_idx, 125.0)
+        w_tmp = setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'BES', nBins, 1, cat_idx, 125.0)
+        w_tmp = setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'SQRTS', nBins, 1, cat_idx, 125.0)
+        w_tmp = setup_syst(flavor, ecm, hName, outDir, label, w_tmp, 'LEPSCALE', nBins, 1, cat_idx, 125.0)
 
     params = build_datacard_signal_params(w_tmp, 'make_datacard', flavor, ecm, arg.syst)
-    sig    = build_pdf_from_spec(mrec, params, 1.0, '', sig_spec, False)[0]
+    sig    = RooModelBuilder(sig_spec).build(mrec, params, 1.0, '', False).get('pdf')
     w.Import(sig)
 
     # Construct background model
@@ -451,10 +491,7 @@ def main():
     poi = ROOT.RooArgSet(MH)
     w.defineSet('POI', poi)
 
-    w.writeToFile(f'{runDir}/datacard.root')
     w.Print()
-
-    del w, w_tmp
 
     if ecm == 240:   bkg_id = 1 if flavor=='mumu' else (2 if flavor=='ee' else None)
     elif ecm == 365: bkg_id = 3 if flavor=='mumu' else (4 if flavor=='ee' else None)
@@ -470,16 +507,13 @@ def main():
         dc = dc.replace('$cat',      f'{cat}')
         dc = dc.replace('$bkg_id',   f'{bkg_id}')
 
-    with open(f'{runDir}/datacard.txt', 'w') as file:
-        file.write(dc)
+    remove_systematic = 'LEPSCALE_EL' if flavor == 'mumu' else 'LEPSCALE_MU'
 
-    # Remove lepton scale uncertainty for other flavor
-    if flavor == 'mumu': cmd = "sed -i '/LEPSCALE_EL/d' datacard.txt"
-    else:                cmd = "sed -i '/LEPSCALE_MU/d' datacard.txt"
-    subprocess.call(cmd, shell=True, cwd=runDir)
+    def write_workspace(_run_dir):
+        w.writeToFile(str(_run_dir / 'datacard.root'))
 
-    # Build the Combine workspace based on the datacard, save it to ws.root
-    subprocess.call(['text2workspace.py', 'datacard.txt' '-o', 'ws.root', '-v', '10', '--X-allow-no-background'], shell=True, cwd=runDir)
+    do_combine_mass(runDir, dc, write_workspace, remove_systematic)
+    del w, w_tmp
 
 
 ######################

@@ -33,17 +33,10 @@ CATEGORY_LABELS = {
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_mass.config import timer
-from zh_mass.parsing import create_parser, parse_args, set_log
-from zh_mass.logger import get_logger
-parser = create_parser(
-    cat_single=True,
-    include_sel=True,
-    mass_fit=True,
-    do_fit=True,
-    description='Fit mass script'
-)
-arg = parse_args(parser)
+from parsing import set_log
+from zh_mass.parsing import create_parser
+from logger import get_logger
+arg = create_parser('3-Jan', 'fit_manager').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -54,6 +47,7 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
+from tools.utils import timer
 from zh_mass.userConfig import loc
 loc.set_default_type('Path')
 
@@ -139,6 +133,24 @@ def _combine_options_from_flags() -> list[str]:
     return options
 
 
+def do_fit(
+        run_dir,
+        out_dir,
+        label: str,
+        combine_options: list[str],
+        cards: list[str] | None = None,
+        suffix: str = '',
+        top_right: str = '',
+        ) -> None:
+    """Prepare one mass-fit input and execute the common mass pipeline."""
+    if cards:
+        combineCards(run_dir, cards)
+    run_mass_pipeline(
+        run_dir, out_dir, label, combine_options,
+        top_right=top_right, suffix=suffix,
+    )
+
+
 
 ##########################
 ### EXECUTION FUNCTION ###
@@ -176,22 +188,16 @@ def main():
     selected_tag     = f'{arg.cat}{tag_suffix}_ecm{ecm}'
     selected_label   = f'{CHANNEL_LABELS.get(arg.cat, arg.cat)}, {CATEGORY_LABELS.get(arg.tag, arg.tag)}'
     selected_run_dir = f'{combineDir}/{selected_tag}'
+    selected_cards = None
     if arg.tag == 'combined':
-        combineCards(
-            selected_run_dir,
-            [
+        selected_cards = [
                 f'{combineDir}/{arg.cat}_cat1_ecm{ecm}/datacard.txt',
                 f'{combineDir}/{arg.cat}_cat2_ecm{ecm}/datacard.txt',
                 f'{combineDir}/{arg.cat}_cat3_ecm{ecm}/datacard.txt',
-            ],
-        )
-    run_mass_pipeline(
-        selected_run_dir,
-        f'{outDir}/{selected_tag}/',
-        selected_label,
-        combineOptions,
-        top_right=topRight,
-        suffix=suffix,
+            ]
+    do_fit(
+        selected_run_dir, f'{outDir}/{selected_tag}/', selected_label,
+        combineOptions, selected_cards, suffix, topRight,
     )
 
     ############### MUON+ELECTRON
@@ -214,14 +220,9 @@ def main():
         ),
     ]
     for tag_name, label, cards in combined_channels:
-        combineCards(f'{combineDir}/{tag_name}', cards)
-        run_mass_pipeline(
-            f'{combineDir}/{tag_name}',
-            f'{outDir}/{tag_name}/',
-            label,
-            combineOptions,
-            top_right=topRight,
-            suffix=suffix,
+        do_fit(
+            f'{combineDir}/{tag_name}', f'{outDir}/{tag_name}/', label,
+            combineOptions, cards, suffix, topRight,
         )
 
     plotMultiple([f'{outDir}/mumu_combined_ecm{ecm}/',
@@ -233,8 +234,11 @@ def main():
 
     # 240 + 365
     if arg.combine:
-        combineCards(combineDir, [combineDir_240+'/datacard.txt', combineDir_365+'/datacard.txt'])
-        run_mass_pipeline(combineDir, outDir, 'Combination', combineOptions, top_right=topRight, suffix=suffix)
+        do_fit(
+            combineDir, outDir, 'Combination', combineOptions,
+            [combineDir_240+'/datacard.txt', combineDir_365+'/datacard.txt'],
+            suffix, topRight,
+        )
         plotMultiple([outDir_240, outDir_365, outDir],
                      ['#sqrt{s} = 240 GeV', '#sqrt{s} = 365 GeV', 'Combination'],
                      outDir, 124.98, 125.02)

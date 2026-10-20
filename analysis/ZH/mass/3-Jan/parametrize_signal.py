@@ -11,15 +11,10 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_mass.parsing import create_parser, parse_args, set_log
-from zh_mass.logger import get_logger
-parser = create_parser(
-    cat_single=True,
-    include_sel=True,
-    mass_fit=True,
-    description='Fit mass script'
-)
-arg = parse_args(parser)
+from parsing import set_log
+from zh_mass.parsing import create_parser
+from logger import get_logger
+arg = create_parser('3-Jan', 'parametrize_signal').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -30,13 +25,12 @@ LOGGER = get_logger(__name__)
 ## IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 #########################################################
 
-from zh_mass.config import param_config, timer
-from zh_mass.userConfig import loc
+from tools.utils import timer
+from zh_mass.userConfig import loc, param_config
 loc.set_default_type('Path')
 
 from definitions import SIGNAL_MODELS, make_var_dict
-
-from zh_mass.func.fit import build_params_from_spec, build_pdf_from_spec, get_hist
+from zh_mass.func.fit import RooModel, build_model_from_spec, build_params_from_spec, get_hist
 from zh_mass.plots.fit import plot_decomposition, plot_fit, plot_fit_all
 
 
@@ -48,8 +42,8 @@ from zh_mass.plots.fit import plot_decomposition, plot_fit, plot_fit_all
 flavor, ecm, sel, cat, _ = arg.cat, arg.ecm, arg.sel, arg.category, arg.tag
 hName = 'zll_recoil_m_cat'
 
-label = f'#el^+#el^-, category {cat}'.replace('#el', '#mu' if flavor=='mumu' else 'e')
-topLeft  = '#bf{FCC-ee} #scale[0.7]{#it{Internal}}'
+label    = f'#el^+#el^-, category {cat}'.replace('#el', '#mu' if flavor=='mumu' else 'e')
+topLeft  = '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}'
 topRight = '#sqrt{s} = ECM GeV, 1 ab^{-1}'.replace('ECM', ecm)
 
 inDir  = loc.get('HIST_PROCESSED', flavor, ecm, sel)
@@ -88,6 +82,7 @@ def main():
 
     # Define a dictionary to store the values of the parameters
     var_dict = make_var_dict(signal_spec, extra=('yield', 'mH'))
+    models = []
 
     # Loop over mH = 124.95, 125, 125.05 GeV
     for mH, proc in zip(mHs, procs):
@@ -105,8 +100,12 @@ def main():
         params = build_params_from_spec(param_config[ecm][flavor][cat],
                                         signal_spec, mH, mH_label)
 
-        sig_fit, _, sig_norm = build_pdf_from_spec(mrec, params, yield_zh, mH_label, signal_spec)
+        signal_model = build_model_from_spec(mrec, params, yield_zh, mH_label, signal_spec)
+        sig_fit = signal_model.get('pdf')
+        sig_norm = signal_model.get(f'{signal_spec["yield_name"]}_{mH_label}')
         sig_fit.fitTo(rdh_zh, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+        signal_model.add(rdh_zh.GetName(), rdh_zh)
+        models.append(signal_model)
 
         plot_fit(outDir, mrec, rdh_zh, sig_fit, mH_label, yMax, label, nBins, topLeft, topRight)
         plot_decomposition(outDir, workspace, label, mH_label, yield_zh, signal_spec)

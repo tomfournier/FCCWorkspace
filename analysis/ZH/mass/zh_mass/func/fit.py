@@ -9,33 +9,222 @@ from ..plots.fit import (
 )
 
 
+class RooModel:
+    """Own a RooFit model and all objects needed by its dependency graph."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.objects: dict[str, object] = {}
+
+    def add(self, name: str, obj):
+        self.objects[name] = obj
+        return obj
+
+    def get(self, name: str):
+        return self.objects[name]
+
+    def extend(self, other: 'RooModel') -> 'RooModel':
+        self.objects.update(other.objects)
+        return self
+
+    def import_to(self, workspace: ROOT.RooWorkspace, *names: str) -> None:
+        objects = (self.objects[name] for name in names) if names else self.objects.values()
+        for obj in objects:
+            workspace.Import(obj)
+
+    def fit_to(self, data, *options):
+        return self.get('fit').fitTo(data, *options)
+
+
+class RooModelBuilder:
+    """Build a :class:`RooModel` from a declarative signal specification."""
+
+    def __init__(self, spec: dict):
+        self.spec = spec
+
+    def build_params(self, source: dict, mH: float | int) -> dict[str, ROOT.RooAbsArg]:
+        return build_params_from_spec(source, self.spec, mH)
+
+    @staticmethod
+    def suffixed(base: str, suffix: str = ''):
+        """Append a model-point suffix when one is configured."""
+        return base if not suffix else f'{base}_{suffix}'
+
+    @staticmethod
+    def argl(*items, name: str | None = None):
+        arg_list = ROOT.RooArgList()
+        if name is not None: arg_list.setName(name)
+        for item in items: arg_list.add(item)
+        return arg_list
+
+    @staticmethod
+    def get_pdf(
+            kind: str,
+            name: str,
+            title: str,
+            mrec,
+            params: dict,
+            spec: dict,
+            observables: set[str] | None = None):
+        """Instantiate a ROOT PDF from a declarative component specification.
+
+        ``kind`` identifies the ROOT class unless ``root_class`` overrides it.
+        Entries in ``args`` resolve observable names to ``mrec`` and parameter
+        names to objects in ``params``; other values are passed through literally.
+        """
+
+        # Names in this set refer to the observable passed to the builder.
+        obs = observables or {'recoilmass', 'mrecoil', 'observable', 'x'}
+
+        # Resolve the configured ROOT class, for example RooGaussian or RooCBShape.
+        root_kind = spec.get('root_class', kind)
+        comp_cls = getattr(ROOT, root_kind, None)
+        if comp_cls is None:
+            raise ValueError(f'ROOT has no component class {root_kind!r}')
+
+        if 'args' in spec:
+            # Convert parameter and observable names into the objects expected by ROOT.
+            comp_args = [mrec if isinstance(arg, str) and arg in obs
+                            else params[arg] if isinstance(arg, str) and arg in params
+                            else arg for arg in spec['args']]
+        else:
+            raise ValueError(f"Component {kind!r} needs an explicit ROOT constructor argument list in its spec under 'args'")
+
+        # ROOT constructors consistently receive the object name and title first.
+        return comp_cls(name, title, *comp_args)
+
+
+    def build(
+        self,
+        mrec: ROOT.RooRealVar,
+        params: dict[str, ROOT.RooAbsArg],
+        yield_zh: float | int,
+        suffix: str = '',
+        extended: bool = True,
+    ) -> RooModel:
+        model = RooModel(self.suffixed(self.spec.get('model_name', 'zh_model'), suffix))
+        for name, param in params.items():
+            model.add(name, param)
+
+        comps = []
+        for spec in self.spec['components']:
+            comp_name = self.suffixed(spec['name'], suffix)
+            pdf = self.get_pdf(spec['kind'], comp_name, spec['title'], mrec, params, spec)
+            model.add(comp_name, pdf)
+            comps.append(pdf)
+
+        sig = ROOT.RooAddPdf(self.suffixed(self.spec.get('sum_name', 'sig'), suffix), '',
+                                self.argl(*comps), self.argl(*(params[n] for n in self.model_spec['fractions'])))
+        sig_norm = ROOT.RooRealVar(self.suffixed(self.spec.get('yield_name', 'sig_norm'), suffix),
+                                      '', yield_zh, 0, 1e8)
+        model.add(sig.GetName(), sig)
+        model.add(sig_norm.GetName(), sig_norm)
+
+        if extended:
+            fit = ROOT.RooAddPdf(self.suffixed(self.spec.get('model_name', 'zh_model'), suffix),
+                                 '', self.argl(sig), self.argl(sig_norm))
+            model.add(fit.GetName(), fit)
+            model.add('fit', fit)
+            model.add('pdf', fit)
+        else:
+            model.add('pdf', sig)
+        return model
+
+
+class SignalParametrizer:
+    """Fit signal models at the mass points required by a model specification."""
+
+    def __init__(self, model_spec: dict, parameter_source: dict):
+        self.model_spec = model_spec
+        self.parameter_source = parameter_source
+        self.builder = RooModelBuilder(model_spec)
+
+    def fit_grid(
+        self,
+        recoilmass: ROOT.RooRealVar,
+        masses: list[float | int],
+        processes: list[str],
+        histogram_loader,
+        normalize: bool = True,
+    ) -> tuple[dict[str, list], list[RooModel], float]:
+        if len(masses) != len(processes):
+            raise ValueError('Signal masses and processes must have equal length')
+
+        nominal_hist = histogram_loader(processes[0], 'norm', False)
+        yield_nom = nominal_hist.Integral()
+        var_dict = {key: [] for key in (*self.model_spec['param_names'], 'yield', 'mH')}
+        models = []
+
+        for mass, process in zip(masses, processes):
+            mass_label = f'{mass:.3f}'.replace('.', 'p')
+            hist = histogram_loader(process, mass_label, normalize, yield_nom)
+            data = ROOT.RooDataHist(
+                f'rdh_zh_{mass_label}', f'rdh_zh_{mass_label}',
+                ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist),
+            )
+            model = self.builder.build(
+                recoilmass, self.builder.build_params(self.parameter_source, mass),
+                data.sum(False), mass_label,
+            )
+            model.fit_to(
+                data, ROOT.RooFit.Extended(ROOT.kTRUE),
+                ROOT.RooFit.SumW2Error(ROOT.kTRUE),
+            )
+            model.add(data.GetName(), data)
+            models.append(model)
+
+            params = {name: model.get(name) for name in self.model_spec['param_names'] if name != 'yield'}
+            for name in var_dict:
+                if name == 'mH':
+                    var_dict[name].append(mass)
+                elif name == 'yield':
+                    var_dict[name].append(model.get(f'{self.model_spec["yield_name"]}_{mass_label}').getVal())
+                else:
+                    var_dict[name].append(params[name].getVal())
+
+        return var_dict, models, yield_nom
+
+
 def _source_value(source: dict, key: str, idx: int | None = None):
     value = source[key]
-    if idx is None:
-        return value
+    if idx is None: return value
     return value[idx]
 
 
-def _component_pdf(kind: str, name: str, title: str, recoilmass, params: dict, spec: dict):
-    if kind == 'cbshape':
-        return ROOT.RooCBShape(
-            name,
-            title,
-            recoilmass,
-            params[spec['mean']],
-            params[spec['sigma']],
-            params[spec['alpha']],
-            params[spec['n']],
-        )
-    if kind == 'gauss':
-        return ROOT.RooGaussian(
-            name,
-            title,
-            recoilmass,
-            params[spec['mean']],
-            params[spec['sigma']],
-        )
-    raise ValueError(f'{kind = } not supported')
+def _component_pdf(
+        kind: str,
+        name: str,
+        title: str,
+        mrec,
+        params: dict,
+        spec: dict,
+        observables: set[str] | None = None):
+    """Instantiate a ROOT PDF from a declarative component specification.
+
+    ``kind`` identifies the ROOT class unless ``root_class`` overrides it.
+    Entries in ``args`` resolve observable names to ``mrec`` and parameter
+    names to objects in ``params``; other values are passed through literally.
+    """
+
+    # Names in this set refer to the observable passed to the builder.
+    obs = observables or {'recoilmass', 'mrecoil', 'observable', 'x'}
+
+    # Resolve the configured ROOT class, for example RooGaussian or RooCBShape.
+    root_kind = spec.get('root_class', kind)
+    comp_cls = getattr(ROOT, root_kind, None)
+    if comp_cls is None:
+        raise ValueError(f'ROOT has no component class {root_kind!r}')
+
+    if 'args' in spec:
+        # Convert parameter and observable names into the objects expected by ROOT.
+        comp_args = [mrec if isinstance(arg, str) and arg in obs
+                     else params[arg] if isinstance(arg, str) and arg in params
+                     else arg for arg in spec['args']]
+    else:
+        raise ValueError(f"Component {kind!r} needs an explicit ROOT constructor argument list in its spec under 'args'")
+
+    # ROOT constructors consistently receive the object name and title first.
+    return comp_cls(name, title, *comp_args)
 
 
 def build_params_from_spec(
@@ -66,16 +255,26 @@ def build_params_from_spec(
         if entry['kind'] == 'formula':
             expr = entry['expr'].format(mH=mH)
             params[entry['name']] = ROOT.RooFormulaVar(
-                entry['name'],
-                '',
-                expr,
-                _arg_list(*(params[arg] for arg in entry['args'])),
+                entry['name'], '', expr, _arg_list(*(params[arg] for arg in entry['args'])),
             )
             continue
 
         raise ValueError(f"Unsupported parameter kind: {entry['kind']}")
 
     return params
+
+
+def build_model_from_spec(
+    recoilmass: ROOT.RooRealVar,
+    params: dict[str, ROOT.RooRealVar],
+    yield_zh: float | int,
+    suffix: str,
+    model_spec: dict,
+    extended: bool = True,
+     ) -> RooModel:
+    return RooModelBuilder(model_spec).build(
+        recoilmass, params, yield_zh, suffix, extended,
+    )
 
 
 def build_pdf_from_spec(
@@ -86,33 +285,14 @@ def build_pdf_from_spec(
     model_spec: dict,
     extended: bool = True,
      ):
-
-    components = {}
-    ordered_components = []
-
-    for comp in model_spec['components']:
-        comp_name = _with_suffix(comp['name'], suffix)
-        pdf = _component_pdf(comp['kind'], comp_name, comp['title'], recoilmass, params, comp)
-        components[comp['name']] = pdf
-        ordered_components.append(pdf)
-
-    sig = ROOT.RooAddPdf(
-        _with_suffix(model_spec.get('sum_name', 'sig'), suffix),
-        '',
-        _arg_list(*ordered_components),
-        _arg_list(*(params[name] for name in model_spec['fractions'])),
-    )
-    sig_norm = ROOT.RooRealVar(_with_suffix(model_spec.get('yield_name', 'sig_norm'), suffix), '', yield_zh, 0, 1e8)
-    if extended:
-        sig_fit = ROOT.RooAddPdf(
-            _with_suffix(model_spec.get('model_name', 'zh_model'), suffix),
-            '',
-            _arg_list(sig),
-            _arg_list(sig_norm),
-        )
-        return sig_fit, components, sig_norm
-
-    return sig, components, sig_norm
+    """Compatibility wrapper returning the historical PDF tuple."""
+    model = build_model_from_spec(recoilmass, params, yield_zh, suffix, model_spec, extended)
+    pdf = model.get('pdf')
+    components = {
+        comp['name']: model.get(_with_suffix(comp['name'], suffix))
+        for comp in model_spec['components']
+    }
+    return pdf, components, model.get(_with_suffix(model_spec.get('yield_name', 'sig_norm'), suffix))
 
 def get_hist(
         hName: str,
@@ -260,9 +440,12 @@ def build_2cbg_pdf(
      ):
     model_spec = model_spec or {
         'components': (
-            {'kind': 'cbshape', 'name': 'CrystallBall_1', 'title': 'CrystallBall_1', 'mean': 'mean', 'sigma': 'sigma', 'alpha': 'alpha_1', 'n': 'n_1'},
-            {'kind': 'cbshape', 'name': 'CrystallBall_2', 'title': 'CrystallBall_2', 'mean': 'mean', 'sigma': 'sigma', 'alpha': 'alpha_2', 'n': 'n_2'},
-            {'kind': 'gauss', 'name': 'gauss', 'title': 'gauss', 'mean': 'mean_gt', 'sigma': 'sigma_gt'},
+            {'kind': 'RooCBShape', 'name': 'CrystallBall_1', 'title': 'CrystallBall_1',
+             'args': ('mrecoil', 'mean', 'sigma', 'alpha_1', 'n_1')},
+            {'kind': 'RooCBShape', 'name': 'CrystallBall_2', 'title': 'CrystallBall_2',
+             'args': ('mrecoil', 'mean', 'sigma', 'alpha_2', 'n_2')},
+            {'kind': 'RooGaussian', 'name': 'gauss', 'title': 'gauss',
+             'args': ('mrecoil', 'mean_gt', 'sigma_gt')},
         ),
         'fractions': ('cb_1', 'cb_2'),
         'yield_name': 'sig_norm',
