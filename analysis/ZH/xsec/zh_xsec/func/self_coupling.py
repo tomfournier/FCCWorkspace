@@ -8,6 +8,7 @@ from HiggsAnalysis.CombinedLimit.PhysicsModel import (
 )
 
 from logger import get_logger
+from path import PathObj
 
 LOGGER = get_logger(__name__)
 
@@ -39,6 +40,13 @@ table: dict[str, dict[int, dict[str, float]]] = {
 sigma_LO   = {240: 239.2, 365: 116.9}
 sigma_NLO  = {240: 194.4, 365: 121.1}
 sigma_weak = {240: 232.1, 365: 113.2}
+
+coeffs_label = {
+    'r':     r'$\mu_{ZH}$',
+    'Cphi':  r'$C_{\phi}$',
+    'CphiD': r'$C_{\phi D}$',
+    'CBox':  r'$C_{\Box}$',
+}
 
 
 
@@ -144,6 +152,33 @@ def get_parameters(model: str):
         raise RuntimeError(f'Model {model!r} does not define a wilson list')
 
     return wilson
+
+
+def convert_to_kappa(
+        res: dict[str, dict[str, float | int]],
+        outDir: PathObj,
+        suffix: str = '',
+        lbda: float | int = 1e3,
+         ) -> tuple[float | int, float | int]:
+
+    import json
+
+    cphi, cphid, cbox = res.get('Cphi', {}), res.get('CphiD', {}),  res.get('Cbox', {})
+
+    cphi_val,  cphi_err  = cphi.get('best_fit',  0), cphi.get('err',  0)
+    cphid_val, cphid_err = cphid.get('best_fit', 0), cphid.get('err', 0)
+    cbox_val,  cbox_err  = cbox.get('best_fit',  0), cbox.get('err',  0)
+
+    kappa_val = kappa_from_SMEFT(cphi_val, cphid_val, cbox_val, lbda)
+    kappa_err = kappa_precision(cphi_err,  cphid_err, cbox_err, lbda)
+
+    LOGGER.info('Converting to kappa framework:\n  '
+                f'kappa_lbda = {kappa_val:.2f} +/- {kappa_err*100:.2f}%')
+
+    out = outDir / f'result_kappa{suffix}.json'
+    out.write_text(json.dumps({'kappa': kappa_val, 'err': kappa_err}))
+    LOGGER.info(f'Saving results at {out}')
+    return kappa_val, kappa_err
 
 
 

@@ -37,7 +37,7 @@ from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
 from tools.utils import timer  # Timing utility
 from run import get_extra_args, update_namespace
-from zh_xsec.func.fit import (
+from fit import (
     check_log, get_results,
     res_saving, run_cmd
 )
@@ -71,16 +71,16 @@ location_map = {
         'log':  'FIT_LOG',      # Log file directory
         'res':  'FIT_RESULT',   # Fit results output directory
         'scan': 'FIT_SCAN',     # Check the fit stability
-        'tp':   'nominal',              # Type label for naming
+        'tp':   'nominal',      # Type label for naming
     },
     True: {   # Bias test fit (for testing fit bias)
-        'dir':  'FIT_BIAS',  # Bias test working directory
-        'dc':   'BIAS_CARD', # Input biased datacard directory
-        'ws':   'BIAS_WS',   # Workspace output directory
-        'log':  'BIAS_LOG',  # Log file directory
-        'res':  'BIAS_FIT',  # Fit results output directory
-        'scan': 'BIAS_SCAN', # Check the fit stability
-        'tp':   'bias',                 # Type label for naming
+        'dir':  'FIT_BIAS',   # Bias test working directory
+        'dc':   'BIAS_CARD',  # Input biased datacard directory
+        'ws':   'BIAS_WS',    # Workspace output directory
+        'log':  'BIAS_LOG',   # Log file directory
+        'res':  'BIAS_FIT',   # Fit results output directory
+        'scan': 'BIAS_SCAN',  # Check the fit stability
+        'tp':   'bias',       # Type label for naming
     }
 }
 # Select configuration based on fit mode (nominal vs bias)

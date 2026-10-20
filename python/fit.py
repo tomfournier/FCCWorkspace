@@ -26,15 +26,12 @@ LOGGER = get_logger(__name__)
 ###########################################################
 
 from path import PathObj
-from ..plots.python.plotter import (
+from plot.pyplotter import (
     set_plt_style,
     set_labels,
     savefigs
 )
-from ..func.self_coupling import (
-    kappa_from_SMEFT,
-    kappa_precision
-)
+
 
 
 ################################
@@ -59,13 +56,6 @@ params_label = {
     '240':      '240 GeV',
     '365':      '365 GeV',
     '':         '240-365 GeV'
-}
-
-coeffs_label = {
-    'r':     r'$\mu_{ZH}$',
-    'Cphi':  r'$C_{\phi}$',
-    'CphiD': r'$C_{\phi D}$',
-    'Cbox':  r'$C_{\mathrm{Box}}$',
 }
 
 
@@ -258,30 +248,6 @@ def get_hesse(file, params):
             c = corr.GetBinContent(idx_p, idx)
             res[param][other] = [vj - ej * c, vj, vj + ej * c]
     return res
-
-
-def convert_to_kappa(
-        res: dict[str, dict[str, float | int]],
-        outDir: PathObj,
-        suffix: str = '',
-        lbda: float | int = 1e3,
-         ) -> tuple[float | int, float | int]:
-    cphi, cphid, cbox = res.get('Cphi', {}), res.get('CphiD', {}),  res.get('Cbox', {})
-
-    cphi_val,  cphi_err  = cphi.get('best_fit',  0), cphi.get('err',  0)
-    cphid_val, cphid_err = cphid.get('best_fit', 0), cphid.get('err', 0)
-    cbox_val,  cbox_err  = cbox.get('best_fit',  0), cbox.get('err',  0)
-
-    kappa_val = kappa_from_SMEFT(cphi_val, cphid_val, cbox_val, lbda)
-    kappa_err = kappa_precision(cphi_err,  cphid_err, cbox_err, lbda)
-
-    LOGGER.info('Converting to kappa framework:\n  '
-                f'kappa_lbda = {kappa_val:.2f} +/- {kappa_err*100:.2f}%')
-
-    out = outDir / f'result_kappa{suffix}.json'
-    out.write_text(json.dumps({'kappa': kappa_val, 'err': kappa_err}))
-    LOGGER.info(f'Saving results at {out}')
-    return kappa_val, kappa_err
 
 
 
@@ -557,6 +523,7 @@ def plot_1d_scans(
         right: str = '',
         sig2: bool = False,
         other_params: list[str] = [],
+        coeffs_label: dict[str, str] = {},
         plot_file: list[str] = ['png']
          ) -> None:
     """
@@ -739,6 +706,7 @@ def plot_2d_scans(
         right: str = '',
         sig2: bool = False,
         cmap: str = 'plasma',
+        coeffs_label: dict[str, str] = {},
         plot_file: list[str] = ['png']
          ) -> None:
     """

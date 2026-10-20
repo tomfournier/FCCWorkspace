@@ -36,12 +36,11 @@ from path import PathObj
 from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
 from tools.utils import timer
-from zh_xsec.func.fit import (
+from fit import (
     res_saving, run_cmd,
     get_results, get_grid_number,
-    convert_to_kappa
 )
-from zh_xsec.func.self_coupling import get_parameters
+from zh_xsec.func.self_coupling import get_parameters, convert_to_kappa
 
 
 
