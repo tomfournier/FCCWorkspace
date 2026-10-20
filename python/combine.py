@@ -1,8 +1,48 @@
-from typing import Any
+from pathlib import Path
+from typing import Any, Callable
+import subprocess
 
 from logger import get_logger
 
 LOGGER = get_logger(__name__)
+
+
+def do_combine_mass(
+        run_dir: str | Path,
+        datacard: str,
+        workspace_writer: Callable[[Path], None],
+        remove_systematic: str | None = None,
+        text2workspace_args: list[str] | None = None,
+        ) -> Path:
+    """Write a mass datacard, build its RooFit workspace, and convert it.
+
+    ``workspace_writer`` owns the ROOT-specific workspace construction.  This
+    helper only coordinates files and the external Combine command, making it
+    usable by mass scripts without coupling the generic combine module to a
+    particular signal model.
+    """
+    run_path = Path(run_dir)
+    run_path.mkdir(exist_ok=True, parents=True)
+    datacard_path = run_path / 'datacard.txt'
+    datacard_path.write_text(datacard)
+
+    if remove_systematic:
+        lines = [line for line in datacard.splitlines(True)
+                 if remove_systematic not in line]
+        datacard_path.write_text(''.join(lines))
+
+    workspace_writer(run_path)
+
+    output = run_path / 'ws.root'
+    command = [
+        'text2workspace.py', 'datacard.txt', '-o', 'ws.root', '-v', '10',
+        '--X-allow-no-background',
+    ]
+    if text2workspace_args:
+        command.extend(text2workspace_args)
+    subprocess.run(command, cwd=run_path, check=True)
+    LOGGER.info(f'Written mass workspace at {output}')
+    return output
 
 
 def datacard_txt(
