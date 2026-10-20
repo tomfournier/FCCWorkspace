@@ -104,6 +104,16 @@ elif cat == 'qq':
     cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
     cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
     cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    
+    cutList['Test']  = Baseline_cut_qq(ecm, True)
+    cutList['Test1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
+    cutList['Test2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['Test3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    
+    cutList['Jan']  = Baseline_cut_qq(ecm, True)
+    cutList['Jan1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
+    cutList['Jan2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['Jan3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 
 # Save ROOT TTrees in addition to histograms (for BDT training)

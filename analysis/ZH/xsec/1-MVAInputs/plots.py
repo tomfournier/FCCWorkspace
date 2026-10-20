@@ -130,6 +130,10 @@ else:
     if cat in ['ee', 'mumu']:
         plots['ZH']['backgrounds'][f'gaga{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']
 
+# Add ee -> tt process
+if cat == 'qq' and ecm == 365:
+    plots['ZH']['backgrounds']['ttbar'] = ['wzp6_ee_WbWb_ecm365']
+
 
 
 # ROOT color assignments for each process (used in legend and stacked histograms)
@@ -144,6 +148,7 @@ colors['eeZ']        = ROOT.kSpring+10  # Radiative Z: spring color
 colors[f'WW{cat}']   = ROOT.kBlue+1     # WW with leptons: blue
 colors[f'gaga{cat}'] = ROOT.kBlue-8     # Diphoton: dark blue
 colors['Rare']       = ROOT.kBlue-8     # Rare: dark blue
+colors['ttbar']      = ROOT.kBlue-5
 
 # LaTeX legend labels for ROOT plots
 # Maps process names to formatted particle physics notation
@@ -171,3 +176,4 @@ legend['gagaee']   = '#gamma#gamma#rightarrow e^{+}e^{-}'
 legend['gagaqq']   = '#gamma#gamma#rightarrow q#bar{q}'
 
 legend['Rare']     = 'Rare'
+legend['ttbar']    = 't#bar{t}'
