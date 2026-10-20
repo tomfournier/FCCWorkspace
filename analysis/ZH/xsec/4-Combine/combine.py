@@ -15,8 +15,7 @@ t = time.time()
 from parsing import set_log
 from zh_xsec.parsing import create_parser
 from logger import get_logger
-parser = create_parser('4-Combine', 'combine')
-arg = parser.parse_args()
+arg = create_parser('4-Combine', 'combine').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -27,12 +26,11 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-# Load user configuration and event utilities
 from zh_xsec.userConfig import loc
 from constants import H_DECAYS_FIT
 from samples import get_process_dict
 from tools.utils import timer
-from zh_xsec.func.combine import do_combine
+from combine import do_combine
 
 
 
@@ -74,7 +72,7 @@ cats_template: dict[str, list[str]] = {
 ### EXECUTION FUNCTION ###
 ##########################
 
-def main():
+def main() -> None:
     for ecm in ecms:
         sig_procs = sig_procs_dict.get(ecm, {})
         if arg.rescale:
@@ -94,8 +92,7 @@ def main():
 
             # Define systematic uncertainties
             # (1% log-normal normalization, uncorrelated)
-            systs = {f'{proc}_norm':{'type':'lnN', 'value':1.01, 'procs':[proc]}
-                     for proc in bkg_procs.keys()}
+            systs = {f'{proc}_norm':{'type':'lnN', 'value':1.01, 'procs':[proc]} for proc in bkg_procs.keys()}
             systs_procs = {}
             for sel in sels:
                 inputDir  = loc.get('HIST_PROC', cat, ecm, sel)
