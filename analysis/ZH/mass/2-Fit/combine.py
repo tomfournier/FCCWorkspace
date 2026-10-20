@@ -1,32 +1,35 @@
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
+
+import time
+
+t = time.time()
+
+
+
+########################
+### ARGUMENT PARSING ###
+########################
+
+from parsing import set_log
+from zh_mass.parsing import create_parser
+from logger import get_logger
+arg = create_parser('2-Fit', 'combine').parse_args()
+set_log(arg)
+
+LOGGER = get_logger(__name__)
+
+
+
 ##########################################################
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import os, json
-
-from pathlib import Path
-
-# Load userConfig
-from zh_mass.userConfig import (
-    loc, event
-)
-
-# Load config from temporary JSON if running automated, else prompt
-if os.environ.get('RUN'):
-    cfg_file = Path(loc.RUN) / '2-run.json'
-    if cfg_file.exists():
-        cfg = json.loads(cfg_file.read_text())
-        cat, ecm, sel = cfg['cat'], cfg['ecm'], cfg['sel']
-        print(f'Loaded config: {cat = }, {ecm = }, {sel = }')
-    else:
-        raise FileNotFoundError(f"Couldn't find {cfg_file} file")
-else:
-    cat = input('Select channel [ee, mumu]: ')
-    ecm = input('Select center-of-mass energy [240, 365]: ')
-    sel = input('Select a selection: ')
-
-if cat not in ['ee', 'mumu']:
-    raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
+from zh_mass.userConfig import loc
+from samples import get_process_dict_mass
+from tools.utils import timer
+from combine import do_combine
 
 
 
@@ -34,39 +37,33 @@ if cat not in ['ee', 'mumu']:
 ### SETUP CONFIG SETTINGS ###
 #############################
 
-# Datacard configuration parameters
-mc_stats = False  # Include MC statistical uncertainties
-rebin    = 1      # Histogram rebinning factor
-intLumi  = 1      # Integrated luminosity scale factor
+cats, ecms, sels = arg.cat.split('-'), arg.ecm.split('-'), arg.sels.split('-')
 
-# Define input and output directories
-inputDir  = loc.get('HIST_PROCESSED',   cat, ecm, sel)
-outputDir = loc.get('NOMINAL_DATACARD', cat, ecm, sel)
-inDir     = loc.get('EVENTS',           cat, ecm)
+mc_stats = arg.mc_stats    # Include MC statistical uncertainties (default: False, assume Poisson)
+rebin    = arg.rebin       # Histogram rebinning factor (1 = no rebinning)
+intLumi  = arg.intLumi     # Luminosity scaling factor for normalization
+scales = {}                # Re-scale histograms (value per process)
+only_asimov = False        # Apply scales only to asimov histograms
 
-# Define signal processes: ee -> Z(ll)H with various Higgs decay modes
-samples_sig = [f'wzp6_ee_{cat}H_ecm{ecm}']
-sig_procs = {'sig': samples_sig}
-
-# Define background processes: ZZ, WW, Z/gamma, and rare processes
-bkg_procs = {
-    'ZZ':    event([f'p8_ee_ZZ_ecm{ecm}'], inDir),
-    'WW':    event([f'p8_ee_WW_ecm{ecm}',
-                    f'p8_ee_WW_ee_ecm{ecm}',
-                    f'p8_ee_WW_mumu_ecm{ecm}'], inDir),
-    'Zgamma':event([f'wzp6_ee_ee_Mee_30_150_ecm{ecm}',
-                    f'wzp6_ee_mumu_ecm{ecm}',
-                    f'wzp6_ee_tautau_ecm{ecm}'], inDir),
-    'Rare':  event([f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}',
-                    f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}',
-                    f'wzp6_gaga_{cat}_60_ecm{ecm}',
-                    f'wzp6_gaga_tautau_60_ecm{ecm}',
-                    f'wzp6_ee_nuenueZ_ecm{ecm}'], inDir)
+sig_procs_dict = {
+    '240': get_process_dict_mass(['ZH'], 240),
+    '365': get_process_dict_mass(['ZH'], 365),
+}
+bkg_procs_dict = {
+    '240':{'*':  get_process_dict_mass(['ZZ', 'WW', 'Zgamma', 'Rare'],       240)},
+    '365':{'*':  get_process_dict_mass(['ZZ', 'WW', 'Zgamma', 'Rare'],       365),
+           'qq': get_process_dict_mass(['ZZ', 'WW', 'Zgamma', 'Rare', 'tt'], 365)}
 }
 
-# Configure categories based on fit type: single category or visible/invisible split
-categories = [f'z_{cat}']
-hist_names = 'zll_recoil_m'
+hist_names_dict = {
+    'lep': ['zll_recoil_m_fit_high', 'zll_recoil_m_fit_low'],
+    'had': ['zqq_m_recoil_m_full_mva_fit_high_1D', 'zqq_m_recoil_m_full_mva_fit_low_1D']
+}
+# Category identifier
+cats_template: dict[str, list[str]] = {
+    'lep': ['z_cat_high', 'z_cat_low'],
+    'had': ['z_cat_high', 'z_cat_low']
+}
 
 # Define systematic uncertainties: normalization uncertainties for backgrounds
 systs = {}
@@ -76,3 +73,58 @@ for i in sorted(['WW', 'ZZ', 'Zgamma', 'Rare']):
         'value': 1.01,        # 1% normalization uncertainty
         'procs': [i]          # Apply to this background process
     }
+
+
+
+##########################
+### EXECUTION FUNCTION ###
+##########################
+
+def main() -> None:
+    for ecm in ecms:
+        sig_procs = sig_procs_dict.get(ecm, {})
+        if arg.rescale:
+            lumi = (intLumi/10.8) if ecm=='240' else ((intLumi/3.12) if ecm=='365' else intLumi)
+        else: lumi = 1
+        if not sig_procs:
+            LOGGER.warning('sig_procs is an empty dictionary')
+        for cat in cats:
+            bkg_procs_ecm = bkg_procs_dict.get(ecm, {})
+            bkg_procs     = bkg_procs_ecm.get(cat, bkg_procs_ecm['*'])
+            cat_template  = cats_template['had' if cat=='qq' else 'lep']
+            if not bkg_procs:
+                LOGGER.warning('bkg_procs is an empty dictionary')
+            categories = [c.replace('cat', cat) for c in cat_template]
+            hist_names = hist_names_dict['had' if cat=='qq' else 'lep']
+
+            # Define systematic uncertainties
+            # (1% log-normal normalization, uncorrelated)
+            systs = {f'{proc}_norm':{'type':'lnN', 'value':1.01,'procs':[proc]} for proc in bkg_procs.keys()}
+            systs_procs = {}
+            for sel in sels:
+                inputdir  = loc.get('HIST_PROC', cat, ecm, sel)
+                outputdir = loc.get('FIT_CARD',  cat, ecm, sel)
+
+                do_combine(
+                    inputdir, outputdir, hist_names,
+                    categories, sig_procs, bkg_procs, systs,
+                    systs_procs, rebin, lumi, scales,
+                    only_asimov, mc_stats
+                )
+    return None
+
+
+######################
+### CODE EXECUTION ###
+######################
+
+if __name__=='__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass # Do not show Traceback when doing keyboard interrupt
+    except Exception:
+        LOGGER.error('Error occured during execution', exc_info=True)
+    finally:
+        # Print execution time
+        timer(t)

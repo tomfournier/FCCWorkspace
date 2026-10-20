@@ -1,12 +1,11 @@
-#################################
-### IMPORT STANDARD LIBRARIES ###
-#################################
+################################
+### STANDARD LIBRARY IMPORTS ###
+################################
 
-import os, sys, subprocess
+import os
 
 from time import time
-from uuid import uuid4
-from datetime import datetime
+from pathlib import Path
 
 # Start timer for performance tracking
 t = time()
@@ -17,16 +16,11 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from zh_mass.parsing import create_parser, parse_args, set_log
-from zh_mass.logger import get_logger
-parser = create_parser(
-    cat_multi=True,
-    allow_empty=True,
-    include_sel=True,
-    fit=True,
-    description='Fit Script'
-)
-arg = parse_args(parser, comb=True)
+from parsing import set_log, parse_args
+from zh_xsec.parsing import create_parser
+from logger import get_logger
+parser = create_parser('5-Fit', 'fit')
+arg = parse_args(parser, comb=True)  # Parse with combination support
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -37,8 +31,16 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-from zh_mass.userConfig import loc
-from zh_mass.config import timer
+# Load directory path manager and utilities
+from path import PathObj
+from zh_xsec.userConfig import loc
+loc.set_default_type(Path)
+from tools.utils import timer  # Timing utility
+from run import get_extra_args, update_namespace
+from fit import (
+    check_log, get_results,
+    res_saving, run_cmd
+)
 
 
 
@@ -47,53 +49,79 @@ from zh_mass.config import timer
 ###############################
 
 # Set category to combined if combining channels
+if arg.lep and arg.combine:
+    raise ValueError("Cannot use '--lep' and '--combine' at the same time")
+if arg.lep:     arg.cat = 'leptonic'
 if arg.combine: arg.cat = 'combined'
 
 # Bundle arguments for directory lookup
 args = [arg.cat, arg.ecm, arg.sel]
+if arg.rescaled:
+    lumi = 10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else 1)
+else:
+    lumi = 1
 
-# Map fit mode (nominal vs bias) to corresponding directory locations
+# Map fit mode (nominal vs bias test) to corresponding directory locations
+# This allows reusing code for both standard fits and bias test procedures
 location_map = {
-    False: {  # Nominal fit
-        'dir': 'COMBINE_NOMINAL',
-        'dc':  'NOMINAL_DATACARD',
-        'ws':  'NOMINAL_WS',
-        'log': 'NOMINAL_LOG',
-        'res': 'NOMINAL_RESULT',
-        'tp':  'nominal'
+    False: {  # Nominal fit (standard measurement)
+        'dir':  'FIT_NOMINAL',  # Main working directory
+        'dc':   'FIT_CARD',     # Input datacard directory
+        'ws':   'FIT_WS',       # Workspace output directory
+        'log':  'FIT_LOG',      # Log file directory
+        'res':  'FIT_RESULT',   # Fit results output directory
+        'scan': 'FIT_SCAN',     # Check the fit stability
+        'tp':   'nominal',      # Type label for naming
     },
-    True: {   # Bias test fit
-        'dir': 'COMBINE_BIAS',
-        'dc':  'BIAS_DATACARD',
-        'ws':  'BIAS_WS',
-        'log': 'BIAS_LOG',
-        'res': 'BIAS_FIT_RESULT',
-        'tp': 'bias'
+    True: {   # Bias test fit (for testing fit bias)
+        'dir':  'FIT_BIAS',   # Bias test working directory
+        'dc':   'BIAS_CARD',  # Input biased datacard directory
+        'ws':   'BIAS_WS',    # Workspace output directory
+        'log':  'BIAS_LOG',   # Log file directory
+        'res':  'BIAS_FIT',   # Fit results output directory
+        'scan': 'BIAS_SCAN',  # Check the fit stability
+        'tp':   'bias',       # Type label for naming
     }
 }
-# Select configuration based on fit mode
+# Select configuration based on fit mode (nominal vs bias)
 config = location_map[arg.bias]
+
 # Resolve directory paths based on configuration and arguments
-dir, dc = loc.get(config['dir'], *args), loc.get(config['dc'],  *args)
-ws, log = loc.get(config['ws'],  *args), loc.get(config['log'], *args)
-res, tp = loc.get(config['res'], *args), config['tp']
+dr:   PathObj = loc.get(config['dir'],  *args)   # Working directory
+dc:   PathObj = loc.get(config['dc'],   *args)   # Input datacard directory
+ws:   PathObj = loc.get(config['ws'],   *args)   # Workspace directory
+log:  PathObj = loc.get(config['log'],  *args)   # Log output directory
+res:  PathObj = loc.get(config['res'],  *args)   # Results output directory
+scan: PathObj = loc.get(config['scan'], *args)   # Fast scan directory
+tp            = config['tp']                          # Type identifier
 
 # Define naming suffixes for file outputs
-comb = '_combined' if arg.combine else ''
-tar = f'_{arg.target}' if arg.bias else ''
-dc_comb = loc.get('COMBINE', '', arg.ecm, arg.sel)
+comb    = '_combined' if arg.combine else ''                     # Combined channel suffix
+tar     = f'_{arg.target}' if arg.bias else ''                   # Bias test target suffix (e.g., _bb)
+dcs = loc.get('FIT', '', arg.ecm, arg.sel)  # Combined datacard location
 
 # Define full file paths for workspace, logs, and results
-ws_file    = f'{ws}/ws{tar}.root'
-log_text   = f'{log}/log_text2workspace{tar}.txt'
-result_log = f'{log}/log_results{tar}.txt'
+ws_file   = ws  / f'ws{tar}.root'                                   # Workspace file (workspace.root or workspace_bb.root)
+diag_file = ws  / f'higgsCombineDiag{tar}.MultiDimFit.mH125.root'   # Diagnostic fit file
+fit_file  = ws  / f'higgsCombinezh_xsec{tar}.MultiDimFit.mH125.root'   # Likekihood scan file
+
+log_t2w   = log / f'log_text2workspace{tar}.txt'    # Text2workspace log
+log_fscan = log / f'log_fastscan{tar}.txt'          # Scan results log (scan results)
+log_diag  = log / f'log_diagnostic{tar}.txt'        # Diagnostic results log (for fit results)
+log_fit   = log / f'log_results{tar}_fit.txt'       # Fit  results log (fit results)
+
+# Datacard file definition
+dc_nom = dc / f'datacard{tar}{comb}.txt'
+dc_ee  = dcs /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
+dc_mu  = dcs / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
+dc_qq  = dcs /  'qq'  / tp / 'datacard' / f'datacard{tar}.txt'
 
 # Set up environment for subprocess calls
 env = os.environ.copy()
 
 # Create necessary directories if they don't exist
-for dir_path in [dc, ws, log, res]:
-    os.mkdirs(dir_path)
+for dir_path in [dc, ws, log, res, scan]:
+    dir_path.mkdir(exist_ok=True, parents=True)
 
 
 
@@ -101,143 +129,86 @@ for dir_path in [dc, ws, log, res]:
 ### FITTING PART ###
 ####################
 
-def add_stamp(path: str,
-              label: str,
-              status: str = 'ok'
-              ) -> None:
-    """Add a timestamped stamp to a log file for tracking execution status."""
-
-    # Generate timestamp and unique ID
-    ts = datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]
-    uniq = uuid4().hex[:8]
-    stamp = f'\n\n---- STAMP {label} [{status}]: {ts} | id={uniq}\n'
-
-    # Append stamp to log file
-    with open(path, 'a') as log_file:
-        log_file.write(stamp)
-    LOGGER.debug(f'Added STAMP: {ts} | id={uniq} | status={status} | file={label}')
-
-def fitting(
-        dir: str,
-        dc: str,
-        ws: str,
-        tp: str,
-        dc_comb: str,
+def do_fit(
+        dr: PathObj,
+        ws: PathObj,
         env: os._Environ
          ) -> int:
-    """Execute the fitting workflow: combine datacards, create workspace, and run fit."""
+    '''Execute the fitting workflow: combine datacards, create workspace, and run fit.
 
-    # Track status of each fitting step
-    text_status, fit_status = 'not-run', 'not-run'
-    try:
-        dc_combined = f'{dc}/datacard{tar}{comb}.txt'
+    Two-stage fitting process:
+    Stage 1: Quick fit (--algo none) to find best fit point and save RooFitResult
+    Stage 2: Grid scan (--algo grid) using result from stage 1 for faster convergence
+    '''
 
-        # Combine datacards from multiple channels if requested
-        if arg.combine:
-            dc_mu = f'{dc_comb}/mumu/{tp}/datacard/datacard{tar}.txt'
-            dc_ee = f'{dc_comb}/ee/{tp}/datacard/datacard{tar}.txt'
+    ##########################
+    ### COMMANDS DEFINTION ###
+    ##########################
 
-            LOGGER.info('Combining datacards')
-            with open(dc_combined, 'w') as out:
-                subprocess.run(['combineCards.py', dc_mu, dc_ee],
-                               stdout=out, env=env, check=True)
+    cmd_comb  = ['combineCards.py', f'ee={dc_ee}', f'mumu={dc_mu}']
+    cmd_comb += [f'qq={dc_qq}'] if arg.combine else []
 
-        # Convert datacard to RooFit workspace
-        with open(log_text, 'w') as log_out:
-            LOGGER.info('Setting files for the fit')
-            subprocess.run(['text2workspace.py', dc_combined, '-v', '10',
-                            '--X-allow-no-background', '-m', '125', '-o', ws_file],
-                           stdout=log_out, stderr=subprocess.STDOUT,
-                           cwd=dir, env=env, check=True)
-        text_status = 'ok'
+    cmd_t2w = ['text2workspace.py', dc_nom, '-v', '10',
+               '--X-allow-no-signal', '--X-allow-no-background',
+               '--for-fits', '--no-wrappers', '-m', '125', '-o', ws_file]
 
-        # Run the maximum likelihood fit
-        with open(result_log, 'w') as log_out:
-            LOGGER.info('Doing the fit')
-            subprocess.run(['combine', ws_file, '-M', 'MultiDimFit', '-m', '125',
-                            '-v', '10', '-t', '0', '--expectSignal=1', '-n', 'Xsec',
-                            '--rMin', '0', '--rMax', '2', '--alignEdges', '1', '--squareDistPoiStep',
-                            '--algo', 'grid', '--points', '50', '--autoRange', '3'],
-                           stdout=log_out, stderr=subprocess.STDOUT,
-                           cwd=ws, env=env, check=True)
-        fit_status = 'ok'
-        return 0
+    cmd_diag = ['combine', ws_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2',
+                '--algo', 'singles', '--cl=0.68', '--robustFit=1', '--expectSignal=1',
+                '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
+                '--rMin', '0.9', '--rMax', '1.1', '-n', f'Diag{tar}']
+    cmd_diag += ['-t', '0'] if arg.bias else ['-t', '-1']
 
-    except subprocess.CalledProcessError as exc:
-        # Mark which step failed
-        if text_status=='not-run':
-            text_status = f'error exit={exc.returncode}'
-        elif fit_status=='not-run':
-            fit_status = f'error exit={exc.returncode}'
-        LOGGER.error(f'Fit command failed with exit code {exc.returncode}')
-        return exc.returncode
-    finally:
-        # Add execution stamps to log files for tracking
-        if os.path.exists(log_text):
-            add_stamp(log_text, f'log_text2workspace{tar}', text_status)
-        if os.path.exists(result_log):
-            add_stamp(result_log, f'log_results{tar}', fit_status)
+    cmd_fastscan = ['combineTools.py', '-M', 'FastScan', '-w', str(ws_file)+':w']
+
+    cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2',
+               '--expectSignal=1', '-n', f'zh_xsec{tar}', '-w', 'w', '--snapshotName', 'MultiDimFit',
+               '--rMin', '0.9', '--rMax', '1.1', '--alignEdges', '1', '--squareDistPoiStep',
+               '--algo', 'grid', '--points', str(arg.npoints), '--skipInitialFit']
+    cmd_fit += ['--fastScan'] if arg.fast_scan else []
+    cmd_fit += ['-t', '0'] if arg.bias else ['-t', '-1']
 
 
 
-##########################
-### RESULTS EXTRACTION ###
-##########################
+    ##########################
+    ### COMMANDS EXECUTION ###
+    ##########################
 
-def res_extraction(res_log: str
-                   ) -> tuple[float,
-                              float]:
-    """Extract signal strength (mu) and uncertainty from fit results log."""
-    LOGGER.info('Fit done, extracting results')
-    mu, err = -100, -100  # Initialize with error values
-
-    # Parse log file for signal strength result
-    # (parse from end to find latest result)
-    with open(res_log) as file:
-        lines = file.readlines()
-        for line in reversed(lines):
-            parts = line.replace('\t', ' ').split()
-
-            # Match line format: r = value +/- error (limited)
-            if (len(parts)>=6 and
-                    parts[0]=='r' and
-                    parts[1]=='=' and
-                    parts[3]=='+/-' and
-                    parts[-1]=='(limited)'):
-
-                mu, err = float(parts[2]), float(parts[4])
-                break
-    return mu, err
-
-
-
-######################
-### RESULTS SAVING ###
-######################
-
-def res_saving(
-        mu: float,
-        err: float,
-        res: str
-         ) -> None:
-    """Save fitting results (signal strength and uncertainty) to output file."""
-
-    # Check if results were successfully extracted
-    if (mu==-100) and (err==-100):
-        LOGGER.error("Couldn't extract values of the fit, go to the log file to have more information")
-        exit(1)
+    if (arg.lep or arg.combine) and not (arg.skip_setup and dc_nom.exists()):
+        channels = 'ee and mumu' if arg.lep else ('ee, mumu and qq' if arg.comb else '')
+        LOGGER.info(f'Combining datacards for {channels} channels')
+        run_cmd(cmd_comb, dc_nom, None, env)
     else:
-        # Display results unless suppressed by flag
-        if arg.print:
-            LOGGER.info('Results successfully extracted\n'
-                        f'mu = {mu} +/- {err}')
-            LOGGER.info(f'Uncertainty obtained on ZH cross-section: {err*100:.2f} %')
+        LOGGER.debug('Skipping the datacards combination')
 
-        # Write results to output file
-        with open(f'{res}/results{tar}.txt', 'w') as f:
-            f.write(f'{mu}\n{err}\n')
+    if not (arg.skip_setup and ws_file.exists()):
+        LOGGER.info('Converting the datacard to RooFit workspace')
+        ws_file.unlink(True)
+        run_cmd(cmd_t2w, log_t2w, dr, env)
+    else:
+        LOGGER.debug('Skipping the RooFit workspace setup')
 
-        LOGGER.info(f'Saved results in {res}/results{tar}.txt')
+    if arg.fastscan:
+        LOGGER.info('Doing a fast likelyhood scan to check the fit')
+        log_fscan.unlink(True)
+        run_cmd(cmd_fastscan, log_fscan, scan, env)
+
+    LOGGER.info('Doing the fit')
+    diag_file.unlink(True); log_diag.unlink(True)
+    run_cmd(cmd_diag, log_diag, ws, env)
+    check_log(log_diag)
+    res_diag = get_results(diag_file, 'r', 'singles', lumi)
+    res_saving(res_diag, res, arg.print, f'_diag{tar}')
+
+    if arg.only_diag:
+        LOGGER.debug('Skipping the likelihood scan')
+    else:
+        LOGGER.info('Doing the likelihood scan')
+        fit_file.unlink(True); log_fit.unlink(True)
+        run_cmd(cmd_fit, log_fit, ws, env)
+        res_fit = get_results(fit_file, 'r', 'grid', lumi)
+        res_saving(res_fit, res, arg.print, f'_fit{tar}')
+
+    return 0
 
 
 ######################
@@ -246,16 +217,20 @@ def res_saving(
 
 if __name__=='__main__':
     try:
+        if not arg.sel:
+            raise ValueError('No selection was defined, choose a selection to fit')
         # Execute the fitting pipeline
-        ret = fitting(dir, dc, ws, tp, dc_comb, env)
-        if ret != 0:
-            sys.exit(ret)
+        ret = do_fit(dr, ws, env)
+        if ret != 0: exit(ret)
 
-        # Extract results from fit
-        mu, err = res_extraction(result_log)
+        plot_args = update_namespace(
+            arg, cat=None if (arg.lep or arg.combine) else arg.cat,
+            ecm=str(arg.ecm), sels=arg.sel,
+            sig2=True, only1=arg.bias, timer=False)
+        cmd = ['python', 'plots.py'] + get_extra_args(
+            plot_args, {'directory': '5-Fit', 'script': 'plots'})
 
-        # Save results to output file
-        res_saving(mu, err, res)
+        run_cmd(cmd, None, Path(__file__).parent, env)
 
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt
