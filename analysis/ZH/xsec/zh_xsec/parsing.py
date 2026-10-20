@@ -619,6 +619,7 @@ def bdt_evaluation_parser(description: str | None = None) -> ArgumentParser:
         include_cat=True, include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='Baseline')
     add_bdt_eval(parser)
+    add_plot_args(parser, False, False)
     return parser
 
 
