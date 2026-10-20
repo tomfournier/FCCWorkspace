@@ -100,7 +100,7 @@ elif cat == 'qq':
     cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
     cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
     
-    cutList['jan']  = Baseline_cut_qq(ecm, True)
+    cutList['jan']  = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85'
     cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
     cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
     cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
