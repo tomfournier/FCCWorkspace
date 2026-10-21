@@ -40,10 +40,13 @@ class RooModelBuilder:
     """Build a :class:`RooModel` from a declarative signal specification."""
 
     def __init__(self, spec: dict):
-        self.spec = spec
+        self.spec: dict[str, callable | list[str | dict[str, str]] | str] = spec
 
-    def build_params(self, source: dict, mH: float | int) -> dict[str, ROOT.RooAbsArg]:
-        return build_params_from_spec(source, self.spec, mH)
+    @staticmethod
+    def get_src_val(source: dict, key: str, idx: int | None = None):
+        value = source[key]
+        if idx is None: return value
+        return value[idx]
 
     @staticmethod
     def suffixed(base: str, suffix: str = ''):
@@ -84,21 +87,66 @@ class RooModelBuilder:
 
         if 'args' in spec:
             # Convert parameter and observable names into the objects expected by ROOT.
-            comp_args = [mrec if isinstance(arg, str) and arg in obs
-                            else params[arg] if isinstance(arg, str) and arg in params
-                            else arg for arg in spec['args']]
+            comp_args = [
+                mrec if isinstance(arg, str) and arg in obs  else params[arg] if isinstance(arg, str) and arg in params
+                         else arg for arg in spec['args']
+            ]
         else:
             raise ValueError(f"Component {kind!r} needs an explicit ROOT constructor argument list in its spec under 'args'")
+
+        if 'factory_args' in spec:
+            comp_cls = comp_cls(*spec['factory_args'])
 
         # ROOT constructors consistently receive the object name and title first.
         return comp_cls(name, title, *comp_args)
 
 
+    def build_params(self, source: dict, mH: float | int) -> dict[str, ROOT.RooAbsArg]:
+        params: dict[str, ROOT.RooAbsArg] = {}
+        for entry in self.spec['params']:
+            if entry['kind'] == 'mH':
+                params[entry['name']] = ROOT.RooRealVar(entry['name'], '', mH)
+                continue
+
+            if entry['kind'] == 'source':
+                raw = self.get_src_val(source, entry['key'], entry.get('idx'))
+                if isinstance(raw, (list, tuple)) and len(raw) == 3:
+                    params[entry['name']] = ROOT.RooRealVar(entry['name'], '', *raw)
+                elif 'lo' in entry and 'hi' in entry:
+                    params[entry['name']] = ROOT.RooRealVar(entry['name'], '', raw, entry['lo'], entry['hi'])
+                else:
+                    params[entry['name']] = ROOT.RooRealVar(entry['name'], '', raw)
+                params[entry['name']].setConstant(ROOT.kTRUE)
+                continue
+
+            if entry['kind'] == 'variable':
+                params[entry['name']] = ROOT.RooRealVar(
+                    entry['name'], entry.get('title', entry['name']), entry['value'], *entry['range']
+                )
+                continue
+
+            if entry['kind'] == 'arg_list':
+                params[entry['name']] = self.argl(
+                    *(params[arg] for arg in entry['args']), name=entry.get('title')
+                )
+                continue
+
+            if entry['kind'] == 'formula':
+                expr = entry['expr'].format(mH=mH)
+                params[entry['name']] = ROOT.RooFormulaVar(
+                    entry['name'], '', expr, self.argl(*(params[arg] for arg in entry['args']))
+                )
+                continue
+
+            raise ValueError(f"Unsupported parameter kind: {entry['kind']}")
+        return params
+
+
     def build(
         self,
-        mrec: ROOT.RooRealVar,
+        observable: ROOT.RooRealVar,
         params: dict[str, ROOT.RooAbsArg],
-        yield_zh: float | int,
+        nevents: float | int,
         suffix: str = '',
         extended: bool = True,
     ) -> RooModel:
@@ -109,26 +157,32 @@ class RooModelBuilder:
         comps = []
         for spec in self.spec['components']:
             comp_name = self.suffixed(spec['name'], suffix)
-            pdf = self.get_pdf(spec['kind'], comp_name, spec['title'], mrec, params, spec)
+            pdf = self.get_pdf(spec['kind'], comp_name, spec['title'], observable, params, spec)
             model.add(comp_name, pdf)
             comps.append(pdf)
 
-        sig = ROOT.RooAddPdf(self.suffixed(self.spec.get('sum_name', 'sig'), suffix), '',
-                                self.argl(*comps), self.argl(*(params[n] for n in self.model_spec['fractions'])))
-        sig_norm = ROOT.RooRealVar(self.suffixed(self.spec.get('yield_name', 'sig_norm'), suffix),
-                                      '', yield_zh, 0, 1e8)
-        model.add(sig.GetName(), sig)
-        model.add(sig_norm.GetName(), sig_norm)
+        if len(comps) == 1 and not self.spec.get('fractions'):
+            pdf = next(iter(comps))
+        else:
+            pdf = ROOT.RooAddPdf(
+                self.suffixed(self.spec.get('sum_name', 'sig'), suffix), '',
+                self.argl(*comps), self.argl(*(params[n] for n in self.spec['fractions'])),
+            )
+        norm = ROOT.RooRealVar(self.suffixed(self.spec.get('yield_name', 'norm'), suffix), '', nevents, 0, 1e8)
+        model.add(pdf.GetName(), pdf)
+        model.add(norm.GetName(), norm)
 
         if extended:
-            fit = ROOT.RooAddPdf(self.suffixed(self.spec.get('model_name', 'zh_model'), suffix),
-                                 '', self.argl(sig), self.argl(sig_norm))
+            fit = ROOT.RooAddPdf(
+                self.suffixed(self.spec.get('model_name', 'model'), suffix), '', self.argl(pdf), self.argl(norm)
+            )
             model.add(fit.GetName(), fit)
             model.add('fit', fit)
             model.add('pdf', fit)
         else:
-            model.add('pdf', sig)
+            model.add('pdf', pdf)
         return model
+
 
 
 class SignalParametrizer:
@@ -141,11 +195,12 @@ class SignalParametrizer:
 
     def fit_grid(
         self,
-        recoilmass: ROOT.RooRealVar,
+        observable: ROOT.RooRealVar,
         masses: list[float | int],
         processes: list[str],
         histogram_loader,
         normalize: bool = True,
+        only_coeffs: bool = False
     ) -> tuple[dict[str, list], list[RooModel], float]:
         if len(masses) != len(processes):
             raise ValueError('Signal masses and processes must have equal length')
@@ -158,18 +213,9 @@ class SignalParametrizer:
         for mass, process in zip(masses, processes):
             mass_label = f'{mass:.3f}'.replace('.', 'p')
             hist = histogram_loader(process, mass_label, normalize, yield_nom)
-            data = ROOT.RooDataHist(
-                f'rdh_zh_{mass_label}', f'rdh_zh_{mass_label}',
-                ROOT.RooArgList(recoilmass), ROOT.RooFit.Import(hist),
-            )
-            model = self.builder.build(
-                recoilmass, self.builder.build_params(self.parameter_source, mass),
-                data.sum(False), mass_label,
-            )
-            model.fit_to(
-                data, ROOT.RooFit.Extended(ROOT.kTRUE),
-                ROOT.RooFit.SumW2Error(ROOT.kTRUE),
-            )
+            data = ROOT.RooDataHist(f'rdh_zh_{mass_label}', f'rdh_zh_{mass_label}', ROOT.RooArgList(observable), ROOT.RooFit.Import(hist))
+            model = self.builder.build(observable, self.builder.build_params(self.parameter_source, mass), data.sum(False), mass_label)
+            model.fit_to(data, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
             model.add(data.GetName(), data)
             models.append(model)
 
@@ -181,122 +227,16 @@ class SignalParametrizer:
                     var_dict[name].append(model.get(f'{self.model_spec["yield_name"]}_{mass_label}').getVal())
                 else:
                     var_dict[name].append(params[name].getVal())
-
+        
+        if only_coeffs:
+            return var_dict
         return var_dict, models, yield_nom
 
 
-def _source_value(source: dict, key: str, idx: int | None = None):
-    value = source[key]
-    if idx is None: return value
-    return value[idx]
-
-
-def _component_pdf(
-        kind: str,
-        name: str,
-        title: str,
-        mrec,
-        params: dict,
-        spec: dict,
-        observables: set[str] | None = None):
-    """Instantiate a ROOT PDF from a declarative component specification.
-
-    ``kind`` identifies the ROOT class unless ``root_class`` overrides it.
-    Entries in ``args`` resolve observable names to ``mrec`` and parameter
-    names to objects in ``params``; other values are passed through literally.
-    """
-
-    # Names in this set refer to the observable passed to the builder.
-    obs = observables or {'recoilmass', 'mrecoil', 'observable', 'x'}
-
-    # Resolve the configured ROOT class, for example RooGaussian or RooCBShape.
-    root_kind = spec.get('root_class', kind)
-    comp_cls = getattr(ROOT, root_kind, None)
-    if comp_cls is None:
-        raise ValueError(f'ROOT has no component class {root_kind!r}')
-
-    if 'args' in spec:
-        # Convert parameter and observable names into the objects expected by ROOT.
-        comp_args = [mrec if isinstance(arg, str) and arg in obs
-                     else params[arg] if isinstance(arg, str) and arg in params
-                     else arg for arg in spec['args']]
-    else:
-        raise ValueError(f"Component {kind!r} needs an explicit ROOT constructor argument list in its spec under 'args'")
-
-    # ROOT constructors consistently receive the object name and title first.
-    return comp_cls(name, title, *comp_args)
-
-
-def build_params_from_spec(
-    source: dict,
-    model_spec: dict,
-    mH: float | int,
-     ) -> dict[str, ROOT.RooAbsArg]:
-
-    params: dict[str, ROOT.RooAbsArg] = {}
-
-    for entry in model_spec['params']:
-        # name = f"{entry.get('name', '')}_{mH_label}" if entry.get('suffix', True) else entry['name']
-        if entry['kind'] == 'mH':
-            params[entry['name']] = ROOT.RooRealVar(entry['name'], '', mH)
-            continue
-
-        if entry['kind'] == 'source':
-            raw = _source_value(source, entry['key'], entry.get('idx'))
-            if isinstance(raw, (list, tuple)) and len(raw) == 3:
-                params[entry['name']] = ROOT.RooRealVar(entry['name'], '', *raw)
-            elif 'lo' in entry and 'hi' in entry:
-                params[entry['name']] = ROOT.RooRealVar(entry['name'], '', raw, entry['lo'], entry['hi'])
-            else:
-                params[entry['name']] = ROOT.RooRealVar(entry['name'], '', raw)
-            params[entry['name']].setConstant(ROOT.kTRUE)
-            continue
-
-        if entry['kind'] == 'formula':
-            expr = entry['expr'].format(mH=mH)
-            params[entry['name']] = ROOT.RooFormulaVar(
-                entry['name'], '', expr, _arg_list(*(params[arg] for arg in entry['args'])),
-            )
-            continue
-
-        raise ValueError(f"Unsupported parameter kind: {entry['kind']}")
-
-    return params
-
-
-def build_model_from_spec(
-    recoilmass: ROOT.RooRealVar,
-    params: dict[str, ROOT.RooRealVar],
-    yield_zh: float | int,
-    suffix: str,
-    model_spec: dict,
-    extended: bool = True,
-     ) -> RooModel:
-    return RooModelBuilder(model_spec).build(
-        recoilmass, params, yield_zh, suffix, extended,
-    )
-
-
-def build_pdf_from_spec(
-    recoilmass: ROOT.RooRealVar,
-    params: dict[str, ROOT.RooRealVar],
-    yield_zh: float | int,
-    suffix: str,
-    model_spec: dict,
-    extended: bool = True,
-     ):
-    """Compatibility wrapper returning the historical PDF tuple."""
-    model = build_model_from_spec(recoilmass, params, yield_zh, suffix, model_spec, extended)
-    pdf = model.get('pdf')
-    components = {
-        comp['name']: model.get(_with_suffix(comp['name'], suffix))
-        for comp in model_spec['components']
-    }
-    return pdf, components, model.get(_with_suffix(model_spec.get('yield_name', 'sig_norm'), suffix))
 
 def get_hist(
         hName: str,
-        inDir: str,
+        inputdir: str,
         procs: str | list[str],
         suffix: str,
         cat_idx: tuple[int, int],
@@ -306,7 +246,7 @@ def get_hist(
         normYields: bool = True):
     if isinstance(procs, str): procs = [procs]
 
-    hist = getHist(hName, procs, inDir)
+    hist = getHist(hName, procs, inputdir)
     hist.Scale(lumiScale)
 
     hist = hist.ProjectionX(f'hist_zh_{suffix}', *cat_idx)
@@ -314,51 +254,6 @@ def get_hist(
     if normYields: hist.Scale(yield_nom / hist.Integral())
 
     return hist
-
-
-def make_params(
-        flavor: str,
-        ecm: int,
-        cat: int,
-        mH: float | int,
-        config: dict[int,
-                     dict[str,
-                          dict[str,
-                               dict[str,
-                                    list[float | int]]]]]):
-
-    import ROOT
-
-    conf = config[ecm][flavor][cat]
-
-    mean_cb0 = ROOT.RooRealVar(f'mean_cb0_{mH}',     '', mH)                 # Slope
-    mean_cb1 = ROOT.RooRealVar(f'mean_cb1_{mH}',     '', *conf['mean_cb1'])  # Offset
-    mean_cb  = ROOT.RooFormulaVar(f'mean_cb_{mH}', '@0+@1', ROOT.RooArgList(mean_cb0, mean_cb1))
-
-    sigma_cb = ROOT.RooRealVar(f'sigma_cb_{mH}', '', *conf['sigma_cb'])
-    sigma_gt = ROOT.RooRealVar(f'sigma_gt_{mH}', '', *conf['sigma_gt'])
-
-    alpha_1 = ROOT.RooRealVar(f'alpha_1_{mH}', '', *conf['alpha_1'])
-    alpha_2 = ROOT.RooRealVar(f'alpha_2_{mH}', '', *conf['alpha_2'])
-    n_1 = ROOT.RooRealVar(f'n_1_{mH}', '', *conf['n_1'])
-    n_2 = ROOT.RooRealVar(f'n_2_{mH}', '', *conf['n_2'])
-
-    mean_gt1 = ROOT.RooRealVar(f'mean_gt1_{mH}',        '', *conf['mean_gt1'])  # Offset
-    mean_gt  = ROOT.RooFormulaVar(f'mean_gt_{mH}', '@0+@1', ROOT.RooArgList(mean_cb, mean_gt1))
-
-    cb_1 = ROOT.RooRealVar(f'cb_1_{mH}', '', *conf['cb_1'])
-    cb_2 = ROOT.RooRealVar(f'cb_2_{mH}', '', *conf['cb_2'])
-
-    params = {
-        'mean_cb0':  mean_cb0, 'mean_cb1':  mean_cb1, 'mean_cb':   mean_cb,
-        'sigma_cb':  sigma_cb, 'sigma_gt':  sigma_gt,
-        'alpha_1':   alpha_1,  'alpha_2':   alpha_2,
-        'n_1':       n_1,      'n_2':       n_2,
-        'mean_gt1':  mean_gt1, 'mean_gt':   mean_gt,
-        'cb_1':      cb_1,     'cb_2':      cb_2
-    }
-
-    return params
 
 
 def _with_suffix(base: str, suffix: str) -> str:
@@ -452,8 +347,9 @@ def build_2cbg_pdf(
         'sum_name': 'sig',
         'model_name': 'zh_model',
     }
-    sig_fit, _, _ = build_pdf_from_spec(recoilmass, Vars, yield_zh, suffix, model_spec)
-    return sig_fit
+    return RooModelBuilder(model_spec).build(
+        recoilmass, Vars, yield_zh, suffix
+    ).get('pdf')
 
 
 def build_background_pdf(
@@ -474,7 +370,7 @@ def build_background_pdf(
     return bkg, bkg_norm, bkg_fit
 
 
-def make_unc_import(w_tmp, spline_vals, val_names, syst, val_up=None, val_dw=None):
+def make_unc_import(workspace, spline_vals, val_names, syst, val_up=None, val_dw=None):
 
     for idx, (spline_val, val_name) in enumerate(zip(spline_vals, val_names)):
         nominal_val = spline_val.getVal()
@@ -485,7 +381,7 @@ def make_unc_import(w_tmp, spline_vals, val_names, syst, val_up=None, val_dw=Non
 
         nominal = ROOT.RooRealVar(f'sig_{val_name}_{syst}', f'sig_{val_name}_{syst}', value)
         nominal.setConstant(ROOT.kTRUE)
-        w_tmp.Import(nominal)
+        workspace.Import(nominal)
 
 
 def findCrossing(
