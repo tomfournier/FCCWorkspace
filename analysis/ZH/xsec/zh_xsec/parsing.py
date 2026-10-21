@@ -92,12 +92,7 @@ def add_final_bdt_selection_args(parser: ArgumentParser) -> None:
         default='weights',
         help='BDT cut to use for high/low score region separation (default: weights)'
     )
-    args.add_argument(
-        '--hl-sels',
-        type=str,
-        default='all',
-        help='Selection to include for high/low separation (default: all)'
-    )
+
 
 # 1-MVAInputs/plots.py specific arguments
 def add_mva_plot_args(parser: ArgumentParser) -> None:

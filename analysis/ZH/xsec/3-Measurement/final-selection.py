@@ -113,6 +113,18 @@ elif cat == 'qq':
     cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
     cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
     cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    
+    cutList['JAN']  = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    
+    cutList['Test']  = Baseline_cut_qq(ecm, True)
+    cutList['Test1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
+    cutList['Test2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['Test3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+    
+    cutList['Jan']  = Baseline_cut_qq(ecm, True)
+    cutList['Jan1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
+    cutList['Jan2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
+    cutList['Jan3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
 
     E_vis, theta_miss = 120 if ecm == 240 else 175, 0.995
 else:
@@ -128,14 +140,8 @@ if not (test or arg.jan):
     })
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 
-
-
-# List of selections to split into high/low BDT score regions
-hl_default = ['Baseline', 'Baseline_miss', 'Baseline_sep', 'Baseline_vis', 'Baseline_inv', 'test']
-hl_sels    = list(cutList.keys()) if arg.hl_sels=='all' else hl_default + arg.hl_sels.split('-')
-
 # Split each selection into high and low BDT score regions
-cutList = make_high_low(cutList, bdt_cut, hl_sels)
+cutList = make_high_low(cutList, bdt_cut, list(cutList.keys()))
 
 
 
