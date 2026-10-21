@@ -176,9 +176,7 @@ def get_bdt_modes(cat: str, ecm: int) -> dict[str, list[str]]:
     if cat not in {'ee', 'mumu', 'qq'}:
         raise ValueError(f'{cat = } is not a valid category. Use [ee, mumu, qq].')
 
-    signal_samples = ([
-        f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in {'ee', 'mumu'} else [f'wzp6_ee_{quark}H_H{decay}_ecm{ecm}'
-                                                                   for quark in QUARKS for decay in H_DECAYS])
+    signal_samples = ([f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in {'ee', 'mumu'} else [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in QUARKS for y in H_DECAYS])
 
     modes = {}
     modes[f'Z{cat}H'] = signal_samples

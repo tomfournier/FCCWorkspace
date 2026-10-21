@@ -107,8 +107,8 @@ class PullPlot:
 		quiet: bool = False,
 		xmin: float | None = None,
 		xmax: float | None = None,
-		top_left: str = '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
-		top_right: str | None = None,
+		topLeft: str = '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
+		topRight: str | None = None,
 		statistics: Sequence[str] = (),
 		point_colors: Sequence[Any] | None = None,
 	) -> None:
@@ -118,9 +118,9 @@ class PullPlot:
 		default_min, default_max = self._x_range()
 		xmin = default_min if xmin is None else xmin
 		xmax = default_max if xmax is None else xmax
-		top_right = top_right or f'#sqrt{{s}} = {self.ecm} GeV, {self.lumi} ab^{{#minus1}}'
+		topRight = topRight or f'#sqrt{{s}} = {self.ecm} GeV, {self.lumi} ab^{{#minus1}}'
 
-		plotter.cfg = self._config(xmin, xmax, top_left, top_right)
+		plotter.cfg = self._config(xmin, xmax, topLeft, topRight)
 		hist = self._histogram(xmin, xmax)
 		canvas = plotter.canvas(800, 800)
 		plotter.canvas_margins(canvas, top=0.08, bottom=0.1, left=0.15, right=0.05)
@@ -195,9 +195,9 @@ class PullPlot:
 			graph.Draw('P0 SAME')
 
 		latex = plotter.setup_latex(0.045, 30, 1, 42)
-		latex.DrawLatex(0.95, 0.925, top_right)
+		latex.DrawLatex(0.95, 0.925, topRight)
 		latex = plotter.setup_latex(0.045, 13, 1, 42)
-		latex.DrawLatex(0.15, 0.96, top_left)
+		latex.DrawLatex(0.15, 0.96, topLeft)
 		if statistics:
 			text = plotter.setup_latex(0.04, 11, 1, 42)
 			for index, value in enumerate(statistics):

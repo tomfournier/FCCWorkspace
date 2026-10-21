@@ -4,8 +4,6 @@
 
 import time, array, subprocess, json, ROOT
 
-import numpy as np
-
 t = time.time()
 
 
@@ -28,7 +26,6 @@ LOGGER = get_logger(__name__)
 ### IMPORT FUNCTIONS AND PARAMETERS FROM CUSTOM MODULE ###
 ##########################################################
 
-import plot.plotter as plotter
 from zh_mass.tools.process import getHist
 from tools.utils import timer
 from zh_mass.userConfig import loc, param_config
@@ -55,11 +52,7 @@ from zh_mass.func.fit import (
     RooModel,
     RooModelBuilder,
     SignalParametrizer,
-    build_model_from_spec,
     get_hist,
-    build_background_pdf,
-    build_pdf_from_spec,
-    build_params_from_spec,
     make_unc_import
 )
 from combine import do_combine_mass
@@ -88,10 +81,9 @@ runDir   = loc.get('RUNDIR',         flavor, ecm, sel)
 
 outDir.mkdir(exist_ok=True, parents=True)
 runDir.mkdir(exist_ok=True, parents=True)
-# subprocess.run(['cp', '/home/submit/jaeyserm/public_html/fccee/h_mass/index.php', f'{outDir}'])
-
 
 sig_spec = SIGNAL_MODELS['make_datacard']
+sig_builder = RooModelBuilder(sig_spec)
 bkg_spec = BACKGROUND_MODEL
 mHs = sig_spec['masses']
 
@@ -100,30 +92,6 @@ else:        cat_idx = (cat, cat)
 
 nBins = arg.nBins  # total number of bins, for plotting
 recoilMin, recoilMax = arg.recoilMin, arg.recoilMax
-
-
-# Recoil mass plot settings
-cfg = {
-
-    'logX':             False,
-    'logY':             False,
-
-    'xmin':             120,
-    'xmax':             140,
-    'ymin':             0,
-    'ymax':             1,
-
-    'xtitle':           'm_{recoil} [GeV]',
-    'ytitle':           'Events',
-
-    'topLeft':          topLeft,
-    'topRight':         topRight,
-
-    'ratiofraction':    0.3,
-    'ytitleR':         'Pull',
-    'yminR':           -3.5,
-    'ymaxR':            3.5
-}
 
 
 def ensure_signal_coefficients() -> None:
@@ -135,22 +103,15 @@ def ensure_signal_coefficients() -> None:
     LOGGER.info('No signal parametrization found; fitting signal mass points inline')
     signal_spec = SIGNAL_MODELS['parametrize_signal']
     processes = signal_spec['processes'](flavor, ecm)
-    recoilmass = ROOT.RooRealVar(
-        'zll_recoil_m_param', 'Recoil mass [GeV]', 125,
-        arg.recoilMin, arg.recoilMax,
-    )
+    recoilmass = ROOT.RooRealVar('zll_recoil_m_param', 'Recoil mass [GeV]', 125, arg.recoilMin, arg.recoilMax)
     parametrizer = SignalParametrizer(signal_spec, param_config[ecm][flavor][cat])
 
     def load_hist(process, suffix, normalize=False, yield_nom=1):
-        return get_hist(
-            f'{flavor}_{hName}', inDir, process, suffix, cat_idx,
-            1, yield_nom, '', normalize,
-        )
+        return get_hist(f'{flavor}_{hName}', inDir, process, suffix, cat_idx,
+                        1, yield_nom, '', normalize)
 
-    coefficients, _, _ = parametrizer.fit_grid(
-        recoilmass, signal_spec['masses'], processes, load_hist,
-        normalize=getattr(arg, 'normYield', True),
-    )
+    coefficients, _, _ = parametrizer.fit_grid(recoilmass, signal_spec['masses'], processes, load_hist,
+                                               normalize=getattr(arg, 'normYield', True))
     paramDir.mkdir(exist_ok=True, parents=True)
     coefficient_file.write_text(json.dumps(coefficients, indent=4))
 
@@ -171,14 +132,13 @@ def doSignal(
         nBins: int,
         normYields: bool = True):
 
-    global h_obs, yield_nom, yMax
+    global h_obs, yield_nom
 
     procs = sig_spec['processes'](flavor, ecm)
     MH, mrec = workspace.var('MH'), workspace.var('zll_recoil_m')
 
     hist_nom = get_hist(f'{flavor}_{hName}', inDir, [procs[0]], 'norm',
                         cat_idx, 1, 1, '', False)
-    yMax = 1.25 * hist_nom.Rebin(int(hist_nom.GetNbinsX() / nBins)).GetMaximum()
     yield_nom = hist_nom.Integral()
 
     pdf_sigs = []
@@ -214,8 +174,8 @@ def doSignal(
         hists.insert(ROOT.std.pair('string, RooDataHist*')(mH_label, rdh_zh))  # Does not work with recent ROOT versions?
         cats.defineType(mH_label, i)
 
-        params = build_params_from_spec(coeffs, sig_spec, mH, mH_label)
-        mass_model = build_model_from_spec(mrec, params, yield_zh, mH_label, sig_spec)
+        params = sig_builder.build_params(coeffs, mH)
+        mass_model = sig_builder.build(mrec, params, yield_zh, mH_label)
         pdf_sig = mass_model.get('pdf')
         sig_norm = mass_model.get(f'{sig_spec["yield_name"]}_{mH_label}')
         pdf_sigs.append(pdf_sig)
@@ -250,37 +210,35 @@ def doSignal(
     cov.Print()
 
     # Plot
-    plotter.cfg = cfg
-    cfg['ytitle'] = f'Events / {20_000/nBins:.0f} MeV'
     for i, mH, proc, pdf in enumerate(zip(mHs, procs, pdf_sigs)):
 
         mH_label = f'{mH:.3f}'.replace('.', 'p')
         rdh_zh = hists[mH_label]
 
-        cfg['ymax'] = yMax
-        fit_plot(rdh_zh, pdf, mH_label, mrec, nBins, label, outDir)
+        fit_plot(
+            rdh_zh, pdf, mrec, nBins, label, outDir,
+            ecm=ecm, lumi=lumi,
+        )
 
-        cfg['ymax'] = 2.5 * yMax
-        plotter.cfg = cfg
-        sig_fit = plot_decomposition(workspace, outDir, label, mH_label, yield_nom, sig_spec)
+        sig_fit = plot_decomposition(
+            outDir, workspace, label, mH_label, yield_nom, sig_spec,
+            ecm=ecm, lumi=lumi,
+        )
 
         # Import
         workspace.Import(rdh_zh)
         workspace.Import(sig_fit)
 
-    vals = {k: [v.getVal() if k != 'mH' else v for v in values]
-            for k, values in var_dict.items()}
+    vals = {k: [v.getVal() if k != 'mH' else v for v in values] for k, values in var_dict.items()}
 
 
     ###########################
     # plot all fitted signals #
     ###########################
-    cfg['xmin'] = 124
-    cfg['xmax'] = 128
-    cfg['ymax'] = 2.5 * np.average(yMax)
-    plotter.cfg = cfg
-
-    plot_signal(workspace, mHs, outDir, label, yield_nom, pdf_sigs)
+    plot_signal(
+        workspace, mHs, outDir, label, yield_nom, pdf_sigs,
+        ecm=ecm, lumi=lumi,
+    )
 
     # Make splines, to connect the fit parameters a function of the Higgs mass
     # Plot them afterwards
@@ -290,7 +248,10 @@ def doSignal(
                for k in vals.keys() if k!='mH'}
 
     for param, spline in splines.items():
-        plot_params_vs_mh(MH, outDir, param, vals, spline)
+        plot_params_vs_mh(
+            MH, outDir, param, vals, spline,
+            ecm=ecm, lumi=lumi,
+        )
 
     # Was getattr(workspace, 'import')(spline_<variable>)
     # Should test if it works
@@ -332,50 +293,39 @@ def doBackgrounds(
     rdh_bkg   = ROOT.RooDataHist('rdh_bkg', 'rdh_bkg', ROOT.RooArgList(mrec), ROOT.RooFit.Import(hist_bkg))
     yield_bkg = rdh_bkg.sum(False)
 
-    tmp = hist_bkg.Clone()
-    tmp = tmp.Rebin(int(hist_bkg.GetNbinsX() / nBins))
-    cfg['ymax'] = 1.5 * tmp.GetMaximum()
-
-    coeffs = {
-        coeff['name']: ROOT.RooRealVar(coeff['name'], coeff['title'], coeff['value'], *coeff['range'])
-        for coeff in bkg_spec['coefficients']
-    }
-    bkg, bkg_norm, bkg_fit = build_background_pdf(
-        mrec, coeffs, yield_bkg, '',
-        bkg_spec['order'], bkg_spec['name'],
-        bkg_spec['model_name'],
-        bkg_spec['yield_name'],
+    bkg_builder = RooModelBuilder(bkg_spec)
+    bkg_model = bkg_builder.build(
+        mrec, bkg_builder.build_params({}, 0), yield_bkg
     )
-    bkg_model = RooModel('background')
-    for name, coeff in coeffs.items():
-        bkg_model.add(name, coeff)
-    bkg_model.add('bkg', bkg)
-    bkg_model.add('bkg_norm_tmp', bkg_norm)
-    bkg_model.add('bkg_fit', bkg_fit)
+    coeffs = {
+        entry['name']: bkg_model.get(entry['name']) for entry in bkg_spec['params'] if entry['kind'] == 'variable'
+    }
     bkg_model.add('rdh_bkg', rdh_bkg)
-    bkg_model.add('fit', bkg_fit)
-    bkg_model.fit_to(rdh_bkg, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+    bkg_model.fit_to(
+        rdh_bkg, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE)
+    )
     MODEL_OWNERS.append(bkg_model)
 
 
     ########### PLOTTING ###########
-    plotter.cfg = cfg
     plot_fit_with_pull(
         rdh_bkg,
-        bkg_fit,
+        bkg_model.get('bkg_fit'),
         mrec,
         nBins,
-        f'{outDir}/fit_bkg',
+        outDir,
         label,
+        ecm=ecm, lumi=lumi, outName='fit_bkg',
         param_layout=(0.5, 0.9, 0.9),
     )
 
     # Import background parameterization to the workspace
+    bkg_norm = bkg_model.get('bkg_norm_tmp')
     bkg_norm.setVal(yield_bkg)
     for coeff in coeffs.values():
         coeff.setConstant(True)
 
-    workspace.Import(bkg)
+    workspace.Import(bkg_model.get('bkg'))
     workspace.Import(bkg_norm)
 
     return workspace
@@ -418,29 +368,28 @@ def setup_syst(
         rdh_zh   = ROOT.RooDataHist(f'rdh_zh_{suffix}', 'rdh_zh', ROOT.RooArgList(mrec), ROOT.RooFit.Import(hist_zh))
         yield_zh = rdh_zh.sum(False)
 
-        sig_fit, _, _ = build_pdf_from_spec(mrec, Vars, yield_zh, suffix, sig_spec)
+        sig_fit = sig_builder.build(mrec, Vars, yield_zh, suffix).get('pdf')
         sig_fit.fitTo(rdh_zh, ROOT.RooFit.Extended(ROOT.kTrue), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
 
         values = [Vars[name].getVal() for name in param_names]
         if s == 'Up': val_up = values
         else:         val_dw = values
 
-        cfg['ymax'] = yMax
-        plotter.cfg = cfg
-        plot_fit_with_pull(rdh_zh, sig_fit, mrec, nBins, f'{outDir}/fit_mH{suffix}',
-                           label, 'ZH signal', ROOT.kRed)
+        plot_fit_with_pull(
+            rdh_zh, sig_fit, mrec, nBins, outDir, label,
+            ecm=ecm, lumi=lumi, outName='fit_mH', suffix=suffix,
+            title='ZH signal', fit_color=ROOT.kRed,
+        )
 
         # Import
         workspace.Import(rdh_zh)
         workspace.Import(sig_fit)
 
     # Plot all fitted signals
-    cfg['ymax'] = 2.5 * yMax
-    cfg['xmin'] = 124
-    cfg['xmax'] = 127
-    plotter.cfg = cfg
-
-    plot_syst_dist(workspace, yield_nom, outDir, syst, mH_label)
+    plot_syst_dist(
+        workspace, yield_nom, outDir, syst, mH_label,
+        ecm=ecm, lumi=lumi,
+    )
     make_unc_import(workspace, spline_vals, list(param_names), syst, val_up, val_dw)
 
     return workspace

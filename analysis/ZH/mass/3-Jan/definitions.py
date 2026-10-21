@@ -52,19 +52,22 @@ SIGNAL_MODELS = {
         'param_names': ('mean_cb0', 'mean_cb1', 'sigma_cb', 'mean_gt', 'mean_gt1', 'sigma_gt',
                         'alpha_1', 'alpha_2', 'n_1', 'n_2', 'cb_1', 'cb_2'),
         'params': (
+            # mH kind arguments
             {'name': 'mean_cb0', 'kind': 'mH'},
+
+            # Formula kind parameters
+            {'name': 'mean_gt',  'kind': 'formula', 'expr': '@0+@1', 'args': ('mean_cb', 'mean_gt1')},
+            {'name': 'mean_cb',  'kind': 'formula', 'expr': '@0+@1', 'args': ('mean_cb0', 'mean_cb1')},
             {'name': 'mean_cb1', 'kind': 'source', 'key': 'mean_cb1'},
-            {'name': 'mean_cb', 'kind': 'formula', 'expr': '@0+@1', 'args': ('mean_cb0', 'mean_cb1')},
             {'name': 'sigma_cb', 'kind': 'source', 'key': 'sigma_cb'},
             {'name': 'sigma_gt', 'kind': 'source', 'key': 'sigma_gt'},
-            {'name': 'alpha_1', 'kind': 'source', 'key': 'alpha_1'},
-            {'name': 'alpha_2', 'kind': 'source', 'key': 'alpha_2'},
-            {'name': 'n_1', 'kind': 'source', 'key': 'n_1'},
-            {'name': 'n_2', 'kind': 'source', 'key': 'n_2'},
+            {'name': 'alpha_1',  'kind': 'source', 'key': 'alpha_1'},
+            {'name': 'alpha_2',  'kind': 'source', 'key': 'alpha_2'},
+            {'name': 'n_1',      'kind': 'source', 'key': 'n_1'},
+            {'name': 'n_2',      'kind': 'source', 'key': 'n_2'},
             {'name': 'mean_gt1', 'kind': 'source', 'key': 'mean_gt1'},
-            {'name': 'mean_gt', 'kind': 'formula', 'expr': '@0+@1', 'args': ('mean_cb', 'mean_gt1')},
-            {'name': 'cb_1', 'kind': 'source', 'key': 'cb_1'},
-            {'name': 'cb_2', 'kind': 'source', 'key': 'cb_2'},
+            {'name': 'cb_1',     'kind': 'source', 'key': 'cb_1'},
+            {'name': 'cb_2',     'kind': 'source', 'key': 'cb_2'},
         ),
         'components': (
             {'kind': 'RooCBShape',  'name': 'CB_1',  'title': 'CB_1',  'args': ('mrecoil', 'mean_cb', 'sigma_cb', 'alpha_1', 'n_1')},
@@ -81,32 +84,30 @@ SIGNAL_MODELS = {
         'processes': _signal_processes,
         'param_names': ('mean', 'mean_gt', 'sigma', 'sigma_gt', 'mean0', 'mean1', 'mean_gt1', 'alpha_1', 'alpha_2', 'n_1', 'n_2', 'cb_1', 'cb_2'),
         'params': (
-            {'name': 'mean0', 'kind': 'source', 'key': 'mean0', 'idx': 1, 'lo': 0.5, 'hi': 1.5},
-            {'name': 'mean1', 'kind': 'source', 'key': 'mean_cb1', 'idx': 1, 'lo': -1, 'hi': 1},
-            {'name': 'mean', 'kind': 'formula', 'expr': '@1+@0*{mH}', 'args': ('mean0', 'mean1')},
-            {'name': 'sigma', 'kind': 'source', 'key': 'sigma_cb', 'idx': 1, 'lo': 0, 'hi': 10},
-            {'name': 'sigma_gt', 'kind': 'source', 'key': 'sigma_gt', 'idx': 1, 'lo': 0, 'hi': 10},
-            {'name': 'alpha_1', 'kind': 'source', 'key': 'alpha_1', 'idx': 1, 'lo': -5, 'hi': 5},
-            {'name': 'alpha_2', 'kind': 'source', 'key': 'alpha_2', 'idx': 1, 'lo': -5, 'hi': 5},
-            {'name': 'n_1', 'kind': 'source', 'key': 'n_1', 'idx': 1, 'lo': -50, 'hi': 50},
-            {'name': 'n_2', 'kind': 'source', 'key': 'n_2', 'idx': 1, 'lo': -50, 'hi': 50},
-            {'name': 'mean_gt1', 'kind': 'source', 'key': 'mean_gt1', 'idx': 1, 'lo': -2, 'hi': 2},
-            {'name': 'mean_gt', 'kind': 'formula', 'expr': '@0 + @1', 'args': ('mean', 'mean_gt1')},
-            {'name': 'cb_1', 'kind': 'source', 'key': 'cb_1', 'idx': 1, 'lo': 0, 'hi': 1},
-            {'name': 'cb_2', 'kind': 'source', 'key': 'cb_2', 'idx': 1, 'lo': 0, 'hi': 1},
+            # Formula kind parameters
+            {'name': 'mean',     'kind': 'formula', 'expr': '@1+@0*{mH}', 'args': ('mean0', 'mean1')},
+            {'name': 'mean_gt',  'kind': 'formula', 'expr': '@0 + @1',    'args': ('mean',  'mean_gt1')},
+
+            # Source kind parameters
+            {'name': 'mean0',    'kind': 'source',  'key': 'mean0',    'idx': 1, 'lo': 0.5, 'hi': 1.5},
+            {'name': 'mean1',    'kind': 'source',  'key': 'mean_cb1', 'idx': 1, 'lo': -1,  'hi': 1},
+            {'name': 'sigma',    'kind': 'source',  'key': 'sigma_cb', 'idx': 1, 'lo': 0,   'hi': 10},
+            {'name': 'sigma_gt', 'kind': 'source',  'key': 'sigma_gt', 'idx': 1, 'lo': 0,   'hi': 10},
+            {'name': 'alpha_1',  'kind': 'source',  'key': 'alpha_1',  'idx': 1, 'lo': -5,  'hi': 5},
+            {'name': 'alpha_2',  'kind': 'source',  'key': 'alpha_2',  'idx': 1, 'lo': -5,  'hi': 5},
+            {'name': 'n_1',      'kind': 'source',  'key': 'n_1',      'idx': 1, 'lo': -50, 'hi': 50},
+            {'name': 'n_2',      'kind': 'source',  'key': 'n_2',      'idx': 1, 'lo': -50, 'hi': 50},
+            {'name': 'mean_gt1', 'kind': 'source',  'key': 'mean_gt1', 'idx': 1, 'lo': -2,  'hi': 2},
+            {'name': 'cb_1',     'kind': 'source',  'key': 'cb_1',     'idx': 1, 'lo': 0,   'hi': 1},
+            {'name': 'cb_2',     'kind': 'source',  'key': 'cb_2',     'idx': 1, 'lo': 0,   'hi': 1},
         ),
         'components': (
-            {'kind': 'RooCBShape', 'name': 'CrystallBall_1', 'title': 'CrystallBall_1',
-             'args': ('mrecoil', 'mean', 'sigma', 'alpha_1', 'n_1')},
-            {'kind': 'RooCBShape', 'name': 'CrystallBall_2', 'title': 'CrystallBall_2',
-             'args': ('mrecoil', 'mean', 'sigma', 'alpha_2', 'n_2')},
-            {'kind': 'RooGaussian', 'name': 'gauss', 'title': 'gauss',
-             'args': ('mrecoil', 'mean_gt', 'sigma_gt')},
+            {'kind': 'RooCBShape',  'name': 'CrystallBall_1', 'title': 'CrystallBall_1', 'args': ('mrecoil', 'mean', 'sigma', 'alpha_1', 'n_1')},
+            {'kind': 'RooCBShape',  'name': 'CrystallBall_2', 'title': 'CrystallBall_2', 'args': ('mrecoil', 'mean', 'sigma', 'alpha_2', 'n_2')},
+            {'kind': 'RooGaussian', 'name': 'gauss',          'title': 'gauss',          'args': ('mrecoil', 'mean_gt', 'sigma_gt')},
         ),
         'fractions': ('cb_1', 'cb_2'),
-        'yield_name': 'sig_norm',
-        'sum_name': 'sig',
-        'model_name': 'zh_model',
+        'yield_name': 'sig_norm', 'sum_name': 'sig', 'model_name': 'zh_model',
     },
 }
 
@@ -116,13 +117,20 @@ BACKGROUND_MODEL = {
     'name': 'bkg',
     'model_name': 'bkg_fit',
     'yield_name': 'bkg_norm_tmp',
-    'processes': _background_processes,
-    'coefficients': (
-        {'name': 'bern0', 'title': 'bern_coeff', 'value': 1, 'range': (-2,  2)},
-        {'name': 'bern1', 'title': 'bern_coeff', 'value': 1, 'range': (-10, 10)},
-        {'name': 'bern2', 'title': 'bern_coeff', 'value': 1, 'range': (-10, 10)},
-        {'name': 'bern3', 'title': 'bern_coeff', 'value': 1, 'range': (-10, 10)},
+    'sum_name': 'bkg',
+    'params': (
+        {'name': 'bern0', 'kind': 'variable', 'title': 'bern_coeff', 'value': 1, 'range': (-2,  2)},
+        {'name': 'bern1', 'kind': 'variable', 'title': 'bern_coeff', 'value': 1, 'range': (-10, 10)},
+        {'name': 'bern2', 'kind': 'variable', 'title': 'bern_coeff', 'value': 1, 'range': (-10, 10)},
+        {'name': 'bern3', 'kind': 'variable', 'title': 'bern_coeff', 'value': 1, 'range': (-10, 10)},
+        {'name': 'bern_coeffs', 'kind': 'arg_list', 'args': ('bern0', 'bern1', 'bern2')},
     ),
+    'components': (
+        {'kind': 'RooBernsteinFast', 'root_class': 'RooBernsteinFast', 'factory_args': (3,),
+         'name': 'bkg', 'title': 'bkg', 'args': ('mrecoil', 'bern_coeffs')},
+    ),
+    'fractions': (),
+    'processes': _background_processes,
 }
 
 
@@ -130,28 +138,22 @@ SYSTEMATIC_MODELS = {
     'BES': {
         'fit_param_names': ('mean', 'sigma', 'alpha_1', 'alpha_2', 'n_1', 'n_2', 'mean_gt', 'sigma_gt', 'cb_1', 'cb_2'),
         'parameters': ('sigma', 'sigma_gt'),
-        'final_modifiers': {
-            'sigma': (('BES', 'sig_sigma_BES'),),
-            'sigma_gt': (('BES', 'sig_sigma_gt_BES'), ('SQRTS', 'sig_mean_gt_SQRTS')),
-        },
+        'final_modifiers': {'sigma':    (('BES', 'sig_sigma_BES'),),
+                            'sigma_gt': (('BES', 'sig_sigma_gt_BES'), ('SQRTS', 'sig_mean_gt_SQRTS')),},
         'process': _systematic_process,
     },
     'SQRTS': {
         'fit_param_names': ('mean', 'sigma', 'alpha_1', 'alpha_2', 'n_1', 'n_2', 'mean_gt', 'sigma_gt', 'cb_1', 'cb_2'),
         'parameters': ('mean', 'mean_gt'),
-        'final_modifiers': {
-            'mean': (('LEPSCALE', 'sig_mean_LEPSCALE'), ('SQRTS', 'sig_mean_SQRTS')),
-            'mean_gt': (('SQRTS', 'sig_mean_gt_SQRTS'),),
-            'sigma_gt': (('SQRTS', 'sig_mean_gt_SQRTS'),),
-        },
+        'final_modifiers': {'mean':  (('LEPSCALE', 'sig_mean_LEPSCALE'), ('SQRTS', 'sig_mean_SQRTS')),
+                            'mean_gt':  (('SQRTS', 'sig_mean_gt_SQRTS'),),
+                            'sigma_gt': (('SQRTS', 'sig_mean_gt_SQRTS'),),},
         'process': _systematic_process,
     },
     'LEPSCALE': {
         'fit_param_names': ('mean', 'sigma', 'alpha_1', 'alpha_2', 'n_1', 'n_2', 'mean_gt', 'sigma_gt', 'cb_1', 'cb_2'),
         'parameters': ('mean',),
-        'final_modifiers': {
-            'mean': (('LEPSCALE', 'sig_mean_LEPSCALE'), ('SQRTS', 'sig_mean_SQRTS')),
-        },
+        'final_modifiers': {'mean': (('LEPSCALE', 'sig_mean_LEPSCALE'), ('SQRTS', 'sig_mean_SQRTS')),},
         'process': _systematic_process,
     },
 }
@@ -276,7 +278,9 @@ def build_datacard_signal_pdf(
         use_syst: bool = True,
          ):
 
-    from zh_mass.func.fit import build_pdf_from_spec
+    from zh_mass.func.fit import RooModelBuilder
 
     params = build_datacard_signal_params(workspace, signal_name, flavor, ecm, use_syst)
-    return build_pdf_from_spec(recoilmass, params, 1.0, '', SIGNAL_MODELS[signal_name], extended=False)[0]
+    return RooModelBuilder(SIGNAL_MODELS[signal_name]).build(
+        recoilmass, params, 1.0, '', extended=False
+    ).get('pdf')

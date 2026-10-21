@@ -30,7 +30,7 @@ from zh_mass.userConfig import loc, param_config
 loc.set_default_type('Path')
 
 from definitions import SIGNAL_MODELS, make_var_dict
-from zh_mass.func.fit import RooModel, build_model_from_spec, build_params_from_spec, get_hist
+from zh_mass.func.fit import RooModelBuilder, get_hist
 from zh_mass.plots.fit import plot_decomposition, plot_fit, plot_fit_all
 
 
@@ -52,6 +52,7 @@ outDir.mkdir(exist_ok=True, parents=True)
 # subprocess.run(['cp', '/home/submit/jaeyserm/public_html/fccee/h_mass/index.php', f'{outDir}'])
 
 signal_spec = SIGNAL_MODELS['parametrize_signal']
+signal_builder = RooModelBuilder(signal_spec)
 procs = signal_spec['processes'](flavor, ecm)
 mHs = signal_spec['masses']
 
@@ -92,23 +93,28 @@ def main():
         LOGGER.info(f'Doing {mH_label} mass category')
 
         hist_zh = get_hist(f'{flavor}_{hName}', inDir, proc, mH_label, cat_idx,
-                           1, yield_nom, '', arg.normYields)
+                           1, yield_nom, '', arg.normYield)
         rdh_zh = ROOT.RooDataHist(f'rdh_zh_{mH_label}', 'rdh_zh',
                                   ROOT.RooArgList(mrec), ROOT.RooFit.Import(hist_zh))
         yield_zh = rdh_zh.sum(False)
 
-        params = build_params_from_spec(param_config[ecm][flavor][cat],
-                                        signal_spec, mH, mH_label)
+        params = signal_builder.build_params(param_config[ecm][flavor][cat], mH)
 
-        signal_model = build_model_from_spec(mrec, params, yield_zh, mH_label, signal_spec)
+        signal_model = signal_builder.build(mrec, params, yield_zh, mH_label)
         sig_fit = signal_model.get('pdf')
         sig_norm = signal_model.get(f'{signal_spec["yield_name"]}_{mH_label}')
         sig_fit.fitTo(rdh_zh, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
         signal_model.add(rdh_zh.GetName(), rdh_zh)
         models.append(signal_model)
 
-        plot_fit(outDir, mrec, rdh_zh, sig_fit, mH_label, yMax, label, nBins, topLeft, topRight)
-        plot_decomposition(outDir, workspace, label, mH_label, yield_zh, signal_spec)
+        plot_fit(
+            outDir, mrec, rdh_zh, sig_fit, mH_label, nBins,
+            ecm=ecm, yMax=yMax, outName='fit_mH', suffix=f'_{mH_label}',
+        )
+        plot_decomposition(
+            outDir, workspace, label, mH_label, yield_zh, signal_spec,
+            ecm=ecm, yMax=yMax,
+        )
 
         # Import
         workspace.Import(rdh_zh)
@@ -120,7 +126,10 @@ def main():
             else: var_dict[k].append(params[k].getVal())
         var_dict['yield'].append(sig_norm.getVal())
 
-    plot_fit_all(outDir, workspace, mHs, yield_zh, yMax, label, topLeft, topRight)
+    plot_fit_all(
+        outDir, workspace, mHs, yield_zh, label,
+        ecm=ecm, yMax=yMax,
+    )
 
     # Export values
     with open(f'{outDir}/coeff.json', 'w') as file:

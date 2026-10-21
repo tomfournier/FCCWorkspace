@@ -100,8 +100,10 @@ def make_cfg(
     # Set default title labels
     cfg.setdefault('xtitle',   '')
     cfg.setdefault('ytitle',   'Events')
-    cfg.setdefault('topLeft',  '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}')
-    cfg.setdefault('topRight', f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{-1}}')
+    if cfg.get('topLeft') is None:
+        cfg['topLeft'] = '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}'
+    if cfg.get('topRight') is None:
+        cfg['topRight'] = f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{-1}}'
 
     # Configure ratio plot settings if enabled
     if (('ymin' not in cfg) or ('ymax' not in cfg)) and ratio_plot:
@@ -320,8 +322,8 @@ def axis_limits(
 def configure_axis(
     axis,
     title: str,
-    axis_min:     float,
-    axis_max:     float,
+    axis_min:     float | None,
+    axis_max:     float | None,
     title_size:   int = 40,
     label_size:   int = 35,
     title_offset: float = 1.2,
@@ -347,7 +349,8 @@ def configure_axis(
         None
     '''
     if title: axis.SetTitle(title)
-    axis.SetRangeUser(axis_min, axis_max)
+    if axis_min is not None or axis_max is not None:
+        axis.SetRangeUser(axis_min, axis_max)
     axis.SetTitleSize(title_size)
     axis.SetLabelSize(label_size)
     axis.SetTitleFont(title_font)
@@ -371,6 +374,7 @@ def canvas(
     left:   float = 0.15,
     right:  float = 0.05,
     set_ticks: bool = False,
+    config: dict | None = None,
      ) -> ROOT.TCanvas:
     '''
     Create a configured ROOT canvas with standard margins and axis settings.
@@ -393,8 +397,9 @@ def canvas(
     canvas_margins(c, top, bottom, left, right)
 
     # Apply log scales unless plotting yields
-    if cfg.get('logx'): c.SetLogx()
-    if cfg.get('logy'): c.SetLogy()
+    active_cfg = cfg if config is None else config
+    if active_cfg.get('logx'): c.SetLogx()
+    if active_cfg.get('logy'): c.SetLogy()
     c.SetFillStyle(4000)
     if set_ticks: c.SetTicks(1, 1)
 
@@ -408,7 +413,8 @@ def canvasRatio(
     width:  int = 1000,
     height: int = 1000,
     left: float = 0.15,
-    eps:  float = 0.025
+    eps:  float = 0.025,
+    config: dict | None = None,
      ) -> tuple[ROOT.TCanvas,
                 ROOT.TPad,
                 ROOT.TPad]:
@@ -428,7 +434,8 @@ def canvasRatio(
     c = ROOT.TCanvas(canvas_name, canvas_name, width, height)
     canvas_margins(c, 0, 0, 0, 0)
 
-    rfrac = cfg.get('ratiofraction', '')
+    active_cfg = cfg if config is None else config
+    rfrac = active_cfg.get('ratiofraction', '')
 
     # Create upper pad for main plot and lower pad for ratio
     pad1_name = ROOT.TUUID().AsString()
@@ -439,10 +446,10 @@ def canvasRatio(
     pad_margins(pad1, 0.055/(1 - rfrac), eps, left)
     pad_margins(pad2, 0, 0.37, left)
 
-    if cfg.get('logx'): 
+    if active_cfg.get('logx'):
         pad1.SetLogx()
         pad2.SetLogx()
-    if cfg.get('logy'):
+    if active_cfg.get('logy'):
         pad1.SetLogy()
 
     c.Modify()
@@ -451,7 +458,7 @@ def canvasRatio(
     return c, pad1, pad2
 
 
-def aux() -> None:
+def aux(config: dict | None = None) -> None:
     '''
     Draw auxiliary text boxes with top-left and top-right labels on the plot.
 
@@ -461,20 +468,21 @@ def aux() -> None:
     Returns:
         None
     '''
-    y_off = y_offset(cfg.get('topRight', ''))
+    active_cfg = cfg if config is None else config
+    y_off = y_offset(active_cfg.get('topRight', ''))
 
     # Draw left-aligned label at top-left
     latex = setup_latex(0.04, 10)
-    latex.DrawLatexNDC(0.15, 0.95, cfg.get('topLeft', ''))
+    latex.DrawLatexNDC(0.15, 0.95, active_cfg.get('topLeft', ''))
 
     # Draw right-aligned label at top-right
     latex = setup_latex(0.04, 30)
-    latex.DrawLatex(0.95, y_off, cfg.get('topRight', ''))
+    latex.DrawLatex(0.95, y_off, active_cfg.get('topRight', ''))
 
     return None
 
 
-def auxRatio() -> None:
+def auxRatio(config: dict | None = None) -> None:
     '''
     Draw auxiliary text boxes for ratio plots with adaptive vertical positioning.
 
@@ -485,8 +493,9 @@ def auxRatio() -> None:
         None
     '''
 
-    topleft  = cfg.get('topLeft',  '')
-    topright = cfg.get('topRight', '')
+    active_cfg = cfg if config is None else config
+    topleft  = active_cfg.get('topLeft',  '')
+    topright = active_cfg.get('topRight', '')
 
     # Detect special LaTeX formatting that affects vertical spacing
     has_sqrt = '#sqrt' in topright
@@ -510,7 +519,8 @@ def dummy(
         labels: list[str] = [],
         label_size: float = 1,
         label_offset: float = 1.2,
-        title_offset: float = 1.7
+        title_offset: float = 1.7,
+        config: dict | None = None,
 ) -> ROOT.TH1D:
     '''
     Create a dummy histogram with configured axis limits and labels.
@@ -524,12 +534,13 @@ def dummy(
     Returns:
         ROOT.TH1D: Configured ROOT.TH1D histogram with axis labels and limits set.
     '''
-    xmin, xmax = axis_limits(cfg, 'x')
-    ymin, ymax = axis_limits(cfg, 'y')
+    active_cfg = cfg if config is None else config
+    xmin, xmax = axis_limits(active_cfg, 'x')
+    ymin, ymax = axis_limits(active_cfg, 'y')
 
-    xtitle = cfg.get('xtitle', '')
+    xtitle = active_cfg.get('xtitle', '')
     if xtitle == 'None': xtitle = ''
-    ytitle = cfg.get('ytitle', '')
+    ytitle = active_cfg.get('ytitle', '')
 
     # Create empty histogram with specified bin count and range
     dummy = ROOT.TH1D(ROOT.TUUID().AsString(), 'h', nbins, xmin, xmax)
@@ -544,8 +555,8 @@ def dummy(
     configure_axis(dummy.GetYaxis(), ytitle, ymin,
                    ymax, label_offset=1.4, title_offset=title_offset)
 
-    dummy.SetMinimum(ymin)
-    dummy.SetMaximum(ymax)
+    if ymin is not None: dummy.SetMinimum(ymin)
+    if ymax is not None: dummy.SetMaximum(ymax)
 
     if nbins > 1:
         if len(labels) != nbins:
@@ -562,7 +573,8 @@ def dummy(
 def dummyRatio(
     nbins: int = 1,
     rlines: list[float] = [1],
-    colors: list[ROOT.TColor] = [ROOT.kBlack]
+    colors: list[ROOT.TColor] = [ROOT.kBlack],
+    config: dict | None = None,
      ) -> tuple[ROOT.TH1D, ROOT.TH1D, list[ROOT.TLine]]:
     '''
     Create dummy histograms for ratio plots with reference lines.
@@ -578,13 +590,14 @@ def dummyRatio(
     Returns:
         tuple: (upper_dummy, lower_dummy, line_objects) for ratio plots.
     '''
-    xmin,  xmax  = axis_limits(cfg, 'x')
-    ymin,  ymax  = axis_limits(cfg, 'y')
-    yminR, ymaxR = axis_limits(cfg, 'y', ratio='R')
+    active_cfg = cfg if config is None else config
+    xmin,  xmax  = axis_limits(active_cfg, 'x')
+    ymin,  ymax  = axis_limits(active_cfg, 'y')
+    yminR, ymaxR = axis_limits(active_cfg, 'y', ratio='R')
 
-    xtitle  = cfg.get('xtitle',  '')
-    ytitle  = cfg.get('ytitle',  '')
-    ytitleR = cfg.get('ytitleR', '')
+    xtitle  = active_cfg.get('xtitle',  '')
+    ytitle  = active_cfg.get('ytitle',  '')
+    ytitleR = active_cfg.get('ytitleR', '')
 
     # Create dummy histograms for upper (main) and lower (ratio) pads
     dummyT = ROOT.TH1D(ROOT.TUUID().AsString(), 'h', nbins, xmin, xmax)
@@ -628,7 +641,8 @@ def dummyRatio(
 
 def finalize_canvas(
     canvas: ROOT.TCanvas,
-    grid: bool = True
+    grid: bool = True,
+    config: dict | None = None,
      ) -> None:
     '''
     Applies grid, ticks, auxiliary labels, and refreshes the canvas display.
@@ -642,7 +656,7 @@ def finalize_canvas(
     '''
     canvas.cd()
     if grid: canvas.SetGrid()
-    aux()
+    aux(config)
     ROOT.gPad.SetTicks()
     canvas.Modified()
     canvas.Update()
