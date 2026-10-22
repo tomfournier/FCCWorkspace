@@ -1,22 +1,44 @@
-def Baseline_cut_ll(ecm: int) -> str:
-    cut = 'zll_m > 86 && zll_m < 96'
+##########################
+### BASELINE SELECTION ###
+##########################
 
-    if ecm == 240:
-        cut += ' && zll_p > 20 && zll_p < 70'
-    elif ecm == 365:
-        cut += ' && zll_p > 50 && zll_p < 150'
-        cut += ' && zll_recoil_m > 100 && zll_recoil_m < 150'
-    else:
+def Baseline_cut_ll(ecm: int, miss: bool = False) -> str:
+    # c.o.m energy dependent cut
+    p_dw, p_up = (20, 70) if ecm==240 else ((50, 150) if ecm==365 else (None, None))
+    if None in (p_dw, p_up):
         raise ValueError(f'{ecm = } not supported, choose between [240, 365]')
+
+    cut = ''
+    # Di-lepton mass cut
+    cut += ' && zll_m > 86 && zll_m < 96'
+
+    # Di-lepton momentum cut
+    cut += f' && zll_p > {p_dw} && zll_p < {p_up}'
+
+    # Missing energy polar angle cut (optional)
+    if miss: cut += ' && cosTheta_miss < 0.98'
+
+    # Recoil mass cut (only for 365 GeV, negligible effect for 240 GeV)
+    if ecm == 365: cut += ' && zll_recoil_m > 100 && zll_recoil_m < 150'
 
     return cut
 
+
+
+#############################################
+### CUSTOM HISTOGRAMS (FOR 3-MEASUREMENT) ###
+#############################################
 
 custom_hists_ll = {
     'leps_iso':    {'name':'ConeIsolation', 'title':'I_{rel}'},
     'leps_iso_no': {'name':'n_leptons', 'title':'Isolated leptons'}
 }
 
+
+
+######################################
+### HISTOGRAMS FOR FINAL-SELECTION ###
+######################################
 
 # Output histogram definitions (name, title, binning)
 histos_ll = {

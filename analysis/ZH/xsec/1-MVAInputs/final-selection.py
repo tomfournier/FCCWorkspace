@@ -36,10 +36,13 @@ from zh_xsec.sel.final.hadronic import Baseline_cut_qq, histos_qq
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
 
-cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.do_test
+cat, ecm, sels, test, jan = arg.cat, arg.ecm, arg.sels.split('-'), arg.do_test, arg.jan
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
-if test and arg.jan: raise ValueError("--test and --jan can't be used together, choose one")
-LOGGER.info(f'Using {cat = } | {ecm = } | sels = {arg.sels} | {test = } | jan = {arg.jan}')
+if jan and test:
+    raise ValueError('Cannot use --do-test and --jan at the same time, Choose one at a time')
+if jan and cat in ['ee', 'mumu']:
+    raise ValueError("Cannot use --jan with cat = 'ee', 'mumu'. Use it with cat = 'qq'")
+LOGGER.info(f'Running the final-selection for {cat = } | {ecm = } | {test = } | {jan = }')
 
 # Input: Pre-selection ROOT trees and histograms
 if   test:    inputDir = loc.get('EVENTS_TRAIN_TEST', cat, ecm)  # Test subset
@@ -85,35 +88,18 @@ processList = get_process_list(
 ### DEFINE SELECTION ###
 ########################
 
+Baseline = Baseline_cut_qq(ecm, True) if cat=='qq' else Baseline_cut_ll(ecm)
+
 # Selection cuts dictionary for ROOT filtering
 # Keys: selection names appearing in output file names and histograms
 cutList: dict[str, str] = {}
-if arg.do_sel0: cutList['sel0_test' if test else 'sel0'] = 'return true;'  # No cuts selection
-if cat in ['ee', 'mumu']:
-    if test: cutList['test']     = Baseline_cut_ll(ecm)   # Test selection (leptonic channel)
-    else:    cutList['Baseline'] = Baseline_cut_ll(ecm)   # Baseline selection (leptonic channel)
-elif cat == 'qq':
-    cutList['Baseline'] = Baseline_cut_qq(ecm, True)   # Baseline selection (hadronic channel)
-    
-    cutList['test']  = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85'
-    cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
-    cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
-    
-    cutList['jan']  = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85'
-    cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
-    cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
-    
-    cutList['Test']  = Baseline_cut_qq(ecm, True)
-    cutList['Test1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
-    cutList['Test2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['Test3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
-    
-    cutList['Jan']  = Baseline_cut_qq(ecm, True)
-    cutList['Jan1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
-    cutList['Jan2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['Jan3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
+if arg.do_sel0:
+    sel0 = 'sel0' + ('_test' if test else ('_jan' if jan else ''))
+    cutList[sel0] = 'return true;'        # No cuts selection (optional)
+if  test: cutList['test']     = Baseline  # Selection for testing
+elif jan: cutList['jan']      = Baseline  # Selection for Jan's jet definition
+else:     cutList['Baseline'] = Baseline  # Selection for Baseline
+
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 
 # Save ROOT TTrees in addition to histograms (for BDT training)

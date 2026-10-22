@@ -1,4 +1,6 @@
-
+##########################
+### BASELINE SELECTION ###
+##########################
 
 def Baseline_cut_qq(ecm: int, miss: bool = False) -> str:
     # c.o.m energy dependent cut
@@ -14,7 +16,7 @@ def Baseline_cut_qq(ecm: int, miss: bool = False) -> str:
     # Di-jet momentum cut
     cut += f' && zqq_p > {p_dw} && zqq_p < {p_up}'
 
-    # Di-jet polar angle cut (only for 240 GeV for the moment)
+    # Di-jet polar angle cut (only for 240 GeV)
     if ecm == 240: cut += ' && zqq_costheta > -0.9 && zqq_costheta < 0.9'
 
     # WW pair mass cut
@@ -23,20 +25,28 @@ def Baseline_cut_qq(ecm: int, miss: bool = False) -> str:
     # Missing energy polar angle cut (optional)
     if miss: cut += ' && cosTheta_miss < 0.995'
 
+    # Thrust cut (only for 365 GeV)
+    if ecm == 365: cut += ' && thrust < 0.85'
+
     return cut
 
 
+
+#########################################
+### CUSTOM HISTOGRAMS (3-MEASUREMENT) ###
+#########################################
+
 custom_hists_qq = {
-    'best_cluster_idx': {'name':'best_cluster_idx',
-                         'title':'Best clustering algorithm'},
-
-    'njets_inclusive':  {'name':'njets_inclusive',
-                         'title':'Number of jets (inclusive)'},
-
-    'njets_incl':       {'name':'njets_incl',
-                         'title':'Number of jets (inclusive)'}
+    'best_cluster_idx': {'name':'best_cluster_idx', 'title':'Best clustering algorithm'},
+    'njets_incl':       {'name':'njets_incl',       'title':'Number of jets (inclusive)'},  # Before clustering
+    'njets_inclusive':  {'name':'njets_inclusive',  'title':'Number of jets (inclusive)'},  # After clustering
 }
 
+
+
+######################################
+### HISTOGRAMS FOR FINAL-SELECTION ###
+######################################
 
 # Output histogram definitions (name, title, binning)
 histos_qq = {

@@ -37,13 +37,19 @@ from utilities import has_events
 ### CONFIGURE INPUT/OUTPUT ###
 ##############################
 
-cat, ecm, sels, test = arg.cat, arg.ecm, arg.sels.split('-'), arg.do_test
+cat, ecm, sels, test, jan = arg.cat, arg.ecm, arg.sels.split('-'), arg.do_test, arg.jan
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
+if jan and test:
+    raise ValueError('Cannot use --do-test and --jan at the same time, Choose one at a time')
+if jan and cat in ['ee', 'mumu']:
+    raise ValueError("Cannot use --jan with cat = 'ee', 'mumu'. Use it with cat = 'qq'")
+LOGGER.info(f'Running the final-selection for {cat = } | {ecm = } | {test = } | {jan = }')
 
 # Input: Preprocessed ROOT trees and events from pre-selection
-if   test:    inputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
-elif arg.jan: inputDir = loc.get('EVENTS_JAN',  cat, ecm)  # Jan's samples
-else:         inputDir = loc.get('EVENTS',      cat, ecm)  # Full event samples
+if   test: inputDir = loc.get('EVENTS_TEST', cat, ecm)  # Test subset
+elif jan:  inputDir = loc.get('EVENTS_JAN',  cat, ecm)  # Jan's samples
+else:      inputDir = loc.get('EVENTS',      cat, ecm)  # Full event samples
+
 
 
 # Output: Directory for measurement histograms (used by measurement/fit stages)
@@ -79,7 +85,7 @@ samples = get_process_list(
 ).keys()
 
 # Load event samples with events TTree
-processList = has_events(samples, inputDir)
+processList = has_events(list(samples), inputDir)
 
 # Define BDT score from trained model and apply BDT cut
 if test: loc_BDT = loc.get('MVA_MODEL', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'test')
@@ -93,54 +99,32 @@ defineList, bdt_cut = def_bdt(loc_BDT, weight_suffix=f'_{arg.weight_suffix}')
 ### DEFINE CUT LIST ###
 #######################
 
-Baseline = Baseline_cut_ll(ecm) if cat in ['ee', 'mumu'] else Baseline_cut_qq(ecm)
-Baseline_miss = Baseline + ' && cosTheta_miss < ' + ('0.98' if cat in ['ee', 'mumu'] else '0.995')
+# Baseline and Baseline_miss definition (channel and c.o.m energy dependent)
+Baseline      = Baseline_cut_qq(ecm, False) if cat=='qq' else Baseline_cut_ll(ecm, False)
+Baseline_miss = Baseline_cut_qq(ecm, True)  if cat=='qq' else Baseline_cut_ll(ecm, True)
+
+# E_vis cut for E_vis categorization (channel and c.o.m energy dependent)
+E_vis = (120 if ecm==240 else 175) if cat=='qq' else (100 if ecm==240 else 171)
+# cos(theta_miss) cut for E_vis categorization (channel dependent)
+theta_miss = 0.995 if cat=='qq' else 0.99
+
 
 # Selection cut dictionary (key = selection name used in outputs)
-cutList: dict[str, str] = {}
-if arg.do_sel0: cutList['sel0_test' if test else 'sel0'] = 'return true;'  # No cuts selection
+cutList: dict[str, str] = {
+    'Baseline':      Baseline,
+    'Baseline_miss': Baseline_miss,
+    'Baseline_sep':  Baseline + f' && ((visibleEnergy > {E_vis}) || (visibleEnergy < {E_vis} && cosTheta_miss < {theta_miss}))',
+    'Baseline_vis':  Baseline + f' &&   visibleEnergy > {E_vis}',
+    'Baseline_inv':  Baseline + f' &&   visibleEnergy < {E_vis}'
+}
+if arg.do_sel0:
+    sel0 = 'sel0' + ('_test' if test else ('_jan' if jan else ''))
+    cutList[sel0] = 'return true;'    # No cuts selection (optional)
+if  test: cutList['test'] = Baseline  # Selection for testing
+elif jan: cutList['jan']  = Baseline  # Selection for Jan's jet definition
 
-if cat in ['ee', 'mumu']:
-    if test: cutList['test'] = Baseline
-    else:    E_vis, theta_miss = 100 if ecm == 240 else 171, 0.99
-elif cat == 'qq':
-    cutList['test']  = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85'
-    cutList['test1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
-    cutList['test2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['test3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
-    
-    cutList['jan']  = Baseline_cut_qq(ecm, True)
-    cutList['jan1'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && acolinearity > 0.35'
-    cutList['jan2'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['jan3'] = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
-    
-    cutList['JAN']  = Baseline_cut_qq(ecm, True) + ' && thrust < 0.85 && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
-    
-    cutList['Test']  = Baseline_cut_qq(ecm, True)
-    cutList['Test1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
-    cutList['Test2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['Test3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
-    
-    cutList['Jan']  = Baseline_cut_qq(ecm, True)
-    cutList['Jan1'] = Baseline_cut_qq(ecm, True) + ' && acolinearity > 0.35'
-    cutList['Jan2'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85'
-    cutList['Jan3'] = Baseline_cut_qq(ecm, True) + ' && zqq_costheta > -0.85 && zqq_costheta < 0.85 && acolinearity > 0.35'
-
-    E_vis, theta_miss = 120 if ecm == 240 else 175, 0.995
-else:
-    raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
-
-if not (test or arg.jan):
-    cutList.update({
-        'Baseline':      Baseline,
-        'Baseline_miss': Baseline_miss,
-        'Baseline_sep':  Baseline + f' && ((visibleEnergy > {E_vis}) || (visibleEnergy < {E_vis} && cosTheta_miss < {theta_miss}))',
-        'Baseline_vis':  Baseline + f' &&   visibleEnergy > {E_vis}',
-        'Baseline_inv':  Baseline + f' &&   visibleEnergy < {E_vis}',
-    })
+# Select selection to process and split them into high/low BDT score regions
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
-
-# Split each selection into high and low BDT score regions
 cutList = make_high_low(cutList, bdt_cut, list(cutList.keys()))
 
 
@@ -156,9 +140,10 @@ customHists = custom_hists_ll if cat in ['ee', 'mumu'] else custom_hists_qq
 histoList = histos_ll if cat in ['ee', 'mumu'] else histos_qq
 histoList['BDTscore'] = {'name':'BDTscore', 'title':'BDT score', 'bin':1000,'xmin':0,'xmax':1}
 if cat == 'qq':
-    histoList['zqq_m_recoil_m_mva_high']      = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(50, 100, 150), (100, 40, 140), (1, bdt_cut, 1)]}
-    histoList['zqq_m_recoil_m_mva_low']       = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(50, 100, 150), (100, 40, 140), (1, 0, bdt_cut)]}
+    mqq_lim  = (100, 40, 140) if ecm==240 else (140, 60, 200)
+    mrec_lim = (140, 60, 200) if ecm==240 else (215, 50, 265)
+    bdt_low, bdt_high = (1, 0, bdt_cut), (1, bdt_cut, 1)
+    histoList['zqq_m_recoil_m_mva_high']      = {'cols':['BDTscore', 'zqq_recoil_m', 'zqq_m'], 'bins':[bdt_high, mrec_lim, mqq_lim]}
+    histoList['zqq_m_recoil_m_mva_low']       = {'cols':['BDTscore', 'zqq_recoil_m', 'zqq_m'], 'bins':[bdt_low,  mrec_lim, mqq_lim]}
     histoList['zqq_m_recoil_m_tot_mva_high']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(150, 50, 200), (100, 40, 140), (1, bdt_cut, 1)]}
     histoList['zqq_m_recoil_m_tot_mva_low']   = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(150, 50, 200), (100, 40, 140), (1, 0, bdt_cut)]}
-    histoList['zqq_m_recoil_m_full_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(350,  0, 350), (180, 20, 200), (1, bdt_cut, 1)]}
-    histoList['zqq_m_recoil_m_full_mva_low']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(350,  0, 350), (180, 20, 200), (1, 0, bdt_cut)]}

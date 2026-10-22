@@ -79,7 +79,7 @@ customLabel    = 'Training sample'  # Custom label shown on plots
 if 'all' in arg.variables:
     variables = sorted(histos_ll.keys()) if cat in ['ee', 'mumu'] else \
         (sorted(histos_qq.keys()) if cat=='qq' else [])
-else: variables = arg.variables.split('-')
+else: variables = sorted(arg.variables.split('-'))
 
 
 
@@ -96,12 +96,11 @@ selections['ZH'] = (['test'] if test else ['sel0', 'Baseline']) if 'all' in sels
 # Additional descriptive labels for each selection cut
 # Displayed below plot titles for clarity
 extralabel = {}
-extralabel['sel0']     = 'No cut'         # Diagnostic: no selection applied
-extralabel['Baseline'] = 'Baseline'       # Standard selection
-extralabel['test']     = 'test'           # Test selection
-for selection in selections['ZH']:
-    if selection not in extralabel:
-        extralabel[selection] = selection
+extralabel['sel0']     = 'No cut'    # Diagnostic: no selection applied
+extralabel['Baseline'] = 'Baseline'  # Standard selection
+extralabel['test']     = 'test'      # Test selection
+for sel in selections['ZH']:
+    extralabel.setdefault(sel, sel)
 
 # Process and sample definitions for the analysis
 # Dictionary structure: analysis_name -> {'signal': {...}, 'backgrounds': {...}}
@@ -109,10 +108,10 @@ for selection in selections['ZH']:
 plots = {'ZH':{'signal':{}, 'backgrounds':{}}}
 if arg.exclusive_decays:
     plots['ZH']['signal']['ZH'] = [f'wzp6_ee_{cat}H_H{y}_ecm{ecm}' for y in h_decays] if cat in ['ee', 'mumu'] else \
-        [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays]
+                                  [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays]
 else:
     plots['ZH']['signal'][f'Z{cat}H'] = [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else \
-        [f'wzp6_ee_{x}H_ecm{ecm}' for x in quarks]
+                                        [f'wzp6_ee_{x}H_ecm{ecm}' for x in quarks]
 
 # Main backgrounds
 plots['ZH']['backgrounds'] = {
