@@ -265,7 +265,7 @@ class HistogramPlot:
         xMin, xMax = get_xrange(total, strict, xmin, xmax)
 
         scale_min = min_scale if min_scale is not None else (0.5 if logY else 1.0)
-        scale_max = max_scale if max_scale is not None else (1e6 if logY else 1.8)
+        scale_max = max_scale if max_scale is not None else (1e6 if logY else 2)
 
         y_ranges = [get_yrange(hist, logY, ymin, ymax, scale_min, scale_max) for hist in hists]
         yMin = min(axis_range[0] for axis_range in y_ranges)

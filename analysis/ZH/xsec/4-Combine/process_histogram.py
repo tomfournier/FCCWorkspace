@@ -99,7 +99,8 @@ def run(cats: str,
         inDir = loc.get('HIST_RAW', cat, ecm)
 
         # Histograms to process for BDT training/measurement
-        hNames = ['zll_recoil_m'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_recoil_m_tot', 'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_tot_mva', 'zqq_m_recoil_m_full_mva']
+        hNames = ['zll_recoil_m', 'zll_recoil_m_tot'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_recoil_m_tot',
+                                                                                     'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_tot_mva']
         samples = get_process_list(cat, ecm).keys()
 
         # Process each selection strategy

@@ -561,11 +561,8 @@ def dummy(
     if nbins > 1:
         if len(labels) != nbins:
             raise ValueError('labels should have the same size as nbins')
-        dummy.GetXaxis().SetLabelSize(0.8*dummy.GetXaxis().GetLabelSize())
-        dummy.GetXaxis().SetLabelOffset(1.7*dummy.GetXaxis().GetLabelOffset())
         for i, label in enumerate(labels):
             dummy.GetXaxis().SetBinLabel(i+1, label)
-            dummy.GetXaxis().LabelsOption('u')
 
     return dummy
 

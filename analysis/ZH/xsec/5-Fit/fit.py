@@ -37,7 +37,7 @@ from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
 from tools.utils import timer  # Timing utility
 from run import get_extra_args, update_namespace
-from fit import (
+from fitting import (
     check_log, get_results,
     res_saving, run_cmd
 )
@@ -228,7 +228,7 @@ if __name__=='__main__':
             ecm=str(arg.ecm), sels=arg.sel,
             sig2=True, only1=arg.bias, timer=False)
         cmd = ['python', 'plots.py'] + get_extra_args(
-            plot_args, {'directory': '5-Fit', 'script': 'plots'})
+            plot_args, {'directory': '5-Fit', 'script': 'plots'}, create_parser)
 
         run_cmd(cmd, None, Path(__file__).parent, env)
 

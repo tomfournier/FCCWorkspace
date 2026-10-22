@@ -262,12 +262,13 @@ def get_process_list(
     else:
         sigs = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in z_decays for y in h_decays]
 
-    small, middle, big = ((5, 5, 10) if batch else (1, 5, 10)) if train \
-        else ((5, 20, 30) if batch else (1, 5, 10))
-    common = {f'p8_ee_ZZ_ecm{ecm}': {'frac': 0.25 if cat == 'qq' else 1, 'nb': middle}}
+    small, middle, big = ((5, 5, 10) if batch else (1, 5, 10)) if train else ((5, 20, 30) if batch else (1, 5, 10))
+    common = {f'p8_ee_ZZ_ecm{ecm}': {'nmax': 25e6 if cat == 'qq' else None, 'nb': middle}}
     if not train or cat == 'qq':
-        common[f'p8_ee_WW_ecm{ecm}'] = {'frac': (
-            0.3 if ecm == 240 else 1) if train else (0.1 if cat == 'qq' else 1), 'nb': big}
+        common.update({f'p8_ee_WW_ecm{ecm}':          {'frac': 1, 'nb': big},
+                       f'wzp6_ee_tautau_ecm{ecm}':      {'frac': 1, 'nb': small},
+                       f'wzp6_gaga_tautau_60_ecm{ecm}': {'frac': 1, 'nb': small},
+                       f'wzp6_ee_nuenueZ_ecm{ecm}':     {'frac': 1, 'nb': small}})
 
     category_specific: dict[str, dict[str, float | int]] = {
         'ee': {
@@ -283,6 +284,7 @@ def get_process_list(
             f'wzp6_gammae_eZ_Zmumu_ecm{ecm}': {'frac': 1, 'nb': middle},
             f'wzp6_gaga_mumu_60_ecm{ecm}':    {'frac': 1, 'nb': middle}},
         'qq': {
+            f'p8_ee_WW_ecm{ecm}':           {'nmax': 3e7, 'nb': big},
             f'wzp6_ee_qq_ecm{ecm}':         {'frac': 1,   'nb': middle},
             f'wzp6_egamma_eZ_Zqq_ecm{ecm}': {'frac': 1,   'nb': middle},
             f'wzp6_gammae_eZ_Zqq_ecm{ecm}': {'frac': 1,   'nb': middle}},
@@ -290,26 +292,16 @@ def get_process_list(
     if ecm == 365:
         category_specific['qq'].update({'wzp6_ee_WbWb_ecm365': {'frac': 1, 'nb': small}})
 
-    if train:
-        bkgs = {**common, **category_specific.get(cat, {})}
-    else:
-        bkgs = {**common, **category_specific.get(cat, {}),
-                f'wzp6_ee_tautau_ecm{ecm}':      {'frac': 1, 'nb': small},
-                f'wzp6_gaga_tautau_60_ecm{ecm}': {'frac': 1, 'nb': small},
-                f'wzp6_ee_nuenueZ_ecm{ecm}':     {'frac': 1, 'nb': small}}
-        if cat == 'qq':
-            bkgs.update({
-                f'p8_ee_WW_ee_ecm{ecm}':           {'frac': 1,   'nb': middle},
-                f'p8_ee_WW_mumu_ecm{ecm}':         {'frac': 1,   'nb': middle},
-                f'wzp6_ee_ee_Mee_30_150_ecm{ecm}': {'frac': 0.1, 'nb': middle},
-                f'wzp6_ee_mumu_ecm{ecm}':          {'frac': 0.1, 'nb': middle}})
+    bkgs: dict[str, dict] = {**common, **category_specific.get(cat, {})}
+    if not train and cat == 'qq':
+        bkgs.update({f'p8_ee_WW_{x}_ecm{ecm}': {'frac': 1, 'nb': middle} for x in ['ee', 'mumu']})
 
     # Build signal dict with custom overrides
     process_sig = {s: {'fraction': frac.get(s, 1), 'chunks': chunks.get(s, 1), 'n_max': n_max.get(s)}
                    for s in sigs if (s not in exclude and 'all' not in exclude)}
 
     # Build background dict with custom overrides
-    process_bkg = {b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb']), 'n_max': n_max.get(b)}
+    process_bkg = {b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb']), 'n_max': n_max.get(b, v.get('nmax'))}
                    for b, v in bkgs.items() if (b not in exclude and 'all' not in exclude)}
 
     # Apply custom inclusions. The nested form is retained for programmatic

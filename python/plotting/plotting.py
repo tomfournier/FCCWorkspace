@@ -698,7 +698,7 @@ def Efficiency(
                     [h_labels[decay] for decay in decays], eff_avg, eff_avg_err,
                     ecm, lumi, 'Selection efficiency [%]', 'efficiency')
     plot.draw(outName, suffix, file_formats, quiet,
-              top_right=f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}',
+              topRight=f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}',
               statistics=(f'Avg eff: {eff_avg:.2f} #pm {eff_avg_err:.2f} %',
                           f'Min/max: {eff_min:.2f}/{eff_max:.2f}'))
 
