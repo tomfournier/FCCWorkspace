@@ -264,11 +264,12 @@ def get_process_list(
 
     small, middle, big = ((5, 5, 10) if batch else (1, 5, 10)) if train else ((5, 20, 30) if batch else (1, 5, 10))
     common = {f'p8_ee_ZZ_ecm{ecm}': {'nmax': 25e6 if cat == 'qq' else None, 'nb': middle}}
-    if not train or cat == 'qq':
-        common.update({f'p8_ee_WW_ecm{ecm}':          {'frac': 1, 'nb': big},
-                       f'wzp6_ee_tautau_ecm{ecm}':      {'frac': 1, 'nb': small},
-                       f'wzp6_gaga_tautau_60_ecm{ecm}': {'frac': 1, 'nb': small},
-                       f'wzp6_ee_nuenueZ_ecm{ecm}':     {'frac': 1, 'nb': small}})
+    if cat == 'qq':
+        common.update({f'p8_ee_WW_ecm{ecm}': {'frac': 1, 'nb': big}})
+        if not train:
+            common.update({f'wzp6_ee_tautau_ecm{ecm}':    {'frac': 1, 'nb': small},
+                           f'wzp6_gaga_tautau_60_ecm{ecm}': {'frac': 1, 'nb': small},
+                           f'wzp6_ee_nuenueZ_ecm{ecm}':     {'frac': 1, 'nb': small}})
 
     category_specific: dict[str, dict[str, float | int]] = {
         'ee': {
@@ -301,7 +302,7 @@ def get_process_list(
                    for s in sigs if (s not in exclude and 'all' not in exclude)}
 
     # Build background dict with custom overrides
-    process_bkg = {b: {'fraction': frac.get(b, v['frac']), 'chunks': chunks.get(b, v['nb']), 'n_max': n_max.get(b, v.get('nmax'))}
+    process_bkg = {b: {'fraction': frac.get(b, v.get('frac', 1)), 'chunks': chunks.get(b, v.get('nb', 1)), 'n_max': n_max.get(b, v.get('nmax'))}
                    for b, v in bkgs.items() if (b not in exclude and 'all' not in exclude)}
 
     # Apply custom inclusions. The nested form is retained for programmatic
