@@ -45,13 +45,14 @@ from plotting.plotting import plot_configs, get_args
 cats, ecm, sels = arg.cat.split('-'), arg.ecm, arg.sels.split('-')
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
-if arg.hl: sels = high_low_sels(sels, arg.hlsel.split('-') +
-                                arg.hl_include.split('-'))
+if arg.hl: sels = high_low_sels(sels, sels)
 quiet = not arg.verbose
 
 # Custom plot arguments for specific variables
 args = {'cosTheta_miss': {'xmin': 0.9},
-        'zll_recoil_m': {240: {'*_high': {'xmin':120, 'xmax':140, 'strict': False}}}}
+        'zll_recoil_m': {240: {'*_high': {'xmin':120, 'xmax':140, 'strict': False}}},
+        'best_cluster_idx':    {'xlabels': ['No pair', 'Inclusive', 'N = 2', 'N = 4', 'N = 6']},
+        'best_clustering_idx': {'xlabels': [           'Inclusive', 'N = 2', 'N = 4', 'N = 6']}}
 
 
 VARIABLES = {
