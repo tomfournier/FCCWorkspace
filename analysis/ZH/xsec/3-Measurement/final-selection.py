@@ -88,8 +88,9 @@ samples = get_process_list(
 processList = has_events(list(samples), inputDir)
 
 # Define BDT score from trained model and apply BDT cut
-if test: loc_BDT = loc.get('MVA_MODEL', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'test')
-else:    loc_BDT = loc.get('MVA_MODEL', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'Baseline')
+if  test: loc_BDT = loc.get('MVA_MODEL', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'test')
+elif jan: loc_BDT = loc.get('MVA_MODEL', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'jan')
+else:     loc_BDT = loc.get('MVA_MODEL', cat, ecm, arg.bdt_sel if arg.bdt_sel else 'Baseline')
 LOGGER.info(f'Using BDT from {loc_BDT}')
 defineList, bdt_cut = def_bdt(loc_BDT, weight_suffix=f'_{arg.weight_suffix}')
 
@@ -145,5 +146,11 @@ if cat == 'qq':
     bdt_low, bdt_high = (1, 0, bdt_cut), (1, bdt_cut, 1)
     histoList['zqq_m_recoil_m_mva_high']      = {'cols':['BDTscore', 'zqq_recoil_m', 'zqq_m'], 'bins':[bdt_high, mrec_lim, mqq_lim]}
     histoList['zqq_m_recoil_m_mva_low']       = {'cols':['BDTscore', 'zqq_recoil_m', 'zqq_m'], 'bins':[bdt_low,  mrec_lim, mqq_lim]}
+    
     histoList['zqq_m_recoil_m_tot_mva_high']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(150, 50, 200), (100, 40, 140), (1, bdt_cut, 1)]}
     histoList['zqq_m_recoil_m_tot_mva_low']   = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(150, 50, 200), (100, 40, 140), (1, 0, bdt_cut)]}
+    
+    mqq_lim  = (100, 40, 140)
+    mrec_lim = (50, 100, 150) if ecm==240 else (100, 100, 200)
+    histoList['zqq_m_recoil_m_old_mva_high']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, (1, bdt_cut, 1)]}
+    histoList['zqq_m_recoil_m_old_mva_low']   = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, (1, 0, bdt_cut)]}
