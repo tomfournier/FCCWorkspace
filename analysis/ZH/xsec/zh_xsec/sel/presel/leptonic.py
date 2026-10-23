@@ -246,7 +246,7 @@ def define_systs(df: 'ROOT.ROOT.RDataFrame',
         df = df.Define(f'leps_good{scl}',      f'FCCAnalyses::ReconstructedParticle::remove(leps{scl}, leps_to_remove{scl})')
 
         df = df.Define(f'zbuilder{scl}', f'FCCAnalyses::resonanceBuilder_mass_recoil(91.2, 125, 0.4, {ecm}, false)'
-                       f'(leps_good{scl}, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, PArticle, Particle0, Particle1)')
+                       f'(leps_good{scl}, MCRecoAssociations0, MCRecoAssociations1, ReconstructedParticles, Particle, Particle0, Particle1)')
         df = df.Define(f'zll{scl}',           'Vec_rp{zbuilder'f'{scl}''[0]}')
         df = df.Define(f'zll_recoil{scl}',   f'FCCAnalyses::ReconstructedParticle::recoilBuilder({ecm})(zll{scl})')
 
