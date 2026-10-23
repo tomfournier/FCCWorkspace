@@ -16,9 +16,16 @@ class RooModel:
         self.name = name
         self.objects: dict[str, object] = {}
 
-    def add(self, name: str, obj):
+    def add(self, name: str, obj: object, *more: object) -> object:
+        if len(more) % 2:
+            raise ValueError('add expects name/object pairs')
+        if any(not isinstance(key, str) for key in more[::2]):
+            raise TypeError('object names must be strings')
+
         self.objects[name] = obj
-        return obj
+        for key, value in zip(more[::2], more[1::2]):
+            self.objects[key] = value
+        return more[-1] if more else obj
 
     def get(self, name: str):
         return self.objects[name]
@@ -39,12 +46,14 @@ class RooModel:
 class RooModelBuilder:
     """Build a :class:`RooModel` from a declarative signal specification."""
 
-    def __init__(self, spec: dict):
+    def __init__(self, spec: dict, systematic_specs: dict | None = None):
         self.spec: dict[str, callable | list[str | dict[str, str]] | str] = spec
+        self.systematic_specs = systematic_specs or {}
 
     @staticmethod
-    def get_src_val(source: dict, key: str, idx: int | None = None):
-        value = source[key]
+    def get_src_val(source: dict, entry: dict, idx: int | None = None):
+        value = source[entry['name']] if entry['name'] in source else source[entry['key']]
+        idx = entry.get('idx', idx)
         if idx is None: return value
         return value[idx]
 
@@ -101,7 +110,8 @@ class RooModelBuilder:
         return comp_cls(name, title, *comp_args)
 
 
-    def build_params(self, source: dict, mH: float | int) -> dict[str, ROOT.RooAbsArg]:
+    def build_params(self, source: dict, mH: float | int, idx: int | None = None, const: bool = True) -> dict[str, ROOT.RooAbsArg]:
+        """Build the parameters; `source` values are [value, lo, hi], or lists indexed by `idx` (e.g. one value per mass)."""
         params: dict[str, ROOT.RooAbsArg] = {}
         for entry in self.spec['params']:
             if entry['kind'] == 'mH':
@@ -109,14 +119,14 @@ class RooModelBuilder:
                 continue
 
             if entry['kind'] == 'source':
-                raw = self.get_src_val(source, entry['key'], entry.get('idx'))
-                if isinstance(raw, (list, tuple)) and len(raw) == 3:
+                raw = self.get_src_val(source, entry, idx)
+                if isinstance(raw, (list, tuple)):
                     params[entry['name']] = ROOT.RooRealVar(entry['name'], '', *raw)
                 elif 'lo' in entry and 'hi' in entry:
                     params[entry['name']] = ROOT.RooRealVar(entry['name'], '', raw, entry['lo'], entry['hi'])
                 else:
                     params[entry['name']] = ROOT.RooRealVar(entry['name'], '', raw)
-                params[entry['name']].setConstant(ROOT.kTRUE)
+                params[entry['name']].setConstant(const)
                 continue
 
             if entry['kind'] == 'variable':
@@ -139,6 +149,62 @@ class RooModelBuilder:
                 continue
 
             raise ValueError(f"Unsupported parameter kind: {entry['kind']}")
+        return params
+
+
+    def make_syst_vars(
+            self,
+            workspace: ROOT.RooWorkspace,
+            syst: str,
+            mH: float | int,
+            mH_label: str,
+             ) -> tuple[dict[str, ROOT.RooRealVar], list[object], tuple[str, ...]]:
+        systematic = self.systematic_specs[syst]
+        fit_param_names = systematic['fit_param_names']
+        parameters = systematic['parameters']
+        spline_map = {name: workspace.obj(f'spline_{name}') for name in fit_param_names}
+        overrides = systematic['range_overrides'](mH)
+
+        variables: dict[str, ROOT.RooRealVar] = {}
+        for name in fit_param_names:
+            value = spline_map[name].getVal()
+            if name in overrides:
+                lo, hi = overrides[name]
+                variables[name] = ROOT.RooRealVar(f'{name}_{mH_label}_{syst}', '', value, lo, hi)
+            else:
+                variables[name] = ROOT.RooRealVar(f'{name}_{mH_label}_{syst}', '', value)
+
+        return variables, [spline_map[name] for name in parameters], parameters
+
+
+    def make_datacard_params(
+            self,
+            workspace: ROOT.RooWorkspace,
+            flavor: str,
+            ecm: int,
+            use_syst: bool = True,
+             ) -> dict[str, ROOT.RooAbsArg]:
+        params: dict[str, ROOT.RooAbsArg] = {}
+        args = (arg for component in self.spec['components'] for arg in component['args'] if arg != 'mrecoil')
+        param_names = tuple(dict.fromkeys((*args, *self.spec['fractions'])))
+
+        for param_name in param_names:
+            base = workspace.obj(f'spline_{param_name}')
+            modifier_names = dict.fromkeys(
+                modifier
+                for systematic in self.systematic_specs.values()
+                for modifier in systematic.get('final_modifiers', {}).get(param_name, ())
+            ) if use_syst else ()
+
+            expr = '@0'
+            formula_args = [base]
+            for syst_name, nuisance_name in modifier_names:
+                strength_name = self.systematic_specs[syst_name]['name'].replace('ECM', str(ecm)).replace('FLAVOR', flavor)
+                formula_args.extend((workspace.obj(strength_name), workspace.obj(nuisance_name)))
+                expr += f'*(1+@{len(formula_args) - 2}*@{len(formula_args) - 1})'
+
+            params[param_name] = ROOT.RooFormulaVar(param_name, '', expr, self.argl(*formula_args))
+
         return params
 
 
@@ -214,7 +280,7 @@ class SignalParametrizer:
             mass_label = f'{mass:.3f}'.replace('.', 'p')
             hist = histogram_loader(process, mass_label, normalize, yield_nom)
             data = ROOT.RooDataHist(f'rdh_zh_{mass_label}', f'rdh_zh_{mass_label}', ROOT.RooArgList(observable), ROOT.RooFit.Import(hist))
-            model = self.builder.build(observable, self.builder.build_params(self.parameter_source, mass), data.sum(False), mass_label)
+            model = self.builder.build(observable, self.builder.build_params(self.parameter_source, mass, const=False), data.sum(False), mass_label)
             model.fit_to(data, ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.SumW2Error(ROOT.kTRUE))
             model.add(data.GetName(), data)
             models.append(model)

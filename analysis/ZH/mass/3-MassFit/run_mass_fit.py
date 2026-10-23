@@ -6,12 +6,7 @@
 
 from __future__ import annotations
 
-import array
-import json
-import sys
-from pathlib import Path
-
-import ROOT
+import json, array, ROOT
 
 
 
@@ -37,12 +32,7 @@ LOGGER = get_logger(__name__)
 from zh_mass.userConfig import loc, param_config
 loc.set_default_type('Path')
 from zh_mass.tools.process import getHist
-from definitions import (
-    BACKGROUND_MODEL, SIGNAL_MODELS, SYSTEMATIC_MODELS,
-    build_datacard_signal_params,
-    make_systematic_fit_vars,
-    systematic_hist_suffix,
-)
+from definitions import BACKGROUND_MODEL, SIGNAL_MODEL, SYSTEMATIC_MODELS
 from zh_mass.func.fit import (
     RooModel, RooModelBuilder,
     SignalParametrizer,
@@ -54,7 +44,7 @@ from zh_mass.plots.fit import (
     plot_params_vs_mh, plot_signal,
     plot_syst_dist,
 )
-from combine import do_combine_mass
+from datacard import datacard_txt_ws
 
 
 
@@ -80,6 +70,7 @@ for directory in (param_dir, outputdir, run_dir):
 
 cat_idx = (0, 5) if cat == 0 else (cat, cat)
 recoil_min, recoil_max = arg.recoilMin, arg.recoilMax
+normYields = arg.normYield
 model_owners: list[RooModel] = []
 h_obs = None
 sig_yield = 0.0
@@ -91,7 +82,7 @@ sig_yield = 0.0
 ##############################
 
 def parametrize_signal() -> dict[str, list[float]]:
-    spec = SIGNAL_MODELS['parametrize_signal']
+    spec = SIGNAL_MODEL
 
     # TO DO: make a dictionary for processes
     processes = spec['processes'](flavor, ecm)
@@ -100,19 +91,13 @@ def parametrize_signal() -> dict[str, list[float]]:
     observable   = ROOT.RooRealVar('mrec_param', 'Recoil mass [GeV]', 125, recoil_min, recoil_max)
     parametrizer = SignalParametrizer(spec, param_config[ecm][flavor][cat])
 
-    def load_signal(proc: str, suffix: str, normalize: bool = False, sig_yield: float | int = 1):
+    def load_signal(proc: str, suffix: str, normYields: bool = False, sig_yield: float | int = 1):
         if suffix == 'norm': proc = nominal
-        return get_hist(hName, inputdir, proc, suffix, cat_idx, 1, sig_yield, '', normalize)
+        return get_hist(hName, inputdir, proc, suffix, cat_idx, 1, sig_yield, '', normYields)
 
-    coeffs = parametrizer.fit_grid(observable, spec['masses'], processes, load_signal, arg.normYield, True)
-    (param_dir / 'coeff_parametrize.json').write_text(json.dumps(coeffs, indent=4))
-
-    dc_coeffs = {'mean0': [1.0, 1.0, 1.0]}
-    source_names = {'mean1': 'mean_cb1', 'sigma': 'sigma_cb', 'sigma_gt': 'sigma_gt', 'mean_gt1': 'mean_gt1', 'alpha_1': 'alpha_1',
-                    'alpha_2': 'alpha_2', 'n_1': 'n_1', 'n_2': 'n_2', 'cb_1': 'cb_1', 'cb_2': 'cb_2'}
-    dc_coeffs.update({target: coeffs[source] for target, source in source_names.items()})
-    (param_dir / 'coeff.json').write_text(json.dumps(dc_coeffs, indent=4))
-    return dc_coeffs
+    coeffs = parametrizer.fit_grid(observable, spec['masses'], processes, load_signal, normYields, True)
+    (param_dir / 'coeff.json').write_text(json.dumps(coeffs, indent=4))
+    return coeffs
 
 
 
@@ -123,14 +108,14 @@ def parametrize_signal() -> dict[str, list[float]]:
 def fit_signal(workspace: ROOT.RooWorkspace, coefficients: dict) -> tuple[float, list]:
     global h_obs
 
-    sig_data, sig_models, mass_models = [], [], []
+    sig_samples = []
     
-    spec = SIGNAL_MODELS['make_datacard']
+    spec = SIGNAL_MODEL
     builder = RooModelBuilder(spec)
-    masses, processes = spec['masses'], spec['processes'](flavor, ecm)
+    masses, procs = spec['masses'], spec['processes'](flavor, ecm)
     observable = workspace.var('m_recoil')
 
-    nominal_hist = get_hist(hName, inputdir, [processes[1]], 'norm', cat_idx, 1, 1, '', False)
+    nominal_hist = get_hist(hName, inputdir, procs['nominal'], 'norm', cat_idx, 1, 1, '', False)
     sig_yield = nominal_hist.Integral()
     
     values = {name: [] for name in (*spec['param_names'], 'mH', 'norm')}
@@ -139,23 +124,23 @@ def fit_signal(workspace: ROOT.RooWorkspace, coefficients: dict) -> tuple[float,
     data_hists   = ROOT.std.map('string, RooDataHist*')()
     simultaneous = ROOT.RooSimultaneous('pdf_tot', '', categories)
 
-    for index, (mass, process) in enumerate(zip(masses, processes)):
+    for index, (mass, direction) in enumerate(zip(masses, ['low', 'nominal', 'high'])):
         mass_label = f'{mass:.3f}'.replace('.', 'p')
-        hist = get_hist(hName, inputdir, [process], mass_label, cat_idx,
-                        1, sig_yield, '', arg.normYield)
+        hist = get_hist(hName, inputdir, procs[direction], mass_label, cat_idx,
+                        1, sig_yield, '', normYields)
         data = ROOT.RooDataHist(f'rdh_zh_{mass_label}', f'rdh_zh_{mass_label}', ROOT.RooArgList(observable), ROOT.RooFit.Import(hist))
         categories.defineType(mass_label, index)
         data_hists.insert(ROOT.std.pair('string, RooDataHist*')(mass_label, data))
 
         # Define parameters and build model
-        params = builder.build_params(coefficients, mass)
+        params = builder.build_params(coefficients, mass, idx=1)  # idx 1: nominal-mass fit values
         model  = builder.build(observable, params, data.sum(False), mass_label)
         
         model.add(data.GetName(), data)
-        mass_models.append(model)
-        sig_models.append(model.get('pdf'))
-        sig_data.append(data)
-        simultaneous.addPdf(model.get('pdf'), mass_label)
+        model_owners.append(model)
+        pdf = model.get('pdf')
+        sig_samples.append((data, pdf))
+        simultaneous.addPdf(pdf, mass_label)
         
         for name in spec['param_names']:
             values[name].append(params[name].getVal())
@@ -172,20 +157,15 @@ def fit_signal(workspace: ROOT.RooWorkspace, coefficients: dict) -> tuple[float,
     fit_result = simultaneous.fitTo(combined_data, ROOT.RooFit.Save(ROOT.kTRUE), ROOT.RooFit.Extended(ROOT.kTRUE), ROOT.RooFit.Minimizer('Minimizer', 'simplex'))
     
     owner = RooModel('signal')
-    owner.add('category', categories)
-    owner.add('hists', data_hists)
-    owner.add('pdf_tot', simultaneous)
-    owner.add(combined_data.GetName(), combined_data)
-    owner.add('fit_result', fit_result)
+    owner.add('category', categories, 'hists', data_hists, 'pdf_tot', simultaneous,
+              combined_data.GetName(), combined_data, 'fit_result', fit_result)
     
-    for model in mass_models:
-        owner.extend(model)
-    model_owners.extend([owner, *mass_models])
+    model_owners.append(owner)
     workspace.Import(simultaneous)
-    for data in sig_data:
+    for data, _ in sig_samples:
         workspace.Import(data)
 
-    for mass, data, pdf in zip(masses, sig_data, sig_models):
+    for mass, (data, pdf) in zip(masses, sig_samples):
         mass_label = f'{mass:.3f}'.replace('.', 'p')
         fit_plot(data, pdf, observable, arg.nBins, label, outputdir, ecm, lumi, suffix=f'_{mass_label}')
         decomposition = plot_decomposition(outputdir, workspace, label, mass_label, sig_yield, spec, ecm, lumi)
@@ -202,7 +182,8 @@ def fit_signal(workspace: ROOT.RooWorkspace, coefficients: dict) -> tuple[float,
         plot_params_vs_mh(workspace.var('MH'), outputdir, name, value_arrays, spline, label, ecm, lumi)
         workspace.Import(spline)
 
-    plot_signal(workspace, outputdir, label, sig_yield, sig_models, ecm, lumi)
+    plot_signal(workspace, outputdir, label, sig_yield,
+                [pdf for _, pdf in sig_samples], ecm, lumi)
     plot_fit_all(outputdir, workspace, masses, sig_yield, label, ecm, lumi)
     return sig_yield
 
@@ -256,21 +237,20 @@ def fit_background(workspace: ROOT.RooWorkspace, nBins: int = 250) -> float:
 ###########################
 
 def fit_systematics(workspace: ROOT.RooWorkspace, nBins: int = 250) -> None:
-    spec = SIGNAL_MODELS['make_datacard']
-    builder = RooModelBuilder(spec)
+    spec = SIGNAL_MODEL
+    builder = RooModelBuilder(spec, SYSTEMATIC_MODELS)
     mass = 125.0
     mass_label = f'{mass:.3f}'.replace('.', 'p')
     observable = workspace.var('m_recoil')
 
     for syst in ('BES', 'SQRTS', 'LEPSCALE'):
-        variables, spline_vals, val_names = make_systematic_fit_vars(workspace, syst, mass, mass_label)
-        values_up, values_down = [], []
+        variables, spline_vals, val_names = builder.make_syst_vars(workspace, syst, mass, mass_label)
         for direction in ('Up', 'Down'):
             suffix = f'{mass_label}_{syst}{direction}'
             process = SYSTEMATIC_MODELS[syst]['process'](syst, flavor, ecm, direction)
-            hist_suffix = systematic_hist_suffix(syst, direction)
+            hist_suffix = SYSTEMATIC_MODELS[syst].get('suffix', {}).get(direction, '')
             hist = get_hist(f'{flavor}_{arg.hName}_cat{hist_suffix}', inputdir, [process], suffix,
-                            cat_idx, 1, sig_yield, f'hist_zh_{suffix}', arg.normYield)
+                            cat_idx, 1, sig_yield, f'hist_zh_{suffix}', normYields)
             data = ROOT.RooDataHist(f'rdh_zh_{suffix}', f'rdh_zh_{suffix}', ROOT.RooArgList(observable), ROOT.RooFit.Import(hist))
             model = builder.build(observable, variables, data.sum(False), suffix)
             pdf = model.get('pdf')
@@ -309,20 +289,22 @@ def main() -> None:
     tmp_workspace.Import(mass_observable)
 
     sig_yield = fit_signal(tmp_workspace, signal_coefficients)
-    bkg_yield = fit_background(tmp_workspace, arg.nBins)
+    _ = fit_background(tmp_workspace, arg.nBins)
     if arg.syst:
         fit_systematics(tmp_workspace, arg.nBins)
         for syst_name in (f'BES_ecm{ecm}', f'SQRTS_ecm{ecm}', f'LEPSCALE_MU_ecm{ecm}', f'LEPSCALE_EL_ecm{ecm}',):
             tmp_workspace.Import(ROOT.RooRealVar(syst_name, syst_name, 0, -5, 5))
 
-    params = build_datacard_signal_params(tmp_workspace, 'make_datacard', flavor, ecm, arg.syst)
-    sig_pdf = RooModelBuilder(SIGNAL_MODELS['make_datacard']
-    ).build(mass_observable, params, 1.0, '', extended=False).get('pdf')
+    builder = RooModelBuilder(SIGNAL_MODEL, SYSTEMATIC_MODELS)
+    params = builder.make_datacard_params(tmp_workspace, flavor, ecm, arg.syst)
+    sig_pdf = builder.build(
+        mass_observable, params, 1.0, '', extended=False
+    ).get('pdf')
     workspace = ROOT.RooWorkspace('w', 'workspace')
     workspace.Import(sig_pdf)
 
     bkg_pdf = tmp_workspace.pdf('bkg')
-    workspace.Import(bkg_pdf,ROOT.RooFit.RenameAllVariablesExcept(f'{flavor}_cat{cat}_ecm{ecm}', 'm_recoil'))
+    workspace.Import(bkg_pdf, ROOT.RooFit.RenameAllVariablesExcept(f'{flavor}_cat{cat}_ecm{ecm}', 'm_recoil'))
     observed = ROOT.RooDataHist('data_obs', 'data_obs', ROOT.RooArgList(mass_observable), ROOT.RooFit.Import(h_obs))
     workspace.Import(observed)
     if workspace.var('MH') is None:
@@ -336,19 +318,17 @@ def main() -> None:
     else:
         raise ValueError(f'{ecm = } not supported; choose between 240 and 365')
 
-    template = Path('datacard_template.txt').read_text()
-    datacard = template.replace('$rate_sig', f'{sig_yield}')
-    datacard = datacard.replace('$rate_bkg', f'{bkg_yield}')
-    datacard = datacard.replace('$flavor', flavor)
-    datacard = datacard.replace('$ecm', str(ecm))
-    datacard = datacard.replace('$cat', str(cat))
-    datacard = datacard.replace('$bkg_id', str(background_id))
-    removed_systematic = 'LEPSCALE_EL' if flavor == 'mumu' else 'LEPSCALE_MU'
+    syst_params = []
+    if arg.syst:
+        syst_params = [f'BES_ecm{ecm}', f'SQRTS_ecm{ecm}', f'LEPSCALE_{"MU" if flavor == "mumu" else "EL"}_ecm{ecm}']
 
-    def write_workspace(directory: Path) -> None:
-        workspace.writeToFile(str(directory / 'datacard.root'))
+    datacard = datacard_txt_ws(f'{flavor}_cat{cat}_ecm{ecm}', {f'sig_ecm{ecm}': 'sig'},
+                               {f'bkg_{flavor}_ecm{ecm}': ('bkg', f'bkg_norm_{flavor}_ecm{ecm}')},
+                               [background_id], syst_params)
 
-    do_combine_mass(run_dir, datacard, write_workspace, removed_systematic)
+    # text2workspace is left to the fit script
+    (run_dir / 'datacard.txt').write_text(datacard)
+    workspace.writeToFile(str(run_dir / 'datacard.root'))
     del workspace, tmp_workspace
 
 

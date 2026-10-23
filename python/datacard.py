@@ -113,6 +113,49 @@ def datacard_txt(
     return dc_txt
 
 
+def datacard_txt_ws(
+        category: str,
+        sig_procs: dict[str, str],
+        bkg_procs: dict[str, tuple[str, str]],
+        bkg_ids: list[int] | None = None,
+        params: list[str] = [],
+        file: str = 'datacard.root',
+        workspace: str = 'w',
+        col_w: int = 12) -> str:
+    """Single-category datacard whose shapes are PDFs of a RooWorkspace.
+
+    ``sig_procs`` maps process -> PDF name; ``bkg_procs`` maps process -> (PDF name, floating
+    rateParam name); ``params`` are unit-Gaussian nuisances defined in the workspace.
+    """
+
+    pdfs = sig_procs | {proc: pdf for proc, (pdf, _) in bkg_procs.items()}
+    idx  = [*range(-len(sig_procs) + 1, 1), *(bkg_ids or range(1, len(bkg_procs) + 1))]
+
+    sep = '-' * 30
+    row = lambda name, values: f'{name:<12}' + ''.join(f'{v:<{col_w}}' for v in values)
+
+    dc_lines = []
+    dc_lines += ['imax *']  # Number of bins
+    dc_lines += ['jmax *']  # Number of processes minus 1
+    dc_lines += ['kmax *'],  # Number of systematics
+    dc_lines += sep
+    dc_lines += [f'shapes {proc:<12} * {file} {workspace}:{pdf}' for proc, pdf in pdfs.items()]
+    dc_lines += sep
+    dc_lines += row('bin', [category]), row('observation', [-1])
+    dc_lines += sep
+    dc_lines += row('bin', [category] * len(pdfs))
+    dc_lines += row('process', pdfs)
+    dc_lines += row('process', idx)
+    dc_lines += row('rate', [-1] * len(pdfs), sep)
+    dc_lines += [f'{rate:<12} rateParam * {proc:<12}   1' for proc, (_, rate) in bkg_procs.items()]
+    dc_lines += [f'{name:<12} param 0 1' for name in params]
+
+    dc_txt = '\n'.join(dc_lines) + '\n'
+    LOGGER.info('\n'+dc_txt)
+
+    return dc_txt
+
+
 def datacard_root(
         inputDir: str,
         hNames: list[str],
