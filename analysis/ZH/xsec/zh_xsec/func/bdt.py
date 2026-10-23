@@ -95,8 +95,6 @@ def counts_and_effs(
            int]:
     ...
 
-# ___________________________
-
 
 def counts_and_effs(
     files: list[str],
@@ -119,40 +117,27 @@ def counts_and_effs(
     import uproot
     import pandas as pd
 
-    N_events = 0
-    selected_events = 0
-
-    # Fast path: only count efficiency without loading data into memory
-    # Significantly faster for large datasets (millions of events)
-    if only_eff:
-        for f in files:
-            with uproot.open(f) as file:
-                N_events += file['eventsProcessed'].value
-                tree = file['events']
-                # Count entries directly without loading data
-                selected_events += tree.num_entries
-        return selected_events / N_events if N_events > 0 else 0.0
-
-    # Full path: load data and return dataframe with efficiency
-    dfs = []
+    N_events, n_selected, trees = 0, 0, []
     for f in files:
         with uproot.open(f) as file:
             N_events += file['eventsProcessed'].value
-            # Read events tree
-            tree = file['events']
-            if tree.num_entries > 0:
-                df_chunk = tree.arrays(
-                    vars, library='pd') if vars else tree.arrays(library='pd')
-                dfs.append(df_chunk)
+            n = file['events'].num_entries
+        n_selected += n
+        if n:
+            trees.append(f'{f}:events')
 
-    # Concatenate all dataframes at once
-    df = pd.concat(dfs, ignore_index=True,
-                   copy=False) if dfs else pd.DataFrame()
-    eff = df.shape[0] / N_events if N_events > 0 else 0.0
+    if only_eff:
+        return n_selected / N_events if N_events > 0 else 0.0
 
+    eff = n_selected / N_events if N_events > 0 else 0.0
+    if not trees:
+        return pd.DataFrame(), eff, N_events
+
+    # One threaded read straight into a single DataFrame, same columns as tree.arrays(library='pd')
+    df = uproot.concatenate(trees, vars or None, library='pd',
+                            num_workers=min(8, len(trees)))
+    df.index = pd.RangeIndex(len(df))
     return df, eff, N_events
-
-# ______________________
 
 
 def additional_info(
@@ -182,8 +167,6 @@ def additional_info(
     df['norm_weight'] = xsec[proc] / df.shape[0]
     return df
 
-# __________________________
-
 
 def BDT_input_numbers(
     df: 'pd.DataFrame',
@@ -211,31 +194,23 @@ def BDT_input_numbers(
     Returns:
         dict[str, int]: Dictionary with number of BDT input events per mode.
     '''
-    N_BDT_inputs: dict[str, int] = {}
     if all_inputs:
         LOGGER.info(
             f'Take all the events in the dataframes for training ({n_max = :,.0f})')
-        return {m: int(df[m].shape[0] * frac.get(m, 1)) if int(df[m].shape[0] * frac.get(m, 1)) <= n_max else int(n_max) for m in modes}
+        return {m: min(int(df[m].shape[0] * frac.get(m, 1)), int(n_max)) for m in modes}
 
     # Total background cross-section weighted by efficiency
     xsec_tot_bkg = sum(eff[mode] * xsec[mode] for mode in modes if mode != sig)
     if xsec_tot_bkg <= 0:
         LOGGER.warning(
             'Total background normalization is zero; returning zero BDT inputs for backgrounds')
-    for m in modes:
-        if scale_with_sig:
-            n_sig = df[sig].shape[0] if df[sig].shape[0] <= n_max else n_max
-            N_BDT_inputs[m] = (
-                int(frac.get(m, 1) * n_sig) if m == sig else
-                int(frac.get(m, 1) * n_sig * frac.get(sig, 1) * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
-        else:
-            n_sig = df[sig].shape[0] if df[sig].shape[0] <= n_max else n_max
-            N_BDT_inputs[m] = (
-                int(frac.get(m, 1) * n_sig) if m == sig else
-                int(frac.get(m, 1) * n_sig * (eff[m] * xsec[m] / xsec_tot_bkg)) if xsec_tot_bkg > 0 else 0)
-    return N_BDT_inputs
+    n_sig = min(df[sig].shape[0], n_max)
+    sig_scale = frac.get(sig, 1) if scale_with_sig else 1
+    return {m: int(frac.get(m, 1) * n_sig) if m == sig else
+            int(frac.get(m, 1) * n_sig * sig_scale * eff[m] * xsec[m] / xsec_tot_bkg) if xsec_tot_bkg > 0 else 0
+            for m in modes}
 
-# __________________________
+
 def sample_df_by_xsec(
     df_mode: dict[str, 'pd.DataFrame'],
     xsec: dict[str, float],
@@ -262,85 +237,53 @@ def sample_df_by_xsec(
     '''
     import pandas as pd
 
-    if not df_mode:
+    # Skip empty processes and those without a physical yield
+    dfs = {proc: d for proc, d in df_mode.items()
+           if not d.empty and xsec.get(proc, 0) > 0 and eff.get(proc, 0) > 0}
+    if not dfs:
         return pd.DataFrame()
 
-    # Ignore empty processes and processes that cannot contribute to the
-    # physical normalization used for proportional sampling.
-    available = {proc: df.shape[0] for proc, df in df_mode.items()
-                 if not df.empty and xsec.get(proc, 0) > 0 and eff.get(proc, 0) > 0}
-
-    if not available:
-        return pd.DataFrame()
-
-    dfs = [df_mode[proc] for proc in available]
     if all_inputs:
-        # Keep every available event; no process reweighting is needed here.
-        LOGGER.debug('Returning all available process dataframes')
-        return pd.concat(dfs, ignore_index=True)
+        return pd.concat(dfs.values(), ignore_index=True)
 
     if not keep_prop:
         # Draw uniformly from the concatenated sample, ignoring process rates.
-        df = pd.concat(dfs, ignore_index=True)
+        df = pd.concat(dfs.values(), ignore_index=True)
         return df.sample(min(int(n_max), len(df)), random_state=random_state)
 
-    if len(available) == 1:
-        proc = next(iter(available))
-        LOGGER.debug(f'Only one process found for {mode}; keeping {proc} without resampling')
-        return df_mode[proc]
+    if len(dfs) == 1:
+        return next(iter(dfs.values()))
 
-    # The desired process fractions are proportional to cross-section times
-    # selection efficiency, i.e. the expected selected event yield.
-    weight = {proc: xsec[proc] * eff[proc] for proc in available}
+    # Target fractions follow the expected yield xsec * eff
+    weight = {proc: xsec[proc] * eff[proc] for proc in dfs}
     tot_weight = sum(weight.values())
-    if tot_weight <= 0:
-        LOGGER.warning(f'Cannot sample {mode} proportionally: total eff*xsec is non-positive. '
-                       'Returning all available process dataframes.')
-        return pd.concat(dfs, ignore_index=True)
 
-    # The ratio-preserving sample cannot contain more events from a process
-    # than are available. This cap may reduce the requested total sample.
-    total_available = sum(available.values())
-    max_feasible    = min(int(available[proc] * tot_weight / weight[proc])
-                          for proc in available)
-    total_sampled   = min(target_events, total_available, max_feasible)
-    if total_sampled < target_events:
-        LOGGER.info(f'Reducing total events for {mode} from {target_events:,} to {total_sampled:,} '
+    # Largest total that keeps these fractions without exceeding any process size
+    max_total = min(int(len(d) * tot_weight / weight[proc]) for proc, d in dfs.items())
+    total = min(target_events, max_total)
+    if total < target_events:
+        LOGGER.info(f'Reducing total events for {mode} from {target_events:,} to {total:,} '
                     'to preserve the expected process proportions.')
-    proc_width = max(len(proc) for proc in available)
 
-    # Convert the desired fractional counts to integers. Give the leftover
-    # events to processes with the largest fractional remainders.
-    ideal_counts = {proc: total_sampled * weight[proc] / tot_weight
-                    for proc in available}
-    proc_targets = {proc: int(count) for proc, count in ideal_counts.items()}
-    remaining = total_sampled - sum(proc_targets.values())
-    ordered_procs = sorted(available, key=lambda proc: ideal_counts[proc] - proc_targets[proc], reverse=True)
-    for proc in ordered_procs[:remaining]:
-        proc_targets[proc] += 1
+    # Round to integers, giving the leftover events to the largest remainders
+    ideal = {proc: total * weight[proc] / tot_weight for proc in dfs}
+    targets = {proc: int(n) for proc, n in ideal.items()}
+    by_remainder = sorted(dfs, key=lambda proc: ideal[proc] - targets[proc], reverse=True)
+    for proc in by_remainder[:total - sum(targets.values())]:
+        targets[proc] += 1
 
-    sampled_mode = []
-    for proc in available:
-        n_target = proc_targets[proc]
-        proc_df = df_mode[proc]
-        if n_target < proc_df.shape[0]:
-            sampled_df = proc_df.sample(n_target, random_state=random_state)
-        else:
-            sampled_df = proc_df
-        sampled_mode.append(sampled_df)
+    width = max(map(len, dfs))
+    for proc in dfs:
+        expected = weight[proc] / tot_weight * 100
+        actual = targets[proc] / total * 100 if total > 0 else 0.0
+        if abs(expected - actual) > 1e-3:
+            LOGGER.warning(f'Fraction in {mode} from {proc:<{width}} = '
+                           f'expected {expected:.3f}% | actual {actual:.3f}%')
 
-    total_sampled = sum(proc_targets.values())
-    proc_width = max(map(len, available))
-    for proc in available:
-        expected_fraction = (weight[proc] / tot_weight) * 100 if tot_weight  > 0 else 0.0
-        actual_fraction   = proc_targets[proc] / total_sampled * 100 if total_sampled > 0 else 0.0
-        if abs(expected_fraction - actual_fraction) > 1e-3:
-            LOGGER.warning(f'Fraction in {mode:<{max(len(mode), 1)}} from {proc:<{proc_width}} = '
-                           f'expected {expected_fraction:.3f}% | actual {actual_fraction:.3f}%')
+    return pd.concat([d.sample(targets[proc], random_state=random_state) if targets[proc] < len(d) else d
+                      for proc, d in dfs.items()], ignore_index=True)
 
-    return pd.concat(sampled_mode, ignore_index=True)
 
-# ________________________________
 def df_split_data(
     df: 'pd.DataFrame',
     N_BDT_inputs: dict[str, int],
@@ -371,117 +314,73 @@ def df_split_data(
     if n_events == 0:
         LOGGER.error(f'No event for mode {mode}')
         exit(1)
-    elif n_events < N_BDT_inputs[mode]:
+    if n_events < N_BDT_inputs[mode]:
         LOGGER.warning(f'For mode {mode}: n_events < BDT input ({n_events:,} vs {N_BDT_inputs[mode]:,})\n'
                        'Using the total number of events available')
-        sampled: pd.DataFrame = df.sample(n_events, random_state=1)
-    else:
-        sampled: pd.DataFrame = df.sample(N_BDT_inputs[mode], random_state=1)
+    sampled: pd.DataFrame = df.sample(min(n_events, N_BDT_inputs[mode]), random_state=1)
+    n_sampled = sampled.shape[0]
 
-    # Split data into training and validation sets without an extra dataframe shuffle
-    valid_size = int(round(sampled.shape[0] * test_size))
-    valid_mask = np.zeros(sampled.shape[0], dtype=bool)
-    valid_positions = np.random.default_rng(7).choice(
-        sampled.shape[0], size=valid_size, replace=False)
-    valid_mask[valid_positions] = True
+    # Randomly flag a test_size fraction of events as validation (fixed seed)
+    n_valid = round(n_sampled * test_size)
+    valid_mask = np.zeros(n_sampled, dtype=bool)
+    valid_mask[np.random.default_rng(7).choice(n_sampled, size=n_valid, replace=False)] = True
+    sampled['valid'] = valid_mask
 
-    # Mark validation set
-    sampled.loc[:,          'valid'] = False  # Training set
-    sampled.loc[valid_mask, 'valid'] = True   # Validation set
-
-    # Each sampled event represents an equal share of its process yield. Use
-    # the sampled count, rather than the original count, when a subset was kept.
-    sampled_count = sampled.groupby('proc')['proc'].transform('size')
-    coeff = sampled['eff'] * sampled['xsec'] / sampled_count * lumi * 1e6
-
-    # Normalize each process and split independently so both distributions
-    # represent the full physical yield when plotted separately.
+    # Each (proc, valid) subset carries the full process yield eff * xsec * lumi
     split_count = sampled.groupby(['proc', 'valid'])['proc'].transform('size')
-    sampled.loc[:, 'weights'] = coeff * sampled_count / split_count
+    sampled['weights'] = sampled['eff'] * sampled['xsec'] * lumi * 1e6 / split_count
 
     # The training-only column is rebalanced later for BDT training.
-    sampled.loc[:, 'train_weights'] = sampled['weights']
+    sampled['train_weights'] = sampled['weights']
 
     return sampled
 
 
-# _______________________________________________
 def balance_training_weights(
     df: dict[str, 'pd.DataFrame'],
     modes: dict[str, list[str]],
     sig: str,
 ) -> list[str]:
-    '''Apply a simple, class-balanced training weight scheme.
+    '''Add class-balanced training weights; the physical ``weights`` column is untouched.
 
-    The physical ``weights`` column is kept unchanged for plotting and physics interpretation.
-    The training-only ``train_weights`` column is rebalanced in three steps:
+    Each mode gets a total training yield and shares it equally among its events
+    (``train_weights``). Background modes keep their physical yield, while the signal
+    yield is set equal to the total background yield. ``train_weight`` is the same
+    quantity rescaled so that it sums to the number of training events.
 
-    1. For each mode, make all events in that mode share the same training weight.
-    2. For the signal mode, make all signal subprocesses share the same training weight.
-    3. Rescale the total signal training weight to match the total background training weight.
-    4. Normalize all training weights so their combined sum is one.
-
-    This preserves the relative mode contribution while making the training sample
-    class-balanced and keeping the overall weight scale bounded.
+    Returns:
+        list[str]: Modes that contain events.
     '''
-    good_modes: list[str] = []
-    mode_weights: dict[str, float] = {}
-    length = max(map(len, modes)) + 2
+    good_modes = [m for m in modes if df.get(m) is not None and not df[m].empty]
+    yields = {m: float(df[m]['weights'].sum()) for m in good_modes}
 
-    for mode in modes:
-        mode_df = df.get(mode)
-        if mode_df is None or mode_df.empty:
-            continue
+    if sig in yields:
+        for proc in sorted(set(modes[sig]) - set(df[sig]['proc'])):
+            LOGGER.warning(f'No selected events for signal process {proc}')
 
-        # Start by giving every event in a mode the same training weight.
-        mode_total = float(mode_df['weights'].sum())
-        mode_df.loc[:, 'train_weights'] = mode_total / len(mode_df)
-        mode_weights[mode] = mode_total
+        # Class balance: W_sig = W_bkg
+        bkg_yield = sum(y for m, y in yields.items() if m != sig)
+        if yields[sig] > 0 and bkg_yield > 0:
+            LOGGER.debug(f'Rescaled signal training yield by {bkg_yield / yields[sig]:,.4f} '
+                         f'to enforce W_sig = W_bkg ({yields[sig]:,.2f} -> {bkg_yield:,.2f})')
+            yields[sig] = bkg_yield
 
-        if mode == sig:
-            signal_processes = set(modes[sig])
-            signal_mask = mode_df['proc'].isin(signal_processes)
-            signal_count = int(signal_mask.sum())
-            missing_processes = signal_processes - set(mode_df.loc[signal_mask, 'proc'])
-            for process in sorted(missing_processes):
-                LOGGER.warning(f'No selected events for signal process {process}; skipping equal-weight assignment')
+    total_yield  = sum(yields.values())
+    total_events = sum(len(df[m]) for m in good_modes)
+    if total_yield <= 0 or total_events <= 0:
+        return good_modes
 
-            if signal_count:
-                # Equalize signal subprocesses using their combined physical yield.
-                signal_total = float(mode_df.loc[signal_mask, 'weights'].sum())
-                mode_df.loc[signal_mask, 'train_weights'] = signal_total / signal_count
-                mode_weights[mode] = signal_total
-
-        train_total = float(mode_df['train_weights'].sum())
-        LOGGER.debug(f'Mode {mode:<{length}}: total train weight = {train_total:<15,.0f}'
-                     f'average train weight = {train_total / len(mode_df):.4f}')
-        good_modes.append(mode)
-
-    signal_df = df.get(sig)
-    if signal_df is not None and not signal_df.empty and sig in mode_weights:
-        # Make the total signal and background training weights equal.
-        signal_total     = mode_weights[sig]
-        background_total = sum(mode_weights[mode] for mode in good_modes if mode!=sig)
-        if signal_total > 0 and background_total > 0:
-            scale = background_total / signal_total
-            signal_df.loc[:, 'train_weights'] *= scale
-            LOGGER.info(f'Rescaled signal training weights by {scale:,.4f} to enforce '
-                        f'W_sig = W_bkg ({signal_total:,.2f} -> {signal_total * scale:,.2f})')
-
-    # Normalize the training column to the number of rows given to the BDT.
-    # Physical plotting weights remain untouched.
-    total_weight = sum(float(df[mode]['train_weights'].sum()) for mode in good_modes)
-    total_events = sum(len(df[mode]) for mode in good_modes)
-    if total_weight > 0 and total_events > 0:
-        normalization = total_events / total_weight
-        for mode in good_modes:
-            df[mode].loc[:, 'train_weight'] = (df[mode]['train_weights'] * normalization)
-        LOGGER.info(f'Normalized combined training weights by {normalization:,.6g} '
-                    f'(sum {total_weight:,.6g} -> {total_events:,})')
+    # Rescale so the weights sum to the number of events given to the BDT
+    norm = total_events / total_yield
+    for m in good_modes:
+        df[m]['train_weights'] = yields[m] / len(df[m])
+        df[m]['train_weight']  = df[m]['train_weights'] * norm
+    LOGGER.debug(f'Normalized combined training weights by {norm:,.6g} '
+                 f'(sum {total_yield:,.6g} -> {total_events:,})')
 
     return good_modes
 
-# ______________________
+
 def print_stats(
     df: 'pd.DataFrame',
     modes: list
@@ -504,8 +403,6 @@ def print_stats(
         LOGGER.info(f"{f'Number of training for {m:<{lenght+2}} : {int((m_mask &  train).sum()):<10,}':^45}"
                     f"  {f'Number of validation for {m:<{lenght}} : {int((m_mask & ~train).sum()):<10,}':^45}".center(n))
     LOGGER.info(f"{'=' * n:^{n}}\n")
-
-# ____________________________
 
 
 def split_data(
@@ -531,23 +428,15 @@ def split_data(
 
     train = df['valid'] == False
     # Features for training and validation sets
-    X_train = np.ascontiguousarray(
-        df.loc[train,  vars].to_numpy(np.float32, copy=False))
-    X_valid = np.ascontiguousarray(
-        df.loc[~train, vars].to_numpy(np.float32, copy=False))
+    X_train = np.ascontiguousarray(df.loc[train,  vars].to_numpy(np.float32, copy=False))
+    X_valid = np.ascontiguousarray(df.loc[~train, vars].to_numpy(np.float32, copy=False))
     # Labels (signal/background) for training and validation sets
-    y_train = np.ascontiguousarray(
-        df.loc[train,  'isSignal'].to_numpy(np.int8, copy=False).ravel())
-    y_valid = np.ascontiguousarray(
-        df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel())
+    y_train = np.ascontiguousarray(df.loc[train,  'isSignal'].to_numpy(np.int8, copy=False).ravel())
+    y_valid = np.ascontiguousarray(df.loc[~train, 'isSignal'].to_numpy(np.int8, copy=False).ravel())
 
-    train_weight = np.ascontiguousarray(
-        df.loc[train,  weight].to_numpy(np.float32, copy=False).ravel())
-    valid_weight = np.ascontiguousarray(
-        df.loc[~train, weight].to_numpy(np.float32, copy=False).ravel())
+    train_weight = np.ascontiguousarray(df.loc[train,  weight].to_numpy(np.float32, copy=False).ravel())
+    valid_weight = np.ascontiguousarray(df.loc[~train, weight].to_numpy(np.float32, copy=False).ravel())
     return X_train, y_train, X_valid, y_valid, train_weight, valid_weight
-
-# ____________________________________
 
 
 def train_model(
@@ -585,8 +474,6 @@ def train_model(
             sample_weight_eval_set=sample_weight_eval_set)
     return bdt
 
-# ____________________________
-
 
 def evaluate_bdt(
     df: 'pd.DataFrame',
@@ -606,14 +493,10 @@ def evaluate_bdt(
     import numpy as np
 
     # Extract features as float32 numpy array
-    X = df.loc[:, vars].to_numpy(
-        dtype=np.float32, copy=False
-    )
+    X = df.loc[:, vars].to_numpy(dtype=np.float32, copy=False)
     # Add probability of signal class as BDT score
     df['BDTscore'] = bdt.predict_proba(X)[:, 1]
     return df
-
-# ___________________________________________
 
 
 def get_metrics(
@@ -640,8 +523,6 @@ def get_metrics(
         (bdt.best_iteration is not None) else epochs
     return results, epochs, x_axis, best_iteration
 
-# _________________________________________________
-
 
 def load_model(inDir: str) -> 'xgb.XGBClassifier':
     '''Load previously trained XGBoost model.
@@ -656,8 +537,6 @@ def load_model(inDir: str) -> 'xgb.XGBClassifier':
     fpath = f'{inDir}/xgb_bdt.joblib'
     LOGGER.info(f'Loading BDT model from {fpath}')
     return joblib.load(fpath)
-
-# ____________________________
 
 
 def save_model(
@@ -696,8 +575,6 @@ def save_model(
     LOGGER.info(f'Saving BDT in a .joblib file at {fjob}')
     # Save model in joblib format for Python
     joblib.dump(bdt, fjob, compress=2)
-
-# ______________________________________
 
 
 def def_bdt(
@@ -745,8 +622,6 @@ def def_bdt(
     with open(f'{loc_bdt}/BDT_cut{weight_suffix}.txt', 'r') as fIn:
         bdt_cut = float(fIn.read())
     return defineList, bdt_cut
-
-# ___________________________
 
 
 def make_high_low(

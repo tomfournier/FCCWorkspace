@@ -131,7 +131,8 @@ def data_to_pkl(
     mkdir(path)
     save  = {'data': df, 'variables': input_vars}
     fpath = os.path.join(path, filename+'.pkl')
-    pickle.dump(save, open(fpath, 'wb'))
+    with open(fpath, 'wb') as f:
+        pickle.dump(save, f, protocol=pickle.HIGHEST_PROTOCOL)
     LOGGER.info(f'Preprocessed saved {fpath}')
 
 

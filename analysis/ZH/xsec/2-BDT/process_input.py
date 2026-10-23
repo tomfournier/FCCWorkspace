@@ -17,11 +17,10 @@ t = time.time()
 ### ARGUMENT PARSING ###
 ########################
 
-from parsing import set_log, parse_args
+from parsing import set_log
 from zh_xsec.parsing import create_parser
 from logger import get_logger
-parser = create_parser('2-BDT', 'process_input')
-arg = parse_args(parser, True)
+arg = create_parser('2-BDT', 'process_input').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)

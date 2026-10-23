@@ -593,7 +593,7 @@ def mva_plots_parser(description: str | None = None) -> ArgumentParser:
 def bdt_process_input_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'BDT Input Processing Script',
-        include_cat=True, include_ecm=True,
+        include_cat=True, cat_default='mumu', include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='Baseline')
     add_bdt_inputs(parser)
     return parser
@@ -602,7 +602,7 @@ def bdt_process_input_parser(description: str | None = None) -> ArgumentParser:
 def bdt_training_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'BDT Training Script',
-        include_cat=True, include_ecm=True,
+        include_cat=True, cat_default='mumu', include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='Baseline')
     add_bdt_training(parser)
     return parser
@@ -611,7 +611,7 @@ def bdt_training_parser(description: str | None = None) -> ArgumentParser:
 def bdt_evaluation_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
         description or 'BDT Evaluation Script',
-        include_cat=True, include_ecm=True,
+        include_cat=True, cat_default='mumu', include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='Baseline')
     add_bdt_eval(parser)
     add_plot_args(parser, False, False)

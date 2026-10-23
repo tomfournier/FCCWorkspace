@@ -40,7 +40,8 @@ from path import PathObj
 loc.set_default_type(PathObj)
 
 # Import configuration utilities and labels paremeters
-from constants import (modes_label, modes_color,
+from constants import (modes_color as colors,
+                       modes_label as labels,
                        vars_label_ll, vars_label_qq)
 from tools.utils import timer
 from samples import get_bdt_modes
@@ -62,7 +63,7 @@ from zh_xsec.func.bdt import (
 
 # Analysis parameters from command-line arguments
 cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
-vars_label     = vars_label_ll  if cat in ['ee', 'mumu'] else vars_label_qq
+vars_label = vars_label_qq if cat=='qq' else vars_label_qq
 
 # Process modes for BDT training (signal and all major background processes)
 modes = get_bdt_modes(cat, ecm)
@@ -118,9 +119,7 @@ def plot_metrics(
     if arg.metric:
         # Lazily import plotting functions for model performance
         from zh_xsec.plots.eval import (
-            log_loss,       # Training/validation loss curves
-            error,          # Error rate vs boosting rounds
-            AUC,            # ROC AUC vs boosting rounds
+            plot_metrics,   # Metrics used during training
             roc_curve,      # ROC curve (sensitivity vs false positive rate)
             bdt_score,      # BDT score distribution
             mva_score,      # BDT score per process
@@ -133,30 +132,29 @@ def plot_metrics(
 
         # Generate training performance plots
         # These show how well the BDT is learning over iterations
-        log_loss(results, x_axis, label, outputdir, best_iteration, format=file_formats)
-        error(results, x_axis, label, outputdir, best_iteration, format=file_formats)
-        AUC(results, x_axis, label, outputdir, best_iteration, format=file_formats)
+        metrics = ['Log Loss', 'Error', 'AUC']
+        plot_metrics(outputdir, results, x_axis, metrics, label, best_iteration)
 
         # Generate model response plots
         # These show the BDT discrimination power
-        roc_curve(df, label, outputdir, format=file_formats)
-        bdt_score(df, label, outputdir, format=file_formats, unity=True, nbins=200, yscale='linear', suffix='_lin')
-        bdt_score(df, label, outputdir, format=file_formats, unity=True, nbins=200, yscale='log',    suffix='_log')
-        mva_score(df, label, outputdir, modes, modes_label, modes_color, format=file_formats, unity=False, nbins=200)
+        roc_curve(df,  label, outputdir, file_formats)
+        bdt_score(df,  label, outputdir, file_formats, True, 200, 'linear', '_lin')
+        bdt_score(df,  label, outputdir, file_formats, True, 200, 'log',    '_log')
+        mva_score(df,  label, outputdir, modes, colors, labels, file_formats, False, 200)
+        efficiency(df, label, outputdir, modes, colors, labels, 1e-3, file_formats)
 
         # Generate feature and performance analysis plots
         # These show which variables are most important and signal purity
-        importance(bdt, input_vars, vars_label, label, outputdir, format=file_formats)
-        significance(df, label, outputdir, loc_BDT, format=file_formats, weight='weights',       suffix='_weights')
-        significance(df, label, outputdir, loc_BDT, format=file_formats, weight='train_weights', suffix='_train_weights')
-        significance(df, label, outputdir, loc_BDT, format=file_formats, weight='norm_weight',   suffix='_norm_weight')
-        efficiency(df, modes, modes_label, modes_color, label, outputdir, incr=1e-3, format=file_formats)
+        importance(bdt,  label, outputdir, input_vars, vars_label, file_formats)
+        significance(df, label, outputdir, loc_BDT, file_formats, weight='weights',       suffix='_weights')
+        significance(df, label, outputdir, loc_BDT, file_formats, weight='train_weights', suffix='_train_weights')
+        significance(df, label, outputdir, loc_BDT, file_formats, weight='norm_weight',   suffix='_norm_weight')
 
     if arg.tree:
         # Generate visualizations of individual decision trees in the BDT
         from zh_xsec.plots.eval import tree_plot
         LOGGER.info('Plotting the different decision trees in the BDT')
-        tree_plot(bdt, loc_BDT, outputdir, epochs, 20, format=file_formats)
+        tree_plot(bdt, loc_BDT, outputdir, epochs, 20, file_formats)
 
     # Check input variable distributions for anomalies
     if arg.check:
@@ -166,8 +164,8 @@ def plot_metrics(
             LOGGER.info(f'Plotting histogram for {var}')
             # Create plots with both linear and logarithmic y-axes
             for yscale, suffix in [('linear', '_lin'), ('log', '_log')]:
-                hist_check(df, label, outputdir, modes, modes_label, modes_color, var, vars_label[var],
-                           yscale=yscale, suffix=suffix, format=file_formats)
+                hist_check(df, label, outputdir, modes, colors, labels, var, vars_label[var],
+                           file_formats, yscale=yscale, suffix=suffix)
 
     # Optionally generate distributions in high/low BDT score regions
     if arg.hl:
@@ -180,10 +178,10 @@ def plot_metrics(
         for var in input_vars:
             LOGGER.info(f'Plotting histogram for {var}')
             for yscale, suffix in [('linear', '_lin'), ('log', '_log')]:
-                hist_check(df_high, label, outputdir, modes, modes_label, modes_color, var, vars_label[var],
-                           yscale=yscale, suff='high', suffix=suffix, format=file_formats)
-                hist_check(df_low, label, outputdir, modes, modes_label, modes_color, var, vars_label[var],
-                           yscale=yscale, suff='low', suffix=suffix, format=file_formats)
+                hist_check(df_high, label, outputdir, modes, colors, labels, var, vars_label[var],
+                           file_formats, yscale=yscale, suff='high', suffix=suffix)
+                hist_check(df_low, label, outputdir, modes, colors, labels, var, vars_label[var],
+                           file_formats, yscale=yscale, suff='low', suffix=suffix)
 
 
 ######################

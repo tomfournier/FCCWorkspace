@@ -5,7 +5,7 @@ training convergence analysis, model performance metrics, feature importance,
 and input variable validation.
 
 Functions:
-- **Training Diagnostics**: `log_loss()`, `classification_error()`, `AUC()` — Plot metrics across boosting iterations.
+- **Training Diagnostics**: `plot_metrics())` — Plot metrics across boosting iterations.
 - **ROC Analysis**: `roc()`, `plot_roc_curve()` — ROC curves and AUC computation for train/validation splits.
 - **BDT Scores**: `bdt_score()`, `mva_score()` — Score distributions with signal/background and train/validation breakdown.
 - **Feature Analysis**: `importance()` — Feature importance using XGBoost F-score (split count).
@@ -13,7 +13,7 @@ Functions:
 - **Efficiency**: `efficiency()` — Signal/background efficiency vs. BDT cut threshold.
 - **Diagnostics**: `hist_check()` — Validate input variables with histograms and train/validation splits.
 - **Tree Inspection**: `tree_plot()` — Visualize subset of boosted decision trees using Graphviz.
-- **Helpers**: `_make_fig()`, `_get_splits()`, `_get_wts()`, `_plot_metric()` — Internal utilities.
+- **Helpers**: `_get_splits()`, `draw_modes()` — Internal utilities.
 
 Conventions:
 - Uses matplotlib for all plot generation with consistent styling via `set_plt_style()`.
@@ -42,8 +42,6 @@ Lazy Imports:
 ####################################
 
 from __future__ import annotations
-
-import os
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
@@ -54,15 +52,8 @@ if TYPE_CHECKING:
     import pandas as pd
     import xgboost as xgb
 
-from .python.plotter import (
-    set_plt_style,
-    set_labels,
-    savefigs
-)
-from tools.utils import (
-    mkdir, Z,
-    Significance
-)
+from plot.pyplot import MatplotlibPlot
+from tools.utils import mkdir, Z, Significance
 from logger import get_logger
 
 LOGGER = get_logger(__name__)
@@ -72,8 +63,6 @@ LOGGER = get_logger(__name__)
 ### CONFIG AND SETUP ###
 ########################
 
-# Set the font, size, etc. of the label, tick, legend, etc.
-set_plt_style()
 plt.ioff()  # Disable interactive mode for faster plotting
 
 # Cache for splits to avoid recomputation if same DataFrame used
@@ -86,26 +75,6 @@ _cache_id = None
 ### HELPER FUNCTIONS ###
 ########################
 
-# ____________________________
-def _make_fig(
-    figsize: tuple = (12, 8),
-    dpi: int = 100
-     ) -> tuple[plt.Figure,
-                plt.Axes]:
-    '''Create and pre-configure a matplotlib figure for consistent styling.
-
-    Ensures all plots use consistent figure setup (size, DPI) across the module.
-
-    Args:
-        figsize (tuple, optional): Figure size (width, height) in inches. Defaults to (12, 8).
-        dpi (int, optional): Figure resolution in dots per inch. Defaults to 100.
-
-    Returns:
-        tuple: (fig, ax) ready to use
-    '''
-    return plt.subplots(figsize=figsize, dpi=dpi)
-
-# _____________________________
 def _get_splits(
     df: 'pd.DataFrame'
      ) -> dict[str,
@@ -132,7 +101,7 @@ def _get_splits(
 
     # Compute boolean masks explicitly to avoid integer bitwise quirks
     is_valid = df['valid'].to_numpy(dtype=bool, copy=False)
-    is_sig = (df['isSignal'] == 1).to_numpy(copy=False)
+    is_sig  = (df['isSignal'] == 1).to_numpy(copy=False)
 
     train_sig = ~is_valid & is_sig
     train_bkg = ~is_valid & ~is_sig
@@ -150,45 +119,73 @@ def _get_splits(
     _cache_id = df_id
     _splits_cache[df_id] = result
 
-    # Keep cache small (max 3 DataFrames)
-    if len(_splits_cache) > 3:
+    # Keep cache small (max 5 DataFrames)
+    if len(_splits_cache) > 5:
         _splits_cache.clear()
 
     return result
 
-# ____________________________
-def _get_wts(
+
+def draw_modes(
+    p: MatplotlibPlot,
     df: 'pd.DataFrame',
-    use_wts: bool,
-    weights: str = 'weights'
-     ) -> 'np.ndarray' | None:
-    '''Extract weights efficiently, return None if unused.
+    modes: list[str],
+    colors: dict[str, str],
+    labels: dict[str, str],
+    column: str,
+    nbins: int,
+    range: list[float | int],
+    htype: str,
+    unity: bool,
+    weight: bool
+     ) -> None:
+    '''Draw signal (overlaid) and stacked background histograms for train (solid) and validation (dashed).'''
+    splits = _get_splits(df)
+    sig_modes = [m for m in modes if 'H' in m]
+    bkg_modes = [m for m in modes if 'H' not in m]
+    common = {'density': unity, 'bins': nbins, 'range': range,
+              'histtype': htype, 'linewidth': 1.5}
 
-    Args:
-        df: Input DataFrame
-        use_wts: Whether to use weights
+    for split, linestyle, show_lbl in [('train', '-', True), ('val', '--', False)]:
+        sig_data, bkg_data = splits[f'{split}_sig'], splits[f'{split}_bkg']
+        specs = []
 
-    Returns:
-        Weights array or None
-    '''
-    return df[weights].values if use_wts else None
+        for mode in sig_modes:
+            d = sig_data[sig_data['sample'] == mode]
+            if len(d) > 0:
+                specs.append(([d[column].values, 'hist'],
+                              {**common, 'color': colors[mode], 'linestyle': linestyle,
+                               'label': labels[mode] if show_lbl else None,
+                               'weights': d['weights'].values if weight else None}))
 
-# ____________________________________
-def _plot_metric(
-    results: dict[str,
-                  dict[str,
-                       list[float]]],
+        bkgs = [(m, bkg_data[bkg_data['sample'] == m]) for m in bkg_modes]
+        bkgs = [(m, d) for m, d in bkgs if len(d) > 0]
+        if bkgs:
+            specs.append(([[d[column].values for _, d in bkgs], 'hist'],{
+                **common, 'stacked': True, 'linestyle': linestyle, 'color': [colors[m] for m, _ in bkgs],
+                'label': [labels[m] for m, _ in bkgs] if show_lbl else None,
+                'weights': [d['weights'].values for _, d in bkgs] if weight else None
+            }))
+        p.draw(specs)
+
+
+
+######################
+### MAIN FUNCTIONS ###
+######################
+
+def plot_metrics(
+    outputdir: str,
+    results: dict[str, dict[str, list[float]]],
     x_axis: 'np.ndarray',
-    metric_name: str,
-    ylabel: str,
+    metrics: list[str],
     label: str,
-    outDir: str,
     best_iteration: int,
     locx: str = 'right',
     locy: str = 'top',
     suffix: str = '',
     dpi: int = 100,
-    format: list[str] = ['png']
+    file_formats: list[str] = ['png']
      ) -> None:
     '''Plot training and validation metric evolution over boosting iterations.
 
@@ -201,140 +198,41 @@ def _plot_metric(
         metric_name (str): Metric key to plot (e.g., 'logloss', 'error', 'auc').
         ylabel (str): Y-axis label text.
         label (str): Text placed on figure (e.g., channel name).
-        outDir (str): Directory where plots are written.
+        outputdir (str): Directory where plots are written.
         best_iteration (int): Iteration to mark with vertical line.
         locx (str, optional): Legend horizontal position ('left'/'right'). Defaults to 'right'.
         locy (str, optional): Legend vertical position ('top'/'bottom'). Defaults to 'top'.
         suffix (str, optional): Filename suffix. Defaults to ''.
         dpi (int, optional): Figure DPI. Defaults to 100.
-        format (list[str], optional): Output formats ['png', 'pdf']. Defaults to ['png'].
+        file_formats (list[str], optional): Output formats ['png', 'pdf']. Defaults to ['png'].
     '''
-    LOGGER.debug(f'Plotting {metric_name}')
-    fig, ax = _make_fig(dpi=dpi)
-    try:
-        ax.plot(x_axis, results['validation_0'][metric_name],
-                label='Training', linewidth=2)
-        ax.plot(x_axis, results['validation_1'][metric_name],
-                label='Validation', linewidth=2)
-        ax.axvline(best_iteration, color='gray',
-                   label='Optimal tree number')
-        ax.legend()
-
-        set_labels(ax, 'Number of Trees', ylabel,
-                   right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, metric_name.replace(' ', '_').lower(),
-                 suffix=suffix, format=format)
-    finally:
-        plt.close(fig)
-
+    for metric in metrics:
+        LOGGER.debug(f'Plotting {metrics}')
+        metric_name = metric.replace(' ', '').lower()
+        p = MatplotlibPlot(outputdir, plotname=metric.replace(' ', '_').lower(),
+                           suffix=suffix, file_formats=file_formats, dpi=dpi)
+        plots = [([x_axis, results['validation_0'][metric_name], 'plot'], {'label': 'Training',   'linewidth': 2}),
+                 ([x_axis, results['validation_1'][metric_name], 'plot'], {'label': 'Validation', 'linewidth': 2}),
+                 ([best_iteration, 'axvline'], {'color': 'gray', 'label': 'Optimal tree number'})]
+        
+        try:
+            p.draw(plots)
+            p.configure(legend=True)
+            p.set_labels('Number of Trees', metric, right=label, locx=locx, locy=locy)
+            p.save()
+        finally:
+            p.close()
 
 
-######################
-### MAIN FUNCTIONS ###
-######################
-
-# ____________________________________
-def log_loss(
-    results: dict[str,
-                  dict[str,
-                       list[float]]],
-    x_axis: 'np.ndarray',
-    label: str,
-    outDir: str,
-    best_iteration: int,
-    format: list[str] = ['png'],
-    locx: str = 'right',
-    locy: str = 'top',
-    suffix: str = '',
-    dpi: int = 100
-     ) -> None:
-    '''Plot log-loss evolution during training and validation.
-
-    Args:
-        results (dict[str, dict[str, list[float]]]): XGBoost evals_result dictionary keyed by dataset and metric.
-        x_axis (np.ndarray): Boosting iteration numbers.
-        label (str): Text label placed on the figure.
-        outDir (str): Output directory for plots.
-        best_iteration (int): Iteration to mark with optimal performance.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
-        locx (str, optional): Horizontal placement for label. Defaults to 'right'.
-        locy (str, optional): Vertical placement for label. Defaults to 'top'.
-        suffix (str, optional): Optional suffix for filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
-    '''
-    _plot_metric(results, x_axis, 'logloss', 'Log Loss', label, outDir,
-                 best_iteration, locx, locy, suffix, dpi, format)
-
-# _______________________________
-def error(
-    results: dict,
-    x_axis: 'np.ndarray',
-    label: str,
-    outDir: str,
-    best_iteration: int,
-    locx: str = 'right',
-    locy: str = 'top',
-    suffix: str = '',
-    dpi: int = 100,
-    format: list[str] = ['png']
-     ) -> None:
-    '''Plot classification error progression during training and validation.
-
-    Args:
-        results (dict): XGBoost evals_result dictionary keyed by dataset and metric.
-        x_axis (np.ndarray): Boosting iteration numbers.
-        label (str): Text label placed on the figure.
-        outDir (str): Output directory for plots.
-        best_iteration (int): Iteration to mark with optimal performance.
-        locx (str, optional): Horizontal placement for label. Defaults to 'right'.
-        locy (str, optional): Vertical placement for label. Defaults to 'top'.
-        suffix (str, optional): Optional suffix for filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
-    '''
-    _plot_metric(results, x_axis, 'error', 'Classification Error', label, outDir,
-                 best_iteration, locx, locy, suffix, dpi, format)
-
-# _____________________________
-def AUC(
-    results: dict,
-    x_axis: np.ndarray,
-    label: str,
-    outDir: str,
-    best_iteration: int,
-    locx: str = 'right',
-    locy: str = 'top',
-    suffix: str = '',
-    dpi: int = 100,
-    format: list[str] = ['png']
-     ) -> None:
-    '''Plot AUC progression during training and validation.
-
-    Args:
-        results (dict): XGBoost evals_result dictionary keyed by dataset and metric.
-        x_axis (np.ndarray): Boosting iteration numbers.
-        label (str): Text label placed on the figure.
-        outDir (str): Output directory for plots.
-        best_iteration (int): Iteration to mark with optimal performance.
-        locx (str, optional): Horizontal placement for label. Defaults to 'right'.
-        locy (str, optional): Vertical placement for label. Defaults to 'top'.
-        suffix (str, optional): Optional suffix for filenames. Defaults to ''.
-        dpi (int, optional): Figure DPI. Defaults to 100.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
-    '''
-    _plot_metric(results, x_axis, 'auc', 'AUC', label, outDir,
-                 best_iteration, locx, locy, suffix, dpi, format)
-
-# _____________________________________
 def plot_roc_curve(
     df: 'pd.DataFrame',
     column: str,
-    thresh: float = 0.7,
-    ax: plt.Axes | None = None,
+    thresh: float = 0.,
+    axe: plt.Axes | None = None,
     color: str | None = None,
     linestyle: str = '-',
     label: str | None = None
-     ) -> None:
+) -> None:
     '''Draw a ROC segment above a true-positive threshold.
 
     Args:
@@ -350,74 +248,82 @@ def plot_roc_curve(
     import sklearn.metrics as metrics
     from sklearn.metrics import auc
 
-    if ax is None: ax = plt.gca()
+    if axe   is None: axe = plt.gca()
     if label is None: label = column
+
+    # Get sig/bkg label and MVA score
     is_sig = df['isSignal'].to_numpy(np.int8, copy=False)
     scores = df[column].to_numpy(np.float32, copy=False)
+
+    # Compute the True/False Positive Rate and the Area under Curve
     fpr, tpr = metrics.roc_curve(is_sig, scores)[0:2]
     roc_auc = auc(fpr, tpr)
+
+    # Keep only values above threshold
     mask = tpr >= thresh
     fpr, tpr = fpr[mask], tpr[mask]
-    ax.plot(fpr, tpr, label=label+f', AUC = {roc_auc*100:.2f} %',
-            color=color, linestyle=linestyle, linewidth=4)
 
-# ______________________________
+    axe.plot(fpr, tpr, label=label+f', AUC = {roc_auc*100:.2f} %',
+             color=color, linestyle=linestyle, linewidth=4)
+
+
 def roc_curve(
     df: 'pd.DataFrame',
     label: str,
-    outDir: str,
+    outputdir: str,
+    file_formats: list[str] = ['png'],
     eps: float = 0,
     locx: str = 'right',
     locy: str = 'top',
     suffix: str = '',
     dpi: int = 100,
-    format: list[str] = ['png']
+    figsize: float | int = 12
      ) -> None:
     '''Plot ROC curves for training and validation samples.
 
     Args:
         df (pd.DataFrame): Dataframe with `BDTscore`, `valid`, and `isSignal` columns.
         label (str): Text label placed on the figure.
-        outDir (str): Output directory for plots.
+        outputdir (str): Output directory for plots.
         eps (float, optional): Minimum TPR threshold to display; hides low-signal region. Defaults to 0.
         locx (str, optional): Horizontal placement for label. Defaults to 'right'.
         locy (str, optional): Vertical placement for label. Defaults to 'top'.
         suffix (str, optional): Optional suffix for filenames. Defaults to ''.
         dpi (int, optional): Figure DPI. Defaults to 100.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
+        file_formats (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
     LOGGER.debug('Plotting ROC curve')
-    fig, ax = _make_fig(figsize=(12, 12), dpi=dpi)
+    p = MatplotlibPlot(outputdir, plotname='roc', suffix=suffix,
+                       file_formats=file_formats, figsize=(figsize, figsize), dpi=dpi)
+    plots = [([[eps, 1],      [eps, 1],    'plot'], {'color': 'r', 'lw': 2, 'linestyle': '--', 'label': 'Random Classifier'}),
+             ([[eps, eps, 1], [eps, 1, 1], 'plot'], {'color': 'g', 'lw': 2, 'linestyle': '--', 'label': 'Perfect Classifier'})]
+
     try:
-        plot_roc_curve(df[df['valid'] == True],  'BDTscore', ax=ax,
-                       label='Validation Sample', thresh=eps)
-        plot_roc_curve(df[df['valid'] == False], 'BDTscore', ax=ax,
-                       label='Training Sample', thresh=eps,
+        plot_roc_curve(df[df['valid'] == True],  'BDTscore', axe=p.axes, label='Validation Sample', thresh=eps)
+        plot_roc_curve(df[df['valid'] == False], 'BDTscore', axe=p.axes, label='Training Sample',   thresh=eps,
                        linestyle=(0, (1, 1)))
-        ax.plot([eps, 1], [eps, 1], color='r', lw=2, linestyle='--', label='Random Classifier')
-        ax.plot([eps, eps, 1], [eps, 1, 1], color='g', lw=2, linestyle='--', label='Perfect Classifier')
-        ax.legend()
-
-        set_labels(ax, 'False Positive Rate', 'True Positive Rate', right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, 'roc', suffix=suffix, format=format)
+        p.draw(plots)
+        p.configure(legend=True)
+        p.set_labels('False Positive Rate', 'True Positive Rate', right=label, locx=locx, locy=locy)
+        p.save()
     finally:
-        plt.close(fig)
+        p.close()
 
-# _____________________________________
+
 def bdt_score(
     df: 'pd.DataFrame',
     label: str,
-    outDir: str,
-    htype: str = 'step',
+    outputdir: str,
+    file_formats: list[str] = ['png'],
+    unity: bool = True,
+    nbins: int = 100,
+    yscale: str = 'log',
     suffix: str = '',
+    htype: str = 'step',
     locx: str = 'right',
     locy: str = 'top',
-    yscale: str = 'log',
-    format: list[str] = ['png'],
-    nbins: int = 100,
     range: list[float | int] = [0, 1],
     weight: bool = True,
-    unity: bool = True,
     dpi: int = 100,
      ) -> None:
     '''Plot BDT score distributions for train/validation signal and background.
@@ -425,17 +331,17 @@ def bdt_score(
     Args:
         df (pd.DataFrame): Dataframe with `BDTscore`, `valid`, `isSignal`, and `weights`.
         label (str): Text placed on the figure (e.g., channel or tag).
-        outDir (str): Directory where plots are written.
-        htype (str, optional): Matplotlib histogram type. Defaults to 'step'.
+        outputdir (str): Directory where plots are written.
+        file_formats (list[str], optional): List of output formats to render. Defaults to ['png'].
+        unity (bool, optional): Normalize each histogram to unit area. Defaults to True.
+        nbins (int, optional): Number of histogram bins. Defaults to 100.
+        yscale (str, optional): Y-axis scale (`linear` or `log`). Defaults to 'log'.
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
+        htype (str, optional): Matplotlib histogram type. Defaults to 'step'.
         locx (str, optional): Horizontal placement for the right-side label. Defaults to 'right'.
         locy (str, optional): Vertical placement for the right-side label. Defaults to 'top'.
-        yscale (str, optional): Y-axis scale (`linear` or `log`). Defaults to 'log'.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
-        nbins (int, optional): Number of histogram bins. Defaults to 100.
         range (list[float | int], optional): Score range used for binning. Defaults to [0, 1].
         weight (bool, optional): Whether to apply per-event weights. Defaults to True.
-        unity (bool, optional): Normalize each histogram to unit area. Defaults to True.
         dpi (int, optional): Figure DPI. Defaults to 100.
     '''
     LOGGER.debug('Plotting BDT score')
@@ -445,59 +351,49 @@ def bdt_score(
     df_len = len(df)
 
     # Define styling: linestyle, color, valid flag, sig flag
-    params = [
-        ('Signal Training',       '-',  'r', splits['train_sig']),
-        ('Background Training',   '-',  'b', splits['train_bkg']),
-        ('Signal Validation',     '--', 'r', splits['val_sig']),
-        ('Background Validation', '--', 'b', splits['val_bkg']),
-    ]
+    params = [('Signal Training',   '-',  'r', splits['train_sig']), ('Background Training',   '-',  'b', splits['train_bkg']),
+              ('Signal Validation', '--', 'r', splits['val_sig']),   ('Background Validation', '--', 'b', splits['val_bkg'])]
 
-    fig, ax = _make_fig(dpi=dpi)
+    p = MatplotlibPlot(outputdir, plotname='bdt_score', suffix=suffix, file_formats=file_formats, dpi=dpi)
     try:
+        specs = []
         for name, ls, c, d in params:
             ratio = (len(d) / df_len) * 100.0
             LOGGER.debug(f'{name:<25} {len(d):6d} Ratio: {ratio:5.2f}%')
+            specs.append(([d['BDTscore'].values, 'hist'], {
+                'density': unity, 'bins': nbins, 'range': range, 'histtype': htype, 'label': name, 'linestyle': ls,
+                'color': c, 'linewidth': 1.5, 'weights': d['weights'].values if weight else None
+            }))
+        p.draw(specs)
 
-            wts = _get_wts(d, weight)
-            ax.hist(d['BDTscore'].values,
-                    density=unity, bins=nbins,
-                    range=range, histtype=htype,
-                    label=name, linestyle=ls,
-                    color=c, linewidth=1.5, weights=wts)
-
-        ax.legend(loc='upper right', shadow=False)
-        ax.set_yscale(yscale)
-        yMin, yMax = ax.get_ylim()
-        yMax = yMax * (10 if yscale=='log' else 1.25)
-        ax.set_xlim(*range)
-        ax.set_ylim(yMin, yMax)
+        p.configure(xlim=range, yscale=yscale, legend=True, legend_kwargs={'loc': 'upper right', 'shadow': False})
+        yMin, yMax = p.axes.get_ylim()
+        p.configure(ylim=(yMin, yMax * (10 if yscale=='log' else 1.25)))
 
         ylabel = 'Normalized to Unity' if unity else 'Events'
-        set_labels(ax, 'BDT Score', ylabel,
-                   right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, 'bdt_score',
-                 suffix=suffix, format=format)
+        p.set_labels('BDT Score', ylabel, right=label, locx=locx, locy=locy)
+        p.save()
     finally:
-        plt.close(fig)
+        p.close()
 
-# ______________________________________
+
 def mva_score(
     df: 'pd.DataFrame',
     label: str,
-    outDir: str,
+    outputdir: str,
     modes: list[str],
-    modes_label: dict[str, str],
-    modes_color: dict[str, str],
+    colors: dict[str, str],
+    labels: dict[str, str],
+    file_formats: list[str] = ['png'],
+    unity: bool = True,
+    nbins: int = 100,
     locx: str = 'right',
     locy: str = 'top',
     suffix:str = '',
-    format: list[str] = ['png'],
     htype: str = 'step',
     yscale: str = 'log',
-    nbins: int = 100,
     range: list[float | int] = [0, 1],
     ncols: int = 3,
-    unity: bool = True,
     dpi: int = 100,
     weight: bool = True
      ) -> None:
@@ -506,107 +402,53 @@ def mva_score(
     Args:
         df (pd.DataFrame): Dataframe with sample labels and BDT scores.
         label (str): Text placed on the figure (e.g., channel or tag).
-        outDir (str): Directory where plots are written.
+        outputdir (str): Directory where plots are written.
         modes (list[str]): Ordered list of sample names.
-        modes_label (dict[str, str]): Mapping from mode to legend label.
-        modes_color (dict[str, str]): Mapping from mode to color.
+        colors (dict[str, str]): Mapping from mode to color.
+        labels (dict[str, str]): Mapping from mode to legend label.
+        file_formats (list[str], optional): List of output formatss to render. Defaults to ['png'].
+        unity (bool, optional): Normalize each histogram to unit area. Defaults to True.
+        nbins (int, optional): Number of histogram bins. Defaults to 100.
         locx (str, optional): Horizontal placement for the right-side label. Defaults to 'right'.
         locy (str, optional): Vertical placement for the right-side label. Defaults to 'top'.
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
         htype (str, optional): Matplotlib histogram type. Defaults to 'step'.
         yscale (str, optional): Y-axis scale (`linear` or `log`). Defaults to 'log'.
-        nbins (int, optional): Number of histogram bins. Defaults to 100.
         range (list[float | int], optional): Score range used for binning. Defaults to [0, 1].
         ncols (int, optional): Number of legend columns. Defaults to 3.
-        unity (bool, optional): Normalize each histogram to unit area. Defaults to True.
         dpi (int, optional): Figure DPI. Defaults to 100.
         weight (bool, optional): Whether to apply per-event weights. Defaults to True.
     '''
     LOGGER.debug('Plotting MVA score')
 
-    # Get splits with single pass
-    splits = _get_splits(df)
-    sig_modes = [m for m in modes if 'H' in m]
-    bkg_modes = [m for m in modes if 'H' not in m]
-
-    fig, ax = _make_fig(dpi=dpi)
+    p = MatplotlibPlot(outputdir, plotname='mva_score', suffix=suffix,
+                       file_formats=file_formats, dpi=dpi)
     try:
-        for linestyle, show_lbl in [('-', True), ('--', False)]:
-            sig_data = splits['train_sig'] if linestyle == '-' else splits['val_sig']
-            bkg_data = splits['train_bkg'] if linestyle == '-' else splits['val_bkg']
+        draw_modes(p, df, modes, colors, labels, 'BDTscore', nbins, range, htype, unity, weight)
 
-            # Plot signal modes
-            for mode in sig_modes:
-                d = sig_data[sig_data['sample'] == mode]
-                wts = _get_wts(d, weight)
-                ax.hist(
-                    d['BDTscore'].values,
-                    density=unity,
-                    bins=nbins,
-                    range=range,
-                    histtype=htype,
-                    color=modes_color[mode],
-                    label=modes_label[mode] if show_lbl else None,
-                    linestyle=linestyle,
-                    linewidth=1.5,
-                    weights=wts)
-
-            # Stack background samples
-            bkg_arrays, bkg_wts, bkg_lbls, bkg_cols = [], [], [], []
-            for mode in bkg_modes:
-                d = bkg_data[bkg_data['sample'] == mode]
-                if len(d) > 0:
-                    bkg_arrays.append(d['BDTscore'].values)
-                    bkg_cols.append(modes_color[mode])
-                    if show_lbl:
-                        bkg_lbls.append(modes_label[mode])
-                    if weight:
-                        bkg_wts.append(d['weights'].values)
-
-            if bkg_arrays:
-                wts_stacked = bkg_wts if weight else None
-                lbls_stacked = bkg_lbls if show_lbl else None
-                ax.hist(
-                    bkg_arrays,
-                    density=unity,
-                    bins=nbins,
-                    range=range,
-                    histtype=htype,
-                    label=lbls_stacked,
-                    color=bkg_cols,
-                    stacked=True,
-                    linestyle=linestyle,
-                    linewidth=1.5,
-                    weights=wts_stacked)
-
-        ax.set_xlim(*range)
-        ax.set_yscale(yscale)
-        yMin, yMax = ax.get_ylim()
-        yMax = yMax * (10 if yscale=='log' else 1.25)
-        ax.set_ylim(yMin, yMax)
-        ax.legend(loc='upper right', shadow=False, ncols=ncols)
+        p.configure(range, yscale=yscale)
+        yMin, yMax = p.axes.get_ylim()
+        p.configure(ylim=(yMin, yMax * (10 if yscale=='log' else 1.25)), legend=True,
+                    legend_kwargs={'loc': 'upper right', 'shadow': False, 'ncols': ncols})
 
         ylabel = 'Normalized to Unity' if unity else 'Events'
-        set_labels(ax, 'BDT Score', ylabel,
-                   right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, 'mva_score',
-                 suffix=suffix, format=format)
+        p.set_labels('BDT Score', ylabel, right=label, locx=locx, locy=locy)
+        p.save()
     finally:
-        plt.close(fig)
+        p.close()
 
-# _________________________________
+
 def importance(
     bdt: 'xgb.XGBClassifier',
-    vars: list[str],
-    latex_mapping: dict[str, str],
     label: str,
-    outDir: str,
+    outputdir: str,
+    input_vars: list[str],
+    vars_label: dict[str, str],
+    file_formats: list[str] = ['png'],
     locx: str = 'right',
     locy: str = 'top',
     suffix: str = '',
     dpi: int = 100,
-    format: list[str] = ['png']
      ) -> None:
     '''Plot feature importance using the XGBoost F-score (split count).
 
@@ -615,12 +457,12 @@ def importance(
         vars (list[str]): Feature names ordered as used in training.
         latex_mapping (dict[str, str]): Mapping from feature name to display label.
         label (str): Text placed on the figure (e.g., channel or tag).
-        outDir (str): Directory where plots are written.
+        outputdir (str): Directory where plots are written.
         locx (str, optional): Horizontal placement for the right-side label. Defaults to 'right'.
         locy (str, optional): Vertical placement for the right-side label. Defaults to 'top'.
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
         dpi (int, optional): Figure DPI. Defaults to 100.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
+        file_formats (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
     LOGGER.debug('Plotting feature importance')
 
@@ -631,53 +473,41 @@ def importance(
     sorted_importance = sorted(importance.items(), key=lambda x: x[1])
 
     # Map feature indices to LaTeX labels and extract values in single pass
-    sorted_vars_latex = [latex_mapping[vars[int(k[1:])]] for k, _ in sorted_importance]
+    sorted_vars   = [vars_label[input_vars[int(k[1:])]] for k, _ in sorted_importance]
     sorted_values = [v for _, v in sorted_importance]
 
     # Build DataFrame and create horizontal bar chart
-    importance_df = pd.DataFrame(
-        {'Variable': sorted_vars_latex,
-         'Importance': sorted_values}
-    )
+    importance_df = pd.DataFrame({'Variable': sorted_vars, 'Importance': sorted_values})
 
-    fig, ax = _make_fig(dpi=dpi)
+    p = MatplotlibPlot(outputdir, plotname='importance', suffix=suffix, file_formats=file_formats, dpi=dpi)
     try:
-        importance_df.plot(
-            kind='barh', x='Variable', y='Importance',
-            legend=None, ax=ax
-        )
-        set_labels(
-            ax, 'F-score', 'Variables',
-            right=label, locx=locx, locy=locy
-        )
-        ax.grid(False, axis='y')
-        savefigs(
-            fig, outDir, 'importance',
-            suffix=suffix, format=format
-        )
+        importance_df.plot(kind='barh', x='Variable', y='Importance', legend=None, ax=p.axes)
+        p.set_labels('F-score', 'Variables', right=label, locx=locx, locy=locy)
+        p.axes.grid(False, axis='y')
+        p.save()
     finally:
-        plt.close(fig)
+        p.close()
 
-# _______________________________
+
 def significance(
     df: 'pd.DataFrame',
     label: str,
-    outDir: str,
+    outputdir: str,
     out_txt: str,
+    file_formats: list[str] = ['png'],
     locx: str = 'right',
     locy: str = 'top',
     column: str = 'BDTscore',
     weight: str = 'norm_weight',
     suffix: str = '',
     dpi: int = 100,
-    format: list[str] = ['png']
      ) -> None:
     '''Scan the BDT score for maximal significance and save the cut value.
 
     Args:
         df (pd.DataFrame): Dataframe with scores, weights, and labels.
         label (str): Text placed on the figure (e.g., channel or tag).
-        outDir (str): Directory where plots are written.
+        outputdir (str): Directory where plots are written.
         out_txt (str): Directory where the optimal cut is stored.
         locx (str, optional): Horizontal placement for the right-side label. Defaults to 'right'.
         locy (str, optional): Vertical placement for the right-side label. Defaults to 'top'.
@@ -685,7 +515,7 @@ def significance(
         weight (str, optional): Weight column used in the significance calculation. Defaults to 'norm_weight'.
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
         dpi (int, optional): Figure DPI. Defaults to 100.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
+        file_formats (list[str], optional): List of output formats to render. Defaults to ['png'].
     '''
     LOGGER.debug('Plotting Significance scan')
 
@@ -694,55 +524,44 @@ def significance(
     df_bkg = df[(df['isSignal'] == 0) & (df['valid'] == True)]
 
     # Compute significance across BDT score thresholds
-    df_Z = Significance(df_sig, df_bkg,
-                        column=column,
-                        weight=weight,
-                        func=Z, nbins=100)
-    max_index = df_Z['Z'].idxmax()
-    max_Z = df_Z.loc[max_index, 'Z']
+    df_Z = Significance(df_sig, df_bkg, column, weight, Z, nbins=100)
+    max_idx = df_Z['Z'].idxmax()
+    max_Z = df_Z.loc[max_idx, 'Z']
 
-    LOGGER.debug(f'Max Z: {max_Z:,.3f}, cut threshold: {max_index:,.2f}')
+    LOGGER.debug(f'Max Z: {max_Z:,.3f}, cut threshold: {max_idx:,.2f}')
 
     # Save optimal BDT cut threshold to file
     with open(f'{out_txt}/BDT_cut{suffix}.txt', 'w') as out:
-        out.write(f'{max_index:.2f}')
+        out.write(f'{max_idx:.2f}')
     LOGGER.debug(f'Wrote BDT cut at {out_txt}/BDT_cut.txt')
 
-    fig, ax = _make_fig(dpi=dpi)
+    p = MatplotlibPlot(outputdir, plotname='significance_scan', suffix=suffix, file_formats=file_formats, dpi=dpi)
+    plots = [([df_Z.index, df_Z['Z'], 'scatter'], {'marker': '.'}),
+             ([[max_idx], [max_Z],  'scatter'], {'color': 'r', 'marker': '*', 's': 150}),
+             ([max_idx, 'axvline'], {'color': 'gray', 'alpha': 0.8, 'label': f'max-Z: {max_Z:.3f}\ncut threshold: [{max_idx:.2f}]'})]
     try:
-        ax.scatter(df_Z.index, df_Z['Z'], marker='.')
-        ax.scatter(max_index, max_Z, color='r', marker='*', s=150)
-        # Mark optimal cut on plot
-        ax.axvline(max_index, color='gray', alpha=0.8,
-                   label=f'max-Z: {max_Z:.3f}\ncut threshold: [{max_index:.2f}]')
-        ax.legend()
-
-        set_labels(
-            ax, 'BDT score', 'Significance',
-            right=label, locx=locx, locy=locy
-        )
-        savefigs(
-            fig, outDir, 'significance_scan',
-            suffix=suffix, format=format
-        )
+        p.draw(plots)
+        p.configure(legend=True)
+        p.set_labels('BDT score', 'Significance', right=label, locx=locx, locy=locy)
+        p.save()
     finally:
-        plt.close(fig)
+        p.close()
 
-# ____________________________________
+
 def efficiency(
     df: 'pd.DataFrame',
-    modes: list[str],
-    modes_label: dict[str, str],
-    modes_color: dict[str, str],
     label: str,
-    outDir: str,
+    outputdir: str,
+    modes: list[str],
+    colors: dict[str, str],
+    labels: dict[str, str],
+    incr: float = 0.01,
+    file_formats: list[str] = ['png'],
     locx: str = 'right',
     locy: str = 'top',
     suffix: str = '',
-    format: list[str] = ['png'],
     range: list[int | float] = [0, 1],
     dpi: int = 100,
-    incr: float = 0.01
      ) -> None:
     '''Compute and plot efficiency vs. BDT cut for each mode.
 
@@ -752,11 +571,11 @@ def efficiency(
         modes_label (dict[str, str]): Mapping from mode to legend label.
         modes_color (dict[str, str]): Mapping from mode to color.
         label (str): Text placed on the figure (e.g., channel or tag).
-        outDir (str): Directory where plots are written.
+        outputdir (str): Directory where plots are written.
         locx (str, optional): Horizontal placement for the right-side label. Defaults to 'right'.
         locy (str, optional): Vertical placement for the right-side label. Defaults to 'top'.
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
+        file_formats (list[str], optional): List of output formats to render. Defaults to ['png'].
         range (list[int | float], optional): Inclusive BDT score range to scan. Defaults to [0, 1].
         dpi (int, optional): Figure DPI. Defaults to 100.
         incr (float, optional): Step size for BDT cut thresholds. Defaults to 0.01.
@@ -766,46 +585,38 @@ def efficiency(
 
     # Create scan grid and filter valid data
     cuts = np.arange(range[0], range[1] + incr, incr)
-    d_valid = df[df['valid'].values].copy()
+    d_valid: pd.DataFrame = df[df['valid'].values].copy()
     samples = d_valid['sample'].values
-    scores = d_valid['BDTscore'].values
+    scores  = d_valid['BDTscore'].values
 
     # Vectorized efficiency: broadcast cuts against scores
     # Shape: (len(modes), len(cuts))
     LOGGER.debug('Plotting Efficiency')
-    fig, ax = _make_fig(dpi=dpi)
+    p = MatplotlibPlot(outputdir, plotname='efficiency', suffix=suffix, file_formats=file_formats, dpi=dpi)
     try:
+        specs = []
         for mode in tqdm(modes):
-            mask = samples == mode
-            s = scores[mask]
+            s = scores[samples == mode]
             if len(s) > 0:
-                # Vectorized: s[:, None] has shape (n_samples, 1)
-                # cuts has shape (len(cuts),)
-                # Result: (n_samples, len(cuts)) >= (len(cuts),)
+                # Fraction of events passing each cut, shape (len(cuts),)
                 eff = np.mean(s[:, None] >= cuts, axis=0)
-                ax.plot(cuts, eff,
-                        label=modes_label[mode],
-                        color=modes_color[mode])
+                specs.append(([cuts, eff, 'plot'], {'label': labels[mode], 'color': colors[mode]}))
+        p.draw(specs)
 
-        ax.legend(loc='best', ncols=3)
-        ax.set_xlim(*range)
-        ax.set_ylim(None, 1.4)
-
-        set_labels(ax, 'BDT score', 'Efficiency',
-                   right=label, locx=locx, locy=locy)
-        savefigs(fig, outDir, 'efficiency',
-                 suffix=suffix, format=format)
+        p.configure(xlim=range, ylim=(None, 1.4), legend=True, legend_kwargs={'loc': 'best', 'ncols': 3})
+        p.set_labels('BDT score', 'Efficiency', right=label, locx=locx, locy=locy)
+        p.save()
     finally:
-        plt.close(fig)
+        p.close()
 
-# _______________________________
+
 def tree_plot(
     bdt: 'xgb.XGBClassifier',
-    inDir: str,
-    outDir: str,
+    inputdir: str,
+    outputdir: str,
     epochs: int,
     n: int,
-    format: list[str] = ['png'],
+    file_formats: list[str] = ['png'],
     rankdir: str = 'LR'
      ) -> None:
     '''Render a subset of boosted trees to Graphviz files.
@@ -813,17 +624,17 @@ def tree_plot(
     Args:
         bdt (xgb.XGBClassifier): Trained XGBClassifier instance.
         inDir (str): Directory containing the feature map file.
-        outDir (str): Directory where rendered trees are stored.
+        outputdir (str): Directory where rendered trees are stored.
         epochs (int): Total number of boosting iterations.
         n (int): Number of trees to render (evenly spaced up to epochs).
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
+        file_formats (list[str], optional): List of output formats to render. Defaults to ['png'].
         rankdir (str, optional): Graphviz rank direction. Defaults to 'LR'.
     '''
-    import graphviz
+    import graphviz, subprocess
     import numpy as np
     import xgboost as xgb
 
-    mkdir(f'{outDir}/feature')
+    mkdir(f'{outputdir}/feature')
     # Ensure n does not exceed total number of epochs
     if n > epochs:
         n = epochs
@@ -834,34 +645,32 @@ def tree_plot(
     num_trees = np.linspace(0, epochs-1, n, dtype=int)
     for num_tree in tqdm(num_trees):
         # Export tree to DOT format
-        dot = xgb.to_graphviz(
-            bdt, num_trees=num_tree,
-            fmap=f'{inDir}/feature.txt',
-            rankdir=rankdir
-        )
-        dot.save(f'{inDir}/bdt.dot')
+        dot = xgb.to_graphviz(bdt, f'{inputdir}/feature.txt', num_tree, rankdir)
+        dot.save(f'{inputdir}/bdt.dot')
 
         # Render to requested formats using graphviz
-        with open(f'{inDir}/bdt.dot') as f:
+        with open(f'{inputdir}/bdt.dot') as f:
             dot_graph = f.read()
         graph = graphviz.Source(dot_graph)
-        for pl in format:
-            graph.render(f'{outDir}/tmp/BDT_{num_tree}', format=pl)
+        for pl in file_formats:
+            graph.render(f'{outputdir}/tmp/BDT_{num_tree}', format=pl)
+    
     # Move rendered images to output directory and clean up
-    os.system(f'mv {outDir}/tmp/*.png {outDir}/feature/')
-    os.system(f'rm -rf {outDir}/tmp')
-    LOGGER.info(f'Plotted structure of BDT in {outDir}/feature')
+    subprocess.run(['mv', f'{outputdir}/tmp/*.png', f'{outputdir}/feature/'])
+    subprocess.run(['rm', '-rf', f'{outputdir}/tmp'])
+    LOGGER.info(f'Plotted structure of BDT in {outputdir}/feature')
 
-# _______________________________
+
 def hist_check(
     df: 'pd.DataFrame',
     label: str,
-    outDir: str,
+    outputdir: str,
     modes: list[str],
-    modes_label: dict[str, str],
-    modes_color: dict[str, str],
-    var: str,
+    colors: dict[str, str],
+    labels: dict[str, str],
+    column: str,
     xlabel: str,
+    file_formats: list[str] = ['png'],
     nbins: int = 100,
     ncols: int = 3,
     yscale: str = 'linear',
@@ -869,7 +678,6 @@ def hist_check(
     locy: str = 'top',
     suff: str = 'nominal',
     suffix: str = '',
-    format: list[str] = ['png'],
     htype: str = 'step',
     unity: bool = False,
     dpi: int = 100,
@@ -881,7 +689,7 @@ def hist_check(
     Args:
         df (pd.DataFrame): Dataframe containing the variable to plot and sample metadata.
         label (str): Text placed on the figure (e.g., channel or tag).
-        outDir (str): Directory where plots are written.
+        outputdir (str): Directory where plots are written.
         modes (list[str]): Ordered list of sample names.
         modes_label (dict[str, str]): Mapping from mode to legend label.
         modes_color (dict[str, str]): Mapping from mode to color.
@@ -893,7 +701,7 @@ def hist_check(
         locx (str, optional): Horizontal placement for the right-side label. Defaults to 'right'.
         locy (str, optional): Vertical placement for the right-side label. Defaults to 'top'.
         suffix (str, optional): Optional suffix appended to filenames. Defaults to ''.
-        format (list[str], optional): List of output formats to render. Defaults to ['png'].
+        file_formats (list[str], optional): List of output formats to render. Defaults to ['png'].
         htype (str, optional): Matplotlib histogram type. Defaults to 'step'.
         unity (bool, optional): Normalize each histogram to unit area. Defaults to False.
         dpi (int, optional): Figure DPI. Defaults to 100.
@@ -901,70 +709,23 @@ def hist_check(
         strict (bool, optional): If True, clamp x-limits to observed data range. Defaults to True.
     '''
 
-    out = f'{outDir}/variables/{suff}'
-    mkdir(out)
-
-    # Get splits with single pass
-    splits = _get_splits(df)
-    sig_modes = [m for m in modes if 'H' in m]
-    bkg_modes = [m for m in modes if 'H' not in m]
-
     # Get data range once
-    vdata = df[var].values
+    vdata = df[column].values
     xmin, xmax = vdata.min(), vdata.max()
 
-    fig, ax = _make_fig(dpi=dpi)
+    p = MatplotlibPlot(outputdir, f'variables/{suff}', plotname=column,
+                       suffix=suffix, file_formats=file_formats, dpi=dpi)
     try:
-        for linestyle, show_lbl in [('-', True), ('--', False)]:
-            sig_data = splits['train_sig'] if linestyle == '-' else splits['val_sig']
-            bkg_data = splits['train_bkg'] if linestyle == '-' else splits['val_bkg']
-
-            # Plot signal modes
-            for mode in sig_modes:
-                d = sig_data[sig_data['sample'] == mode]
-                if len(d) > 0:
-                    wts = _get_wts(d, weight)
-                    ax.hist(d[var].values, density=unity, bins=nbins,
-                            range=[xmin, xmax], histtype=htype,
-                            label=modes_label[mode] if show_lbl else None,
-                            color=modes_color[mode],
-                            linestyle=linestyle, linewidth=1.5, weights=wts)
-
-            # Stack background samples
-            bkg_arrays, bkg_wts, bkg_lbls, bkg_cols = [], [], [], []
-            for mode in bkg_modes:
-                d = bkg_data[bkg_data['sample'] == mode]
-                if len(d) > 0:
-                    bkg_arrays.append(d[var].values)
-                    bkg_cols.append(modes_color[mode])
-                    if show_lbl:
-                        bkg_lbls.append(modes_label[mode])
-                    if weight:
-                        bkg_wts.append(d['weights'].values)
-
-            if bkg_arrays:
-                wts_stacked = bkg_wts if weight else None
-                lbls_stacked = bkg_lbls if show_lbl else None
-                ax.hist(bkg_arrays, density=unity, bins=nbins,
-                        range=[xmin, xmax], histtype=htype,
-                        label=lbls_stacked, color=bkg_cols,
-                        stacked=True, linestyle=linestyle,
-                        linewidth=1.5, weights=wts_stacked)
-
-        ax.legend(loc='upper center', shadow=False, ncols=ncols)
+        draw_modes(p, df, modes, colors, labels, column, nbins, [xmin, xmax], htype, unity, weight)
 
         # Constrain x-limits to data range if strict mode enabled
-        if strict:
-            ax.set_xlim(xmin, xmax)
-        ax.set_yscale(yscale)
-        yMin, yMax = ax.get_ylim()
-        yMax = yMax * (10 if yscale=='log' else 1.25)
-        ax.set_ylim(yMin, yMax)
+        p.configure((xmin, xmax) if strict else None, yscale=yscale)
+        yMin, yMax = p.axes.get_ylim()
+        p.configure(ylim=(yMin, yMax * (10 if yscale=='log' else 1.25)), legend=True,
+                    legend_kwargs={'loc': 'upper center', 'shadow': False, 'ncols': ncols})
 
         ylabel = 'Normalized to Unity' if unity else 'Events'
-        set_labels(ax, xlabel, ylabel,
-                   right=label, locx=locx, locy=locy)
-        savefigs(fig, out, var,
-                 suffix=suffix, format=format)
+        p.set_labels(xlabel, ylabel, right=label, locx=locx, locy=locy)
+        p.save()
     finally:
-        plt.close(fig)
+        p.close()
