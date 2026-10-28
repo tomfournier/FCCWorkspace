@@ -148,7 +148,7 @@ def main() -> None:
                         # Reuse invariant options for category and total distributions.
                         make_args = plot_kwargs(variable, makePlot, plots=plots['procs'])
                         for logY in [False, True]:
-                            make_args.update(logY=logY, sig_scale=1 if logY else make_args['sig_scale'])
+                            make_args.update(logY=logY, ymin=1e-2 if logY else None, sig_scale=1 if logY else make_args['sig_scale'])
                             makePlot(**make_args)
 
             # Clear cache after finishing this selection to free memory

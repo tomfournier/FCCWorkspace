@@ -69,8 +69,8 @@ CUTS_LL = {
 
 if arg.kin: CUTS_LL = {k: ('', label) for k, (_, label) in CUTS_LL.items()}
 
-new_cut = 'cut5' if ecm==240 else 'cut6'
 E_vis = 100 if ecm==240 else 171
+new_cut = 'cut5' if ecm==240 else 'cut6'
 EXTRA_LL = {'Baseline_miss': {new_cut: ('cosTheta_miss < 0.98', '|cos#theta_{miss}| < 0.98')},  # Missing energy polar angle cut
             'Baseline_sep':  {new_cut: (f'((visibleEnergy > {E_vis}) |'                         # Visible sample, do nothing
                                         f' (visibleEnergy < {E_vis} & cosTheta_miss < 0.99))',  # Invisible sample, missing energy polar angle cut
@@ -94,8 +94,8 @@ if arg.kin:
     CUTS_QQ = {k: ('' if k in {'cut3', 'cut4'} else cut, label) for k, (cut, label) in CUTS_QQ.items()}
 
 E_vis = 120 if ecm==240 else 175
-EXTRA_QQ = {'Baseline_sep':  {new_cut: (f'((visibleEnergy > {E_vis}) |'                          # Visible sample, do nothing
-                                        f' (visibleEnergy < {E_vis} & cosTheta_miss < 0.995))',  # Invisible sample, missing energy polar angle cut
+EXTRA_QQ = {'Baseline_sep':  {'cut7': (f'((visibleEnergy > {E_vis}) |'                          # Visible sample, do nothing
+                                       f' (visibleEnergy < {E_vis} & cosTheta_miss < 0.995))',  # Invisible sample, missing energy polar angle cut
                                         '|cos#theta_{miss}| < 0.995 [inv]')}}
 
 

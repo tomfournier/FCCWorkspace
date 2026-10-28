@@ -121,8 +121,8 @@ cutList: dict[str, str] = {
 if arg.do_sel0:
     sel0 = 'sel0' + ('_test' if test else ('_jan' if jan else ''))
     cutList[sel0] = 'return true;'    # No cuts selection (optional)
-if  test: cutList['test'] = Baseline  # Selection for testing
-elif jan: cutList['jan']  = Baseline  # Selection for Jan's jet definition
+if  test: cutList['test'] = Baseline_miss  # Selection for testing
+elif jan: cutList['jan']  = Baseline_miss  # Selection for Jan's jet definition
 
 # Select selection to process and split them into high/low BDT score regions
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
@@ -144,13 +144,6 @@ if cat == 'qq':
     mqq_lim  = (100, 40, 140) if ecm==240 else (140, 60, 200)
     mrec_lim = (140, 60, 200) if ecm==240 else (215, 50, 265)
     bdt_low, bdt_high = (1, 0, bdt_cut), (1, bdt_cut, 1)
-    histoList['zqq_m_recoil_m_mva_high']      = {'cols':['BDTscore', 'zqq_recoil_m', 'zqq_m'], 'bins':[bdt_high, mrec_lim, mqq_lim]}
-    histoList['zqq_m_recoil_m_mva_low']       = {'cols':['BDTscore', 'zqq_recoil_m', 'zqq_m'], 'bins':[bdt_low,  mrec_lim, mqq_lim]}
-    
-    histoList['zqq_m_recoil_m_tot_mva_high']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(150, 50, 200), (100, 40, 140), (1, bdt_cut, 1)]}
-    histoList['zqq_m_recoil_m_tot_mva_low']   = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[(150, 50, 200), (100, 40, 140), (1, 0, bdt_cut)]}
-    
-    mqq_lim  = (100, 40, 140)
-    mrec_lim = (50, 100, 150) if ecm==240 else (100, 100, 200)
-    histoList['zqq_m_recoil_m_old_mva_high']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, (1, bdt_cut, 1)]}
-    histoList['zqq_m_recoil_m_old_mva_low']   = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, (1, 0, bdt_cut)]}
+    histoList['zqq_m_recoil_m_mva_high']      = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, bdt_high]}
+    histoList['zqq_m_recoil_m_mva_low']       = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, bdt_low]}
+

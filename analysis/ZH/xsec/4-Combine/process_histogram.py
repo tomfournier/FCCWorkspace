@@ -50,14 +50,14 @@ cats, ecm, sels = arg.cat.split('-'), arg.ecm, arg.sels.split('-')
 # Define cross-section scaling factors based on polarization or luminosity
 # Used to rescale histograms to match different beam configurations
 if arg.ILC:        # ILC configuration
-    procs_scales = {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}
+    proc_scales = {'ZH': 1.048, 'WW': 0.971, 'ZZ': 0.939, 'Zgamma': 0.919}
 elif arg.polL:     # Left-handed polarization
-    procs_scales = {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263}
+    proc_scales = {'ZH': 1.554, 'WW': 2.166, 'ZZ': 1.330, 'Zgamma': 1.263}
 elif arg.polR:     # Right-handed polarization
-    procs_scales = {'ZH': 1.047, 'WW': 0.219, 'ZZ': 1.011, 'Zgamma': 1.018}
+    proc_scales = {'ZH': 1.047, 'WW': 0.219, 'ZZ': 1.011, 'Zgamma': 1.018}
 else:              # No scaling
-    procs_scales = {}
-if procs_scales!={}:
+    proc_scales = {}
+if proc_scales!={}:
     LOGGER.info('Rescaling histograms to alternative cross-sections')
 
 
@@ -99,8 +99,7 @@ def run(cats: str,
         inDir = loc.get('HIST_RAW', cat, ecm)
 
         # Histograms to process for BDT training/measurement
-        hNames = ['zll_recoil_m', 'zll_recoil_m_tot'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_recoil_m_tot',
-                                                                                     'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_tot_mva']
+        hNames = ['zll_recoil_m', 'zll_recoil_m_tot'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_recoil_m_tot', 'zqq_m_recoil_m_mva']
         samples = get_process_list(cat, ecm).keys()
 
         # Process each selection strategy
@@ -111,9 +110,9 @@ def run(cats: str,
             mkdir(outDir)
 
             # Define histogram name suffixes for control regions and combined
-            suffix_high = f'_{sel}_high_histo'
-            suffix_low  = f'_{sel}_low_histo'
+            suffix_high, suffix_low = f'_{sel}_high_histo', f'_{sel}_low_histo'
             suffix_base = f'_{sel}_histo'
+
             # Filter samples to only those that exist for this selection
             existing_samples = []
             for sample in samples:
@@ -133,31 +132,11 @@ def run(cats: str,
 
                     # Retrieve high and low region histograms with optional scaling
                     if 'mva' in hName:
-                        h_high = get_hist(
-                            hName+'_high', sample, processes, inDir,
-                            suffix_high,
-                            rebin=1,
-                            proc_scales=procs_scales
-                        )
-                        h_low  = get_hist(
-                            hName+'_low', sample, processes, inDir,
-                            suffix_low,
-                            rebin=1,
-                            proc_scales=procs_scales
-                        )
+                        h_high = get_hist(hName+'_high', sample, processes, inDir, suffix_high, 1, proc_scales)
+                        h_low  = get_hist(hName+'_low',  sample, processes, inDir, suffix_low,  1, proc_scales)
                     else:
-                        h_high = get_hist(
-                            hName, sample, processes, inDir,
-                            suffix_high,
-                            rebin=1,
-                            proc_scales=procs_scales
-                        )
-                        h_low  = get_hist(
-                            hName, sample, processes, inDir,
-                            suffix_low,
-                            rebin=1,
-                            proc_scales=procs_scales
-                        )
+                        h_high = get_hist(hName, sample, processes, inDir, suffix_high, 1, proc_scales)
+                        h_low  = get_hist(hName, sample, processes, inDir, suffix_low,  1, proc_scales)
 
                     if h_high is None or h_low is None:
                         continue
@@ -167,21 +146,15 @@ def run(cats: str,
                     h_low.SetName(hName+'_fit_low')
 
                     has_valid_hist = True
+
                     # Concatenate high and low region histograms
                     if 'TH1' in h_high.ClassName():
                         h = concat([h_low, h_high], hName, hName+'_fit')
                         hists.extend([h, h_high, h_low])
-                    elif 'TH2' in h_high.ClassName():
+                    elif 'TH2' in h_high.ClassName() or 'TH3' in h_high.ClassName():
                         h_high_1D = unroll(h_high, hName+'_fit_high_1D')
                         h_low_1D  = unroll(h_low,  hName+'_fit_low_1D')
-                        h = concat([h_low_1D, h_high_1D], hName+'_fit')
-                        hists.extend([h, h_high, h_low, h_high_1D, h_low_1D])
-                    elif 'TH3' in h_high.ClassName():
-                        h = stack_hist([h_low, h_high], hName)
-                        h_high_1D = unroll(h_high, hName+'_fit_high_1D')
-                        h_low_1D  = unroll(h_low,  hName+'_fit_low_1D')
-                        h_1d      = unroll(h, hName+'_fit')
-                        hists.extend([h, h_1d, h_high_1D, h_low_1D, h_low, h_high])
+                        hists.extend([h_high, h_low, h_high_1D, h_low_1D])
 
                 # Skip sample if no valid histograms found
                 if not has_valid_hist:
