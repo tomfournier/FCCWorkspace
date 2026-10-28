@@ -519,8 +519,9 @@ def dummy(
         labels: list[str] = [],
         label_size: float = 1,
         label_offset: float = 1.2,
-        title_offset: float = 1.7,
+        title_offset: float = 1.9,
         config: dict | None = None,
+        cutflow: bool = False
 ) -> ROOT.TH1D:
     '''
     Create a dummy histogram with configured axis limits and labels.
@@ -561,6 +562,9 @@ def dummy(
     if nbins > 1:
         if len(labels) != nbins:
             raise ValueError('labels should have the same size as nbins')
+        if cutflow:
+            dummy.GetXaxis().SetLabelSize(0.8*dummy.GetXaxis().GetLabelSize())
+            dummy.GetXaxis().SetLabelOffset(1.7*dummy.GetXaxis().GetLabelOffset())
         for i, label in enumerate(labels):
             dummy.GetXaxis().SetBinLabel(i+1, label)
 

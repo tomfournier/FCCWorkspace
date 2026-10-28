@@ -148,7 +148,7 @@ histos_qq = {
 
     'W1_costheta':         {'name':'W1_costheta',
                             'title':'cos#theta_{W1}',
-                            'bin':1000,'xmin':0,'xmax':1},
+                            'bin':2000,'xmin':-1,'xmax':1},
 
     # W2 variables (4 jets algorithm)
     'W2_m':                {'name':'W2_m',
@@ -161,7 +161,7 @@ histos_qq = {
 
     'W2_costheta':         {'name':'W2_costheta',
                             'title':'cos#theta_{W2}',
-                            'bin':1000,'xmin':0,'xmax':1},
+                            'bin':2000,'xmin':-1,'xmax':1},
 
     # Thrust variables
     'thrust':              {'name':'thrust',

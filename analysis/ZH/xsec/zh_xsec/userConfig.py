@@ -61,12 +61,13 @@ input_vars_qq = (
 repo = str(PathObj(__file__).parent.parent.resolve())
 
 # Base locations. Each numbered root is a complete stage of the workflow.
-loc.ROOT      = LocPath(repo)                     # Repository root
-loc.PACKAGE   = LocPath(f'{repo}/zh_xsec')        # Shared Python package
-loc.OUT       = LocPath(f'{repo}/output')         # All generated output
-loc.DATA      = LocPath(f'{repo}/output/data')    # Generated data files
-loc.PLOTS     = LocPath(f'{repo}/output/plots')   # Generated plots
-loc.TMP       = LocPath(f'{repo}/output/tmp')     # Temporary files
+loc.ROOT      = LocPath(repo)                       # Repository root
+loc.PACKAGE   = LocPath(f'{repo}/zh_xsec')          # Shared Python package
+loc.OUT       = LocPath(f'{repo}/output')           # All generated output
+loc.DATA      = LocPath(f'{repo}/output/data')      # Generated data files
+loc.PLOTS     = LocPath(f'{repo}/output/plots')     # Generated plots
+loc.TMP       = LocPath(f'{repo}/output/tmp')       # Temporary files
+loc.JSON      = LocPath(f'{repo}/output/tmp/json')  # json files directory
 
 # Data output's main directories
 loc.EVENTS_DIR = LocPath(f'{repo}/output/data/1-events')       # 1. Event samples

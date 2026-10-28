@@ -107,7 +107,7 @@ class PullPlot:
 		quiet: bool = False,
 		xmin: float | None = None,
 		xmax: float | None = None,
-		topLeft: str = '#bf{FCC-ee} #scale[0.7]{#it{Simulation}}',
+		topLeft: str = '#bf{FCC-ee}#scale[0.7]{#it{Simulation}}',
 		topRight: str | None = None,
 		statistics: Sequence[str] = (),
 		point_colors: Sequence[Any] | None = None,

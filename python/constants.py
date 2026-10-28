@@ -29,10 +29,10 @@ LOGGER = get_logger(__name__)
 Z_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'qq', 'ee', 'mumu', 'tautau', 'nunu')
 
 # Standard Higgs boson decay modes
-H_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ', 'WW', 'Za', 'aa')
+H_DECAYS: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'WW', 'ZZ', 'Za', 'aa')
 
 # Higgs decays use to make the fit
-H_DECAYS_FIT: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'ZZ_noInv', 'WW', 'Za', 'aa', 'inv')
+H_DECAYS_FIT: tuple[str, ...] = ('bb', 'cc', 'ss', 'gg', 'mumu', 'tautau', 'WW', 'ZZ_noInv', 'Za', 'aa', 'inv')
 
 # Higgs decay modes including invisible decays
 H_DECAYS_WITH_INV: tuple[str, ...] = H_DECAYS + ('inv',)
@@ -78,7 +78,7 @@ def _init_colors() -> None:
         _ZZ_COLOR   = root.TColor.GetColor('#5790fc')    # Blue      for ZZ background
         _ZG_COLOR   = root.TColor.GetColor('#964a8b')    # Purple    for Z/gamma
         _RARE_COLOR = root.TColor.GetColor('#9c9ca1')    # Gray      for rare processes
-        _TT_COLOR   = root.TColor.GetColor("#1414ad")    # Dark blue for tt processes
+        _TT_COLOR   = root.TColor.GetColor("#1845fb")    # Blue      for tt processes
 
 
 def _get_h_colors_dict() -> dict:

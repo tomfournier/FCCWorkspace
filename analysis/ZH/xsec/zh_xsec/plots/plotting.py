@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
-    import ROOT
 
 from constants import h_labels
 
@@ -12,10 +11,10 @@ def Bias(
     nomDir: str,
     outputdir: str,
     h_decays: list[str],
-    suffix: str = '',
     ecm: int = 240,
     lumi: float = 10.8,
     outName: str = 'bias',
+    suffix: str = '',
     file_formats: list[str] = ['png'],
     quiet: bool = False
      ) -> None:
@@ -60,49 +59,123 @@ def Bias(
     plot.draw(outName, suffix, file_formats, quiet, xMin, xMax, point_colors=colors)
 
 
-def hist_to_arrays(
-    hist: 'ROOT.TH1'
-     ) -> tuple['np.ndarray',
-                'np.ndarray',
-                'np.ndarray']:
-    '''Convert a ROOT histogram into numpy arrays of counts, bin edges, and errors.
-
-    Args:
-        hist (ROOT.TH1): A ROOT histogram object to convert.
-
-    Returns:
-        tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple containing:
-            - counts: Array of bin contents (histogram values).
-            - bin_edges: Array of bin edges with length = nbins + 1.
-            - errors: Array of bin errors (statistical uncertainties).
-
-    Notes:
-        The bin_edges array has one more element than counts and errors arrays,
-        as it includes both lower edge of the first bin and upper edge of the last bin.
-    '''
-    import numpy as np
-
-    # Extract bin information from ROOT histogram.
-    nbins = hist.GetNbinsX()
-    bin_edges = np.array([hist.GetBinLowEdge(i) for i in range(1, nbins+2)])
-    counts    = np.array([hist.GetBinContent(i) for i in range(1, nbins+1)])
-    errors    = np.array([hist.GetBinError(i)   for i in range(1, nbins+1)])
-
-    return counts, bin_edges, errors
-
-# ________________________________
-def PseudoRatio(
-    inDir: str,
-    outDir: str,
-    cat: str,
-    target: str,
-    procs: list[str],
+def BiasNorm(
+    df: 'pd.DataFrame',
+    nomDir: str,
+    outputdir: str,
+    h_decays: list[str],
     ecm: int = 240,
     lumi: float = 10.8,
+    outName: str = 'bias_norm',
+    suffix: str = '',
+    file_formats: list[str] = ['png'],
+    quiet: bool = False
+     ) -> None:
+    '''Same as `Bias`, with the biases normalised to the fit uncertainty (band at +-1).'''
+
+    import json, ROOT
+    from plot.pullplot import PullPlot
+
+    with open(f'{nomDir}/results_fit.json', 'r') as fIn:
+        unc = json.load(fIn)['r']['err'] * 1e4
+
+    bias_dict = dict(zip(df['mode'], df['bias'] * 100 / unc))
+
+    # Axis limits with 20% margin around the band and the largest bias
+    lim = 1.2 * max(1, max(abs(b) for b in bias_dict.values()))
+
+    labels = [h_labels[h_decay] for h_decay in h_decays]
+    colors = [ROOT.kBlack if abs(bias_dict[h_decay]) < 1 else ROOT.kRed for h_decay in h_decays]
+    plot = PullPlot(outputdir, None, None,
+                    [bias_dict[h_decay] for h_decay in h_decays],
+                    [0.] * len(h_decays), labels, 0, 1,
+                    ecm, lumi, 'Bias /#Delta#sigma_{ZH}', 'pulls',
+                    False, False)
+    plot.draw(outName, suffix, file_formats, quiet, -lim, lim, point_colors=colors)
+
+
+def BiasSorted(
+    df: 'pd.DataFrame',
+    nomDir: str,
+    outputdir: str,
+    h_decays: list[str],
+    ecm: int = 240,
+    lumi: float = 10.8,
+    outName: str = 'bias_sorted',
+    suffix: str = '',
+    file_formats: list[str] = ['png'],
+    quiet: bool = False
+     ) -> None:
+    '''Same as `BiasNorm`, with the decays sorted by |bias|: the lowest at the bottom, the highest at the top.'''
+
+    import json, ROOT
+    from plot.pullplot import PullPlot
+
+    with open(f'{nomDir}/results_fit.json', 'r') as fIn:
+        unc = json.load(fIn)['r']['err'] * 1e4
+    
+    bias_dict = dict(zip(df['mode'], df['bias'] * 100 / unc))
+
+    # Set axis limits to accommodate uncertainty bands with 20% margin.
+    lim = 1.2 * max(1, max(abs(b) for b in bias_dict.values()))
+
+    # The first entry of PullPlot is drawn at the bottom
+    h_sorted = sorted(h_decays, key=lambda h: abs(bias_dict[h]))
+    labels = [h_labels[h] for h in h_sorted]
+    colors = [ROOT.kBlack if abs(bias_dict[h]) < 1 else ROOT.kRed for h in h_sorted]
+    plot = PullPlot(outputdir, None, None,
+                    [bias_dict[h] for h in h_sorted],
+                    [0.] * len(h_sorted), labels, 0, 1,
+                    ecm, lumi, 'Bias /#Delta#sigma_{ZH}', 'pulls',
+                    False, False)
+    plot.draw(outName, suffix, file_formats, quiet, -lim, lim, point_colors=colors)
+
+
+def hist_from_datacard(
+    inDir: str,
+    target: str,
+    cat: str,
+    procs: list[str]
+     ) -> tuple['np.ndarray',
+                'np.ndarray',
+                'np.ndarray',
+                'np.ndarray']:
+    '''Read the signal and the background-subtracted pseudo-data from a datacard ROOT file.
+
+    Args:
+        inDir: Directory containing the datacard ROOT file.
+        target: Target channel name matching the datacard file suffix.
+        cat: Category name as in the datacard (e.g., 'ee_high').
+        procs: Process names (signal first, then backgrounds).
+
+    Returns:
+        (bin_edges, signal, pseudo_minus_bkg, pseudo_variance)
+    '''
+    import uproot
+
+    with uproot.open(f'{inDir}/datacard_{target}.root') as f:
+        pseudo = f[f'z_{cat}_asimov']
+        bkgs   = [f[f'z_{cat}_{proc}'] for proc in procs[1:]]
+        edges  = pseudo.axis().edges()
+        sig    = f[f'z_{cat}_{procs[0]}'].values()
+        values = pseudo.values()    - sum(h.values() for h in bkgs)
+        var    = pseudo.variances() + sum(h.variances() for h in bkgs)
+
+    return edges, sig, values, var
+
+
+def PseudoRatio(
+    inputdir: str,
+    outputdir: str,
+    target: str,
+    procs: list[str],
+    cat: str,
+    ecm: int = 240,
+    selection: str = '',
+    lumi: float = 10.8,
     pert: float = 1.05,
-    sel: str = '',
     outName: str = 'PseudoRatio',
-    format: list[str] = ['png'],
+    file_formats: list[str] = ['png'],
     logX: bool = False,
     logY: bool = False,
     density: bool = False,
@@ -139,65 +212,43 @@ def PseudoRatio(
     import numpy as np
     import matplotlib.pyplot as plt
     from plot.pyplot import MatplotlibPlot
-    from ..func.bias import hist_from_datacard
 
-    hist_sig, hist_pseudo = hist_from_datacard(inDir, target, cat, procs)
+    bins, sig, pseudo, var = hist_from_datacard(inputdir, target, cat, procs)
 
-    cut = int(hist_sig.axes[0].edges[-1]/2)
+    ratio = np.divide(pseudo, sig, out=np.full_like(pseudo, np.nan), where=sig != 0)
+    xMin, xMax = bins[:-1][np.isfinite(ratio)][[0, -1]]
+    r = (pseudo.sum() / sig.sum() - 1) * 100
 
-    if 'low' in sel:
-        sig, pseudo = hist_sig[:cut], hist_pseudo[:cut]
-    elif 'high' in sel:
-        sig, pseudo = hist_sig[cut:], hist_pseudo[cut:]
-    else:
-        sig, pseudo = hist_sig, hist_pseudo
-
-    fig, axes = plt.subplots(2, 1, gridspec_kw={'height_ratios': [4, 1]})
-
-    np.seterr(divide="ignore", invalid="ignore")
-    ratio = np.where(sig!=0, pseudo.values() / sig.values(), np.nan)
-    np.seterr(divide="warn", invalid="warn")
-    bins = sig.axes[0].edges
-
-    valid: np.ndarray = bins[:-1][np.isfinite(ratio)]
-    xMin, xMax = valid.min(), valid.max()
-
-    r = (pseudo.sum().value / sig.sum().value - 1) * 100
-
-    main_plot = MatplotlibPlot(
-        outputdir=outDir, output_subdir='PseudoRatio', selection=sel,
-        plotname=outName, suffix=f'_{target}', file_formats=format,
-        axes=axes[0]
-    )
+    _, axes = plt.subplots(2, 1, gridspec_kw={'height_ratios': [4, 1]})
+    main_plot = MatplotlibPlot(outputdir, 'PseudoRatio', selection, outName,
+                               f'_{target}', file_formats, axes=axes[0])
     ratio_plot = MatplotlibPlot(axes=axes[1], style=False)
 
     # Create step plot for signal using duplicate values
-    sig_vals   = sig.values()
     x_step_sig = np.repeat(bins, 2)[1:-1]
-    y_step_sig = np.repeat(sig_vals, 2)
+    y_step_sig = np.repeat(sig, 2)
     main_plot.draw([([x_step_sig, y_step_sig, 'plot'], {'label': 'Signal', 'color': 'tab:blue', 'linewidth': 3})])
 
     B = (bins[:-1] + bins[1:]) / 2
-    main_plot.draw([([B, pseudo.values(), np.sqrt(pseudo.variances()), 'errorbar'],
-                    {'label': 'Pseudo-signal', 'color': 'black', 'linewidth': 2,
-                     'linestyle': '', 'marker': 'o', 'markersize': 4, 'capsize': 3})])
-    ratio_plot.draw([([bins[:-1], ratio, 'step'], {'where': 'post', 'linewidth': 2, 'color': 'black'})])
-    main_plot.draw([([0, 0, 'plot'], {'linestyle': '', 'marker': ',', 'label': f'Signal increased by {r:.2f} %'})])
-    ratio_plot.draw([([1.0, 'axhline'], {'color': 'gray', 'linestyle': '-', 'linewidth': 2, 'alpha': 0.6}),
-                     ([pert, 'axhline'], {'color': 'black', 'linestyle': '--', 'linewidth': 2, 'alpha': 0.8})])
+    main_plots = [([B, pseudo, np.sqrt(var), 'errorbar'],
+                   {'label': 'Pseudo-signal', 'color': 'black', 'linewidth': 2,
+                    'linestyle': '', 'marker': 'o', 'markersize': 4, 'capsize': 3}),
+                   ([0, 0, 'plot'], {'linestyle': '', 'marker': ',', 'label': f'Signal increased by {r:.2f} %'})]
+    ratio_plots = [([bins[:-1], ratio, 'step'], {'where': 'post', 'linewidth': 2, 'color': 'black'}),
+                   ([1.0,  'axhline'], {'color': 'gray',  'linestyle': '-',  'linewidth': 2, 'alpha': 0.6}),
+                   ([pert, 'axhline'], {'color': 'black', 'linestyle': '--', 'linewidth': 2, 'alpha': 0.8})]
+    main_plot.draw(main_plots)
+    ratio_plot.draw(ratio_plots)
 
     # Set axis ranges for both panels.
-    main_plot.configure(xlim=(xMin, xMax), xscale='log' if logX else None,
-                        yscale='log' if logY else None, legend=True,
-                        legend_kwargs={'loc': 'upper right', 'frameon': True, 'fontsize': 20})
-    ratio_plot.configure(xlim=(xMin, xMax), ylim=(0.95, pert * 1.05),
-                         xscale='log' if logX else None)
+    main_plot.configure(xlim=(xMin, xMax), xscale='log' if logX else None, yscale='log' if logY else None,
+                        legend=True, legend_kwargs={'loc': 'upper right', 'frameon': True, 'fontsize': 20})
+    ratio_plot.configure(xlim=(xMin, xMax), ylim=(0.95, pert * 1.05), xscale='log' if logX else None)
     main_plot.axes.tick_params(labelbottom=False)
 
     # Configure axis labels with appropriate titles.
     lumi_text = rf'$\sqrt{{s}} = {ecm}$ GeV, {lumi} ab$^{{-1}}$'
-    xtitle = r'm$_{\mathrm{recoil}}$ High [GeV]' if 'high' in sel \
-        else r'm$_{\mathrm{recoil}}$ Low [GeV]'
+    xtitle = r'm$_{\mathrm{recoil}}$ SEL [GeV]'.replace('SEL', 'High' if 'high' in selection else 'Low')
     ytitle = 'Normalized to Unity' if density else 'Events'
     ratio_plot.set_labels(xtitle, 'Ratio', left=' ')
     main_plot.set_labels('', ytitle, left=' ', right=lumi_text)

@@ -49,6 +49,8 @@ from fitting import (
 ###############################
 
 # Set category to combined if combining channels
+if (arg.cat and arg.lep) or (arg.cat and arg.combine):
+    raise ValueError("Cannot use '--cat' and '--lep' or '--combine' at the same time")
 if arg.lep and arg.combine:
     raise ValueError("Cannot use '--lep' and '--combine' at the same time")
 if arg.lep:     arg.cat = 'leptonic'
@@ -56,10 +58,7 @@ if arg.combine: arg.cat = 'combined'
 
 # Bundle arguments for directory lookup
 args = [arg.cat, arg.ecm, arg.sel]
-if arg.rescaled:
-    lumi = 10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else 1)
-else:
-    lumi = 1
+lumi = (10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else -1)) if arg.rescaled else 1
 
 # Map fit mode (nominal vs bias test) to corresponding directory locations
 # This allows reusing code for both standard fits and bias test procedures
@@ -117,7 +116,7 @@ dc_mu  = dcs / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
 dc_qq  = dcs /  'qq'  / tp / 'datacard' / f'datacard{tar}.txt'
 
 # Set up environment for subprocess calls
-env = os.environ.copy()
+ENV = os.environ.copy()
 
 # Create necessary directories if they don't exist
 for dir_path in [dc, ws, log, res, scan]:
@@ -132,7 +131,6 @@ for dir_path in [dc, ws, log, res, scan]:
 def do_fit(
         dr: PathObj,
         ws: PathObj,
-        env: os._Environ
          ) -> int:
     '''Execute the fitting workflow: combine datacards, create workspace, and run fit.
 
@@ -176,25 +174,25 @@ def do_fit(
     if (arg.lep or arg.combine) and not (arg.skip_setup and dc_nom.exists()):
         channels = 'ee and mumu' if arg.lep else ('ee, mumu and qq' if arg.comb else '')
         LOGGER.info(f'Combining datacards for {channels} channels')
-        run_cmd(cmd_comb, dc_nom, None, env)
+        run_cmd(cmd_comb, dc_nom, None, ENV)
     else:
         LOGGER.debug('Skipping the datacards combination')
 
     if not (arg.skip_setup and ws_file.exists()):
         LOGGER.info('Converting the datacard to RooFit workspace')
         ws_file.unlink(True)
-        run_cmd(cmd_t2w, log_t2w, dr, env)
+        run_cmd(cmd_t2w, log_t2w, dr, ENV)
     else:
         LOGGER.debug('Skipping the RooFit workspace setup')
 
     if arg.fastscan:
         LOGGER.info('Doing a fast likelyhood scan to check the fit')
         log_fscan.unlink(True)
-        run_cmd(cmd_fastscan, log_fscan, scan, env)
+        run_cmd(cmd_fastscan, log_fscan, scan, ENV)
 
     LOGGER.info('Doing the fit')
     diag_file.unlink(True); log_diag.unlink(True)
-    run_cmd(cmd_diag, log_diag, ws, env)
+    run_cmd(cmd_diag, log_diag, ws, ENV)
     check_log(log_diag)
     res_diag = get_results(diag_file, 'r', 'singles', lumi)
     res_saving(res_diag, res, arg.print, f'_diag{tar}')
@@ -204,7 +202,7 @@ def do_fit(
     else:
         LOGGER.info('Doing the likelihood scan')
         fit_file.unlink(True); log_fit.unlink(True)
-        run_cmd(cmd_fit, log_fit, ws, env)
+        run_cmd(cmd_fit, log_fit, ws, ENV)
         res_fit = get_results(fit_file, 'r', 'grid', lumi)
         res_saving(res_fit, res, arg.print, f'_fit{tar}')
 
@@ -220,7 +218,7 @@ if __name__=='__main__':
         if not arg.sel:
             raise ValueError('No selection was defined, choose a selection to fit')
         # Execute the fitting pipeline
-        ret = do_fit(dr, ws, env)
+        ret = do_fit(dr, ws)
         if ret != 0: exit(ret)
 
         plot_args = update_namespace(
@@ -230,7 +228,7 @@ if __name__=='__main__':
         cmd = ['python', 'plots.py'] + get_extra_args(
             plot_args, {'directory': '5-Fit', 'script': 'plots'}, create_parser)
 
-        run_cmd(cmd, None, Path(__file__).parent, env)
+        run_cmd(cmd, None, Path(__file__).parent, ENV)
 
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt

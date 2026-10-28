@@ -230,7 +230,7 @@ class HistogramPlot:
 
         if bwidth.is_integer():
             ytitle += f' / {bwidth} {unit}'
-        else:
+        elif bwidth > 1e-2:
             ytitle += f' / {bwidth:.2f} {unit}'
 
         self.cfg = make_cfg({'xmin': xMin, 'xmax': xMax,'ymin': yMin, 'ymax': yMax,

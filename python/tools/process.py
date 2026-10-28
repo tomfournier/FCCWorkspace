@@ -735,10 +735,10 @@ def stack_hist(
 
         xaxis = hist.GetXaxis()
         yaxis = hist.GetYaxis()
-        if xaxis.GetXmin() != ref_xaxis.GetXmin() or xaxis.GetXmax() != ref_xaxis.GetXmax():
-            raise ValueError('All histograms passed to stack_hist must share the same x-axis range')
-        if yaxis.GetXmin() != ref_yaxis.GetXmin() or yaxis.GetXmax() != ref_yaxis.GetXmax():
-            raise ValueError('All histograms passed to stack_hist must share the same y-axis range')
+        # if xaxis.GetXmin() != ref_xaxis.GetXmin() or xaxis.GetXmax() != ref_xaxis.GetXmax():
+        #     raise ValueError('All histograms passed to stack_hist must share the same x-axis range')
+        # if yaxis.GetXmin() != ref_yaxis.GetXmin() or yaxis.GetXmax() != ref_yaxis.GetXmax():
+        #     raise ValueError('All histograms passed to stack_hist must share the same y-axis range')
 
         zaxis  = hist.GetZaxis()
         z_bins = hist.GetNbinsZ()

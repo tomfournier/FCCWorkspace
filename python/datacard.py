@@ -108,7 +108,7 @@ def datacard_txt(
     if mc_stats: dc_lines.append('* autoMCStats 1 1')
 
     dc_txt = '\n'.join(dc_lines) + '\n'
-    LOGGER.info('\n'+dc_txt)
+    LOGGER.debug('\n'+dc_txt+'\n')
 
     return dc_txt
 
@@ -135,8 +135,8 @@ def datacard_txt_ws(
     row = lambda name, values: f'{name:<12}' + ''.join(f'{v:<{col_w}}' for v in values)
 
     dc_lines = []
-    dc_lines += ['imax *']  # Number of bins
-    dc_lines += ['jmax *']  # Number of processes minus 1
+    dc_lines += ['imax *']   # Number of bins
+    dc_lines += ['jmax *']   # Number of processes minus 1
     dc_lines += ['kmax *'],  # Number of systematics
     dc_lines += sep
     dc_lines += [f'shapes {proc:<12} * {file} {workspace}:{pdf}' for proc, pdf in pdfs.items()]
@@ -151,7 +151,7 @@ def datacard_txt_ws(
     dc_lines += [f'{name:<12} param 0 1' for name in params]
 
     dc_txt = '\n'.join(dc_lines) + '\n'
-    LOGGER.info('\n'+dc_txt)
+    LOGGER.info('\n'+dc_txt+'\n')
 
     return dc_txt
 
@@ -172,6 +172,10 @@ def datacard_root(
 
     hists, hists_asimov = [], {}
     proc_dict = sig_procs | bkg_procs
+
+    if len(categories) != len(hNames):
+        raise ValueError('categories and hNames should have the same size: '
+                         f'({len(categories)} vs {len(hNames)})')
 
     def get_hist(proc_list: list[str], name: str, cat: str, scales: dict[str, float | int] = {}, asimov: bool = False):
         if isinstance(proc_list, str):
@@ -284,7 +288,7 @@ def write_datacards(
 def do_combine(
         inputDir: str,
         outputDir: str,
-        hNames: list[str],
+        hist_names: list[str],
         categories: list[str],
         sig_procs: dict[str, list],
         bkg_procs: dict[str, list],
@@ -300,9 +304,9 @@ def do_combine(
          ):
     dc_txt = datacard_txt(categories, sig_procs, bkg_procs, systs, suffix, mc_stats, col_w)
     hists, hists_asimov = datacard_root(
-        inputDir, hNames, categories, sig_procs, bkg_procs, systs_procs,
+        inputDir, hist_names, categories, sig_procs, bkg_procs, systs_procs,
         rebin, intLumi, scales, only_asimov
     )
     write_datacards(outputDir, dc_txt, hists, hists_asimov, suffix)
-    LOGGER.info(f'Written datacard at {outputDir}/datacard{suffix}.root')
-    LOGGER.info(f'Written datacard at {outputDir}/datacard{suffix}.txt')
+    LOGGER.debug(f'Written datacard at {outputDir}/datacard{suffix}.root')
+    LOGGER.debug(f'Written datacard at {outputDir}/datacard{suffix}.txt')

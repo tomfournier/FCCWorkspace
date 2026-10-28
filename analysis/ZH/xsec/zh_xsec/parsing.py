@@ -513,16 +513,23 @@ def add_bias_args(parser: ArgumentParser,
         default=False,
         help='Plot the pseudo-data distributions'
     )
-
-
-def add_bias_extra_args(parser: ArgumentParser) -> None:
-    '''Add extra options forwarded by the fit pipeline runner.'''
-    parser.add_argument(
-        '--extra',
-        nargs='*',
-        default=[],
-        choices=['tot', 'onlyrun', 't'],
-        help='Extra options for the fit pipeline'
+    args.add_argument(
+        '--tot',
+        action=BooleanOptionalAction,
+        default=True,
+        help='Include all the Z decays in the bias test (default: True)'
+    )
+    args.add_argument(
+        '--decays',
+        type=str,
+        default='all',
+        help='Higgs decays to use for the bias test (default: all)'
+    )
+    args.add_argument(
+        '--skip-fit',
+        action='store_true',
+        default=False,
+        help='Skip the pseudo-data fit to directly plot the biases'
     )
 
 
@@ -743,6 +750,7 @@ def bias_test_parser(description: str | None = None) -> ArgumentParser:
     add_bias_fit_args(parser, 'bb')
     add_bias_args(parser, 1.05)
     add_polarization(parser)
+    add_combine_args(parser)
     return parser
 
 
@@ -846,8 +854,8 @@ def Fit_parser(description: str | None = None) -> ArgumentParser:
     add_fit_args(parser)
     add_bias_fit_args(parser, 'bb')
     add_bias_args(parser)
-    add_bias_extra_args(parser)
     add_polarization(parser)
+    add_combine_args(parser)
     return parser
 
 

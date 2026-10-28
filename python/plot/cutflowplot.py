@@ -235,7 +235,7 @@ class CutFlowPlot:
         plotter.cfg = self.cfg
         canvas = plotter.canvas(*canvas_size, bottom=0.12)
         dummy = plotter.dummy(len(labels), labels,
-                              28, 1.1, 1.5)
+                              28, 1.1, 1.5, cutflow=True)
         self._frame_hist = dummy
         dummy.GetXaxis().LabelsOption('u')
         dummy.Draw('HIST')
