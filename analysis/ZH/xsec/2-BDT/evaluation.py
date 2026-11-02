@@ -63,8 +63,7 @@ from zh_xsec.func.bdt import (
 
 # Analysis parameters from command-line arguments
 cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
-vars_label = vars_label_qq if cat=='qq' else vars_label_qq
-
+vars_label = vars_label_qq if cat=='qq' else vars_label_ll
 # Process modes for BDT training (signal and all major background processes)
 modes = get_bdt_modes(cat, ecm)
 

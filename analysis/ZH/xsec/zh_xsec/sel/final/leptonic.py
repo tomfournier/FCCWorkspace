@@ -10,7 +10,7 @@ def Baseline_cut_ll(ecm: int, miss: bool = False) -> str:
 
     cut = ''
     # Di-lepton mass cut
-    cut += ' && zll_m > 86 && zll_m < 96'
+    cut += 'zll_m > 86 && zll_m < 96'
 
     # Di-lepton momentum cut
     cut += f' && zll_p > {p_dw} && zll_p < {p_up}'

@@ -34,10 +34,10 @@ LOGGER = get_logger(__name__)
 
 # Tuple of kinematic variables used as input features for BDT training
 input_vars_ll = (
-    'leading_p',    'leading_theta',
-    'subleading_p', 'subleading_theta',
+    'leading_p',    'leading_costheta',
+    'subleading_p', 'subleading_costheta',
     'acolinearity', 'acoplanarity',
-    'zll_m', 'zll_p', 'zll_theta'
+    'zll_m', 'zll_p', 'zll_costheta'
 )
 
 input_vars_qq = (

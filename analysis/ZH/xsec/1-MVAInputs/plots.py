@@ -43,8 +43,8 @@ lumi = 10.8 if ecm==240 else (3.12 if ecm ==365 else -1)
 # Luminosity and experiment information
 intLumi        = lumi * 1e6                           # Integrated luminosity in pb^-1
 intLumiLabel   = 'L = {} ab^{}'.format(lumi, '{-1}')  # LaTeX label for luminosity
-if   cat == 'mumu': ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow #mu^{+}#mu^{-} + X'
-elif cat =='ee':    ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow e^{+}e^{-} + X'
+if   cat =='ee':    ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow e^{+}e^{-} + X'
+elif cat == 'mumu': ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow #mu^{+}#mu^{-} + X'
 elif cat =='qq':    ana_tex = 'e^{+}e^{-} #rightarrow ZH #rightarrow q#bar{q} + X'
 else: raise ValueError(f'{cat = } not supported, choose between [ee, mumu, qq]')
 
@@ -64,8 +64,8 @@ formats        = arg.formats.split('-')    # Output file formats (e.g., png, pdf
 scaleSig       = (10. if cat=='qq' else 1.) if arg.scale_sig==1 else arg.scale_sig   # Signal scale (1.0 = no scaling)
 
 # Plot appearance settings
-strictRange    = True      # Use strict axis ranges from histogram definitions
-setGrid        = True      # Display grid lines on plots
+strictRange    = True               # Use strict axis ranges from histogram definitions
+setGrid        = True               # Display grid lines on plots
 customLabel    = 'Training sample'  # Custom label shown on plots
 
 
@@ -96,42 +96,34 @@ selections['ZH'] = (['test'] if test else ['sel0', 'Baseline']) if 'all' in sels
 # Additional descriptive labels for each selection cut
 # Displayed below plot titles for clarity
 extralabel = {}
-extralabel['sel0']     = 'No cut'    # Diagnostic: no selection applied
-extralabel['Baseline'] = 'Baseline'  # Standard selection
-extralabel['test']     = 'test'      # Test selection
+extralabel['sel0'] = 'No cut'  # Diagnostic: no selection applied
 for sel in selections['ZH']:
     extralabel.setdefault(sel, sel)
 
 # Process and sample definitions for the analysis
 # Dictionary structure: analysis_name -> {'signal': {...}, 'backgrounds': {...}}
 # Each process can contain multiple samples from different sources
-plots = {'ZH':{'signal':{}, 'backgrounds':{}}}
-if arg.exclusive_decays:
-    plots['ZH']['signal']['ZH'] = [f'wzp6_ee_{cat}H_H{y}_ecm{ecm}' for y in h_decays] if cat in ['ee', 'mumu'] else \
-                                  [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays]
-else:
-    plots['ZH']['signal'][f'Z{cat}H'] = [f'wzp6_ee_{cat}H_ecm{ecm}'] if cat in ['ee', 'mumu'] else \
-                                        [f'wzp6_ee_{x}H_ecm{ecm}' for x in quarks]
+sig = 'ZH' if arg.exclusive_decays else f'Z{cat}H'
+if arg.exclusive_decays: sigs = [f'wzp6_ee_{x}H_H{y}_ecm{ecm}' for x in quarks for y in h_decays] if cat=='qq' else [f'wzp6_ee_{cat}H_H{y}_ecm{ecm}' for y in h_decays]
+else:                    sigs = [f'wzp6_ee_{x}H_ecm{ecm}'      for x in quarks]                   if cat=='qq' else [f'wzp6_ee_{cat}H_ecm{ecm}']
 
-# Main backgrounds
-plots['ZH']['backgrounds'] = {
-        f'WW{cat}':   [f'p8_ee_WW_ecm{ecm}' if cat=='qq' else f'p8_ee_WW_{cat}_ecm{ecm}'],
-        'ZZ':         [f'p8_ee_ZZ_ecm{ecm}'],
-        f'Z{cat}':    [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee' else f'wzp6_ee_{cat}_ecm{ecm}'],
+backgrounds = {
+    # Di-boson production: ee -> VV (V = W, Z)
+    f'WW{cat}':   [f'p8_ee_WW_ecm{ecm}' if cat == 'qq' else f'p8_ee_WW_{cat}_ecm{ecm}'],
+    'ZZ':         [f'p8_ee_ZZ_ecm{ecm}'],
+    # Di-fermion production: ee -> ff (f = e, mu, q)
+    f'Z{cat}':    [f'wzp6_ee_ee_Mee_30_150_ecm{ecm}' if cat=='ee' else f'wzp6_ee_{cat}_ecm{ecm}'],
+    # Phtoton-induced backgrounds: ega -> eZ(->ff) (f = e, mu, q)
+    'eeZ':        [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'],
 }
+backgrounds.update(({
+    # Di-photon background: gaga -> ff (not available for hadronic channel)
+    f'gaga{cat}': [f'wzp6_gaga_{cat}_60_ecm{ecm}']} if cat != 'qq' else {}) | ({
+    # ttbar background: ee -> tt (only for hadronic channel at 365 GeV)
+    'ttbar': ['wzp6_ee_WbWb_ecm365']} if cat == 'qq' and ecm == 365 else {})
+)
 
-# Rare backgrounds
-if arg.use_rare_bkgs:
-    plots['ZH']['backgrounds']['Rare'] = [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}'] + \
-        [f'wzp6_gaga_{cat}_60_ecm{ecm}'] if cat in ['ee', 'mumu'] else []
-else:
-    plots['ZH']['backgrounds']['eeZ'] = [f'wzp6_egamma_eZ_Z{cat}_ecm{ecm}', f'wzp6_gammae_eZ_Z{cat}_ecm{ecm}']
-    if cat in ['ee', 'mumu']:
-        plots['ZH']['backgrounds'][f'gaga{cat}'] = [f'wzp6_gaga_{cat}_60_ecm{ecm}']
-
-# Add ee -> tt process
-if cat == 'qq' and ecm == 365:
-    plots['ZH']['backgrounds']['ttbar'] = ['wzp6_ee_WbWb_ecm365']
+plots = {'ZH': {'signal': {sig: sigs}, 'backgrounds': backgrounds,},}
 
 
 
@@ -157,21 +149,21 @@ legend['ZmumuH']   = 'Z(#mu^{+}#mu^{-})H'
 legend['ZeeH']     = 'Z(e^{+}e^{-})H'
 legend['ZqqH']     = 'Z(q#bar{q})H'
 
-legend['WWmumu']   = 'W^{+}W^{-}[#nu_{#mu}#mu]'
 legend['WWee']     = 'W^{+}W^{-}[#nu_{e}e]'
+legend['WWmumu']   = 'W^{+}W^{-}[#nu_{#mu}#mu]'
 legend['WWqq']     = 'W^{+}W^{-}[had]'
 legend['WW']       = 'W^{+}W^{-}'
 
 legend['ZZ']       = 'ZZ'
 
-legend['Zmumu']    = 'Z/#gamma^{*}#rightarrow #mu^{+}#mu^{-}'
 legend['Zee']      = 'Z/#gamma^{*}#rightarrow e^{+}e^{-}'
+legend['Zmumu']    = 'Z/#gamma^{*}#rightarrow #mu^{+}#mu^{-}'
 legend['Zqq']      = 'Z/#gamma^{*}#rightarrow q#bar{q}'
 
 legend['eeZ']      = 'e^{+}(e^{-})#gamma'
 
-legend['gagamumu'] = '#gamma#gamma#rightarrow#mu^{+}#mu^{-}'
 legend['gagaee']   = '#gamma#gamma#rightarrow e^{+}e^{-}'
+legend['gagamumu'] = '#gamma#gamma#rightarrow#mu^{+}#mu^{-}'
 legend['gagaqq']   = '#gamma#gamma#rightarrow q#bar{q}'
 
 legend['Rare']     = 'Rare'

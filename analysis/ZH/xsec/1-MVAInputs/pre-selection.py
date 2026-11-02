@@ -95,7 +95,7 @@ processList = get_process_list(
 # named wzp6_ee_{x}H_ecm{ecm} are intentionally left unrestricted.
 for procName, proc_cfg in processList.items():
     if procName.startswith('wzp6_ee_') and '_H' in procName:
-        proc_cfg['n_max'] = 150_000
+        proc_cfg['n_max'] = 150_000 if cat=='qq' else 500_000
 
 
 
