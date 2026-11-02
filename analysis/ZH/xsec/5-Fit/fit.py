@@ -35,11 +35,11 @@ LOGGER = get_logger(__name__)
 from path import PathObj
 from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
-from tools.utils import timer  # Timing utility
+from tools.utils import timer
 from run import get_extra_args, update_namespace
 from fitting import (
     check_log, get_results,
-    res_saving, run_cmd
+    res_saving, run_cmd, parse_sels
 )
 
 
@@ -56,8 +56,10 @@ if arg.lep and arg.combine:
 if arg.lep:     arg.cat = 'leptonic'
 if arg.combine: arg.cat = 'combined'
 
+sels, sel = parse_sels(arg.sel, arg.cat, bool(arg.lep or arg.combine))  # arg.sel: shared paths and plots
+
 # Bundle arguments for directory lookup
-args = [arg.cat, arg.ecm, arg.sel]
+args = [arg.cat, arg.ecm, sel]
 lumi = (10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else -1)) if arg.rescaled else 1
 
 # Map fit mode (nominal vs bias test) to corresponding directory locations
@@ -97,7 +99,6 @@ tp            = config['tp']                          # Type identifier
 # Define naming suffixes for file outputs
 comb    = '_combined' if arg.combine else ''                     # Combined channel suffix
 tar     = f'_{arg.target}' if arg.bias else ''                   # Bias test target suffix (e.g., _bb)
-dcs = loc.get('FIT', '', arg.ecm, arg.sel)  # Combined datacard location
 
 # Define full file paths for workspace, logs, and results
 ws_file   = ws  / f'ws{tar}.root'                                   # Workspace file (workspace.root or workspace_bb.root)
@@ -111,9 +112,7 @@ log_fit   = log / f'log_results{tar}_fit.txt'       # Fit  results log (fit resu
 
 # Datacard file definition
 dc_nom = dc / f'datacard{tar}{comb}.txt'
-dc_ee  = dcs /  'ee'  / tp / 'datacard' / f'datacard{tar}.txt'
-dc_mu  = dcs / 'mumu' / tp / 'datacard' / f'datacard{tar}.txt'
-dc_qq  = dcs /  'qq'  / tp / 'datacard' / f'datacard{tar}.txt'
+dc_ee, dc_mu, dc_qq = (loc.get('FIT', c, arg.ecm, sels[c]) / tp / 'datacard' / f'datacard{tar}.txt' for c in ('ee', 'mumu', 'qq'))
 
 # Set up environment for subprocess calls
 ENV = os.environ.copy()
@@ -172,7 +171,7 @@ def do_fit(
     ##########################
 
     if (arg.lep or arg.combine) and not (arg.skip_setup and dc_nom.exists()):
-        channels = 'ee and mumu' if arg.lep else ('ee, mumu and qq' if arg.comb else '')
+        channels = 'ee and mumu' if arg.lep else ('ee, mumu and qq' if arg.combine else '')
         LOGGER.info(f'Combining datacards for {channels} channels')
         run_cmd(cmd_comb, dc_nom, None, ENV)
     else:
@@ -215,16 +214,14 @@ def do_fit(
 
 if __name__=='__main__':
     try:
-        if not arg.sel:
+        if not sel:
             raise ValueError('No selection was defined, choose a selection to fit')
         # Execute the fitting pipeline
         ret = do_fit(dr, ws)
         if ret != 0: exit(ret)
 
-        plot_args = update_namespace(
-            arg, cat=None if (arg.lep or arg.combine) else arg.cat,
-            ecm=str(arg.ecm), sels=arg.sel,
-            sig2=True, only1=arg.bias, timer=False)
+        plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat,
+                                     ecm=str(arg.ecm), sels=sel, sig2=True, only1=arg.bias, timer=False)
         cmd = ['python', 'plots.py'] + get_extra_args(
             plot_args, {'directory': '5-Fit', 'script': 'plots'}, create_parser)
 

@@ -37,7 +37,7 @@ from tools.utils import timer
 from samples import get_process_dict
 from constants import H_DECAYS_WITH_INV, H_DECAYS_FIT
 from run import get_extra_args, update_namespace
-from fitting import run_cmd
+from fitting import run_cmd, parse_sels
 from zh_xsec.func.bias import make_datacard, bias_to_txt
 
 
@@ -54,15 +54,16 @@ if arg.lep:     arg.cat = 'leptonic'
 if arg.combine: arg.cat = 'combined'
 
 # Bundle parsed arguments for configuration
-cat, ecm, sel, variation = arg.cat, arg.ecm, arg.sel, arg.pert  # Perturbation factor for bias test
+_, sel = parse_sels(arg.sel, arg.cat, bool(arg.lep or arg.combine))  # arg.sel is kept raw for fit.py
+cat, ecm, variation = arg.cat, arg.ecm, arg.pert  # Perturbation factor for bias test
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)    # Integrated luminosity [ab^-1]
 
 # Resolve directory paths for bias test results and input
-inputDir   = loc.get('HIST_PROC',  cat, ecm, sel)
-outputDir  = loc.get('BIAS_RESULT',     cat, ecm, sel)
-bias_fit   = loc.get('BIAS_FIT', cat, ecm, sel)
-fit_dir    = loc.get('FIT_RESULT', cat, ecm, sel)
-datacard   = loc.get('BIAS_CARD',  cat, ecm, sel)
+inputDir   = loc.get('HIST_PROC',   cat, ecm, sel)
+outputDir  = loc.get('BIAS_RESULT', cat, ecm, sel)
+bias_fit   = loc.get('BIAS_FIT',    cat, ecm, sel)
+fit_dir    = loc.get('FIT_RESULT',  cat, ecm, sel)
+datacard   = loc.get('BIAS_CARD',   cat, ecm, sel)
 
 ENV = os.environ.copy()
 

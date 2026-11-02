@@ -36,10 +36,11 @@ from path import PathObj
 from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
 from tools.utils import timer
-from fit import (
-    res_saving, run_cmd,
+from fitting import (
+    res_saving, run_cmd, parse_sels,
     get_results, get_grid_number,
 )
+from run import get_extra_args, update_namespace
 from zh_xsec.func.self_coupling import get_parameters, convert_to_kappa
 
 
@@ -72,9 +73,10 @@ if arg.lep and arg.combine:
     raise ValueError("Cannot use '--lep' and '--combine' at the same time")
 if arg.lep:     arg.cat = 'leptonic'
 if arg.combine: arg.cat = 'combined'
+_, sel = parse_sels(arg.sel, arg.cat, bool(arg.lep or arg.combine))
 
 # Bundle arguments for directory lookup
-args = [arg.cat, 0, arg.sel]
+args = [arg.cat, 0, sel]
 
 # Resolve directory paths based on configuration and arguments
 dr:   PathObj = loc.get('SELF',        *args)   # Working directory
@@ -99,8 +101,8 @@ log_fit   = log / 'log_results_fit.txt'       # Fit results log (fit results)
 
 # Datacard file definition
 dc_nom = dc / f'datacard{comb}.txt'
-dc_240 = loc.get('FIT_CARD', arg.cat, 240, arg.sel) / f'datacard{comb}.txt'
-dc_365 = loc.get('FIT_CARD', arg.cat, 365, arg.sel) / f'datacard{comb}.txt'
+dc_240 = loc.get('FIT_CARD', arg.cat, 240, sel) / f'datacard{comb}.txt'
+dc_365 = loc.get('FIT_CARD', arg.cat, 365, sel) / f'datacard{comb}.txt'
 
 # Set up environment for subprocess calls
 env = os.environ.copy()
@@ -199,9 +201,10 @@ if __name__=='__main__':
         ret = do_fit(dr, ws, env, params)
         if ret != 0: exit(ret)
 
-        cmd = ['python', 'plots.py', '--sels', str(arg.sel), '--no-timer', '--sig2',
-               '--param', '-'.join(params), '--y-cut', '100', '--y-max', '7']
-        cmd += ['--lep'] if arg.lep else (['--comb'] if arg.combine else ['--cat', arg.cat])
+        plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat,
+                                     ecm=str(arg.ecm), sels=sel, sig2=True, timer=False)
+        cmd = ['python', 'plots.py'] + get_extra_args(
+            plot_args, {f'directory': '6-Self-coupling', 'script': 'plots'}, create_parser)
         run_cmd(cmd, None, Path(__file__).parent, env)
 
     except KeyboardInterrupt:

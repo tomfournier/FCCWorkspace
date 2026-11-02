@@ -64,6 +64,26 @@ params_label = {
 ### HELPER FUNCTIONS ###
 ########################
 
+def parse_sels(sel: str | None, cat: str, combined: bool) -> tuple[dict[str, str], str]:
+    '''
+    Parse the selection argument, with optional per-channel overrides.
+
+    Syntax: positional ('A' for all, or 'A,B,C' for ee,mumu,qq) and/or 'cat=sel'.
+    Per-channel selections are only allowed when combining channels.
+
+    Returns:
+        tuple: Selection per channel, and the selection used for the shared paths.
+    '''
+    chans, tokens = ('ee', 'mumu', 'qq'), (sel or '').split(',')
+    pos = [t for t in tokens if '=' not in t]
+    sels = dict(zip(chans, pos if len(pos) > 1 else pos * 3)) | dict(t.split('=') for t in tokens if '=' in t)
+    if set(sels) != set(chans) or (len(tokens) > 1 and not combined):
+        raise ValueError(f"Need a selection for each of {chans} (per-channel only with lep/combine), got {sels}")
+    if combined and len(set(sels.values())) > 1:
+        LOGGER.info(f'Using per-channel selections: {sels}')
+    return sels, sels.get(cat, sels['ee'])
+
+
 def add_stamp(
         path: PathObj,
         label: str,
