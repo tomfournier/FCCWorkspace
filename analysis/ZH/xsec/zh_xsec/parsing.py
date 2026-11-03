@@ -318,7 +318,7 @@ def add_combine_args(parser: ArgumentParser) -> None:
 ## GENERAL ARGUMENTS ##
 #######################
 
-def add_fit_args(parser: ArgumentParser) -> None:
+def add_fit_args(parser: ArgumentParser, npoint_default: int = 400) -> None:
     args = parser.add_argument_group('Fit arguments')
     args.add_argument(
         '--lep', '--leptonic',
@@ -365,8 +365,8 @@ def add_fit_args(parser: ArgumentParser) -> None:
     args.add_argument(
         '--npoints',
         type=int,
-        default=400,
-        help='Number of points to do for the likelihood scan (default: 400)'
+        default=npoint_default,
+        help=f'Number of points to do for the likelihood scan (default: {npoint_default})'
     )
     args.add_argument(
         '--rescaled',
@@ -402,9 +402,7 @@ def add_bias_fit_args(parser: ArgumentParser, default_target: str = '') -> None:
 ## SCRIPT SPECIFIC ARGUMENTS ##
 ###############################
 
-def add_fit_plot_args(
-    parser: ArgumentParser,
-) -> None:
+def add_fit_plot_args(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('Fit plot arguments')
     args.add_argument(
         "--param",
@@ -776,7 +774,7 @@ def self_coupling_plots_parser(description: str | None = None) -> ArgumentParser
         include_cat=True, cat_multi=True, cat_default='', allow_empty=True,
         include_sel=True, sel_multi=True)
     add_plot_args(parser, False, False)
-    add_fit_plot_args(parser)
+    add_fit_plot_args(parser, 20)
     return parser
 
 
@@ -905,9 +903,8 @@ def create_parser(
     # 5-Fit directory
     elif directory == '5-Fit':
         if script == 'fit':         return fit_parser(description)
-        if script == 'plots':       return fit_plots_parser(description)
-        if script == 'make_pseudo': return make_pseudo_parser(description)
         if script == 'bias_test':   return bias_test_parser(description)
+        if script == 'plots':       return fit_plots_parser(description)
 
     # 6-Self-coupling directory
     elif directory == '6-Self-coupling':

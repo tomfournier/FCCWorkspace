@@ -41,7 +41,7 @@ from fitting import (
     get_results, get_grid_number,
 )
 from run import get_extra_args, update_namespace
-from zh_xsec.func.self_coupling import get_parameters, convert_to_kappa
+from zh_xsec.func.self_coupling import get_params, to_kappa
 
 
 
@@ -50,7 +50,7 @@ from zh_xsec.func.self_coupling import get_parameters, convert_to_kappa
 ###############################
 
 # Get the fitted parameters
-params: list[str] = get_parameters(arg.model)
+params: list[str] = get_params(arg.model)
 expected = ','.join(f'{p}=0' for p in params)
 
 ranges = {
@@ -77,6 +77,7 @@ _, sel = parse_sels(arg.sel, arg.cat, bool(arg.lep or arg.combine))
 
 # Bundle arguments for directory lookup
 args = [arg.cat, 0, sel]
+lumi = (10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else -1)) if arg.rescaled else 1
 
 # Resolve directory paths based on configuration and arguments
 dr:   PathObj = loc.get('SELF',        *args)   # Working directory
@@ -105,7 +106,7 @@ dc_240 = loc.get('FIT_CARD', arg.cat, 240, sel) / f'datacard{comb}.txt'
 dc_365 = loc.get('FIT_CARD', arg.cat, 365, sel) / f'datacard{comb}.txt'
 
 # Set up environment for subprocess calls
-env = os.environ.copy()
+ENV = os.environ.copy()
 
 # Create necessary directories if they don't exist
 for dir_path in [dc, ws, log, res, scan]:
@@ -120,9 +121,8 @@ for dir_path in [dc, ws, log, res, scan]:
 def do_fit(
         dr: PathObj,
         ws: PathObj,
-        env: os._Environ,
         params: list[str]
-         ) -> int:
+) -> int:
     '''Execute the fitting workflow: combine datacards, create workspace, and run fit.'''
 
     ##########################
@@ -132,7 +132,7 @@ def do_fit(
     cmd_dc = ['combineCards.py', f'low={dc_240}', f'high={dc_365}']
 
     cmd_t2w = ['text2workspace.py', dc_nom, '-v', '2', '-P',
-               f'xsec.func.self_coupling:{arg.model}',
+               f'zh_xsec.func.self_coupling:{arg.model}',
                '--X-allow-no-signal', '--X-allow-no-background',
                '--for-fits', '--no-wrappers',
                '-m', '125', '-o', ws_file]
@@ -148,7 +148,7 @@ def do_fit(
                '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w', '--robustHesse=1',
                '--autoBoundsPOIs', '*', '--autoMaxPOIs', '*', '--snapshotName', 'MultiDimFit',
                '--squareDistPoiStep', '--autoRange', '10', '--skipInitialFit', '--algo', 'grid',
-               '--alignEdges', '1', '--points', f'{get_grid_number(arg.points, params)}']
+               '--alignEdges', '1', '--points', f'{get_grid_number(arg.npoints, params)}']
     cmd_fit += ['--fastScan'] if arg.fast_scan else []
 
 
@@ -159,34 +159,34 @@ def do_fit(
 
     if not (arg.skip_setup and dc_nom.exists()):
         LOGGER.info('Combining datacards from 240 and 365 GeV channels')
-        run_cmd(cmd_dc, dc_nom, None, env)
+        run_cmd(cmd_dc, dc_nom, None, ENV)
     else:
         LOGGER.debug('Skipping the datacards combination')
 
     if not (arg.skip_setup and ws_file.exists()):
         LOGGER.info('Converting the datacard to RooFit workspace')
-        run_cmd(cmd_t2w, log_t2w, dr, env)
+        run_cmd(cmd_t2w, log_t2w, dr, ENV)
     else:
         LOGGER.debug('Skipping the RooFit workspace setup')
 
     if arg.fastscan:
         LOGGER.info('Doing a fast likelyhood scan to check the fit')
-        run_cmd(cmd_fastscan, log_fscan, scan, env)
+        run_cmd(cmd_fastscan, log_fscan, scan, ENV)
 
     LOGGER.info('Doing the fit')
-    run_cmd(cmd_diag, log_diag, ws, env)
-    res_diag = get_results(diag_file, params, 'singles')
+    run_cmd(cmd_diag, log_diag, ws, ENV)
+    res_diag = get_results(diag_file, params, 'singles', lumi)
     res_saving(res_diag, res, arg.print, '_diag')
-    convert_to_kappa(res_diag, res, '_diag')
+    to_kappa(res_diag, res, '_diag')
 
     if arg.only_diag:
         LOGGER.debug('Skipping the likelihood scan')
     else:
         LOGGER.info('Doing the likelihood scan')
-        run_cmd(cmd_fit, log_fit, ws, env)
-        res_fit = get_results(fit_file, params, 'grid')
+        run_cmd(cmd_fit, log_fit, ws, ENV)
+        res_fit = get_results(fit_file, params, 'grid', lumi)
         res_saving(res_fit, res, arg.print, '_fit')
-        convert_to_kappa(res_fit, res, '_fit')
+        to_kappa(res_fit, res, '_fit')
 
     return 0
 
@@ -198,14 +198,14 @@ def do_fit(
 if __name__=='__main__':
     try:
         # Execute the fitting pipeline
-        ret = do_fit(dr, ws, env, params)
+        ret = do_fit(dr, ws, params)
         if ret != 0: exit(ret)
 
-        plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat,
-                                     ecm=str(arg.ecm), sels=sel, sig2=True, timer=False)
+        plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat, sels=sel,
+                                     sig2=True, timer=False, param='-'.join(params), y_cut=100, y_max=7)
         cmd = ['python', 'plots.py'] + get_extra_args(
             plot_args, {f'directory': '6-Self-coupling', 'script': 'plots'}, create_parser)
-        run_cmd(cmd, None, Path(__file__).parent, env)
+        run_cmd(cmd, None, Path(__file__).parent, ENV)
 
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt

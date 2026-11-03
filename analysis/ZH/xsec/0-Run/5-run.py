@@ -71,7 +71,8 @@ cmds = {v:'python' for v in script_map.values()}
 #############################
 
 # Expand dash-separated channel and energy values into lists.
-cats = arg.cat.split('-')                      # Decay categories: ['ee'] or ['ee', 'mumu']
+# With --lep/--combine the channels are merged by the fit script, so --cat must not be forwarded
+cats = [None] if (arg.lep or arg.combine) else arg.cat.split('-')
 ecms = [int(e) for e in arg.ecm.split('-')]  # Energies: [240] or [240, 365]
 sels = arg.sels.split('-')                     # Selections: ['Baseline'] or ['Baseline', 'test']
 

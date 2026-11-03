@@ -1,11 +1,4 @@
-import math
-
-from abc import ABCMeta, abstractmethod
-
-from HiggsAnalysis.CombinedLimit.PhysicsModel import (
-    PhysicsModel as CombinedPhysicsModel,
-    PhysicsModelBase as CombinedPhysicsModelBase,
-)
+from HiggsAnalysis.CombinedLimit.PhysicsModel import PhysicsModel
 
 from logger import get_logger
 from path import PathObj
@@ -18,35 +11,26 @@ LOGGER = get_logger(__name__)
 ### QUANTITIES DEFINITION ###
 #############################
 
+# Higgs boson mass
 mH  = 125.1
+# Fermi's constant from muon decay
 Gmu = 1.16638e-5
+# Vacuum expectation value
 vev = (1 / (2**0.5 * Gmu))**0.5
 
+# SMEFT's contributions to the ZH production cross-section
 table: dict[str, dict[int, dict[str, float]]] = {
-    'Cphi': {
-        240: {'weak': -7.21e-3, 'QED': 0, 'bar': 0},
-        365: {'weak': -9.98e-4, 'QED': 0, 'bar': 0}
-    },
-    'CphiD': {
-        240: {'weak': 1.20e-1, 'QED': -1.95e-2, 'bar': -5.41e-3},
-        365: {'weak': 1.12e-1, 'QED': +8.56e-3, 'bar': -5.75e-3}
-    },
-    'Cbox': {
-        240: {'weak': 8.80e-3, 'QED': -2.46e-3, 'bar': -1.12e-3},
-        365: {'weak': 7.30e-3, 'QED': +2.36e-3, 'bar': -1.17e-3}
-    }
+    'Cphi':  {240: {'weak': -7.21e-3, 'QED': +0,       'bar': +0},
+              365: {'weak': -9.98e-4, 'QED': +0,       'bar': +0}},
+    'CphiD': {240: {'weak': +1.20e-1, 'QED': -1.95e-2, 'bar': -5.41e-3},
+              365: {'weak': +1.12e-1, 'QED': +8.56e-3, 'bar': -5.75e-3}},
+    'Cbox':  {240: {'weak': +8.80e-3, 'QED': -2.46e-3, 'bar': -1.12e-3},
+              365: {'weak': +7.30e-3, 'QED': +2.36e-3, 'bar': -1.17e-3}}
 }
+xsec = {'LO': {240: 239.2, 365: 116.9}, 'NLO': {240: 194.4, 365: 121.1}, 'weak': {240: 232.1, 365: 113.2}}
 
-sigma_LO   = {240: 239.2, 365: 116.9}
-sigma_NLO  = {240: 194.4, 365: 121.1}
-sigma_weak = {240: 232.1, 365: 113.2}
-
-coeffs_label = {
-    'r':     r'$\mu_{ZH}$',
-    'Cphi':  r'$C_{\phi}$',
-    'CphiD': r'$C_{\phi D}$',
-    'CBox':  r'$C_{\Box}$',
-}
+# Wilson's coefficients label for plot
+coeffs_label = {'r': r'$\mu_{ZH}$', 'Cphi': r'$C_{\phi}$', 'CphiD': r'$C_{\phi D}$', 'CBox':  r'$C_{\Box}$',}
 
 
 
@@ -54,92 +38,7 @@ coeffs_label = {
 ### HELPER FUNCTIONS ###
 ########################
 
-def get_contribution(
-        wilson_coeff: dict[str,
-                           dict[int,
-                                dict[str, float]]],
-        ecm: int,
-        lbda: float | int = 1,
-        LO: bool = True) -> float:
-    '''Get the contribution for the Wilson coefficient considered'''
-
-    weak = table[wilson_coeff][ecm]['weak']
-    qed  = table[wilson_coeff][ecm]['QED']
-    bar  = table[wilson_coeff][ecm]['bar']
-
-    if LO: ratio = sigma_weak[ecm] / sigma_LO[ecm]  / lbda**2
-    else:  ratio = sigma_weak[ecm] / sigma_NLO[ecm] / lbda**2
-    coeff = weak + qed + bar * math.log(240**2 / ecm**2)
-
-    return ratio * coeff
-
-
-def build_expression(prefix: str, wilsons: list[str], energy: int) -> str:
-    """Build the RooFit expression for an arbitrary number of Wilson coefficients."""
-
-    coeff_prefix = {240: "A", 365: "B"}
-    if energy not in coeff_prefix:
-        raise RuntimeError(f"Unsupported energy {energy}; expected 240 or 365")
-
-    terms = [f'@{2 * i}*@{2 * i + 1}' for i in range(len(wilsons))]
-    expr = '1'
-    if terms:
-        expr += ' + ' + ' + '.join(terms)
-
-    args: list[str] = []
-    for i, wilson in enumerate(wilsons):
-        args.extend([f'{coeff_prefix[energy]}{i}', wilson])
-
-    return f'expr::{prefix}_scaling_{energy}("{expr}", {", ".join(args)})'
-
-
-def get_bin_energy(bin_name: str) -> int:
-    """Extract the energy from a bin name like 240_ch1 or 365_ch2."""
-
-    prefix = bin_name.split("_", 1)[0]
-    if prefix == 'low':
-        return 240
-    if prefix == 'high':
-        return 365
-
-    try:
-        energy = int(prefix)
-    except ValueError as exc:
-        raise RuntimeError(f"Cannot infer the energy from bin {bin_name!r}") from exc
-
-    if energy not in (240, 365):
-        raise RuntimeError(f"Unsupported energy {energy} in bin {bin_name!r}; expected 240 or 365")
-    return energy
-
-
-def kappa_from_SMEFT(
-        Cphi: float | int,
-        CphiD: float | int,
-        Cbox: float | int,
-        lbda: float | int = 1e3
-         ) -> float | int:
-    Ckin = (CphiD/4 - Cbox)
-    kappa = 1 + (vev/lbda)**2 * (3 * Ckin - 2 * (vev/mH)**2 * Cphi)
-    return kappa
-
-
-def kappa_precision(
-        Cphi: float | int,
-        CphiD: float | int,
-        Cbox: float | int,
-        lbda: float | int = 1e3
-         ) -> float | int:
-    dCphi  = kappa_from_SMEFT(1, 0, 0, lbda) - 1
-    dCphiD = kappa_from_SMEFT(0, 1, 0, lbda) - 1
-    dCbox  = kappa_from_SMEFT(0, 0, 1, lbda) - 1
-
-    LOGGER.debug(f'Using {dCphi = :.4f}, {dCphiD = :.4f}, {dCbox = :.4f}')
-
-    dkappa = ((dCphi*Cphi)**2 + (dCphiD*CphiD)**2 + (dCbox*Cbox)**2)**0.5
-    return dkappa
-
-
-def get_parameters(model: str):
+def get_params(model: str):
     """Return the Wilson coefficients attached to a named exported model."""
 
     try:
@@ -154,104 +53,109 @@ def get_parameters(model: str):
     return wilson
 
 
-def convert_to_kappa(
+def from_SMEFT(
+        Cphi: float | int,
+        CphiD: float | int,
+        Cbox: float | int,
+        lbda: float | int = 1e3
+) -> float | int:
+    '''Convert the values of Cphi, CphiD and Cbox to kappa_lambda'''
+    Ckin = (CphiD/4 - Cbox)
+    kappa = 1 + (vev/lbda)**2 * (3 * Ckin - 2 * (vev/mH)**2 * Cphi)
+    return kappa
+
+
+def get_kappa_err(
+        Cphi_err: float | int,
+        CphiD_err: float | int,
+        Cbox_err: float | int,
+        lbda: float | int = 1e3
+) -> float | int:
+    '''Convert the errors of Cphi, CphiD and Cbox to kappa_lambda error'''
+    dCphi  = from_SMEFT(1, 0, 0, lbda) - 1
+    dCphiD = from_SMEFT(0, 1, 0, lbda) - 1
+    dCbox  = from_SMEFT(0, 0, 1, lbda) - 1
+
+    LOGGER.debug(f'Using {dCphi = :.4f}, {dCphiD = :.4f}, {dCbox = :.4f}')
+
+    dkappa = ((dCphi*Cphi_err)**2 + (dCphiD*CphiD_err)**2 + (dCbox*Cbox_err)**2)**0.5
+    return dkappa
+
+
+def to_kappa(
         res: dict[str, dict[str, float | int]],
-        outDir: PathObj,
+        outputdir: PathObj | str | None = None,
         suffix: str = '',
         lbda: float | int = 1e3,
-         ) -> tuple[float | int, float | int]:
+) -> tuple[float | int, float | int]:
+    '''Convert the results from Cphi, CphiD and Cbox to kappa_lambda results'''
 
     import json
 
     cphi, cphid, cbox = res.get('Cphi', {}), res.get('CphiD', {}),  res.get('Cbox', {})
 
-    cphi_val,  cphi_err  = cphi.get('best_fit',  0), cphi.get('err',  0)
-    cphid_val, cphid_err = cphid.get('best_fit', 0), cphid.get('err', 0)
-    cbox_val,  cbox_err  = cbox.get('best_fit',  0), cbox.get('err',  0)
+    Cphi,  Cphi_err  = cphi.get('best_fit',  0), cphi.get('err',  0)
+    CphiD, CphiD_err = cphid.get('best_fit', 0), cphid.get('err', 0)
+    Cbox,  Cbox_err  = cbox.get('best_fit',  0), cbox.get('err',  0)
 
-    kappa_val = kappa_from_SMEFT(cphi_val, cphid_val, cbox_val, lbda)
-    kappa_err = kappa_precision(cphi_err,  cphid_err, cbox_err, lbda)
+    kappa_val = from_SMEFT(Cphi, CphiD, Cbox, lbda)
+    kappa_err = get_kappa_err(Cphi_err, CphiD_err, Cbox_err, lbda)
 
-    LOGGER.info('Converting to kappa framework:\n  '
-                f'kappa_lbda = {kappa_val:.2f} +/- {kappa_err*100:.2f}%')
+    LOGGER.info(f'Converting to kappa framework:\n\tk_l = {kappa_val:.2f} +/- {kappa_err:.2%}')
 
-    out = outDir / f'result_kappa{suffix}.json'
-    out.write_text(json.dumps({'kappa': kappa_val, 'err': kappa_err}))
-    LOGGER.info(f'Saving results at {out}')
+    if outputdir is not None:
+        if not isinstance(outputdir, PathObj): outputdir = PathObj(outputdir)
+        out = outputdir / f'result_kappa{suffix}.json'
+        out.write_text(json.dumps({'kappa': kappa_val, 'err': kappa_err}))
+        LOGGER.info(f'Saving results at {out}')
     return kappa_val, kappa_err
 
 
 
+#############################
+### PHYSICS MODEL HELPERS ###
+#############################
 
-###############################
-### HELPER CLASS DEFINITION ###
-###############################
+def get_coeff(wilson: str, ecm: int, lbda: float | int = 1, LO: bool = True) -> float:
+    '''Get the contribution for the Wilson coefficient considered'''
+    import math
 
-### Class that takes care of building a physics model by combining individual channels and processes together
-### Things that it can do:
-###   - define the parameters of interest (in the default implementation , "r")
-###   - define other constant model parameters (e.g., "MH")
-###   - yields a scaling factor for each pair of bin and process (by default, constant for background and linear in "r" for signal)
-###   - possibly modifies the systematical uncertainties (does nothing by default)
+    weak = table[wilson][ecm]['weak']
+    qed  = table[wilson][ecm]['QED']
+    bar  = table[wilson][ecm]['bar']
 
-class PhysicsModelBase(CombinedPhysicsModelBase, metaclass=ABCMeta):
-    def setModelBuilder(self, modelBuilder):
-        "Connect to the ModelBuilder to get workspace, datacard and options. Should not be overloaded."
-        self.modelBuilder = modelBuilder
-        self.DC = modelBuilder.DC
-        self.options = modelBuilder.options
+    if LO: ratio = xsec['weak'][ecm] / xsec['LO'][ecm]  / lbda**2
+    else:  ratio = xsec['weak'][ecm] / xsec['NLO'][ecm] / lbda**2
+    coeff = weak + qed + bar * math.log(240**2 / ecm**2)
 
-    def setPhysicsOptions(self, physOptions):
-        "Receive a list of strings with the physics options from command line"
-        return None
-
-    @abstractmethod
-    def doParametersOfInterest(self):
-        """Create POI and other parameters, and define the POI set."""
-
-    def preProcessNuisances(self, nuisances):
-        "receive the usual list of (name,nofloat,pdf,args,errline) to be edited"
-        return None
-
-    def getYieldScale(self, bin_name, process):
-        "Return the name of a RooAbsReal to scale this yield by or the two special values 1 and 0 (don't scale, and set to zero)"
-        return "r" if self.DC.isSignal[process] else 1
-
-    def getChannelMask(self, bin_name):
-        "Return the name of a RooAbsReal to mask the given bin (args != 0 => masked)"
-        name = "mask_%s" % bin_name
-        # Check that the mask expression doesn't exist already, it might do
-        # if it was already defined in the datacard
-        if not self.modelBuilder.out.arg(name):
-            self.modelBuilder.doVar("%s[0]" % name)
-        return name
-
-    def done(self):
-        "Called after creating the model, except for the ModelConfigs"
-        return None
+    return ratio * coeff
 
 
+def get_expr(prefix: str, wilsons: list[str], energy: int) -> str:
+    """Build the RooFit expression for an arbitrary number of Wilson coefficients."""
 
-############################
-### CLASS BASE DEFINTION ###
-############################
+    coeff_prefix = {240: "A", 365: "B"}
+    if energy not in coeff_prefix:
+        raise RuntimeError(f"Unsupported energy {energy}; expected 240 or 365")
 
-class PhysicsModel(CombinedPhysicsModel):
-    """Example class with signal strength as only POI"""
+    terms, expr = [f'@{2*i}*@{2*i + 1}' for i in range(len(wilsons))], '1'
+    if terms: expr += '+' + '+'.join(terms)
 
-    def doParametersOfInterest(self):
-        """Create POI and other parameters, and define the POI set."""
-        self.modelBuilder.doVar("r[1,0,20]")
-        self.modelBuilder.doSet("POI", "r")
-        # --- Higgs Mass as other parameter ----
-        if self.options.mass != 0:
-            if self.modelBuilder.out.var("MH"):
-                var = self.modelBuilder.out.var("MH")
-                var.removeMin()
-                var.removeMax()
-                var.setVal(self.options.mass)
-            else:
-                self.modelBuilder.doVar("MH[%g]" % self.options.mass)
+    args = []
+    for i, wilson in enumerate(wilsons):
+        args.extend([f'{coeff_prefix[energy]}{i}', wilson])
+
+    return f'expr::{prefix}_scaling_{energy}("{expr}", {", ".join(args)})'
+
+
+def get_energy(bin_name: str) -> int:
+    """Extract the energy from a bin name like low_ch1 or high_ch2."""
+
+    prefix = bin_name.split("_", 1)[0]
+    if prefix in ['high', 'low']:
+        return 240 if prefix=='low' else (365 if prefix=='high' else -1)
+
+    raise ValueError('Bin names should be <energy>_ch1 with energy in [high, low]')
 
 
 
@@ -280,8 +184,8 @@ class SMEFT_NLO(PhysicsModel):
 
         for i, wilson in enumerate(self.wilson):
             # Define the contribution for the corresponding wilson coefficient
-            self.modelBuilder.doVar(f'A{i}[{get_contribution(wilson, 240, 1, True)}]')
-            self.modelBuilder.doVar(f'B{i}[{get_contribution(wilson, 365, 1, True)}]')
+            self.modelBuilder.doVar(f'A{i}[{get_coeff(wilson, 240, 1, True)}]')
+            self.modelBuilder.doVar(f'B{i}[{get_coeff(wilson, 365, 1, True)}]')
 
             # Set the contributions as constant
             self.modelBuilder.out.var(f'A{i}').setConstant(True)
@@ -290,53 +194,53 @@ class SMEFT_NLO(PhysicsModel):
             # Define the wilson coefficient
             self.modelBuilder.doVar(f'{wilson}[0,-2,2]')
 
-        self.modelBuilder.factory_(build_expression('SMEFT', self.wilson, 240))
-        self.modelBuilder.factory_(build_expression('SMEFT', self.wilson, 365))
+        self.modelBuilder.factory_(get_expr('SMEFT', self.wilson, 240))
+        self.modelBuilder.factory_(get_expr('SMEFT', self.wilson, 365))
         self.modelBuilder.doSet('POI', ','.join(self.wilson))
 
 
     def getYieldScale(self, bin_name, process):
-        energy = get_bin_energy(bin_name)
+        energy = get_energy(bin_name)
         if self.DC.isSignal[process]:
             return f'SMEFT_scaling_{energy}'
         return 1
 
 
+
+########################
+### MODEL DEFINITION ###
+########################
+
 class _SMEFT_Cphi(SMEFT_NLO):
     wilson = ['Cphi']
-
 
 class _SMEFT_CphiD(SMEFT_NLO):
     wilson = ['CphiD']
 
-
 class _SMEFT_Cbox(SMEFT_NLO):
     wilson = ['Cbox']
-
 
 class _SMEFT_Cphi_CphiD(SMEFT_NLO):
     wilson = ['Cphi', 'CphiD']
 
-
 class _SMEFT_Cphi_Cbox(SMEFT_NLO):
     wilson = ['Cphi', 'Cbox']
 
-class _SMEFT_Cbox_Cphi(SMEFT_NLO):
-    wilson = ['Cbox', 'Cphi']
-
 class _SMEFT_CphiD_Cbox(SMEFT_NLO):
     wilson = ['CphiD', 'Cbox']
-
 
 class _SMEFT_all(SMEFT_NLO):
     wilson = ['Cphi', 'CphiD', 'Cbox']
 
 
+# Has to define the models like this
+# Will get error if not
 SMEFT_Cphi  = _SMEFT_Cphi()
 SMEFT_CphiD = _SMEFT_CphiD()
 SMEFT_Cbox  = _SMEFT_Cbox()
+
 SMEFT_Cphi_CphiD = _SMEFT_Cphi_CphiD()
 SMEFT_Cphi_Cbox  = _SMEFT_Cphi_Cbox()
-SMEFT_Cbox_Cphi  = _SMEFT_Cbox_Cphi()
 SMEFT_CphiD_Cbox = _SMEFT_CphiD_Cbox()
+
 SMEFT_all = _SMEFT_all()

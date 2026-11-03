@@ -19,8 +19,7 @@ t = time()
 from parsing import set_log, parse_args
 from zh_xsec.parsing import create_parser
 from logger import get_logger
-parser = create_parser('5-Fit', 'fit')
-arg = parse_args(parser, comb=True)  # Parse with combination support
+arg = create_parser('5-Fit', 'fit').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -72,7 +71,7 @@ location_map = {
         'log':  'FIT_LOG',      # Log file directory
         'res':  'FIT_RESULT',   # Fit results output directory
         'scan': 'FIT_SCAN',     # Check the fit stability
-        'tp':   'nominal',      # Type label for naming
+        'tp':   '1-nominal',    # Type label for naming
     },
     True: {   # Bias test fit (for testing fit bias)
         'dir':  'FIT_BIAS',   # Bias test working directory
@@ -81,7 +80,7 @@ location_map = {
         'log':  'BIAS_LOG',   # Log file directory
         'res':  'BIAS_FIT',   # Fit results output directory
         'scan': 'BIAS_SCAN',  # Check the fit stability
-        'tp':   'bias',       # Type label for naming
+        'tp':   '2-bias',     # Type label for naming
     }
 }
 # Select configuration based on fit mode (nominal vs bias)
