@@ -219,8 +219,8 @@ if __name__=='__main__':
         ret = do_fit(dr, ws)
         if ret != 0: exit(ret)
 
-        plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat,
-                                     ecm=str(arg.ecm), sels=sel, sig2=True, only1=arg.bias, timer=False)
+        plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat, ecm=str(arg.ecm),
+                                     sels=sel, y_cut=100, y_max=7, sig2=True, only1=arg.bias, timer=False)
         cmd = ['python', 'plots.py'] + get_extra_args(
             plot_args, {'directory': '5-Fit', 'script': 'plots'}, create_parser)
 

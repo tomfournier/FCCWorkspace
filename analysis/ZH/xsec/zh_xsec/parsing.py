@@ -318,7 +318,7 @@ def add_combine_args(parser: ArgumentParser) -> None:
 ## GENERAL ARGUMENTS ##
 #######################
 
-def add_fit_args(parser: ArgumentParser, npoint_default: int = 400) -> None:
+def add_fit_args(parser: ArgumentParser, npoint_default: int = 100) -> None:
     args = parser.add_argument_group('Fit arguments')
     args.add_argument(
         '--lep', '--leptonic',
@@ -726,18 +726,6 @@ def fit_plots_parser(description: str | None = None) -> ArgumentParser:
     add_fit_plot_args(parser)
     return parser
 
-# Parser for 5-Fit.py/make_pseudo.py
-def make_pseudo_parser(description: str | None = None) -> ArgumentParser:
-    parser = base_parser(
-        description or 'Pseudo-data Script',
-        include_cat=True, allow_empty=True, include_ecm=True,
-        include_sel=True)
-    add_fit_args(parser)
-    add_bias_fit_args(parser, 'bb')
-    add_bias_args(parser, 1)
-    add_polarization(parser)
-    return parser
-
 # Parser for 5-Fit/bias_test.py
 def bias_test_parser(description: str | None = None) -> ArgumentParser:
     parser = base_parser(
@@ -763,7 +751,7 @@ def self_coupling_fit_parser(description: str | None = None) -> ArgumentParser:
         description or 'Fit Script',
         include_cat=True, allow_empty=True,
         include_sel=True)
-    add_fit_args(parser)
+    add_fit_args(parser, 15)
     add_nlo_args(parser)
     return parser
 
@@ -774,7 +762,7 @@ def self_coupling_plots_parser(description: str | None = None) -> ArgumentParser
         include_cat=True, cat_multi=True, cat_default='', allow_empty=True,
         include_sel=True, sel_multi=True)
     add_plot_args(parser, False, False)
-    add_fit_plot_args(parser, 20)
+    add_fit_plot_args(parser)
     return parser
 
 
