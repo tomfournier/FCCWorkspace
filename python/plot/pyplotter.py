@@ -116,8 +116,8 @@ def set_labels(
 
     ax.set_xlabel(xlabel, loc=locx)
     ax.set_ylabel(ylabel, loc=locy)
-    ax.set_title(left,    loc='left')
-    ax.set_title(right,   loc='right')
+    ax.set_title(left,  loc='left')
+    ax.set_title(right, loc='right')
 
 # ______________________________
 def savefigs(

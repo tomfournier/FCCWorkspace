@@ -413,7 +413,7 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 3: Z mass window
     ##########
-    if test:
+    if test or jan:
         if   ecm == 240: df = df.Filter('zqq_m > 20 && zqq_m < 140')  # loose
         elif ecm == 365: df = df.Filter('zqq_m > 60 && zqq_m < 200')  # loose
         else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
@@ -422,7 +422,7 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 4: Z momentum (CoM dependent)
     ##########
-    if test:
+    if test or jan:
         if   ecm == 240: df = df.Filter('zqq_p > 20 && zqq_p < 90')
         elif ecm == 365: df = df.Filter('zqq_p > 20 && zqq_p < 160')
         else: raise ValueError(f'{ecm = } is not supported, choose between [240, 365]')
@@ -431,35 +431,35 @@ def presel_qq(df: 'ROOT.ROOT.RDataFrame',
     ##########
     ### CUT 5: Z Polar angle
     ##########
-    # if test:
+    # if test or jan:
     #     df = df.Filter('zqq_costheta > -0.85 && zqq_costheta < 0.85')
     #     df, hists = cutflow(df, hists, 5)
 
     ##########
     ### CUT 6: Acolinearity
     ##########
-    # if test:
+    # if test or jan:
     #     df = df.Filter('acolinearity > 0.35')
     #     df, hists = cutflow(df, hists, 6)
 
     ##########
     ### CUT 7: WW pair removal
     ##########
-    # if test:
+    # if test or jan:
     #     df = df.Filter('delta_mWW > 6')
     #     df, hists = cutflow(df, hists, 7)
 
     ##########
     ### CUT 8: Polar angle of the missing energy
     ##########
-    # if test:
+    # if test or jan:
     #     df = df.Filter('cosTheta_miss < 0.995')
     #     df, hists = cutflow(df, hists, 8)
 
     ##########
     ### CUT 9: Thrust (365 GeV)
     ##########
-    # if test:
+    # if test or jan:
     #     if ecm == 365:
     #         df = df.Filter('thrust < 0.85')
     #         df, hists = cutflow(df, hists, 9)

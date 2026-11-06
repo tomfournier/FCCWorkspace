@@ -120,13 +120,15 @@ cutList: dict[str, str] = {
 }
 if arg.do_sel0:
     sel0 = 'sel0' + ('_test' if test else ('_jan' if jan else ''))
-    cutList[sel0] = 'return true;'    # No cuts selection (optional)
-if  test: cutList['test'] = Baseline_miss  # Selection for testing
+    cutList[sel0] = 'return true;'  # No cuts selection (optional)
+if  test: cutList['test'] = Baseline_miss if cat=='qq' else Baseline  # Selection for testing
 elif jan: cutList['jan']  = Baseline_miss  # Selection for Jan's jet definition
 
 # Select selection to process and split them into high/low BDT score regions
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 cutList = make_high_low(cutList, bdt_cut, list(cutList.keys()))
+length = max([len(sel) for sel in list(cutList.keys())]) + 2
+LOGGER.info('Using:\n\t' + '\n\t'.join(['{}: {}'.format(f'{sel:<{length}}', cut) for sel, cut in cutList.items()]))
 
 
 
@@ -140,7 +142,12 @@ customHists = custom_hists_ll if cat in ['ee', 'mumu'] else custom_hists_qq
 # Output histogram definitions (name, title, binning)
 histoList = histos_ll if cat in ['ee', 'mumu'] else histos_qq
 histoList['BDTscore'] = {'name':'BDTscore', 'title':'BDT score', 'bin':1000,'xmin':0,'xmax':1}
+
 if cat == 'qq':
+    # mW1 - mW2 plan histogram
+    histoList['W1_m_W2_m'] = {'cols':['W1_m', 'W2_m'], 'bins':[(35, 60, 95), (40, 50, 90)]}
+
+    # Histogram used for the fit
     mqq_lim  = (100, 40, 140) if ecm==240 else (140, 60, 200)
     mrec_lim = (140, 60, 200) if ecm==240 else (215, 50, 265)
     bdt_low, bdt_high = (1, 0, bdt_cut), (1, bdt_cut, 1)

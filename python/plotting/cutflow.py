@@ -178,10 +178,10 @@ def get_cutflow(
     tot: bool = False,
     json_file: bool = False,
     loc_json: str = '',
+    load_json: bool = False,
 ) -> None:
     '''Count events and render category and optional total cutflows.'''
-    from plotting.plotting import CutFlow, CutFlowDecays
-    from tools.utils import dump_json
+    from tools.utils import dump_json, load_json as read_json
 
     procs_plots = {k:plots[k] for k in ('signals', 'backgrounds')}
     decay_plots = plots['decays']
@@ -191,6 +191,21 @@ def get_cutflow(
         active_decay_groups.append(decay_plots.get('tot', {}))
     samples = sorted({sample for group in [*procs_plots.values(), *active_decay_groups]
                       for sample_list in group.values() for sample in sample_list})
+
+    selected_sels = [sel for sel in sels if sel in cuts]
+    out_json = f'{loc_json}/{ecm}/{cat}'
+    if load_json:
+        path = os.path.join(out_json, 'events.json')
+        LOGGER.info(f'Loading cutflow events from {path}')
+        events = read_json(path)
+        for sample in samples:
+            for selection in selected_sels:
+                saved = events.get(sample, {}).get(selection)
+                if saved is None or saved.get('filter') != cuts[selection]:
+                    raise ValueError(f'No matching saved cuts for {sample}, {selection} in {path}; recompute the cutflow')
+        _plot_cutflows(events, selected_sels, procs_plots, decay_plots, cuts, labels, outputdir,
+                       colors, legend, json_file, out_json, cat, ecm, lumi, file_formats, sig_scale, tot)
+        return None
 
     # Initialize event and file list dictionaries.
     events: dict[str, dict[str, float | int | str | dict[str, float | str | dict[str, Any]]]] = {}
@@ -209,7 +224,6 @@ def get_cutflow(
         events[sample] = {'cross-section': getMetaInfo(sample, rmww=True),
                           'eventsProcessed': get_processed(files)}
 
-    selected_sels = [sel for sel in sels if sel in cuts]
     LOGGER.info('Getting cuts from DataFrame')
     for sample in tqdm(samples, unit=' sample'):
         flist = file_list.get(sample, [])
@@ -254,18 +268,42 @@ def get_cutflow(
 
     # Save event counts to JSON for bookkeeping
     LOGGER.info('Dumping events in a json file')
-    out_json = f'{loc_json}/{ecm}/{cat}'
     dump_json(events, out_json, 'events')
 
+    _plot_cutflows(events, selected_sels, procs_plots, decay_plots, cuts, labels, outputdir,
+                   colors, legend, json_file, out_json, cat, ecm, lumi, file_formats, sig_scale, tot)
+
+
+def _plot_cutflows(
+        events: dict,
+        selections: list[str],
+        procs_plots: dict,
+        decay_plots: dict,
+        cuts: dict[str, dict[str, str]],
+        labels: dict[str, dict[str, str]],
+        outputdir: str,
+        colors: dict[str, Any],
+        legend: dict[str, str],
+        json_file: bool,
+        out_json: str,
+        cat: str,
+        ecm: int = 240,
+        lumi: float = 10.8,
+        file_formats: list[str] = ['png'],
+        sig_scale: float = 1.,
+        tot: bool = True,
+) -> None:
+    from plotting.plotting import CutFlow, CutFlowDecays
+
     LOGGER.info('Making cutflow plots')
-    for selection in selected_sels:
+    for selection in selections:
         plot_config = {**procs_plots, 'decays': decay_plots.get('cat', {})}
-        flow_procs, flow_decay = get_flows(events, plot_config, cuts, sel, json_file, False, out_json)
+        flow_procs, flow_decay = get_flows(events, plot_config, cuts, selection, json_file, False, out_json)
         CutFlow(flow_procs, outputdir, selection, procs_plots, colors, legend, labels,
-                ecm, lumi, file_formats, sig_scale=sig_scale, yMin=1e5 if cat=='qq' else 1e2)
+                ecm, lumi, file_formats, sig_scale=sig_scale, yMin=1e4 if cat=='qq' else 1e2)
         CutFlowDecays(flow_decay, outputdir, selection, labels, ecm=ecm, lumi=lumi, file_formats=file_formats, yMin=0, yMax=150)
         if tot:
             plot_config = {**procs_plots, 'decays': decay_plots.get('tot', {})}
-            flow_procs, flow_decay = get_flows(events, plot_config, cuts, sel, json_file, True, out_json)
+            flow_procs, flow_decay = get_flows(events, plot_config, cuts, selection, json_file, True, out_json)
             CutFlowDecays(flow_decay, outputdir, selection, labels, ecm, lumi, file_formats,
                             yMin=0 if cat=='qq' else -50, yMax=160, tot=True)

@@ -46,9 +46,14 @@ cat, ecm, sels = arg.cat, arg.ecm, arg.sels.split('-')
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
 # Define input and output directories
-if arg.kin: inputdir = loc.get('EVENTS_TEST', cat, ecm)
-else:       inputdir = loc.get('EVENTS',      cat, ecm)
+if arg.kin:
+    inputdir = loc.get('EVENTS_TEST', cat, ecm)
+elif arg.jan:
+    inputdir = loc.get('EVENTS_JAN', cat, ecm)
+else:
+    inputdir = loc.get('EVENTS', cat, ecm)
 outputdir = loc.get('PLOT_MEAS', cat, ecm)
+
 
 
 ###################
@@ -86,15 +91,18 @@ CUTS_QQ = {
     'cut4': ('zqq_p > 20 & zqq_p < 90',  '20 < p_{jj} < 90 GeV') if ecm==240 else       # Di-jet momentum window (240 GeV)
             ('zqq_p > 20 & zqq_p < 160', '20 < p_{jj} < 160 GeV'),                      # Di-jet momentum window (240 GeV)
     'cut5': ('zqq_costheta > -0.85 & zqq_costheta < 0.85', '|cos#theta_{jj}| < 0.85'),  # Di-jet polar angle cut
-    'cut6': ('delta_mWW4 > 6', 'WW pair mass'),                      # Remove WW-like events
-    'cut7': ('cosTheta_miss < 0.995', '|cos#theta_{miss}| < 0.995')  # Missing energy polar angle cut
+    'cut6': ('acolinearity > 0.35', '#pi-#Delta#alpha_{jj} > 0.35'),  # Acolinearity cut
+    'cut7': ('delta_mWW4 > 6', 'WW pair mass'),                       # Remove WW-like events
+    'cut8': ('cosTheta_miss < 0.995', '|cos#theta_{miss}| < 0.995')   # Missing energy polar angle cut
 }
+if ecm==365:
+    CUTS_QQ['cut9'] = ('thrust < 0.85', 'T < 0.85')  # Thrust cut (only at 365 GeV)
 
 if arg.kin:
     CUTS_QQ = {k: ('' if k in {'cut3', 'cut4'} else cut, label) for k, (cut, label) in CUTS_QQ.items()}
 
 E_vis = 120 if ecm==240 else 175
-EXTRA_QQ = {'Baseline_sep':  {'cut7': (f'((visibleEnergy > {E_vis}) |'                          # Visible sample, do nothing
+EXTRA_QQ = {'Baseline_sep':  {'cut8': (f'((visibleEnergy > {E_vis}) |'                          # Visible sample, do nothing
                                        f' (visibleEnergy < {E_vis} & cosTheta_miss < 0.995))',  # Invisible sample, missing energy polar angle cut
                                         '|cos#theta_{miss}| < 0.995 [inv]')}}
 
@@ -145,7 +153,7 @@ def main() -> None:
     # Generate cutflow plots and tables
     get_cutflow(inputdir, outputdir, cat, sels, plots, colors, legend,
                 cuts, labels, arg.formats.split('-'), ecm, lumi,
-                1, True, arg.tot, True, loc.JSON)
+                1, True, arg.tot, True, loc.JSON, load_json=arg.load_json)
 
 
 ######################

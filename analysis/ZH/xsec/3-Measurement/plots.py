@@ -45,7 +45,7 @@ from plotting.plotting import plot_configs, get_args
 cats, ecm, sels = arg.cat.split('-'), arg.ecm, arg.sels.split('-')
 lumi = 10.8 if ecm==240 else (3.12 if ecm==365 else -1)
 
-if arg.hl: sels = high_low_sels(sels, sels)
+if arg.hl: sels = high_low_sels(sels, [sel for sel in sels if 'sel0' not in sels])
 quiet = not arg.verbose
 
 # Custom plot arguments for specific variables

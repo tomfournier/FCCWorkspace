@@ -316,7 +316,7 @@ def get_process_list(
                 defaults = {'fraction': 1, 'chunks': 1}
                 process_sig[sample] = {**defaults, **override}
             elif sample in bkgs:
-                defaults = {'fraction': bkgs[sample]['frac'], 'chunks': bkgs[sample]['nb']}
+                defaults = {'fraction': bkgs[sample].get('frac', 1), 'n_max': bkgs[sample].get('max', -1), 'chunks': bkgs[sample]['nb']}
                 process_bkg[sample] = {**defaults, **override}
             else:
                 raise ValueError(f'Cannot classify included sample {sample!r} as signal or background.')

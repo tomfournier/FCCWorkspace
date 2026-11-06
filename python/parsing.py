@@ -193,7 +193,7 @@ def add_selection_args(parser: ArgumentParser) -> None:
     args = parser.add_argument_group('Selection arguments')
     args.add_argument(
         '--do-test',
-        action=BooleanOptionalAction,
+        action='store_true',
         default=False,
         help='Use the cut defined in the pre-selection'
     )

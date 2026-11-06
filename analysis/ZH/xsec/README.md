@@ -130,6 +130,17 @@ python 0-Run/3-run.py --cat ee-mumu --ecm 240-365 --run 1-2-3-4 --yields
 python 0-Run/4-run.py --cat ee --ecm 240 --sels Baseline-test
 ```
 
+To regenerate cutflow plots without recounting events, first run the cutflow normally,
+then repeat it with `--load-json`:
+
+```bash
+python 0-Run/3-run.py --run 4 --cat qq --ecm 240 --sels Baseline --load-json
+```
+
+This reads `output/tmp/json/<ecm>/<cat>/events.json`. The saved file must include
+the requested samples and selections with matching cuts. Use the same input and
+scaling settings as the original run; the cache does not record those settings.
+
 #### Stage Details
 
 Each stage has internal sub-stages (1, 2, 3, ...) corresponding to specific scripts:

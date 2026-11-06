@@ -129,28 +129,18 @@ def main(cat: str, ecm: int, script: str) -> None:
 
 if __name__ == '__main__':
     try:
-        is_there_plots   = 'plots' in scripts
-        is_there_cutflow = 'cutflow' in scripts
-
-        if is_there_plots:   scripts.remove('plots')
-        if is_there_cutflow: scripts.remove('cutflow')
+        is_there_plots = 'plots' in scripts
 
         # Nested loops: iterate over energies, channels, and pipeline stages
         for ecm in ecms:
-            # BATCH info for pre/final-selection
-            if ('pre-selection' in scripts) or ('final-selection' in scripts):
-                for cat in cats:
-                    for script in scripts:
-                        result = main(cat, ecm, script)
-                        if result != 0: sys.exit(result)
+            for cat in cats:
+                for script in scripts:
+                    if 'plots' in script: continue
+                    result = main(cat, ecm, script)
+                    if result != 0: sys.exit(result)
 
-            # BATCH info for plots
-            if is_there_plots:
+            if 'plots' in scripts:
                 result = main(arg.cat, ecm, 'plots')
-                if result != 0: sys.exit(result)
-            # BATCH info for cutflow
-            if is_there_cutflow:
-                result = main(arg.cat, ecm, 'cutflow')
                 if result != 0: sys.exit(result)
     except KeyboardInterrupt:
         pass  # Do not show Traceback when doing keyboard interrupt

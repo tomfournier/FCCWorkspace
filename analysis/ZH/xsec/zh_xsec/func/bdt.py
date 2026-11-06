@@ -628,7 +628,8 @@ def make_high_low(
     cutList: dict[str, str],
     bdt_cut: float,
     sels: list[str],
-    score: str = 'BDTscore'
+    score: str = 'BDTscore',
+    no_cut_sel: str = 'sel0'
 ) -> dict[str, str]:
     '''Create high/low BDT score cut regions for selected criteria.
 
@@ -643,9 +644,9 @@ def make_high_low(
     '''
 
     valid_sels = [sel for sel in sels if sel in cutList]
-    LOGGER.info(
-        f'Adding selection with BDT separation for\n{" ".join(valid_sels)}')
+    LOGGER.info(f'Adding selection with BDT separation for\n{" ".join(valid_sels)}')
     for sel in valid_sels:
+        if no_cut_sel in sel: continue
         old_cut = cutList[sel]
         # Add high BDT score region (signal-like)
         cutList[sel+'_high'] = old_cut + f' && {score} > {bdt_cut}'

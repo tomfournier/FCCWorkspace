@@ -252,6 +252,11 @@ def add_cutflow_args(parser: ArgumentParser) -> None:
         default=True,
         help='Use events from files with Baseline kinematic cuts already made (smaller files)'
     )
+    args.add_argument(
+        '--load-json',
+        action='store_true',
+        help='Plot using previously computed cutflow events from JSON'
+    )
 
 
 
@@ -670,6 +675,8 @@ def measurement_cutflow_parser(description: str | None = None) -> ArgumentParser
         description or 'Cutflow Script',
         include_cat=True, include_ecm=True,
         include_sel=True, sel_multi=True, sel_default='Baseline')
+    add_selection_args(parser)
+    add_xsec_selection_args(parser)
     add_plot_args(parser)
     add_cutflow_args(parser)
     return parser
