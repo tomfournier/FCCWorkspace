@@ -127,7 +127,9 @@ elif jan: cutList['jan']  = Baseline_miss  # Selection for Jan's jet definition
 # Select selection to process and split them into high/low BDT score regions
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
 cutList = make_high_low(cutList, bdt_cut, list(cutList.keys()))
-length = max([len(sel) for sel in list(cutList.keys())]) + 2
+if len(cutList) == 0:
+    raise ValueError('No selection were chosen, choose at least one')
+length = max([len(sel) for sel in cutList.keys()]) + 2
 LOGGER.info('Using:\n\t' + '\n\t'.join(['{}: {}'.format(f'{sel:<{length}}', cut) for sel, cut in cutList.items()]))
 
 
@@ -145,7 +147,7 @@ histoList['BDTscore'] = {'name':'BDTscore', 'title':'BDT score', 'bin':1000,'xmi
 
 if cat == 'qq':
     # mW1 - mW2 plan histogram
-    histoList['W1_m_W2_m'] = {'cols':['W1_m', 'W2_m'], 'bins':[(35, 60, 95), (40, 50, 90)]}
+    histoList['W1_m_W2_m'] = {'cols':['W1_m', 'W2_m'], 'bins':[(200, 0, 200), (200, 0, 200)]}
 
     # Histogram used for the fit
     mqq_lim  = (100, 40, 140) if ecm==240 else (140, 60, 200)
