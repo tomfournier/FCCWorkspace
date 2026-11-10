@@ -2,7 +2,7 @@
 ### BASELINE SELECTION ###
 ##########################
 
-def Baseline_cut_qq(ecm: int, miss: bool = False) -> str:
+def Baseline_cut_qq(ecm: int, miss: bool = False, old: bool = False) -> str:
     # c.o.m energy dependent cut
     m_dw, m_up = (20, 140) if ecm==240 else ((60, 200) if ecm==365 else (None, None))
     p_dw, p_up = (20,  90) if ecm==240 else ((60, 160) if ecm==365 else (None, None))
@@ -17,7 +17,9 @@ def Baseline_cut_qq(ecm: int, miss: bool = False) -> str:
     cut += f' && zqq_p > {p_dw} && zqq_p < {p_up}'
 
     # Di-jet polar angle cut (only for 240 GeV)
-    if ecm == 240: cut += ' && zqq_costheta > -0.9 && zqq_costheta < 0.9'
+    if ecm == 240 or old: cut += ' && zqq_costheta > -0.9 && zqq_costheta < 0.9'
+
+    if old: cut += ' && acolinearity > 0.35'
 
     # WW pair mass cut
     cut += ' && delta_mWW4 > 6'

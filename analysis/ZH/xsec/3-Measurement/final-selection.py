@@ -101,8 +101,9 @@ defineList, bdt_cut = def_bdt(loc_BDT, weight_suffix=f'_{arg.weight_suffix}')
 #######################
 
 # Baseline and Baseline_miss definition (channel and c.o.m energy dependent)
-Baseline      = Baseline_cut_qq(ecm, False) if cat=='qq' else Baseline_cut_ll(ecm, False)
-Baseline_miss = Baseline_cut_qq(ecm, True)  if cat=='qq' else Baseline_cut_ll(ecm, True)
+Baseline      = Baseline_cut_qq(ecm, False, False) if cat=='qq' else Baseline_cut_ll(ecm, False)
+Baseline_miss = Baseline_cut_qq(ecm, True, False)  if cat=='qq' else Baseline_cut_ll(ecm, True)
+Baseline_old  = Baseline_cut_qq(ecm, True, True)   if cat=='qq' else Baseline_cut_ll(ecm, False)
 
 # E_vis cut for E_vis categorization (channel and c.o.m energy dependent)
 E_vis = (120 if ecm==240 else 175) if cat=='qq' else (100 if ecm==240 else 171)
@@ -121,8 +122,12 @@ cutList: dict[str, str] = {
 if arg.do_sel0:
     sel0 = 'sel0' + ('_test' if test else ('_jan' if jan else ''))
     cutList[sel0] = 'return true;'  # No cuts selection (optional)
-if  test: cutList['test'] = Baseline_miss if cat=='qq' else Baseline  # Selection for testing
-elif jan: cutList['jan']  = Baseline_miss  # Selection for Jan's jet definition
+if  test:
+    cutList['test'] = Baseline_miss if cat=='qq' else Baseline  # Selection for testing
+    cutList['TEST'] = Baseline_old  # Old selection for comparison
+elif jan:
+    cutList['jan'] = Baseline_miss  # Selection for Jan's jet definition
+    cutList['JAN'] = Baseline_old   # Old selection for comparison with Jan's definition
 
 # Select selection to process and split them into high/low BDT score regions
 cutList = {sel:cuts for sel, cuts in cutList.items() if (sel in sels or 'all' in sels)}
@@ -155,4 +160,8 @@ if cat == 'qq':
     bdt_low, bdt_high = (1, 0, bdt_cut), (1, bdt_cut, 1)
     histoList['zqq_m_recoil_m_mva_high']      = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, bdt_high]}
     histoList['zqq_m_recoil_m_mva_low']       = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, bdt_low]}
+
+    mrec_lim = (50, 100, 150) if ecm==240 else (100, 100, 200)
+    histoList['zqq_m_recoil_m_old_mva_high'] = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, bdt_high]}
+    histoList['zqq_m_recoil_m_old_mva_low']  = {'cols':['zqq_recoil_m', 'zqq_m', 'BDTscore'], 'bins':[mrec_lim, mqq_lim, bdt_low]}
 
