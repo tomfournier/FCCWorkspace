@@ -36,7 +36,7 @@ from zh_xsec.userConfig import loc
 from samples import get_process_dict, get_process_list
 from tools.utils import timer, mkdir
 from constants import H_decays
-from tools.process import get_hist, concat, unroll, stack_hist
+from tools.process import get_hist, concat, unroll
 
 
 
@@ -99,7 +99,7 @@ def run(cats: str,
         inDir = loc.get('HIST_RAW', cat, ecm)
 
         # Histograms to process for BDT training/measurement
-        hNames = ['zll_recoil_m', 'zll_recoil_m_tot'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_recoil_m_tot', 'zqq_m_recoil_m_mva']
+        hNames = ['zll_recoil_m', 'zll_recoil_m_tot'] if cat in ['ee', 'mumu'] else ['zqq_recoil_m', 'zqq_recoil_m_tot', 'zqq_m_recoil_m_mva', 'zqq_m_recoil_m_old_mva']
         samples = get_process_list(cat, ecm).keys()
 
         # Process each selection strategy
