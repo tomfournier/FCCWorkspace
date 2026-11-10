@@ -186,11 +186,12 @@ def datacard_root(
             if not os.path.exists(f'{inputDir}/{proc}.root'):
                 continue
             with ROOT.TFile(f'{inputDir}/{proc}.root', 'READ') as fIn:
-                source = fIn.Get(name)
-                if source is None:
-                    raise KeyError(f'Histogram {name!r} not found in {proc}.root')
-                hist = source.Clone()
-                hist.SetDirectory(0)
+                try:
+                    source = fIn.Get(name)
+                    hist = source.Clone()
+                    hist.SetDirectory(0)
+                except:
+                    raise ReferenceError(f'Histogram {name!r} not found in {proc}.root')
             scale = scales.get(proc, 1)
             if scale != 1:
                 hist.Scale(scale)
@@ -208,13 +209,17 @@ def datacard_root(
 
     for procName, procList in proc_dict.items():
         for i, cat in enumerate(categories):
-            if only_asimov:
-                hist        = get_hist(procList, hNames[i], cat, {})
-                hist_asimov = get_hist(procList, hNames[i], cat, scales, True)
-            else:
-                hist        = get_hist(procList, hNames[i], cat, scales)
-                hist_asimov = hist.Clone()
-                hist_asimov.SetDirectory(0)
+            try:
+                if only_asimov:
+                    hist        = get_hist(procList, hNames[i], cat, {})
+                    hist_asimov = get_hist(procList, hNames[i], cat, scales, True)
+                else:
+                    hist        = get_hist(procList, hNames[i], cat, scales)
+                    hist_asimov = hist.Clone()
+                    hist_asimov.SetDirectory(0)
+            except:
+                LOGGER.error(f'An error occured when taking {hNames[i]} from {procName}', exc_info=True)
+                exit(1)
             hist.SetName(f'{cat}_{procName}')
             hists.append(hist)
 

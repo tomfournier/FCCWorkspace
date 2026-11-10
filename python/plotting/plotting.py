@@ -695,7 +695,7 @@ def Efficiency(
 
     decays = z_decays if invert else h_decays
     plot = PullPlot(outputdir, 'yield', selection, eff, eff_err,
-                    [h_labels[decay] for decay in decays], eff_avg, eff_avg_err,
+                    [h_labels[decay] for decay in decays], decays, eff_avg, eff_avg_err,
                     ecm, lumi, 'Selection efficiency [%]', 'efficiency')
     plot.draw(outName, suffix, file_formats, quiet,
               topRight=f'#sqrt{{s}} = {ecm} GeV, {lumi} ab^{{#minus1}}',

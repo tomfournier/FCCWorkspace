@@ -15,6 +15,7 @@ class PullPlot:
 		values: Sequence[float],
 		errors: Sequence[float],
 		labels: Sequence[str],
+		labels_txt: Sequence[str],
 		ref: float | None = None,
 		ref_err: float = 0.,
 		ecm: int = 240,
@@ -29,9 +30,10 @@ class PullPlot:
 		if len(values) != len(errors) or len(values) != len(labels):
 			raise ValueError('values, errors, and labels must have equal lengths')
 
-		self.values = list(values)
-		self.errors = list(errors)
-		self.labels = list(labels)
+		self.values     = list(values)
+		self.errors     = list(errors)
+		self.labels     = list(labels)
+		self.labels_txt = list(labels_txt)
 		self.reference       = ref
 		self.reference_error = ref_err
 		self.reference_row   = reference_row

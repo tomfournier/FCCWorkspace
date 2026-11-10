@@ -53,7 +53,7 @@ def Bias(
     colors = [ROOT.kBlack if abs(bias_dict[h_decay]) < unc else ROOT.kRed for h_decay in h_decays]
     plot = PullPlot(outputdir, None, None,
                     [bias_dict[h_decay] for h_decay in h_decays],
-                    [0.] * len(h_decays), labels, 0, unc,
+                    [0.] * len(h_decays), labels, labels, 0, unc,
                     ecm, lumi, 'Bias (#times 100) [%]', 'pulls',
                     False, False)
     plot.draw(outName, suffix, file_formats, quiet, xMin, xMax, point_colors=colors)
@@ -88,7 +88,7 @@ def BiasNorm(
     colors = [ROOT.kBlack if abs(bias_dict[h_decay]) < 1 else ROOT.kRed for h_decay in h_decays]
     plot = PullPlot(outputdir, None, None,
                     [bias_dict[h_decay] for h_decay in h_decays],
-                    [0.] * len(h_decays), labels, 0, 1,
+                    [0.] * len(h_decays), labels, labels, 0, 1,
                     ecm, lumi, 'Bias /#Delta#sigma_{ZH}', 'pulls',
                     False, False)
     plot.draw(outName, suffix, file_formats, quiet, -lim, lim, point_colors=colors)
@@ -125,7 +125,7 @@ def BiasSorted(
     colors = [ROOT.kBlack if abs(bias_dict[h]) < 1 else ROOT.kRed for h in h_sorted]
     plot = PullPlot(outputdir, None, None,
                     [bias_dict[h] for h in h_sorted],
-                    [0.] * len(h_sorted), labels, 0, 1,
+                    [0.] * len(h_sorted), labels, labels, 0, 1,
                     ecm, lumi, 'Bias /#Delta#sigma_{ZH}', 'pulls',
                     False, False)
     plot.draw(outName, suffix, file_formats, quiet, -lim, lim, point_colors=colors)

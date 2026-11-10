@@ -2,11 +2,7 @@
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-import os, time, json
-
-import pandas as pd
-
-from pathlib import Path
+import os, time
 
 # Start timer for performance tracking
 t = time.time()
@@ -114,6 +110,7 @@ def run_fit(target: str) -> float:
 
     Builds the datacard with do_combine, then runs fit via subprocess.
     """
+    from pathlib import Path
     from tools.utils import load_json
     if not arg.combine:
         sig_procs = sig_procs_dict['inv' if target=='inv' else '*']
@@ -136,6 +133,9 @@ def run_fit(target: str) -> float:
 ##########################
 
 def main() -> None:
+
+    import pandas as pd
+
     outputDir.mkdir()
     
     biases = []
