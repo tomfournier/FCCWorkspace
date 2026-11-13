@@ -19,7 +19,7 @@ Examples:
 
 '''
 
-from argparse import ArgumentParser, Namespace, BooleanOptionalAction, _ArgumentGroup
+from argparse import ArgumentParser, Namespace, _ArgumentGroup
 
 
 
@@ -164,14 +164,30 @@ def add_verbose_argument(
     parser: ArgumentParser,
     group: str | None = None
 ) -> None:
-    '''Add -v/--verbose argument for debugging output.'''
+    '''Add mutually exclusive verbosity options.'''
     if group is None:
         group: _ArgumentGroup = parser.add_argument_group('General arguments')
-    group.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        default=False,
-        help='Enable verbose output for debugging'
+    verbosity = group.add_mutually_exclusive_group()
+    verbosity.add_argument(
+        '-v', '--verbose', dest='verbose', action='store_const', const=1,
+        default=0, help='Show DEBUG messages'
+    )
+    verbosity.add_argument(
+        '-vv', '--trace', dest='verbose', action='store_const', const=2,
+        help='Show TRACE messages'
+    )
+    verbosity.add_argument(
+        '-vvv', '--all-logs', dest='verbose', action='store_const', const=3,
+        help='Show all logging levels except inspection messages'
+    )
+    inspection = group.add_mutually_exclusive_group()
+    inspection.add_argument(
+        '-x', '--inspect', dest='inspect', action='store_const', const=1,
+        default=0, help='Show INSPECT messages (and warnings or higher)'
+    )
+    inspection.add_argument(
+        '-xx', '--inspect-debug', dest='inspect', action='store_const', const=2,
+        help='Also show INSPECT_DEBUG messages'
     )
 
 
@@ -370,7 +386,7 @@ def set_log(args: Namespace | None) -> None:
     """
     Initialize logging system based on parsed arguments.
 
-    level specified by the user (via -v/--verbose flag).
+    level specified by the user (via the verbosity and inspection flags).
 
     This function should be called ONCE in your main analysis script,
     before any other imports that need logging.
@@ -400,8 +416,9 @@ def set_log(args: Namespace | None) -> None:
     """
     from logger import setup_logging
 
-    # Check if args has verbose flag
-    verbose = getattr(args, 'verbose', False)
+    verbose = getattr(args, 'verbose', 0)
+    inspect = getattr(args, 'inspect', 0)
 
-    # Initialize logging with the verbose flag
-    setup_logging(verbose)
+    setup_logging(verbose, inspect=inspect)
+
+    return None

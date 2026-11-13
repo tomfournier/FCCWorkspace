@@ -38,7 +38,7 @@ LOGGER.info('Processing complete')
 ### STANDARD LIBRARY IMPORTS ###
 ################################
 
-import sys, logging
+import copy, os, sys, logging
 
 
 
@@ -48,7 +48,74 @@ import sys, logging
 
 TRACE = 5
 """Logging level used for the most detailed diagnostic messages."""
-logging.addLevelName(TRACE, 'TRACE')
+logging.addLevelName(TRACE, 'DEBUG')
+
+INSPECT = 25
+"""Logging level for explicitly enabled variable inspection messages."""
+logging.addLevelName(INSPECT, 'INSPECT')
+
+INSP_DBG = 24
+"""Logging level for more detailed inspection messages."""
+logging.addLevelName(INSP_DBG, 'DEBUG')
+
+
+
+#########################
+### COLORS DEFINITION ###
+#########################
+
+ANSI_COLORS = {
+    'black': 30, 'red': 31, 'green': 32, 'yellow': 33,
+    'blue': 34, 'magenta': 35, 'cyan': 36, 'white': 37,
+    'orange': '#FFA500',
+}
+
+def ansi_escape(*codes: int) -> str:
+    """Build an ANSI escape sequence from numeric codes."""
+    return '\033[' + ';'.join(str(code) for code in codes) + 'm'
+
+
+def ansi_color(color: str | int, style: str | None = None,
+               background: bool = False) -> tuple[str, str]:
+    """Return color and reset codes for a name, #RRGGBB, or palette index.
+
+    Style may be bold, thin, or light. Light uses the bright terminal palette
+    for basic colors and blends RGB colors halfway toward white; it is not
+    available for 256-color palette indices.
+    """
+    # Bold (1) and thin/dim (2) are attributes; light changes the color itself.
+    style_codes = {None: (), 'bold': (1,), 'thin': (2,), 'light': ()}[style]
+
+    # Extended foreground and background colors start with 38 and 48 respectively.
+    channel = 48 if background else 38
+    if isinstance(color, int):
+        if not 0 <= color <= 255 or style == 'light':
+            raise ValueError('Palette indices must be 0-255 and do not support light')
+        # 38/48;5;N selects entry N in the terminal's 256-color palette.
+        codes = (channel, 5, color)
+    else:
+        # Names resolve to basic ANSI codes or RGB values; hex strings pass through.
+        color_code = ANSI_COLORS.get(color, color)
+        if isinstance(color_code, int):
+            # Background codes are 10 higher; bright variants are 60 higher.
+            codes = (color_code + (10 if background else 0) + (60 if style == 'light' else 0),)
+        else:
+            if not color_code.startswith('#'):
+                raise KeyError(color)
+            try:
+                # Convert #RRGGBB into three bytes, one per color channel.
+                channels = bytes.fromhex(color_code[1:])
+                if len(color_code) != 7 or len(channels) != 3:
+                    raise ValueError
+            except ValueError:
+                raise ValueError(f'Invalid RGB color: {color_code!r}') from None
+            if style == 'light':
+                # Move each channel halfway toward white (255).
+                channels = bytes((value + 255) // 2 for value in channels)
+            # 38/48;2;R;G;B selects a 24-bit RGB color.
+            codes = (channel, 2, *channels)
+    # Return a separate reset so callers can limit styling to the intended text.
+    return ansi_escape(*style_codes, *codes), ansi_escape(0)
 
 
 
@@ -65,6 +132,21 @@ class MultiLineFormatter(logging.Formatter):
     lines are indented to align with the first line for better readability.
     """
 
+    LEVEL_COLORS = {
+        TRACE:            ('blue',   'bold'),
+        logging.DEBUG:    ('blue',   None),
+        logging.INFO:     ('white',  None),
+        INSPECT:          ('green',  None),
+        INSP_DBG:         ('green',  'bold'),
+        logging.WARNING:  ('orange', None),
+        logging.ERROR:    ('red',    None),
+        logging.CRITICAL: ('red',    'bold'),
+    }
+
+    def __init__(self, *args, color=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.color = color
+
     def get_header_length(self, record):
         """Calculate the length of the log message header."""
         return len(super().format(logging.LogRecord(
@@ -76,6 +158,11 @@ class MultiLineFormatter(logging.Formatter):
     def format(self, record):
         """Format record with indentation for continuation lines."""
         indent = ' ' * self.get_header_length(record)
+        color = self.LEVEL_COLORS.get(record.levelno) if self.color else None
+        if color:
+            color_code, reset = ansi_color(*color)
+            record = copy.copy(record)
+            record.levelname = f'{color_code}{record.levelname}{reset}'
         head, *trailing = super().format(record).splitlines(True)
         return head + ''.join(indent + line for line in trailing)
 
@@ -84,7 +171,8 @@ class MultiLineFormatter(logging.Formatter):
 _logging_configured = False
 
 
-def setup_logging(verbose: int | bool = 0, logger_name: str = 'FCCAnalysis') -> None:
+def setup_logging(verbose: int | bool = 0, logger_name: str = 'FCCAnalysis',
+                  inspect: int | bool = 0) -> None:
     """
     Configure the root logging system for all analysis scripts and modules.
 
@@ -94,17 +182,23 @@ def setup_logging(verbose: int | bool = 0, logger_name: str = 'FCCAnalysis') -> 
     Parameters
     ----------
     verbose : int or bool, optional
-        Verbosity count: 0 shows INFO and above, 1 enables DEBUG, 2 enables
-        TRACE, and 3 or more enables every logging level. A boolean is accepted
-        for compatibility, where True is equivalent to 1. Default: 0
+        Verbosity setting: 0 shows INFO and above, 1 enables DEBUG, 2 enables
+        TRACE, and 3 or more enables all positive logging levels except the
+        inspection levels unless requested separately. True is equivalent to 1.
+        Default: 0
     logger_name : str, optional
         Name of the root logger. Default: 'FCCAnalysis'
+    inspect : int or bool, optional
+        0 disables inspection, 1 enables INSPECT, and 2 enables INSPECT_DEBUG
+        as well. With verbosity 0, only inspection messages and WARNING or
+        higher are shown. True is equivalent to 1. Default: 0
 
     Notes
     -----
     - Call this function only once at the start of your main script
     - Package modules do NOT need to call this; they just call get_logger()
     - This mimics the setup in FCCAnalyses/bin/fccanalysis
+    - Level colors are enabled on terminals unless NO_COLOR is set
 
     Examples
     --------
@@ -133,16 +227,23 @@ def setup_logging(verbose: int | bool = 0, logger_name: str = 'FCCAnalysis') -> 
     root_logger = logging.getLogger(logger_name)
 
     verbosity_levels = {0: logging.INFO, 1: logging.DEBUG, 2: TRACE}
-    level = verbosity_levels.get(int(verbose), logging.NOTSET)
+    inspection_levels = {INSPECT: 1, INSP_DBG: 2}
+    if inspect and int(verbose) == 0:
+        level = INSP_DBG if inspect >= 2 else INSPECT
+    else:
+        level = verbosity_levels.get(int(verbose), 1)
 
     root_logger.setLevel(level)
+    root_logger.propagate = False
 
     # Create formatter with the custom multi-line formatter
-    formatter = MultiLineFormatter(fmt='[%(levelname)s]: %(message)s')
+    formatter = MultiLineFormatter(fmt='[%(levelname)s]: %(message)s',
+                                   color=sys.stdout.isatty() and 'NO_COLOR' not in os.environ)
 
     # Create and configure stream handler (console output)
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(level)
+    stream_handler.addFilter(lambda record: inspection_levels.get(record.levelno, 0) <= inspect)
     stream_handler.setFormatter(formatter)
 
     # Add the handler to the root logger

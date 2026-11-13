@@ -15,9 +15,7 @@ Conventions:
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-from logger import get_logger
 from utilities import LazyColorDict, get_root
-LOGGER = get_logger(__name__)
 
 
 
