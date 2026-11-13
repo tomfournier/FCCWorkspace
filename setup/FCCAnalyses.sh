@@ -100,7 +100,7 @@ alias rebuild_fcc="(cd "${WORKSPACE_DIR}" && source setup/FCCAnalyses.sh rebuild
 echo "You can also run 'fccanalysis build -j8' for default compiling"
 
 # Writting PYTHONPATH for VSCode to detect the environment
-echo -e "\nWritting PYTHONPATH into env_fccanalysis.txt for VSCode"
+echo -e "\nWritting PYTHONPATH into envs/fccanalysis.txt for VSCode"
 echo -e "You can remove it and comment these lines in the script if you don't need it\n"
 if [ ! -d "envs" ]; then
     mkdir envs
