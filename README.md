@@ -36,7 +36,7 @@ Then you will have to build `FCCAnalyses` to use its framework. To do this you h
 source setup/FCCAnalyses.sh
 ```
 
-When you execute the command, compilation will start and take a few minutes to set up `FCCAnalyses`. When it is finished, you can start performing the event selection. The next time you log in, you also have to source `setup/FCCAnalyses.sh`, but it will not recompile `FCCAnalyses` and will therefore take less time.
+When you execute the command, compilation will start and take a few minutes to set up `FCCAnalyses`. When it is finished, you can start performing the event selection. The next time you log in, you also have to source `setup/FCCAnalyses.sh`, but it will not recompile `FCCAnalyses` and will therefore take less time. You only have to source `setup/FCCAnalyses.sh` if you want to use `FCCAnalyses` framework or to get the environment setup by the script.
 
 ## Combined-Limit
 
@@ -46,7 +46,7 @@ To build `Combined-Limit` you just have to run the following command and wait pa
 source setup/CombinedLimit.sh
 ```
 
-After each login, you only have to source `setup/CombinedLimit.sh`. It will not recompile `Combined-Limit`, so it will not take much time.
+After each login, you only have to source `setup/CombinedLimit.sh` if you want to run the fit or get the environment setup by the script. It will not recompile `Combined-Limit`, so it will not take much time.
 
 ## Recompiling FCCAnalyses and Combined-Limit
 
@@ -64,7 +64,7 @@ source setup/FCCAnalyses.sh rebuild
 source setup/CombinedLimit.sh rebuild
 ```
 
-This will remove the `build/` (and `install/` for `FCCAnalyses`) folder to compile from scratch.
+This will remove the `build/` (and `install/` for `FCCAnalyses`) to compile from scratch.
 
 Normally you will not have to modify `Combined-Limit`, but you may encounter this situation with `FCCAnalyses`. If you have to compile either repository frequently, the setup scripts create aliases so that you do not have to repeat the full command each time.
 
@@ -76,7 +76,7 @@ Use separate terminals for `CombinedLimit` and `FCCAnalyses`, as their environme
 
 ## VSCode setup
 
-If you want to use VS Code with this repository, it is recommended that you source `ROOT` before starting VS Code, as it will not detect `ROOT` otherwise. `.vscode` folders were placed in `FCCWorkspace/` and the analysis folders for C/C++ and Python IntelliSense.
+If you want to use VS Code with this repository, `.vscode` folders were placed in `FCCWorkspace/` and the analysis folders for C/C++ and Python IntelliSense.
 
 Workspace-specific settings are provided in `workspaces/fccanalysis.code-workspace` and `workspaces/combined-limit.code-workspace` for `FCCAnalyses` and `Combined-Limit`, respectively. You can put these settings in `settings.json` if you only need one of the two configurations.
 
@@ -166,7 +166,7 @@ Sometimes you may encounter connection problems with VS Code. Here are some exam
 
 If your connection stops before VS Code can save your file, you may enter a loop of failed reconnection attempts, which can take a lot of time.
 
-It is advisable to close the remote connection and prevent VS Code from trying to save the file. The loop is generally caused by VS Code repeatedly trying to save it, so stopping the save attempts may break the loop.
+It is recommended to close the remote connection and prevent VS Code from trying to save the file. The loop is generally caused by VS Code repeatedly trying to save it, so stopping the save attempts may break the loop.
 
 To reduce the risk of losing changes, enable **Auto Save** in the `File` menu of VS Code and choose an appropriate `files.autoSave` setting.
 
@@ -220,7 +220,7 @@ Clangd can be used to work with C/C++ files in `FCCAnalyses` and `Combined-Limit
 
 Probably the most important extension is `root-file-viewer`, which lets you read `.root` files directly in VS Code and view histograms and TTree distributions. This can be useful for verifying that your code works correctly.
 
-Last but not least, Git Graph is an extension you can use to view the history of your repository and its submodules. It is useful when checking your logs or commits.
+Last but not least, `Git Graph` is an extension you can use to view the history of your repository and its submodules. It is useful when checking your logs or commits.
 
 ## Conclusion
 
@@ -231,8 +231,8 @@ For more details on how to run the analysis, refer to the corresponding `README.
 ## Authors & References
 
 This analysis is part of the FCC physics program for precision Higgs measurements. 
-It was written by Tom Fournier with the help from Ang Li and Jan Eysermans (see [Introduction](#Introduction)). There was also a contribution from Amaury Lhoste for the improvement of the ZH cross-section analysis.
+It was written by Tom Fournier with the help from Ang Li and Jan Eysermans (see [Introduction](#Introduction)). There was also a contribution from Amaury Lhoste for the improvement of the ZH cross-section analysis in a early stage of the `xsec/` analysis.
 
 ---
 
-**Last updated:** October 2026
+**Last updated:** November, 16th 2026

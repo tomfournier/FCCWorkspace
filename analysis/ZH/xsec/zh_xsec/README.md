@@ -1,7 +1,6 @@
 # `zh_xsec/`
 
-Shared Python utilities for the FCC-ee ZH cross-section analysis. The package
-supports the MVA, measurement, combine, fit, and self-coupling workflows.
+Shared Python utilities for the FCC-ee ZH cross-section analysis. The package supports the MVA, measurement, combine, fit, and self-coupling workflows.
 
 ## Package layout
 
@@ -14,8 +13,7 @@ supports the MVA, measurement, combine, fit, and self-coupling workflows.
 | `sel/` | Pre-selection and final-selection functions |
 | `tools/` | ROOT I/O, histogram, and other data-processing utilities |
 
-The package is an internal analysis library. Analysis scripts in the numbered
-workflow directories are the main entry points.
+The package is an internal analysis library. Analysis scripts in the numbered workflow directories are the main entry points.
 
 ## Common usage
 
@@ -26,11 +24,11 @@ from parsing import set_log
 from zh_xsec.parsing import create_parser
 from logger import get_logger
 
-parser = create_parser('2-BDT', 'evaluation')
-args = parse_args(parser)
+args = create_parser('2-BDT', 'evaluation').parser_args()
 set_log(args)
-logger = get_logger(__name__)
-logger.info('Starting analysis')
+
+LOGGER = get_logger(__name__)
+LOGGER.info('Starting analysis')
 ```
 
 Use the configuration modules for processes and paths:
@@ -45,10 +43,7 @@ processes = get_process_dict(procs=['ZH', 'WW'], ecm=240)
 events = loc.EVENTS.get(cat='mumu', ecm=240, type=Path)
 ```
 
-`loc` provides templates for events, MVA inputs, BDT models, histograms,
-plots, and statistical-fit outputs. Expand templates with `cat`, `ecm`, and,
-where applicable, `sel`. Use `type=Path` for filesystem operations; the
-default result is a string-like `LocPath`.
+`loc` provides templates for events, MVA inputs, BDT models, histograms, plots, and statistical-fit outputs. Expand templates with `cat`, `ecm`, and, where applicable, `sel`. Use `type=Path` for filesystem operations; the default result is a string-like `LocPath`.
 
 ## Conventions
 
@@ -58,18 +53,14 @@ default result is a string-like `LocPath`.
 - Package modules should use `get_logger(__name__)`. Scripts should configure
   logging once with `set_log(args)` or `setup_logging()`.
 
-Prefer importing existing constants, process builders, path templates, and
-parser factories instead of duplicating them in analysis scripts.
+Prefer importing existing constants, process builders, path templates, and parser factories instead of duplicating them in analysis scripts.
 
 ## Dependencies
 
-The FCC analysis setup provides the runtime environment. Depending on the
-workflow, the package uses Python, ROOT, `uproot`, `numpy`, `pandas`, `xgboost`,
-`matplotlib`, and `scipy`.
+The FCC analysis setup provides the runtime environment. Depending on the workflow, the package uses Python, ROOT, `uproot`, `numpy`, `pandas`, `xgboost`, `matplotlib`, etc.
 
 ```bash
 source setup/FCCAnalyses.sh
 ```
 
-See the repository setup documentation for environment installation and
-workflow-specific commands.
+See the repository setup documentation for environment installation and workflow-specific commands.

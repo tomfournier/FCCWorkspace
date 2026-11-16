@@ -10,9 +10,7 @@ The analysis workflow follows a sequential pipeline consisting of six main stage
 
 ### Analysis Stages
 
-Each stage is contained in its own directory with a dedicated README:
-
-- **`0-Run/`** — Wrapper orchestration scripts (`1-run.py` through `5-run.py`). These automate sequential execution across channels and energies. Execute these scripts from the xsec/ directory (not to confuse with the xsec/ module).
+- **`0-Run/`** — Wrapper orchestration scripts (`1-run.py` through `5-run.py`). These automate sequential execution across channels and energies. Execute these scripts from the `xsec/` directory.
 
 - **`1-MVAInputs/`** — Selects events from raw simulation and prepares kinematic variables for BDT training. Produces histograms of distributions for all processes (signal and backgrounds).
 
@@ -22,30 +20,24 @@ Each stage is contained in its own directory with a dedicated README:
 
 - **`4-Combine/`** — Processes histograms and generates Combine-compatible datacards with systematic uncertainties for statistical fitting.
 
-- **`5-Fit/`** — Performs maximum likelihood fits to extract the ZH cross-section. Validates fitting procedures through bias tests using pseudo-experiments.
+- **`5-Fit/`** — Performs maximum likelihood fits to extract the ZH cross-section. Validates fitting procedures through bias tests by using pseudo-data.
 
-- **`6-Self-coupling`** - Performs maximum likelihood fits and SMEFT models to extract the Higgs self-coupling precision
+- **`6-Self-coupling`** - Performs maximum likelihood fits with signal strength parametrization by using SMEFT models to extract the Higgs self-coupling precision
 
 ### Core Components
 
-- **`xsec/`** — Central Python module providing configuration, utilities, and analysis functions used across all stages. Key components:
-  - `config.py` — Physics constants, process definitions, and color palettes
-  - `logger.py` — Logging configuration
+- **`FCCWorkspace/python/`** — Global python module used across the analysis
+  - If you make a function or define a constant that can be used across several analysis, put it there
+  - `setup/FCCAnalyses.sh` and `setup/CombinedLimit.sh` export `python/` to `PYTHONPATH` so be sure to have sourced one of them before executing a script
+- **`zh_xsec/`** — Central Python module providing configuration, utilities, and analysis functions used across all stages. Key components:
   - `parsing.py` — Unified command-line argument parsing
-  - `userConfig.py` — Path templates and global parameters (luminosity, energies)
-  - `run.py` - Utilities for `0-Run/` folder scripts
+  - `userConfig.py` — Path templates and parameters specific to `xsec/` analysis
   - `func/` — Analysis functions (BDT training/evaluation, bias testing)
   - `plots/` — Visualization utilities (cutflow, BDT evaluation, histogram plots)
-  - `tools/` — Data processing (ROOT I/O, histogram manipulation)
-  
-  See [xsec/README.md](xsec/README.md) for detailed documentation.
+  - `sel/` — Pre-selection and final-selection utilities
+  - `tools/` — Utilities specific to `xsec/` analysis  
 
-- **`sel_xsec/`** — Event selection functions applied throughout the pipeline:
-  - `sel_xsec/presel/` — Pre-selection functions (lepton/quark selection, kinematic cuts)
-  - `sel_xsec/final/` — Final selection functions (histogram definitions, variable computation)
-  
-  See [sel_xsec/presel/README.md](sel_xsec/presel/README.md) for selection documentation.
-
+See [zh_xsec/README.md](zh_xsec/README.md) for detailed documentation.
 - **`output/`** — Auto-generated directory containing all analysis outputs (see [Output Structure](#output-structure) below)
 
 ## Getting Started
@@ -53,14 +45,14 @@ Each stage is contained in its own directory with a dedicated README:
 ### Prerequisites
 
 - FCC software stack with FCCAnalysis framework (for stages 1-4)
-- RooFit/Combine tools (for stage 5 statistical fitting, optional)
+- RooFit/Combine tools (for stage 5 and 6 statistical fitting)
 
 ### Software Frameworks
 
 **FCCAnalyses** (Stages 1-4)  
 FCCAnalyses is the main analysis framework used for stages 1-4. It provides tools for event selection, reconstruction, and histogram generation with integration to FCC simulation and detector simulation. This framework is required for running MVA input preparation, BDT training, and physics measurement stages.
 
-**RooFit/Combine-Limit** (Stage 5)  
+**RooFit/Combine-Limit** (Stage 5-6)  
 RooFit and Combine are the statistical analysis tools used for maximum likelihood fitting and cross-section extraction. They are typically incompatible with the FCCAnalyses environment due to conflicting dependencies.
 
 ⚠️ **Environment Management Note:**  
@@ -157,50 +149,57 @@ The `output/` directory is automatically created and populated during analysis e
 
 ```
 output/
-├── data/                            # All analysis data outputs
-│   ├── events/                      # Pre-selected event trees
-│   │   └── {ecm}/{cat}/full/{stage}/
-│   │       ├── training/            # Events for MVA training (1-MVAInputs)
-│   │       └── analysis/            # Events for physics analysis (3-Measurement)
-│   │
-│   ├── histograms/                  # Processed histograms at each stage
-│   │   ├── MVAInputs/{ecm}/{cat}/
-│   │   │   ├── *_{sel}.root         # ROOT files for BDT training
-│   │   │   └── *_{sel}_histo.root   # Kinematic distributions for all processes
-│   │   ├── preprocessed/{ecm}/{cat}/{sel}/
-│   │   │   └── *_histo.root         # Measurement histograms after BDT selection
-│   │   └── processed/{ecm}/{cat}/{sel}/
-│   │       └── {sample}.root        # Final histograms before datacard generation
-│   │
-│   ├── MVA/                         # BDT model outputs
-│   │   └── {ecm}/{cat}/{sel}/
-│   │       ├── BDT/
-│   │       │   ├── xgb_bdt.root     # Trained BDT model (ROOT format)
-│   │       │   ├── xgb_bdt.joblib   # Trained BDT model (sklearn format)
-│   │       │   ├── feature.txt      # Feature importance mapping
-│   │       │   └── BDT_cut.txt      # Optimal BDT threshold
-│   │       └── MVAInputs/
-│   │           └── preprocessed.pkl # Training data (before BDT training)
-│   │
-│   └── combine/                     # RooFit/Combine framework outputs
-│       └── {sel}/{ecm}/{cat}/
-│           ├── nominal/             # Nominal fit results
-│           │   ├── WS/              # RooFit workspaces
-│           │   ├── datacard/        # Combine datacards
-│           │   ├── log/             # Fit logs
-│           │   └── results/         # Extracted signal strengths
-│           └── bias/                # Bias test results
-│               ├── WS/              # Pseudo-data workspaces
-│               ├── datacard/        # Pseudo-data datacards
-│               ├── log/             # Fit logs
-│               └── results/         # Bias analysis and plots
-│
-├── plots/                           # Analysis plots for validation
-│   ├── MVAInputs/{ecm}/{cat}/       # Kinematic distributions
-│   ├── evaluation/{ecm}/{cat}/      # BDT performance plots
-│   └── measurement/{ecm}/{cat}/     # Physics measurement plots
-│
-└── tmp/                             # Temporary files (config JSON, process dicts)
+├── data/                                      # Generated data and fit outputs
+│   ├── 1-events/
+│   │   └── {ecm}/
+│   │       ├── {cat}/
+│   │       │   ├── analysis/
+│   │       │   │   ├── full/{sample}/chunk_*.root
+│   │       │   │   └── test/{sample}/chunk_*.root
+│   │       │   └── training/
+│   │       │       ├── full/{sample}/chunk_*.root
+│   │       │       └── test/{sample}/chunk_*.root
+│   │       └── qq/
+│   │           ├── analysis/jan/{sample}/chunk_*.root
+│   │           └── training/jan/{sample}/chunk_*.root
+│   ├── 2-histograms/
+│   │   └── {ecm}/{cat}/
+│   │       ├── 1-inputs/                      # Histograms used as MVA inputs
+│   │       ├── 2-raw-hists/                   # Raw measurement histograms
+│   │       └── 3-processed/{sel}/             # Processed histograms
+│   ├── 3-MVA/
+│   │   └── {ecm}/{cat}/
+│   │       ├── 1-inputs/{sel}/                # MVA input datasets
+│   │       └── 2-bdt/{sel}/                   # Trained BDT models and outputs
+│   ├── 4-combine/{sel}/{ecm}/{cat}/
+│   │   ├── 1-nominal/                         # Output directory of the main fit
+│   │   │   ├── datacard/                        # Datacard
+│   │   │   ├── fastscan/                        # Fast-scan check (optional)
+│   │   │   ├── log/                             # Command log output (to check the fit worked)
+│   │   │   ├── results/                         # Results output
+│   │   │   └── WS/                              # Workspace folder and fit raw output
+│   │   └── 2-bias/                            # Output directory of the bias test fit
+│   │       ├── datacard/                        # Datacard
+│   │       ├── fastscan/                        # Fast-scan check (optional)
+│   │       ├── log/                             # Command log output (to check the fit worked)
+│   │       ├── results/                         # Results output
+│   │       │   ├── 1-bias/                        # Bias test result s
+│   │       │   └── 2-fit/                         # Nominal fit results
+│   │       └── WS/                              # Workspace folder and fit raw output
+│   └── 5-nlo/{sel}/{cat}/                     # Self-coupling fit outputs
+│       ├── datacard/                            # Datacard
+│       ├── fastscan/                            # Fast-scan check (optional)
+│       ├── log/                                 # Command log output (to check the fit worked)
+│       ├── results/                             # Results output
+│       └── WS/                                  # Workspace folder and fit raw output
+├── plots/
+│   ├── 1-MVAInputs/{ecm}/{cat}/{sel}/
+│   ├── 2-BDT/{ecm}/{cat}/{sel}/
+│   ├── 3-measurement/{ecm}/{cat}/
+│   ├── 4-fit/
+│   └── 5-nlo/
+└── tmp/
+    └── json/{ecm}/{cat}/events.json
 ```
 
 **Key outputs by analysis stage:**
@@ -233,17 +232,13 @@ The `test/` directory is configured in `.gitignore` and will not be tracked by g
 
 The analysis is organized into logical components:
 
-- **`xsec/config.py`** — Physics constants (masses, decay modes), process definitions, color palettes, kinematic variable names
-- **`xsec/logger.py`** — Logging setup and configuration
 - **`xsec/parsing.py`** — Unified command-line argument parsing used by all scripts
 - **`xsec/userConfig.py`** — Path templates and global parameters (luminosity, channel names, data fractions)
 - **`xsec/func/`** — Utilities for the different stages of the analysis (BDT training, fit, bias test, self-coupling models)
 - **`xsec/plots/`** — Visualization utilities (cutflow plots, evaluation metrics, histogram plots)
 - **`xsec/tools/`** — Data processing utilities (ROOT I/O, histogram manipulation, significance calculations)
-- **`sel_xsec/presel/`** — Pre-selection functions (lepton kinematics, event filters)
-- **`sel_xsec/final/`** — Final selection and histogram definitions (binning, variable mapping)
 
-See [xsec/README.md](xsec/README.md) and [sel_xsec/presel/README.md](sel_xsec/presel/README.md) for detailed documentation.
+See [xsec/README.md](xsec/README.md) for detailed documentation.
 
 ## Physics Process
 
@@ -293,4 +288,4 @@ It was written by Tom Fournier with help from Ang Li for stages 1-MVAInput and 2
 
 ---
 
-**Last updated:** October 2026
+**Last updated:** November, 16th 2026

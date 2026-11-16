@@ -1,6 +1,6 @@
 # `zh_others/`
 
-Shared Python utilities for the FCC-ee ZH cross-section analysis. The package supports the MVA, measurement, combine, fit, and self-coupling workflows.
+Shared Python utilities for the FCC-ee ZH cross-section analysis optimizations. The package supports FSR and Chi2 optimization.
 
 ## Package layout
 
@@ -8,7 +8,7 @@ Shared Python utilities for the FCC-ee ZH cross-section analysis. The package su
 | --- | --- |
 | `parsing.py` | Reusable command-line argument builders and script parsers |
 | `userConfig.py` | Output path templates and shared analysis parameters |
-| `func/` | Analysis algorithms, including BDT and fit-related functions |
+| `func/` | Optimization algorithms |
 | `plots/` | Plotting and visualization helpers |
 | `sel/` | Pre-selection functions |
 
@@ -23,12 +23,11 @@ from parsing import set_log
 from logger import get_logger
 from zh_others.parsing import create_parser
 
-parser = create_parser('2-BDT', 'evaluation')
-args = parse_args(parser)
+args = create_parser('b-Chi2', 'optimize').parse_args()
 set_log(args)
 
 LOGGER = get_logger(__name__)
-logger.info('Starting analysis')
+LOGGER.info('Starting analysis')
 ```
 
 Use the configuration modules for processes and paths:
@@ -57,7 +56,7 @@ Prefer importing existing constants, process builders, path templates, and parse
 
 ## Dependencies
 
-The FCC analysis setup provides the runtime environment. Depending on the workflow, the package uses Python, ROOT, `uproot`, `numpy`, `pandas` and `matplotlib`.
+The FCC analysis setup provides the runtime environment. Depending on the workflow, the package uses Python, ROOT, `uproot`, `numpy`, `pandas` and `matplotlib`, etc.
 
 ```bash
 source setup/FCCAnalyses.sh
