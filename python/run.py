@@ -123,6 +123,16 @@ def get_extra_args(args: Namespace, parser: ArgumentParser | Mapping[str, object
         flags: list[str] = details['flags']
         flag   = next((item for item in flags if item.startswith('--')), flags[0])
 
+        if action == '_StoreConstAction':
+            if value != parser.get_default(name):
+                match = next((item for item in parser._actions
+                              if item.dest == name and type(item).__name__ == '_StoreConstAction'
+                              and item.const == value and item.option_strings), None)
+                if match is not None:
+                    extra_args.append(next((item for item in match.option_strings if item.startswith('--')),
+                                           match.option_strings[0]))
+            continue
+
         if value == details['default']:
             continue
 

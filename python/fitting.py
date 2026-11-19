@@ -167,6 +167,8 @@ def run_cmd(cmd: list[str] | str,
     except subprocess.CalledProcessError as exc:
         if status == 'not-run': status = f'error exit = {exc.returncode}'
         LOGGER.error(f'Command failed with exit code {exc.returncode}')
+        if log_file is not None and log_file.exists():
+            LOGGER.error(f'The log file is at {log_file}')
         return exc.returncode
     finally:
         if log_file is not None and log_file.exists():
@@ -281,32 +283,26 @@ def res_saving(
         outDir: str,
         print_result: bool = True,
         target: str = '',
-        eps: float = 1e-2
-         ) -> None:
+) -> None:
     '''Save fitting results (signal strength and uncertainty) to output file.'''
     if not results:
         LOGGER.warning("Couldn't extract values of the fit, go to the log file to have more information")
         return
 
-    LOGGER.info('Results successfully extracted')
+    unc_msg = ''
+
+    msg = 'Results successfully extracted:'
     for param, res in results.items():
-        bestfit, err   = res['best_fit'], res['err']
-        err_hi, err_lo = res['err_hi'],   res['err_lo']
         precision = 6 if param == 'r' else 2
-        symmetric = abs(err_hi - err_lo) < eps
-        result_text = (
-            f'  {param} = {bestfit:.{precision}f} +/- {err:.{precision}f}'
-            if symmetric else
-            f'  {param} = {bestfit:.{precision}f} +{err_hi:.{precision}f}/-{err_lo:.{precision}f}'
-        )
-        if print_result:
-            LOGGER.info(result_text)
-            if param == 'r':
-                unc_text = f'{err * 100:.2f} %' if symmetric else f'+{err_hi * 100:.2f}/-{err_lo * 100:.2f} %'
-                LOGGER.info(f'Uncertainty obtained on ZH cross-section: {unc_text}')
+        msg += f'\n\t{param} = {res["best_fit"]:.{precision}f} +/- {res["err"]:.{precision}f}' if print_result else ''
+        if param == 'r':
+            unc_msg += f'Uncertainty obtained on ZH cross-section: {res["err"]:.2%}'
+    LOGGER.info(msg)
+    if unc_msg and print_result:
+        LOGGER.info(unc_msg)
 
     out_file = Path(outDir) / f'results{target}.json'
-    out_file.write_text(json.dumps(results))
+    out_file.write_text(json.dumps(results, indent=4))
 
     LOGGER.debug(f'Saved results in {out_file}')
 
@@ -559,7 +555,7 @@ def plot_1d_scans(
         right: Title to put at the right of the figure
         sig2: include 2 sigma uncertainty in the plot
     """
-    LOGGER.info(f'Processing {len(input_specs)} scan(s): {output}')
+    LOGGER.debug(f'Processing {len(input_specs)} scan(s): {output}')
 
     # Normalize input format
     scans_data = []
@@ -735,7 +731,7 @@ def plot_2d_scans(
     The default axis labels follow the ROOT example used in this analysis:
     Cphi on the x-axis and Cbox on the y-axis.
     """
-    LOGGER.info(f'Processing {len(input_specs)} 2D scan(s): {output}')
+    LOGGER.debug(f'Processing {len(input_specs)} 2D scan(s): {output}')
 
     default_colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
     scans_data = []

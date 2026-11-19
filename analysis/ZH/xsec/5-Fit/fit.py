@@ -16,7 +16,7 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from parsing import set_log, parse_args
+from parsing import set_log
 from zh_xsec.parsing import create_parser
 from logger import get_logger
 arg = create_parser('5-Fit', 'fit').parse_args()
@@ -174,21 +174,21 @@ def do_fit(
         LOGGER.info(f'Combining datacards for {channels} channels')
         run_cmd(cmd_comb, dc_nom, None, ENV)
     else:
-        LOGGER.debug('Skipping the datacards combination')
+        LOGGER.info('Skipping the datacards combination')
 
     if not (arg.skip_setup and ws_file.exists()):
         LOGGER.info('Converting the datacard to RooFit workspace')
         ws_file.unlink(True)
         run_cmd(cmd_t2w, log_t2w, dr, ENV)
     else:
-        LOGGER.debug('Skipping the RooFit workspace setup')
+        LOGGER.info('Skipping the RooFit workspace setup')
 
     if arg.fastscan:
         LOGGER.info('Doing a fast likelyhood scan to check the fit')
         log_fscan.unlink(True)
         run_cmd(cmd_fastscan, log_fscan, scan, ENV)
 
-    LOGGER.info('Doing the fit')
+    LOGGER.info('Doing the diagnostic fit')
     diag_file.unlink(True); log_diag.unlink(True)
     run_cmd(cmd_diag, log_diag, ws, ENV)
     check_log(log_diag)
@@ -196,7 +196,7 @@ def do_fit(
     res_saving(res_diag, res, arg.print, f'_diag{tar}')
 
     if arg.only_diag:
-        LOGGER.debug('Skipping the likelihood scan')
+        LOGGER.info('Skipping the likelihood scan')
     else:
         LOGGER.info('Doing the likelihood scan')
         fit_file.unlink(True); log_fit.unlink(True)
@@ -224,6 +224,7 @@ if __name__=='__main__':
         cmd = ['python', 'plots.py'] + get_extra_args(
             plot_args, {'directory': '5-Fit', 'script': 'plots'}, create_parser)
 
+        LOGGER.info('Making likelihood scan plots')
         run_cmd(cmd, None, Path(__file__).parent, ENV)
 
     except KeyboardInterrupt:

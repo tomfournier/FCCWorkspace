@@ -233,14 +233,21 @@ class _SMEFT_all(SMEFT_NLO):
     wilson = ['Cphi', 'CphiD', 'Cbox']
 
 
-# Has to define the models like this
-# Will get error if not
+
+# 1D models
 SMEFT_Cphi  = _SMEFT_Cphi()
 SMEFT_CphiD = _SMEFT_CphiD()
 SMEFT_Cbox  = _SMEFT_Cbox()
 
+# 2D models
 SMEFT_Cphi_CphiD = _SMEFT_Cphi_CphiD()
-SMEFT_Cphi_Cbox  = _SMEFT_Cphi_Cbox()
-SMEFT_CphiD_Cbox = _SMEFT_CphiD_Cbox()
+SMEFT_CphiD_Cphi = _SMEFT_Cphi_CphiD()
 
+SMEFT_Cphi_Cbox  = _SMEFT_Cphi_Cbox()
+SMEFT_Cbox_Cphi  = _SMEFT_Cphi_Cbox()
+
+SMEFT_CphiD_Cbox = _SMEFT_CphiD_Cbox()
+SMEFT_Cbox_CphiD = _SMEFT_CphiD_Cbox()
+
+# 3D model
 SMEFT_all = _SMEFT_all()

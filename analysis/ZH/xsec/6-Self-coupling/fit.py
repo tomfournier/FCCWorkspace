@@ -16,11 +16,10 @@ t = time()
 ### ARGUMENT PARSING ###
 ########################
 
-from parsing import set_log, parse_args
+from parsing import set_log
 from zh_xsec.parsing import create_parser
 from logger import get_logger
-parser = create_parser('6-Self-coupling', 'fit')
-arg = parse_args(parser, comb=True)
+arg = create_parser('6-Self-coupling', 'fit').parse_args()
 set_log(arg)
 
 LOGGER = get_logger(__name__)
@@ -38,7 +37,7 @@ loc.set_default_type(Path)
 from tools.utils import timer
 from fitting import (
     res_saving, run_cmd, parse_sels,
-    get_results, get_grid_number,
+    get_results, get_grid_number, check_log
 )
 from run import get_extra_args, update_namespace
 from zh_xsec.func.self_coupling import get_params, to_kappa
@@ -55,7 +54,7 @@ expected = ','.join(f'{p}=0' for p in params)
 
 ranges = {
     'tight': {'Cphi': '-3,3', 'CphiD': '-0.8,0.8', 'Cbox': '-3,3'},
-    'loose': {'Cphi': '-5,5', 'CphiD': '-2,2', 'Cbox': '-5,5'}
+    'loose': {'Cphi': '-5,5', 'CphiD': '-2,2',     'Cbox': '-5,5'}
 }
 if arg.combine:
     param_ranges = ':'.join(f'{p}={ranges["tight"][p]}' for p in params)
@@ -73,7 +72,7 @@ if arg.lep and arg.combine:
     raise ValueError("Cannot use '--lep' and '--combine' at the same time")
 if arg.lep:     arg.cat = 'leptonic'
 if arg.combine: arg.cat = 'combined'
-_, sel = parse_sels(arg.sel, arg.cat, bool(arg.lep or arg.combine))
+sels, sel = parse_sels(arg.sel, arg.cat, bool(arg.lep or arg.combine))
 
 # Bundle arguments for directory lookup
 args = [arg.cat, 0, sel]
@@ -102,8 +101,9 @@ log_fit   = log / 'log_results_fit.txt'       # Fit results log (fit results)
 
 # Datacard file definition
 dc_nom = dc / f'datacard{comb}.txt'
-dc_240 = loc.get('FIT_CARD', arg.cat, 240, sel) / f'datacard{comb}.txt'
-dc_365 = loc.get('FIT_CARD', arg.cat, 365, sel) / f'datacard{comb}.txt'
+channels = ('ee', 'mumu', 'qq') if arg.combine else (('ee', 'mumu') if arg.lep else (arg.cat,))
+cards = {f'{energy}_{cat}' if (arg.lep or arg.combine) else energy: loc.get('FIT_CARD', cat, ecm, sels[cat]) / 'datacard.txt'
+         for energy, ecm in (('low', 240), ('high', 365)) for cat in channels}
 
 # Set up environment for subprocess calls
 ENV = os.environ.copy()
@@ -129,7 +129,7 @@ def do_fit(
     ### COMMAND DEFINITION ###
     ##########################
 
-    cmd_dc = ['combineCards.py', f'low={dc_240}', f'high={dc_365}']
+    cmd_dc = ['combineCards.py'] + [f'{label}={card}' for label, card in cards.items()]
 
     cmd_t2w = ['text2workspace.py', dc_nom, '-v', '2', '-P',
                f'zh_xsec.func.self_coupling:{arg.model}',
@@ -159,30 +159,39 @@ def do_fit(
 
     if not (arg.skip_setup and dc_nom.exists()):
         LOGGER.info('Combining datacards from 240 and 365 GeV channels')
-        run_cmd(cmd_dc, dc_nom, None, ENV)
+        missing = [str(card) for card in cards.values() if not card.exists()]
+        if missing:
+            raise FileNotFoundError('Missing input datacards: ' + ', '.join(missing))
+        ret = run_cmd(cmd_dc, dc_nom, None, ENV)
+        if ret != 0: return ret
     else:
-        LOGGER.debug('Skipping the datacards combination')
+        LOGGER.info('Skipping the datacards combination')
 
     if not (arg.skip_setup and ws_file.exists()):
         LOGGER.info('Converting the datacard to RooFit workspace')
+        ws_file.unlink(True)
         run_cmd(cmd_t2w, log_t2w, dr, ENV)
     else:
-        LOGGER.debug('Skipping the RooFit workspace setup')
+        LOGGER.info('Skipping the RooFit workspace setup')
 
     if arg.fastscan:
         LOGGER.info('Doing a fast likelyhood scan to check the fit')
+        log_fscan.unlink(True)
         run_cmd(cmd_fastscan, log_fscan, scan, ENV)
 
-    LOGGER.info('Doing the fit')
+    LOGGER.info('Doing the diagnostic fit')
+    diag_file.unlink(True); log_diag.unlink(True)
     run_cmd(cmd_diag, log_diag, ws, ENV)
+    check_log(log_diag)
     res_diag = get_results(diag_file, params, 'singles', lumi)
     res_saving(res_diag, res, arg.print, '_diag')
     to_kappa(res_diag, res, '_diag')
 
     if arg.only_diag:
-        LOGGER.debug('Skipping the likelihood scan')
+        LOGGER.info('Skipping the likelihood scan')
     else:
         LOGGER.info('Doing the likelihood scan')
+        fit_file.unlink(True); log_fit.unlink(True)
         run_cmd(cmd_fit, log_fit, ws, ENV)
         res_fit = get_results(fit_file, params, 'grid', lumi)
         res_saving(res_fit, res, arg.print, '_fit')
@@ -205,6 +214,7 @@ if __name__=='__main__':
                                      sig2=True, timer=False, param='-'.join(params), y_cut=100, y_max=7)
         cmd = ['python', 'plots.py'] + get_extra_args(
             plot_args, {f'directory': '6-Self-coupling', 'script': 'plots'}, create_parser)
+        LOGGER.info('Making likelihood scan plots')
         run_cmd(cmd, None, Path(__file__).parent, ENV)
 
     except KeyboardInterrupt:
