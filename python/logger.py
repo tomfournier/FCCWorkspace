@@ -229,7 +229,7 @@ def setup_logging(verbose: int | bool = 0, logger_name: str = 'FCCAnalysis',
     verbosity_levels = {0: logging.INFO, 1: logging.DEBUG, 2: TRACE}
     inspection_levels = {INSPECT: 1, INSP_DBG: 2}
     if inspect and int(verbose) == 0:
-        level = INSP_DBG if inspect >= 2 else INSPECT
+        level = logging.INFO
     else:
         level = verbosity_levels.get(int(verbose), 1)
 

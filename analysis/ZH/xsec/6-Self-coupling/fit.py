@@ -52,14 +52,9 @@ from zh_xsec.func.self_coupling import get_params, to_kappa
 params: list[str] = get_params(arg.model)
 expected = ','.join(f'{p}=0' for p in params)
 
-ranges = {
-    'tight': {'Cphi': '-3,3', 'CphiD': '-0.8,0.8', 'Cbox': '-3,3'},
-    'loose': {'Cphi': '-5,5', 'CphiD': '-2,2',     'Cbox': '-5,5'}
-}
-if arg.combine:
-    param_ranges = ':'.join(f'{p}={ranges["tight"][p]}' for p in params)
-else:
-    param_ranges = ':'.join(f'{p}={ranges["loose"][p]}' for p in params)
+ranges = {'tight': {'Cphi': '-3,3', 'CphiD': '-0.8,0.8', 'Cbox': '-3,3'},
+          'loose': {'Cphi': '-5,5', 'CphiD': '-2,2',     'Cbox': '-5,5'}}
+param_ranges = ':'.join(f'{p}={ranges["tight" if arg.combine else "loose"][p]}' for p in params)
 
 
 
@@ -75,7 +70,7 @@ if arg.combine: arg.cat = 'combined'
 sels, sel = parse_sels(arg.sel, arg.cat, bool(arg.lep or arg.combine))
 
 # Bundle arguments for directory lookup
-args = [arg.cat, 0, sel]
+args = [arg.cat, 0, ','.join(sorted(set(sels.values())))]
 lumi = (10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else -1)) if arg.rescaled else 1
 
 # Resolve directory paths based on configuration and arguments
@@ -86,24 +81,21 @@ log:  PathObj = loc.get('SELF_LOG',    *args)   # Log output directory
 res:  PathObj = loc.get('SELF_RESULT', *args)   # Results output directory
 scan: PathObj = loc.get('SELF_SCAN',   *args)   # Fast scan directory
 
-# Define naming suffixes for file outputs
-comb = '_combined' if arg.combine else ''  # Combined channel suffix
-
 # Define full file paths for workspace, logs, and results
-ws_file   = ws  / 'ws.root'                                   # Workspace file
-diag_file = ws  / 'higgsCombineDiag.MultiDimFit.mH125.root'   # Diagnostic fit file
-fit_file  = ws  / 'higgsCombineXsec.MultiDimFit.mH125.root'   # Likelihood scan file
+ws_file   = ws  / 'ws.root'  # Workspace file
+diag_file = ws  / f'higgsCombineDiag_{"_".join(params)}.MultiDimFit.mH125.root'   # Diagnostic fit file
+fit_file  = ws  / f'higgsCombineXsec_{"_".join(params)}.MultiDimFit.mH125.root'   # Likelihood scan file
 
-log_t2w   = log / 'log_text2workspace.txt'    # Text2workspace log
-log_fscan = log / 'log_fastscan.txt'          # Scan results log (scan results)
-log_diag  = log / 'log_diagnostic.txt'        # Diagnostic results log (for fit results)
-log_fit   = log / 'log_results_fit.txt'       # Fit results log (fit results)
+log_t2w   = log / f'text2workspace_{"_".join(params)}.log'    # Text2workspace log
+log_fscan = log / f'fastscan_{"_".join(params)}.log'          # Scan results log (scan results)
+log_diag  = log / f'diagnostic_{"_".join(params)}.log'        # Diagnostic results log (for fit results)
+log_fit   = log / f'results_fit_{"_".join(params)}.log'       # Fit results log (fit results)
 
 # Datacard file definition
-dc_nom = dc / f'datacard{comb}.txt'
-channels = ('ee', 'mumu', 'qq') if arg.combine else (('ee', 'mumu') if arg.lep else (arg.cat,))
-cards = {f'{energy}_{cat}' if (arg.lep or arg.combine) else energy: loc.get('FIT_CARD', cat, ecm, sels[cat]) / 'datacard.txt'
-         for energy, ecm in (('low', 240), ('high', 365)) for cat in channels}
+dc_nom = dc / ('datacard' + ('_combined' if arg.combine else '') + '.txt')
+cats = ('ee', 'mumu', 'qq') if arg.combine else (('ee', 'mumu') if arg.lep else (arg.cat,))
+cards = {f'{e}_{cat}': loc.get('FIT_CARD', cat, ecm, sels[cat]) / 'datacard.txt'
+         for e, ecm in (('low', 240), ('high', 365)) for cat in cats}
 
 # Set up environment for subprocess calls
 ENV = os.environ.copy()
@@ -121,7 +113,6 @@ for dir_path in [dc, ws, log, res, scan]:
 def do_fit(
         dr: PathObj,
         ws: PathObj,
-        params: list[str]
 ) -> int:
     '''Execute the fitting workflow: combine datacards, create workspace, and run fit.'''
 
@@ -131,24 +122,20 @@ def do_fit(
 
     cmd_dc = ['combineCards.py'] + [f'{label}={card}' for label, card in cards.items()]
 
-    cmd_t2w = ['text2workspace.py', dc_nom, '-v', '2', '-P',
-               f'zh_xsec.func.self_coupling:{arg.model}',
-               '--X-allow-no-signal', '--X-allow-no-background',
-               '--for-fits', '--no-wrappers',
+    cmd_t2w = ['text2workspace.py', dc_nom, '-v', '2', '-P', f'zh_xsec.func.self_coupling:{arg.model}',
+               '--X-allow-no-signal', '--X-allow-no-background', '--for-fits', '--no-wrappers',
                '-m', '125', '-o', ws_file]
 
     cmd_fastscan = ['combineTool.py', '-M', 'FastScan', '-w', str(ws_file)+':w']
 
-    cmd_diag = ['combine', ws_file, '-M', 'MultiDimFit', '-m', '125', '-t', '-1', '-v', '2', '-n', 'Diag',
+    cmd_diag = ['combine', ws_file, '-M', 'MultiDimFit', '-m', '125', '-t', '-1', '-v', '2', '-n', f'Diag_{"_".join(params)}',
                 '--algo', 'singles', '--cl=0.68', '--cminDefaultMinimizerStrategy=0', '--saveWorkspace',
-                '--setParameters', expected, '--setParameterRanges', param_ranges, '--robustHesse=1',
-                '--cminPreFit', '1', '--cminInitialHesse', '1', '--robustFit=1']
+                '--setParameters', expected, '--setParameterRanges', param_ranges, '--robustFit=1']
 
-    cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1', '-n', 'Xsec',
-               '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w', '--robustHesse=1',
-               '--autoBoundsPOIs', '*', '--autoMaxPOIs', '*', '--snapshotName', 'MultiDimFit',
-               '--squareDistPoiStep', '--autoRange', '10', '--skipInitialFit', '--algo', 'grid',
-               '--alignEdges', '1', '--points', f'{get_grid_number(arg.npoints, params)}']
+    cmd_fit = ['combine', diag_file, '-M', 'MultiDimFit', '-m', '125', '-v', '2', '-t', '-1', '-n', f'Xsec_{"_".join(params)}',
+               '--setParameters', expected, '--setParameterRanges', param_ranges, '-w', 'w',
+               '--snapshotName', 'MultiDimFit', '--squareDistPoiStep', '--autoRange', '7', '--skipInitialFit',
+               '--algo', 'grid', '--alignEdges', '1', '--points', f'{get_grid_number(arg.npoints, params)}']
     cmd_fit += ['--fastScan'] if arg.fast_scan else []
 
 
@@ -185,7 +172,7 @@ def do_fit(
     check_log(log_diag)
     res_diag = get_results(diag_file, params, 'singles', lumi)
     res_saving(res_diag, res, arg.print, '_diag')
-    to_kappa(res_diag, res, '_diag')
+    to_kappa(res_diag, res, f'_diag_{"_".join(params)}')
 
     if arg.only_diag:
         LOGGER.info('Skipping the likelihood scan')
@@ -195,7 +182,7 @@ def do_fit(
         run_cmd(cmd_fit, log_fit, ws, ENV)
         res_fit = get_results(fit_file, params, 'grid', lumi)
         res_saving(res_fit, res, arg.print, '_fit')
-        to_kappa(res_fit, res, '_fit')
+        to_kappa(res_fit, res, f'_fit_{"_".join(params)}')
 
     return 0
 
@@ -207,10 +194,11 @@ def do_fit(
 if __name__=='__main__':
     try:
         # Execute the fitting pipeline
-        ret = do_fit(dr, ws, params)
+        ret = do_fit(dr, ws)
         if ret != 0: exit(ret)
 
-        plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat, sels=sel,
+        plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat,
+                                     sels=','.join(sorted(set(sels.values()))),
                                      sig2=True, timer=False, param='-'.join(params), y_cut=100, y_max=7)
         cmd = ['python', 'plots.py'] + get_extra_args(
             plot_args, {f'directory': '6-Self-coupling', 'script': 'plots'}, create_parser)

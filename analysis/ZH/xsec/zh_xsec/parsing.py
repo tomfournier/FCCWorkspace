@@ -758,7 +758,7 @@ def self_coupling_fit_parser(description: str | None = None) -> ArgumentParser:
         description or 'Fit Script',
         include_cat=True, allow_empty=True,
         include_sel=True)
-    add_fit_args(parser, 15)
+    add_fit_args(parser, 30)
     add_nlo_args(parser)
     return parser
 
@@ -770,6 +770,7 @@ def self_coupling_plots_parser(description: str | None = None) -> ArgumentParser
         include_sel=True, sel_multi=True)
     add_plot_args(parser, False, False)
     add_fit_plot_args(parser)
+    add_nlo_args(parser)
     return parser
 
 

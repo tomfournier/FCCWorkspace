@@ -2,19 +2,16 @@
 ### IMPORT MODULES AND FUNCTIONS ###
 ####################################
 
-import os, json, uproot, subprocess
+import os, uproot
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.tri import Triangulation
 
 from pathlib import Path
 from scipy.interpolate import UnivariateSpline
-from uuid import uuid4
-from datetime import datetime
 
-from logger import get_logger
+from logger import get_logger, INSPECT, INSP_DBG
 
 LOGGER = get_logger(__name__)
 
@@ -74,13 +71,17 @@ def parse_sels(sel: str | None, cat: str, combined: bool) -> tuple[dict[str, str
     Returns:
         tuple: Selection per channel, and the selection used for the shared paths.
     '''
+
+    from logger import INSPECT
+
     chans, tokens = ('ee', 'mumu', 'qq'), (sel or '').split(',')
     pos = [t for t in tokens if '=' not in t]
     sels = dict(zip(chans, pos if len(pos) > 1 else pos * 3)) | dict(t.split('=') for t in tokens if '=' in t)
     if set(sels) != set(chans) or (len(tokens) > 1 and not combined):
         raise ValueError(f"Need a selection for each of {chans} (per-channel only with lep/combine), got {sels}")
     if combined and len(set(sels.values())) > 1:
-        LOGGER.info(f'Using per-channel selections: {sels}')
+        LOGGER.log(INSPECT, 'Using per-channel selections:\n\t' + 
+                    '\n\t'.join(f"{cat:<5}: {sel}" for cat, sel in sels.items()))
     return sels, sels.get(cat, sels['ee'])
 
 
@@ -90,6 +91,9 @@ def add_stamp(
         status: str = 'ok'
          ) -> str:
     '''Add a timestamped stamp to a log file for tracking execution status.'''
+
+    from uuid import uuid4
+    from datetime import datetime
 
     # Generate timestamp and unique ID
     ts = datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]
@@ -155,6 +159,9 @@ def run_cmd(cmd: list[str] | str,
             return_stamp: bool = False
             ) -> int | tuple[int, str]:
     '''Run a command using subprocess'''
+
+    import subprocess
+
     if isinstance(log_file, str): log_file = PathObj(log_file)
     status, stamp = 'not-run', None
     try:
@@ -285,6 +292,9 @@ def res_saving(
         target: str = '',
 ) -> None:
     '''Save fitting results (signal strength and uncertainty) to output file.'''
+
+    import json
+
     if not results:
         LOGGER.warning("Couldn't extract values of the fit, go to the log file to have more information")
         return
@@ -421,8 +431,9 @@ def process_scan_2d(
     if len(x) <= 2:
         raise ValueError(f"Not enough points in {input_file}: {len(x)}")
 
-    best_idx = z == 0
-    best_x, best_y = x[best_idx], y[best_idx]
+    best_idx = z == z.min()
+    best_x, best_y = x[best_idx][0], y[best_idx][0]
+    LOGGER.log(INSPECT, f'Found best fit at {x_param} = {best_y}, {y_param} = {best_y}')
 
     return x, y, z, best_x, best_y
 
@@ -524,6 +535,10 @@ def process_scan(
     err_hi1, err_lo1 = get_error_band(crossings[1.0], bestfit)
     err_hi2, err_lo2 = get_error_band(crossings[4.0], bestfit)
 
+    LOGGER.log(INSPECT,  f'Found best fit for {param} at {bestfit}')
+    LOGGER.log(INSPECT,  f'1 sigma error found at +{err_hi1:.2g}/-{err_lo1:.2g}')
+    LOGGER.log(INSP_DBG, f'2 sigma error found at +{err_hi2:.2g}/-{err_lo2:.2g}')
+
     if only_res:
         return float(bestfit), float(err_hi1), float(err_lo1)
     return x, y, bestfit, spl, (err_hi1, err_lo1), (err_hi2, err_lo2)
@@ -585,7 +600,7 @@ def plot_1d_scans(
 
         scans_data.append({
             'filepath': filepath,
-            'label':    params_label.get(label, label),
+            'label':    coeffs_label.get(label, label),
             'color':    color,
             'x':        x,
             'y':        y,
@@ -731,6 +746,9 @@ def plot_2d_scans(
     The default axis labels follow the ROOT example used in this analysis:
     Cphi on the x-axis and Cbox on the y-axis.
     """
+
+    from matplotlib.tri import Triangulation
+
     LOGGER.debug(f'Processing {len(input_specs)} 2D scan(s): {output}')
 
     default_colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
@@ -755,7 +773,7 @@ def plot_2d_scans(
 
         scans_data.append({
             'filepath': filepath,
-            'label': params_label.get(label, label),
+            'label': label,
             'color': color,
             'x': x,
             'y': y,
@@ -774,12 +792,10 @@ def plot_2d_scans(
         for scan in scans_data:
             try:
                 tri = Triangulation(scan['x'], scan['y'])
-                contourf = ax.tricontourf(tri, scan['z'], levels=100, cmap=cmap, alpha=0.7,
-                                          zorder=1)
+                contourf = ax.tricontourf(tri, scan['z'], levels=100, cmap=cmap, alpha=0.7, zorder=1)
                 if contour_handle is None:
                     contour_handle = contourf
-                ax.tricontour(tri, scan['z'], levels=contour_levels,
-                              colors=[scan['color']] * len(contour_levels),
+                ax.tricontour(tri, scan['z'], levels=contour_levels, colors=[scan['color']] * len(contour_levels),
                               linewidths=3, zorder=3)
             except Exception as exc:
                 LOGGER.warning(f'Could not build triangulation for {scan["filepath"]}: {exc}')
@@ -787,8 +803,7 @@ def plot_2d_scans(
                            s=18, alpha=0.7, zorder=1)
 
             ax.scatter(scan['best_x'], scan['best_y'], s=180, marker='*',
-                       color='black', linewidths=0.8,
-                       zorder=4, label=scan['label'])
+                       color='black', linewidths=0.8, zorder=4, label=scan['label'])
 
         if contour_handle is not None and len(scans_data) == 1:
             cbar = fig.colorbar(contour_handle, ax=ax, pad=0.02)

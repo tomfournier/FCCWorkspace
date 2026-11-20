@@ -58,7 +58,7 @@ if arg.combine: arg.cat = 'combined'
 sels, sel = parse_sels(arg.sel, arg.cat, bool(arg.lep or arg.combine))  # arg.sel: shared paths and plots
 
 # Bundle arguments for directory lookup
-args = [arg.cat, arg.ecm, sel]
+args = [arg.cat, arg.ecm, ','.join(sorted(set(sels.values())))]
 lumi = (10.8 if arg.ecm==240 else (3.12 if arg.ecm==365 else -1)) if arg.rescaled else 1
 
 # Map fit mode (nominal vs bias test) to corresponding directory locations
@@ -220,7 +220,8 @@ if __name__=='__main__':
         if ret != 0: exit(ret)
 
         plot_args = update_namespace(arg, cat=None if (arg.lep or arg.combine) else arg.cat, ecm=str(arg.ecm),
-                                     sels=sel, y_cut=100, y_max=7, sig2=True, only1=arg.bias, timer=False)
+                                     sels=','.join(sorted(set(sels.values()))),
+                                     y_cut=100, y_max=7, sig2=True, only1=arg.bias, timer=False)
         cmd = ['python', 'plots.py'] + get_extra_args(
             plot_args, {'directory': '5-Fit', 'script': 'plots'}, create_parser)
 

@@ -12,6 +12,8 @@ import time
 
 from pathlib import Path
 
+from zh_xsec.func.self_coupling import get_params, coeffs_label
+
 # Start execution timer
 t = time.time()
 
@@ -40,6 +42,9 @@ from zh_xsec.userConfig import loc
 loc.set_default_type(Path)
 from tools.utils import timer
 from fitting import plot_1d_scans, plot_2d_scans, params_label
+from matplotlib import rcParams
+
+rcParams['text.latex.preamble'] += r'\usepackage{amssymb}'
 
 
 
@@ -55,7 +60,10 @@ if arg.lep:
 if arg.combine:
     cats = cats + ['combined'] if cats else ['combined']
 params: list[str] = arg.param.split('-')
-
+model_params = get_params(arg.model)
+if any(p not in model_params for p in params):
+    raise ValueError(f'At least one parameter in {params} is not defined in {arg.model}, '
+                     'choose a model that contains all parameters')
 
 
 ##########################
@@ -65,34 +73,28 @@ params: list[str] = arg.param.split('-')
 def main():
 
     colors  = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
+    filename = f'higgsCombineXsec_{"_".join(model_params)}.MultiDimFit.mH125.root'
 
     # Individual plots for all combinations
     if arg.which == '':
         for cat, sel in [(c, s) for c in cats for s in sels]:
             inDir  = loc.get('SELF_WS',     cat, '', sel)
             outDir = loc.get('SELF_RESULT', cat, '', sel)
-            fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
-                else 'higgsCombineXsec.MultiDimFit.mH125.root'
-            scan = (inDir / fIn, "Observed", colors[0])
+            scan = (inDir / filename, "Observed", next(iter(colors)))
             for param in params:
                 other_params = [p for p in params if p!=param] if len(params)>1 else []
-                plot_1d_scans([scan], outDir, param,
-                              arg.y_cut, arg.y_max,
-                              sig2=arg.sig2, suffix='_'+param, other_params=other_params)
+                plot_1d_scans([scan], outDir, param, arg.y_cut, arg.y_max,
+                              sig2=arg.sig2, suffix='_'+param, other_params=other_params, coeffs_label=coeffs_label)
             if len(params) > 1:
-                scan = (inDir / fIn, 'Best fit', 'black')
+                scan = (inDir / filename, 'Best fit', 'black')
                 from itertools import combinations
                 for x, y in list(combinations(params, 2)):
-                    plot_2d_scans([scan], outDir, x, y, arg.y_cut,
-                                  sig2=arg.sig2)
+                    plot_2d_scans([scan], outDir, x, y, arg.y_cut, sig2=arg.sig2, coeffs_label=coeffs_label)
     else:
         # Comparison plot: configure varying parameter and fixed values
         from itertools import product
 
-        config = {
-                'cat': (cats, [[''], sels]),
-                'sel': (sels, [cats, ['']])
-        }
+        config = {'cat': (cats, [[''], sels]), 'sel': (sels, [cats, ['']])}
         varying, fixed_lists = config[arg.which]
         insert_pos = ['cat', '', 'sel'].index(arg.which)
 
@@ -102,34 +104,21 @@ def main():
 
             all_scans = []
             for i, var_val in enumerate(varying):
-                param = list(fixed_vals)
-                param.insert(insert_pos, var_val)
+                param = list(fixed_vals).insert(insert_pos, var_val)
+                all_scans.append((loc.get('SELF_WS', *param) / filename, str(var_val), colors[i % len(colors)]))
 
-                inDir = loc.get('SELF_WS', *param)
-                fIn = 'higgsCombineXsec.MultiDimFit.mH125.123456.root' if arg.toy \
-                    else 'higgsCombineXsec.MultiDimFit.mH125.root'
-                scan  = (inDir / fIn,
-                         str(var_val),
-                         colors[i % len(colors)])
-                all_scans.append(scan)
-
-            out: Path = loc.get('PLOT_SCAN') / arg.which
+            out = loc.get('PLOT_SCAN') / arg.which
             out.mkdir(exist_ok=True, parents=True)
             for param in params:
                 other_params = [p for p in params if p!=param] if len(params)>1 else []
-                plot_1d_scans(
-                    all_scans, out, param,
-                    arg.y_cut, arg.y_max,
-                    fixed_str+'_'+param, param_label,
-                    arg.sig2, other_params=other_params
-                )
+                plot_1d_scans(all_scans, out, param, arg.y_cut, arg.y_max,
+                              fixed_str+'_'+param, param_label, arg.sig2, other_params, coeffs_label=coeffs_label)
             LOGGER.info(param)
             if len(params) > 1:
                 from itertools import combinations
                 for x, y in list(combinations(params, 2)):
                     for scan in all_scans:
-                        plot_2d_scans([scan], outDir, x, y, arg.y_cut,
-                                      z_cut=arg.y_max, sig2=arg.sig2)
+                        plot_2d_scans([scan], outDir, x, y, arg.y_max, sig2=arg.sig2, coeffs_label=coeffs_label)
 
 
 ##########################

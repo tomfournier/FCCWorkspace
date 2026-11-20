@@ -30,7 +30,7 @@ table: dict[str, dict[int, dict[str, float]]] = {
 xsec = {'LO': {240: 239.2, 365: 116.9}, 'NLO': {240: 194.4, 365: 121.1}, 'weak': {240: 232.1, 365: 113.2}}
 
 # Wilson's coefficients label for plot
-coeffs_label = {'r': r'$\mu_{ZH}$', 'Cphi': r'$C_{\phi}$', 'CphiD': r'$C_{\phi D}$', 'CBox':  r'$C_{\Box}$',}
+coeffs_label = {'r': r'$\mu_{ZH}$', 'Cphi': r'$C_{\phi}$', 'CphiD': r'$C_{\phi D}$', 'Cbox':  r'$C_{\Box}$',}
 
 
 
@@ -38,7 +38,7 @@ coeffs_label = {'r': r'$\mu_{ZH}$', 'Cphi': r'$C_{\phi}$', 'CphiD': r'$C_{\phi D
 ### HELPER FUNCTIONS ###
 ########################
 
-def get_params(model: str):
+def get_params(model: str) -> list[str]:
     """Return the Wilson coefficients attached to a named exported model."""
 
     try:
