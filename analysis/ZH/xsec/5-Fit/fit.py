@@ -38,7 +38,7 @@ from tools.utils import timer
 from run import get_extra_args, update_namespace
 from fitting import (
     check_log, get_results,
-    res_saving, run_cmd, parse_sels
+    save_results, run_cmd, parse_sels
 )
 
 
@@ -193,7 +193,7 @@ def do_fit(
     run_cmd(cmd_diag, log_diag, ws, ENV)
     check_log(log_diag)
     res_diag = get_results(diag_file, 'r', 'singles', lumi)
-    res_saving(res_diag, res, arg.print, f'_diag{tar}')
+    save_results(res_diag, res, arg.print, f'_diag{tar}')
 
     if arg.only_diag:
         LOGGER.info('Skipping the likelihood scan')
@@ -202,7 +202,7 @@ def do_fit(
         fit_file.unlink(True); log_fit.unlink(True)
         run_cmd(cmd_fit, log_fit, ws, ENV)
         res_fit = get_results(fit_file, 'r', 'grid', lumi)
-        res_saving(res_fit, res, arg.print, f'_fit{tar}')
+        save_results(res_fit, res, arg.print, f'_fit{tar}')
 
     return 0
 
