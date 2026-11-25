@@ -17,7 +17,8 @@ class MatplotlibPlot:
 	'''Small orchestration wrapper for common Matplotlib plot workflows.'''
 
 	_ARITY = {'plot': 2, 'line': 2, 'step': 2, 'scatter': 2, 'error': 4, 'errorbar': 4,
-	          'bar': 2, 'hist': 1, 'fill_between': 3, 'contour': 3, 'axvline': 1, 'axhline': 1}
+	          'bar': 2, 'hist': 1, 'fill_between': 3, 'contour': 3,
+	          'tricontour': 2, 'tricontourf': 2, 'text': 3, 'axvline': 1, 'axhline': 1}
 	_KINDS = set(_ARITY)
 
 	def __init__(
@@ -140,6 +141,12 @@ class MatplotlibPlot:
 				artists.append(self.axes.fill_between(*values, **options))
 			elif kind == 'contour':
 				artists.append(self.axes.contour(*values, **options))
+			elif kind == 'tricontour':
+				artists.append(self.axes.tricontour(*values, **options))
+			elif kind == 'tricontourf':
+				artists.append(self.axes.tricontourf(*values, **options))
+			elif kind == 'text':
+				artists.append(self.axes.text(*values, **options))
 			elif kind == 'axvline':
 				artists.append(self.axes.axvline(*values, **options))
 			elif kind == 'axhline':
