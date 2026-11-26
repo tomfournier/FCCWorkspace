@@ -170,7 +170,7 @@ def do_fit(
     diag_file.unlink(True); log_diag.unlink(True)
     run_cmd(cmd_diag, log_diag, ws, ENV)
     check_log(log_diag)
-    res_diag = get_results(diag_file, params, 'singles', lumi)
+    res_diag = get_results(diag_file, params, 'singles')
     save_results(res_diag, res, arg.print, '_diag')
     to_kappa(res_diag, res, f'_diag_{"_".join(params)}')
 
@@ -180,7 +180,7 @@ def do_fit(
         LOGGER.info('Doing the likelihood scan')
         fit_file.unlink(True); log_fit.unlink(True)
         run_cmd(cmd_fit, log_fit, ws, ENV)
-        res_fit = get_results(fit_file, params, 'grid', lumi)
+        res_fit = get_results(fit_file, params, 'grid')
         save_results(res_fit, res, arg.print, '_fit')
         to_kappa(res_fit, res, f'_fit_{"_".join(params)}')
 

@@ -192,7 +192,7 @@ def do_fit(
     diag_file.unlink(True); log_diag.unlink(True)
     run_cmd(cmd_diag, log_diag, ws, ENV)
     check_log(log_diag)
-    res_diag = get_results(diag_file, 'r', 'singles', lumi)
+    res_diag = get_results(diag_file, 'r', 'singles')
     save_results(res_diag, res, arg.print, f'_diag{tar}')
 
     if arg.only_diag:
@@ -201,7 +201,7 @@ def do_fit(
         LOGGER.info('Doing the likelihood scan')
         fit_file.unlink(True); log_fit.unlink(True)
         run_cmd(cmd_fit, log_fit, ws, ENV)
-        res_fit = get_results(fit_file, 'r', 'grid', lumi)
+        res_fit = get_results(fit_file, 'r', 'grid')
         save_results(res_fit, res, arg.print, f'_fit{tar}')
 
     return 0

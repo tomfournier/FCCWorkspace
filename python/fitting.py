@@ -471,7 +471,7 @@ def plot_1d_scans(
 
         scans_data.append({
             'filepath': filepath,
-            'label': coeffs_label[label], 'color': color,
+            'label': coeffs_label.get(label, label), 'color': color,
             'x': x, 'y': y,
             'x_smooth': x_smooth, 'y_smooth': y_smooth,
             'bestfit':  bestfit, 'crossings': crossings,
@@ -516,8 +516,8 @@ def plot_1d_scans(
             plot.set_labels(lab, r'$-2\Delta\ln\Lambda$', right=right)
 
         # Calculate required y_max based on data and text
-        max_y_smooth = max([np.max(scan['y_smooth']) for scan in scans_data]) + \
-            ([min([y_max, y_cut])] if y_max>0 else [y_max, y_cut])
+        max_y_smooth = max([np.max(scan['y_smooth']) for scan in scans_data] + \
+            ([min([y_max, y_cut])] if y_max>0 else [y_max, y_cut]))
         num_text_lines = sum(1 + (1 if sig2 else 0) for _ in scans_data)
         text_box_height = num_text_lines * 1.1
         y_max_required = max_y_smooth + text_box_height + 0.5
@@ -533,8 +533,7 @@ def plot_1d_scans(
         else:
             xlim = (x_min - margin, x_max + margin)
 
-        plot.configure(xlim, (0, effective_y_max), legend=True,)
-                    #    legend_kwargs={'loc': 'upper left', 'fontsize': 22})
+        plot.configure(xlim, (0, effective_y_max), legend=True, legend_kwargs={'loc': 'upper left', 'fontsize': 22})
         ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
 
         def result_line(scan: dict, errors: tuple, confidence: int, show_label: bool = True) -> str:
