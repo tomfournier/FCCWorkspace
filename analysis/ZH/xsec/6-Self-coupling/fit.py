@@ -180,8 +180,8 @@ def do_fit(
         LOGGER.info('Doing the likelihood scan')
         fit_file.unlink(True); log_fit.unlink(True)
         run_cmd(cmd_fit, log_fit, ws, ENV)
-        res_fit = get_results(fit_file, params, 'grid')
-        save_results(res_fit, res, arg.print, '_fit')
+        res_fit = get_results(fit_file, params, 'grid', arg.do_profile)
+        save_results(res_fit, res, arg.print, f'_fit'+('profiled' if arg.do_profile else ''))
         to_kappa(res_fit, res, f'_fit_{"_".join(params)}')
 
     return 0

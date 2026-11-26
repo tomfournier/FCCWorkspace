@@ -78,18 +78,18 @@ def main():
     # Individual plots for all combinations
     if arg.which == '':
         for cat, sel in [(c, s) for c in cats for s in sels]:
-            inDir  = loc.get('SELF_WS',     cat, '', sel)
-            outDir = loc.get('SELF_RESULT', cat, '', sel)
-            scan = (inDir / filename, "Observed", next(iter(colors)))
+            inputdir  = loc.get('SELF_WS',     cat, '', sel)
+            outputdir = loc.get('SELF_RESULT', cat, '', sel)
+            scan = (inputdir / filename, "Observed", next(iter(colors)))
             for param in params:
                 other_params = [p for p in params if p!=param] if len(params)>1 else []
-                plot_1d_scans([scan], outDir, param, arg.y_cut, arg.y_max,
-                              sig2=arg.sig2, suffix='_'+param, other_params=other_params, coeffs_label=coeffs_label)
+                plot_1d_scans([scan], outputdir, param, arg.y_cut, arg.y_max,
+                              sig2=arg.sig2, suffix='_'+param, profile=arg.do_profile, other_params=other_params, coeffs_label=coeffs_label)
             if len(params) > 1:
-                scan = (inDir / filename, 'Best fit', 'black')
+                scan = (inputdir / filename, 'Best fit', 'black')
                 from itertools import combinations
-                for x, y in list(combinations(params, 2)):
-                    plot_2d_scans([scan], outDir, x, y, arg.y_cut, sig2=arg.sig2, coeffs_label=coeffs_label)
+                for x_param, y_param in list(combinations(params, 2)):
+                    plot_2d_scans([scan], outputdir, x_param, y_param, arg.y_cut, sig2=arg.sig2, coeffs_label=coeffs_label)
     else:
         # Comparison plot: configure varying parameter and fixed values
         from itertools import product
@@ -112,13 +112,13 @@ def main():
             for param in params:
                 other_params = [p for p in params if p!=param] if len(params)>1 else []
                 plot_1d_scans(all_scans, out, param, arg.y_cut, arg.y_max,
-                              fixed_str+'_'+param, param_label, arg.sig2, other_params, coeffs_label=coeffs_label)
+                              fixed_str+'_'+param, param_label, arg.sig2, arg.do_profile, other_params, coeffs_label=coeffs_label)
             LOGGER.info(param)
             if len(params) > 1:
                 from itertools import combinations
-                for x, y in list(combinations(params, 2)):
+                for x_param, y_param in list(combinations(params, 2)):
                     for scan in all_scans:
-                        plot_2d_scans([scan], outDir, x, y, arg.y_max, sig2=arg.sig2, coeffs_label=coeffs_label)
+                        plot_2d_scans([scan], outputdir, x_param, y_param, arg.y_max, sig2=arg.sig2, coeffs_label=coeffs_label)
 
 
 ##########################

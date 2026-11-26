@@ -544,6 +544,12 @@ def add_nlo_args(parser: ArgumentParser) -> None:
         default='SMEFT_Cphi_Cbox',
         help='Model used to parametrize the cross-section (default: SMEFT_Cphi_Cbox)'
     )
+    args.add_argument(
+        '--do-profile',
+        action='store_true',
+        default=False,
+        help='Profile the other parameters to do the fit (only available for multi-parameter fit)'
+    )
 
 
 

@@ -167,7 +167,12 @@ def check_log(res_log: str) -> int | None:
     return status
 
 
-def get_results(file, params, algo) -> dict[str, float | int]:
+def get_results(
+        file: Path,
+        params: list[str],
+        algo: str,
+        profile: bool = False
+) -> dict[str, float | int]:
 
     res = {}
     if isinstance(params, str): params = [params]
@@ -181,9 +186,10 @@ def get_results(file, params, algo) -> dict[str, float | int]:
             res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
 
     elif algo == 'grid':
+        if profile and len(params)>0: LOGGER.info('Doing a profiled likelihood scan')
         for param in params:
             other_params = [p for p in params if p!=param] if len(params)>1 else []
-            bestfit, err_hi, err_lo = process_scan(file, param, 1e3, True, other_params)
+            bestfit, err_hi, err_lo = process_scan(file, param, 1e3, True, other_params, profile=profile)
             res[param] = {'best_fit': bestfit, 'err_lo': err_lo, 'err_hi': err_hi, 'err': (err_hi + err_lo) / 2}
     else:
         raise ValueError(f'{algo = } is not supported, choose between [singles, grid]')
@@ -232,17 +238,27 @@ def read_tree_data(
         param: str = "r",
         y_cut: float | int = 7.0,
         other_params: list[str] | None = None,
-        eps: float = 1e-5
+        eps: float = 1e-5,
+        profile: bool = False
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Read limit tree from ROOT file using uproot.
-    Returns sorted parameter and 2*deltaNLL arrays.
+    Returns sorted parameter and 2*deltaNLL arrays. When profile is enabled,
+    minimize over the other scanned parameters at each parameter value.
     """
-    branches = [param, "deltaNLL", *(other_params or [])]
+    branches = [param, "deltaNLL", *(["quantileExpected"] if profile else (other_params or []))]
     with uproot.open(input_file) as f:
         tree: dict[str, np.ndarray] = f["limit"].arrays(branches, library='np')
 
-        if other_params:
+        if profile:
+            mask = ((tree["quantileExpected"] >= 0) & np.isfinite(tree[param]) &
+                    np.isfinite(tree["deltaNLL"]) & (tree["deltaNLL"] < 9999))
+            x_data, inverse = np.unique(tree[param][mask], return_inverse=True)
+            y_data = np.full(len(x_data), np.inf)
+            np.minimum.at(y_data, inverse, 2 * tree["deltaNLL"][mask])
+            keep = y_data <= y_cut
+            return x_data[keep], y_data[keep]
+        elif other_params:
             mask = np.ones(len(tree[param]), dtype=bool)
             for other_param in other_params:
                 mask &= np.abs(tree[other_param]) <= eps
@@ -310,11 +326,12 @@ def _analyze_scan(
         param: str,
         y_cut: float | int,
         other_params: list[str],
-        eps: float
+        eps: float,
+        profile: bool = False
          ) -> tuple[np.ndarray, np.ndarray, float, UnivariateSpline,
                     dict[float, list[dict[str, float | int]]],
                     tuple[float | int, float | int], tuple[float | int, float | int]]:
-    x, y = read_tree_data(input_file, param, y_cut, other_params, eps)
+    x, y = read_tree_data(input_file, param, y_cut, other_params, eps, profile)
     if len(x) <= 1:
         raise ValueError(f"Not enough points in {input_file}: {len(x)}")
 
@@ -343,11 +360,12 @@ def process_scan(
         y_cut: float | int = 7.0,
         only_res: bool = False,
         other_params: list[str] = [],
-        eps: float = 1e-5
+        eps: float = 1e-5,
+        profile: bool = False
 ) -> tuple[np.ndarray, np.ndarray, int | float, UnivariateSpline,
            tuple[float | int, float | int], tuple[float | int, float | int]]:
     """Process a likelihood scan and return the fit and uncertainty results."""
-    x, y, bestfit, spl, _, err_1sig, err_2sig = _analyze_scan(input_file, param, y_cut, other_params, eps)
+    x, y, bestfit, spl, _, err_1sig, err_2sig = _analyze_scan(input_file, param, y_cut, other_params, eps, profile)
     if only_res:
         return bestfit, *err_1sig
     return x, y, bestfit, spl, err_1sig, err_2sig
@@ -430,6 +448,7 @@ def plot_1d_scans(
         suffix: str = '',
         right: str = '',
         sig2: bool = False,
+        profile: bool = False,
         other_params: list[str] = [],
         coeffs_label: dict[str, str] = {},
         file_formats: list[str] = ['png']
@@ -462,7 +481,7 @@ def plot_1d_scans(
             color = colors[i % len(colors)]
 
         x, y, bestfit, spl, crossings, err_1sig, err_2sig = _analyze_scan(
-            filepath, param, y_cut, other_params, 1e-5)
+            filepath, param, y_cut, other_params, 1e-5, profile)
         x_smooth = np.linspace(x.min(), x.max(), 500)
         y_smooth = spl(x_smooth)
         smooth_mask, data_mask = y_smooth <= plot_y_cut, y <= plot_y_cut
@@ -622,8 +641,8 @@ def plot_2d_scans(
     ax = plot.axes
 
     try:
-        contour_levels = [2.30, 6.18] if sig2 else [2.30]
-        # contour_levels = [1.0, 4.0] if sig2 else [1.0]
+        # contour_levels = [2.30, 6.18] if sig2 else [2.30]
+        contour_levels = [1.0, 4.0] if sig2 else [1.0]
         contour_handle = None
 
         for scan in scans_data:
